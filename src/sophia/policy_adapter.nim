@@ -149,6 +149,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.dormantOutputToLogical.del(current)
     else:
       logical = adapter.model.addOutput(output.bounds())
+      adapter.model.ensureViewCount(logical, 9)
     adapter.activeOutputToLogical[current] = logical
     adapter.outputToLogical[output.output] = logical
     adapter.logicalToOutput[logical] = current

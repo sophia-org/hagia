@@ -24,12 +24,15 @@ Sophia's generated Rust and C99 codecs, then runs the independently compiled
 Hagia client through Sophia's authenticated transport and canonical Engine
 reducer.
 
-Hagia now carries the first bounded Triad-policy port: stable logical IDs,
-private tags and views, commit-aware complete-snapshot reconciliation, bounded
-output reconnect affinity, and deterministic fixed-point scrolling columns.
-Actions, persistent recovery, configuration, and shell work remain explicit
-later milestones. Those features stay private Hagia policy; Sophia owns scene
-truth, input authority, validation, atomic commit, rendering, and scanout. See
+Hagia now carries the first bounded Triad-policy port: stable logical IDs, nine
+shared tag slots with output-local views, commit-aware complete-snapshot
+reconciliation, bounded output reconnect affinity, deterministic fixed-point
+scrolling columns, and a checked-in native action and chrome profile. The
+`hagia` executable is a long-running client of the session-owned
+`SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
+recovery, floating, pointer interaction, and shell work remain explicit later
+milestones. Sophia owns scene truth, input authority, validation, atomic
+commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,
 `docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.
 

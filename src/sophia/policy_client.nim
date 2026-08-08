@@ -1,4 +1,4 @@
-import std/[net, os, sets]
+import std/[net, options, os, sets]
 
 import ./[policy_session, session_types, wm_v1]
 
@@ -8,12 +8,16 @@ type
   PolicyClient = ref object
     socket: Socket
     connectionEpoch: uint64
+    capabilities: uint64
     nextTransaction: uint64
 
 const
   capabilityBindings = 1'u64 shl 0
   capabilityActions = 1'u64 shl 1
   capabilityMultiOutput = 1'u64 shl 2
+  capabilityChrome = 1'u64 shl 4
+  capabilityConfiguration = 1'u64 shl 6
+  capabilitySessionOperations = 1'u64 shl 7
   surfaceFocusable = 1'u16 shl 2
 
 proc fail(message: string) {.noreturn.} =
@@ -61,18 +65,33 @@ proc connectWhenReady(path: string): Socket =
       sleep(10)
   fail("Sophia policy socket did not become ready")
 
-proc negotiatePolicy(socket: Socket): PolicyClient =
+proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   result = PolicyClient(socket: socket, nextTransaction: 1)
   var payload: seq[byte]
   payload.addU16(1)
   payload.addU16(1)
   # Request only behavior implemented by this client. The independent codec
   # still checks every draft revision-1 message in the shared corpus.
-  payload.addU64(capabilityBindings or capabilityActions or capabilityMultiOutput)
+  let optional =
+    if requestConfiguration:
+      capabilityChrome or capabilityConfiguration or capabilitySessionOperations
+    else:
+      0'u64
+  payload.addU64(
+    capabilityBindings or capabilityActions or capabilityMultiOutput or optional
+  )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
   if welcome.payload.u16At(0) != 1:
     fail("Sophia selected an unsupported policy revision")
+  result.capabilities = welcome.payload.u64At(4)
+  if (
+    result.capabilities and
+    (capabilityBindings or capabilityActions or capabilityMultiOutput)
+  ) != (capabilityBindings or capabilityActions or capabilityMultiOutput):
+    fail("Sophia omitted a required policy capability")
+  if requestConfiguration and (result.capabilities and optional) != optional:
+    fail("Sophia omitted native policy configuration")
   result.connectionEpoch = welcome.payload.u64At(12)
   if result.connectionEpoch == 0 or welcome.payload.u16At(20) == 0 or
       welcome.payload.u16At(20) > uint16(maxOutputs) or welcome.payload.u32At(24) == 0 or
@@ -81,8 +100,8 @@ proc negotiatePolicy(socket: Socket): PolicyClient =
       welcome.payload.u32At(28) > uint32(maxPayloadLen):
     fail("Sophia advertised invalid policy limits")
 
-proc connectPolicy(path: string): PolicyClient =
-  path.connectWhenReady().negotiatePolicy()
+proc connectPolicy(path: string, requestConfiguration: bool): PolicyClient =
+  path.connectWhenReady().negotiatePolicy(requestConfiguration)
 
 proc recordBytes(payload: openArray[byte], index, size: int): seq[byte] =
   let first = 16 + index * size
@@ -101,9 +120,9 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
         output.height <= 0 or output.workWidth <= 0 or output.workHeight <= 0 or
         output.workX < output.x or output.workY < output.y or
         int64(output.workX) + int64(output.workWidth) >
-          int64(output.x) + int64(output.width) or
+        int64(output.x) + int64(output.width) or
         int64(output.workY) + int64(output.workHeight) >
-          int64(output.y) + int64(output.height) or output.output in outputs:
+        int64(output.y) + int64(output.height) or output.output in outputs:
       fail("policy snapshot output is invalid")
     outputs.incl(output.output)
   var surfaces = initHashSet[(uint32, uint32)]()
@@ -123,8 +142,8 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
     if surface.kind < 1 or surface.kind > 5 or
         (surface.requestStateBits and not 7'u16) != 0 or
         (surface.currentStateBits and not 7'u16) != 0 or
-        (surface.exactWidth == 0) != (surface.exactHeight == 0) or
-        surface.exactWidth < 0 or surface.exactHeight < 0:
+        (surface.exactWidth == 0) != (surface.exactHeight == 0) or surface.exactWidth < 0 or
+        surface.exactHeight < 0:
       fail("policy surface reduced state is invalid")
     surfaces.incl(identity)
   for surface in snapshot.surfaces:
@@ -208,8 +227,8 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
       for index in 0 ..< itemCount:
         sessionOperations.add(
           chunk.payload
-          .recordBytes(index, snapshotSessionOperationSize)
-          .decodeSnapshotSessionOperation()
+            .recordBytes(index, snapshotSessionOperationSize)
+            .decodeSnapshotSessionOperation()
         )
     else:
       fail("unknown policy snapshot record kind")
@@ -243,26 +262,80 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   if rawPhase > uint16(ord(high(InteractionPhase))):
     fail("policy interaction phase is invalid")
   result.cause.interactionPhase = InteractionPhase(rawPhase)
-  result.cause.activationSerial = frame.payload.u64At(28)
-  result.cause.action = frame.payload.u64At(36)
-  result.cause.targetIndex = frame.payload.u32At(44)
-  result.cause.targetGeneration = frame.payload.u32At(48)
-  result.cause.x = frame.payload.i32At(52)
-  result.cause.y = frame.payload.i32At(56)
-  result.cause.width = frame.payload.i32At(60)
-  result.cause.height = frame.payload.i32At(64)
-  let outputCount = int(frame.payload.u16At(68))
+  let rawInteraction = frame.payload.u16At(28)
+  if rawInteraction > uint16(ord(high(InteractionKind))):
+    fail("policy interaction kind is invalid")
+  result.cause.interactionKind = InteractionKind(rawInteraction)
+  result.cause.activationSerial = frame.payload.u64At(32)
+  result.cause.action = frame.payload.u64At(40)
+  result.cause.targetIndex = frame.payload.u32At(48)
+  result.cause.targetGeneration = frame.payload.u32At(52)
+  result.cause.x = frame.payload.i32At(56)
+  result.cause.y = frame.payload.i32At(60)
+  result.cause.width = frame.payload.i32At(64)
+  result.cause.height = frame.payload.i32At(68)
+  let outputCount = int(frame.payload.u16At(72))
   if result.connectionEpoch != client.connectionEpoch or result.requestId == 0 or
       result.sceneGeneration == 0 or outputCount == 0 or outputCount > maxOutputs:
     fail("policy projection request is invalid")
   for index in 0 ..< outputCount:
-    result.affectedOutputs.add(frame.payload.u64At(72 + index * 8))
+    result.affectedOutputs.add(frame.payload.u64At(76 + index * 8))
 
 proc allocateTransaction(client: PolicyClient): uint64 =
   result = client.nextTransaction
   inc client.nextTransaction
   if result == 0 or client.nextTransaction == 0:
     fail("policy transaction identity space is exhausted")
+
+proc addBinding(payload: var seq[byte], action: uint64, keycode, modifiers: uint32) =
+  payload.addU64(action)
+  payload.addU32(keycode)
+  payload.addU32(modifiers)
+
+proc installConfiguration(client: PolicyClient) =
+  const
+    super = 1'u32 shl 3
+    shift = 1'u32 shl 0
+  let bindings = @[
+    (1'u64, 36'u32, super),
+    (2'u64, 37'u32, super),
+    (5'u64, 106'u32, super or shift),
+    (6'u64, 105'u32, super or shift),
+    (7'u64, 38'u32, super),
+    (8'u64, 35'u32, super),
+    (9'u64, 38'u32, super or shift),
+    (10'u64, 35'u32, super or shift),
+    (29'u64, 28'u32, super),
+    (30'u64, 33'u32, super),
+    (31'u64, 46'u32, super or shift),
+    (32'u64, 16'u32, super or shift),
+  ]
+  var payload: seq[byte]
+  payload.addU64(client.connectionEpoch)
+  payload.addU64(1)
+  payload.addU16(uint16(bindings.len + 18))
+  payload.addU16(2) # Engine-owned frame; no focus ring.
+  payload.addU32(0)
+  payload.addU32(0xffffb6b0'u32)
+  payload.addU32(1)
+  payload.addU32(0xffffb6b0'u32)
+  payload.addU32(0xff7c7c7c'u32)
+  for binding in bindings:
+    payload.addBinding(binding[0], binding[1], binding[2])
+  for slot in 1 .. 9:
+    payload.addBinding(uint64(10 + slot), uint32(slot + 1), super)
+    payload.addBinding(uint64(19 + slot), uint32(slot + 1), super or shift)
+  let transaction = client.allocateTransaction()
+  client.sendFrame(
+    Frame(
+      kind: MessageKind.policyConfiguration, transaction: transaction, payload: payload
+    )
+  )
+  let outcome = client.receiveFrame(MessageKind.policyConfigurationOutcome)
+  if outcome.transaction != transaction or
+      outcome.payload.u64At(0) != client.connectionEpoch or outcome.payload.u64At(8) != 1 or
+      outcome.payload.u16At(16) != 1:
+    fail("Sophia rejected Hagia's policy configuration")
 
 proc decodeProjectionOutcome*(frame: Frame): ProjectionOutcome =
   if frame.kind != MessageKind.projectionOutcome:
@@ -356,9 +429,34 @@ proc sendProjection(
       result.requestId != request.requestId or result.sceneGeneration == 0:
     fail("Sophia returned a mismatched policy outcome")
 
+proc sendSessionOperation(
+    client: PolicyClient, intent: SessionOperationIntent
+): ProjectionOutcomeKind =
+  var payload: seq[byte]
+  payload.addU64(client.connectionEpoch)
+  payload.addU64(intent.requestId)
+  payload.addU64(intent.operation)
+  payload.addU32(intent.targetIndex)
+  payload.addU32(intent.targetGeneration)
+  let transaction = client.allocateTransaction()
+  client.sendFrame(
+    Frame(
+      kind: MessageKind.sessionOperationRequest,
+      transaction: transaction,
+      payload: payload,
+    )
+  )
+  let outcome = client.receiveFrame(MessageKind.sessionOperationOutcome)
+  let raw = outcome.payload.u16At(16)
+  if outcome.transaction != transaction or
+      outcome.payload.u64At(0) != client.connectionEpoch or
+      outcome.payload.u64At(8) != intent.requestId or raw < 1 or raw > 5:
+    fail("Sophia returned an invalid session-operation outcome")
+  ProjectionOutcomeKind(raw)
+
 ## Exercise the smallest complete public-policy cycle without Triad machinery.
 proc runOnePolicyCycle*(path: string) =
-  let client = path.connectPolicy()
+  let client = path.connectPolicy(false)
   var session = initPolicySession()
   try:
     let snapshot = client.receiveSnapshot()
@@ -375,16 +473,23 @@ proc runOnePolicyCycle*(path: string) =
 
 ## Process several settled projections on one authenticated connection. Sophia's
 ## supervisor, rather than this client, owns restart policy after transport loss.
-proc runPolicySession(client: PolicyClient) =
+proc runPolicySession(client: PolicyClient, configure: bool) =
   var session = initPolicySession()
   try:
+    if configure:
+      client.installConfiguration()
     while true:
       let snapshot = client.receiveSnapshot()
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
       let projection = session.prepare(snapshot, request, transaction)
+      let operation = session.pendingOperation()
       let outcome = client.sendProjection(request, transaction, projection)
       session.settle(outcome)
+      if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
+        let operationOutcome = client.sendSessionOperation(operation.get())
+        if operationOutcome == ProjectionOutcomeKind.disconnected:
+          return
       if outcome.kind == ProjectionOutcomeKind.disconnected:
         return
   finally:
@@ -392,7 +497,7 @@ proc runPolicySession(client: PolicyClient) =
     client.socket.close()
 
 proc runPolicySession*(path: string) =
-  path.connectPolicy().runPolicySession()
+  path.connectPolicy(true).runPolicySession(true)
 
 proc runPolicySessionOnSocket*(socket: Socket) =
-  socket.negotiatePolicy().runPolicySession()
+  socket.negotiatePolicy(false).runPolicySession(false)

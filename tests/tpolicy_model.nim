@@ -137,6 +137,8 @@ proc appendWireCycle(
   requestPayload.addU64(generation)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
+  requestPayload.addU16(0)
+  requestPayload.addU16(0)
   requestPayload.addU64(0)
   requestPayload.addU64(0)
   requestPayload.addU32(0)
@@ -218,6 +220,40 @@ proc proposalTransactions(clientWire: seq[byte]): seq[uint64] =
     offset += frameLen
 
 suite "Hagia private policy model":
+  test "the nine-view profile reuses bounded tag slots across every output":
+    var model = initPolicyModel()
+    var outputs: seq[OutputId]
+    for index in 0 ..< 16:
+      let output =
+        model.addOutput(Rect(x: int32(index) * 1000, width: 1000, height: 700))
+      model.ensureViewCount(output, 9)
+      outputs.add(output)
+
+    for output in outputs:
+      let data = model.output(output).get()
+      check data.views.len == 9
+      for index, view in data.views:
+        check model.view(view).get().selectedTags == tagForSlot(uint32(index + 1))
+    check model.nextTagSlot == 9
+    model.validate()
+
+  test "view actions switch visibility and move the focused window":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 800))
+    model.ensureViewCount(output, 9)
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+
+    model.moveFocusedToViewSlot(output, 2)
+    check model.eligibleWindows(output) == @[window]
+    check model.output(output).get().focusedWindow == window
+    model.activateViewSlot(output, 1)
+    check model.eligibleWindows(output).len == 0
+    model.activateViewSlot(output, 2)
+    check model.eligibleWindows(output) == @[window]
+    check model.output(output).get().focusedWindow == nullWindowId
+    model.validate()
+
   test "tag views select ordered windows without changing their identities":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1200, height: 800))
@@ -370,10 +406,7 @@ suite "Sophia snapshot adapter":
     let projection = adapter.projection(
       scene,
       ProjectionRequest(
-        connectionEpoch: 7,
-        requestId: 9,
-        sceneGeneration: 1,
-        affectedOutputs: @[10'u64],
+        connectionEpoch: 7, requestId: 9, sceneGeneration: 1, affectedOutputs: @[10'u64]
       ),
     )
     check projection.outputs[0].placements[0].y == 40
@@ -515,11 +548,8 @@ suite "Sophia policy session":
     )
 
     output.focusIndex = 2
-    let secondScene = snapshot(
-      2,
-      @[output],
-      @[surface(1, 10, 2), surface(2, 10, 2), surface(3, 10, 2)],
-    )
+    let secondScene =
+      snapshot(2, @[output], @[surface(1, 10, 2), surface(2, 10, 2), surface(3, 10, 2)])
     let secondRequest = ProjectionRequest(
       connectionEpoch: 7,
       requestId: 2,
@@ -531,6 +561,51 @@ suite "Sophia policy session":
     )
     let secondProjection = session.prepare(secondScene, secondRequest, 2)
     check secondProjection.outputs[0].output.focusIndex == 3
+
+  test "opaque session actions resolve profile slots after projection staging":
+    let output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      focusIndex: 1,
+      focusGeneration: 1,
+      width: 900,
+      height: 600,
+    )
+    var scene = snapshot(1, @[output], @[surface(1, 10)])
+    scene.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    let request = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.action, activationSerial: 19, action: 31
+      ),
+    )
+    var session = initPolicySession()
+    discard session.prepare(scene, request, 1)
+    let operation = session.pendingOperation().get()
+    check operation.requestId == 19
+    check operation.operation == 700
+    check operation.targetIndex == 1
+    check operation.targetGeneration == 1
+
+  test "an unavailable session-operation slot fails closed":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 900, height: 600)
+    let scene = snapshot(1, @[output], @[surface(1, 10)])
+    let request = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.action, activationSerial: 19, action: 29
+      ),
+    )
+    var session = initPolicySession()
+    expect PolicySessionError:
+      discard session.prepare(scene, request, 1)
 
   test "a socket session settles several outcomes with monotonic transactions":
     var serverBytes: seq[byte]

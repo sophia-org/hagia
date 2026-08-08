@@ -28,8 +28,8 @@ None of these repositories is a Hagia runtime or build dependency.
 | --- | --- | --- | --- |
 | Stable tags, views, columns, and logical IDs | Hagia | Implemented | Pure model and reconciliation tests |
 | Tiling and scrolling layout | Hagia | Equal-column and scrolling projections implemented | Deterministic geometry and constraint tests |
-| Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Reducer messages missing | `sophia_wm_v1` action causes and ordered action tests |
-| Output-local views and reconnect affinity | Hagia over Engine output facts | Affinity implemented; daily-driver actions missing | Work rectangles, multi-output proposals, loss/return tests |
+| Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Focus, view, output move, and size actions implemented; grouping and layout cycling missing | `sophia_wm_v1` action causes and ordered action tests |
+| Output-local views and reconnect affinity | Hagia over Engine output facts | Nine-view actions and affinity implemented | Work rectangles, multi-output proposals, loss/return tests |
 | Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Missing | Reduced kinds/state, presentation decisions, restore tests |
 | Pointer move and resize | Engine grab and hit testing; Hagia geometry policy | Missing | Reduced begin/update/end interaction causes |
 | Policy reload or private policy command | Hagia may request a new cycle; Engine remains scene authority | Missing | Bounded policy-dirty request and complete fresh snapshot |
@@ -38,7 +38,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Client state, pixels, configure delivery, and presentation | Engine and frontend authority | Outside Hagia | Settled snapshot generations and last-good preservation |
 | Application placement rules | Trusted classification and launch-provenance broker | Deferred | Opaque placement grants; no title, class, PID, or path |
 | Overview, switcher, panels, tabs, toast, and visible chrome | A separately admitted shell client and Engine rendering | Deferred | Future `sophia_shell_v1`; not WM IPC |
-| Launch, logout, lock, output power, and configuration | Sophia session or dedicated authority | Deferred | Advertised opaque operations or role-specific interfaces |
+| Launch, logout, lock, output power, and configuration | Sophia session or dedicated authority | Terminal, browser, close, and logout slot requests implemented; other services deferred | Advertised opaque operations or role-specific interfaces |
 | Screenshot, capture, clipboard, drag-and-drop, files, and notifications | Sophia portals | Deferred | Explicit grants and bounded payload handoff |
 | Status and diagnostics | Redacted shell/status and diagnostic interfaces | Deferred | Full initial state plus typed bounded updates |
 | KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Deferred | Candidate validation, atomic activation, deterministic fallback |

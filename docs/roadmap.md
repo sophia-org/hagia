@@ -7,11 +7,12 @@ Sophia's shared valid, malformed, and record corpus. Its proof client completes
 one authenticated snapshot/request/projection/outcome cycle through Sophia's
 canonical reducer.
 
-The first Triad-policy slice now includes stable Hagia IDs, private tags and
-views, commit-aware multi-cycle reconciliation, bounded output affinity,
-hidden-surface admission, and deterministic fixed-point scrolling columns. It
-remains an offline conformance path while Sophia's installed session uses
-experimental WM API v7.
+The first Triad-policy slice now includes stable Hagia IDs, a shared nine-slot
+tag profile on every output, commit-aware multi-cycle reconciliation, bounded
+output affinity, hidden-surface admission, deterministic fixed-point scrolling
+columns, and registered focus, view, movement, and size actions. The
+long-running `hagia` client is ready for Sophia's session-hosted endpoint; live
+promotion waits on Sophia's frontend-settled public transport path.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -29,11 +30,14 @@ experimental WM API v7.
 ## Milestone 2: Public Protocol Alignment
 
 - [x] Port Triad's scrolling-column mathematics as a pure Hagia projection.
-- [ ] Update the independent codec and conformance corpus when Sophia completes
+- [x] Update the independent codec and conformance corpus for Sophia's draft
   the draft revision-1 output, surface-state, cause, configuration,
   interaction, and session-operation records.
-- [ ] Accept one complete reduced cause per policy request and retain ordered
+- [x] Accept one complete reduced cause per policy request and retain ordered
   non-idempotent action activations without exposing raw input.
+- [x] Resolve terminal, browser, close, and logout actions through advertised
+  profile-local session-operation slots; keep their tokens opaque and send an
+  optional focused target only when the advertised operation permits it.
 - [ ] Request a bounded fresh policy cycle after private state changes without
   sending unsolicited geometry.
 - [ ] Prove frontend settlement, stale replacement, timeout, and last-committed
@@ -41,8 +45,10 @@ experimental WM API v7.
 
 ## Milestone 3: Daily-Driver Spatial Policy
 
-- [ ] Add view activation, tag changes, focus movement, and window movement as
-  reducer messages driven by opaque registered actions.
+- [x] Add nine-view activation, focus movement, cross-output movement, and
+  move-to-view reducer messages driven by opaque registered actions.
+- [ ] Add general tag mutation and explicit output-focus actions without
+  exposing raw input or Sophia identities to the private model.
 - [ ] Add output focus and atomic cross-output movement, column grouping,
   consume/expel, width/height adjustment, layout cycling, and reset actions.
 - [ ] Add private floating restore geometry, reduced dialog/transient defaults,

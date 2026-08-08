@@ -107,11 +107,11 @@ proc allocateViewId(model: var PolicyModel): ViewId =
     fail("view identity space is exhausted")
   ViewId(model.nextViewId)
 
-proc allocateTag(model: var PolicyModel): TagMask =
-  inc model.nextTagSlot
-  if model.nextTagSlot == 0 or model.nextTagSlot > maxTagBits:
-    fail("tag identity space is exhausted")
-  tagForSlot(model.nextTagSlot)
+proc profileTag(model: var PolicyModel, slot: uint32): TagMask =
+  if slot == 0 or slot > maxTagBits:
+    fail("tag slot is outside Hagia's bounded range")
+  model.nextTagSlot = max(model.nextTagSlot, slot)
+  tagForSlot(slot)
 
 proc allocateWindowId(model: var PolicyModel): WindowId =
   inc model.nextWindowId
@@ -141,13 +141,20 @@ proc addView*(model: var PolicyModel, outputId: OutputId, tags: TagMask): ViewId
     ViewData(id: result, preferredOutput: outputId, selectedTags: tags)
   model.outputs[outputId].views.add(result)
 
+proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
+  if outputId notin model.outputs or count < 1 or count > 9:
+    fail("view profile is outside Hagia's bounded range")
+  while model.outputs[outputId].views.len < count:
+    let slot = uint32(model.outputs[outputId].views.len + 1)
+    discard model.addView(outputId, model.profileTag(slot))
+
 proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
   if bounds.width <= 0 or bounds.height <= 0:
     fail("output bounds must be positive")
   result = model.allocateOutputId()
   model.outputs[result] = OutputData(id: result, bounds: bounds)
   model.outputOrder.add(result)
-  let viewId = model.addView(result, model.allocateTag())
+  let viewId = model.addView(result, model.profileTag(1))
   model.outputs[result].activeView = viewId
 
 proc updateOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
@@ -330,7 +337,10 @@ proc focusRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
   let currentIndex = eligible.find(current)
   let target =
     if currentIndex < 0:
-      if delta < 0: eligible[^1] else: eligible[0]
+      if delta < 0:
+        eligible[^1]
+      else:
+        eligible[0]
     else:
       eligible[wrappedIndex(currentIndex, delta, eligible.len)]
   model.setFocus(outputId, target)
@@ -343,6 +353,22 @@ proc activateViewRelative*(model: var PolicyModel, outputId: OutputId, delta: in
   if views.len == 0 or current < 0:
     fail("output has no active view")
   model.activateView(outputId, views[wrappedIndex(current, delta, views.len)])
+
+proc activateViewSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
+  if outputId notin model.outputs or slot < 1 or slot > model.outputs[outputId].views.len:
+    fail("view slot is outside the active profile")
+  model.activateView(outputId, model.outputs[outputId].views[slot - 1])
+
+proc moveFocusedToViewSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
+  if outputId notin model.outputs or slot < 1 or slot > model.outputs[outputId].views.len:
+    fail("view slot is outside the active profile")
+  let window = model.outputs[outputId].focusedWindow
+  if window == nullWindowId:
+    return
+  let view = model.outputs[outputId].views[slot - 1]
+  model.setWindowTags(window, model.views[view].selectedTags)
+  model.activateView(outputId, view)
+  model.setFocus(outputId, window)
 
 proc moveFocusedToRelativeOutput*(
     model: var PolicyModel, outputId: OutputId, delta: int
@@ -361,12 +387,20 @@ proc moveFocusedToRelativeOutput*(
   model.setFocus(target, window)
 
 proc adjustedScale(current: Scale, delta: int): Scale =
-  let base = if current == autoScale: uint64(uint32(scaleOne)) else: uint64(uint32(current))
+  let base =
+    if current == autoScale:
+      uint64(uint32(scaleOne))
+    else:
+      uint64(uint32(current))
   let step = uint64(uint32(scaleOne)) div 20
   if delta > 0:
     return Scale(uint32(min(uint64(high(uint32)), base + step * uint64(delta))))
   let reduction = step * uint64(-delta)
-  let reduced = if reduction >= base: 0'u64 else: base - reduction
+  let reduced =
+    if reduction >= base:
+      0'u64
+    else:
+      base - reduction
   Scale(uint32(max(uint64(uint32(minimumScale)), reduced)))
 
 proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int) =
@@ -376,7 +410,9 @@ proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int
   if window == nullWindowId:
     return
   let column = model.windows[window].column
-  model.setColumnWidthScale(column, adjustedScale(model.columns[column].widthScale, delta))
+  model.setColumnWidthScale(
+    column, adjustedScale(model.columns[column].widthScale, delta)
+  )
 
 proc adjustFocusedWindow*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:
@@ -472,7 +508,7 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
   if views.len == 0:
     let viewId = model.allocateViewId()
     model.views[viewId] =
-      ViewData(id: viewId, preferredOutput: id, selectedTags: model.allocateTag())
+      ViewData(id: viewId, preferredOutput: id, selectedTags: model.profileTag(1))
     views.add(viewId)
   let activeView =
     if saved.activeView in views:

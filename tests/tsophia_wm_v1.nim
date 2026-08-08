@@ -131,6 +131,7 @@ proc checkRecords(path: string) =
     of "snapshot_session_operation":
       let operation = bytes.decodeSnapshotSessionOperation()
       check operation.operation == 11
+      check operation.slot == 1
       check operation.targetBits == 1
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1

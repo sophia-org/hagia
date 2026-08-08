@@ -26,10 +26,17 @@ type
     begin = 1
     update = 2
     finish = 3
+    cancel = 4
+
+  InteractionKind* {.pure.} = enum
+    none = 0
+    move = 1
+    resize = 2
 
   ProjectionCause* = object
     kind*: ProjectionCauseKind
     interactionPhase*: InteractionPhase
+    interactionKind*: InteractionKind
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32
@@ -56,3 +63,9 @@ type
     requestId*: uint64
     sceneGeneration*: uint64
     kind*: ProjectionOutcomeKind
+
+  SessionOperationIntent* = object
+    requestId*: uint64
+    operation*: uint64
+    targetIndex*: uint32
+    targetGeneration*: uint32

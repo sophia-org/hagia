@@ -48,10 +48,12 @@ metadata rules, screenshots, input configuration, and compositor-shaped state
 remain outside Hagia policy.
 
 Tags and views are private Hagia data. Each window has a nonempty tag set and
-one home output. Each output owns ordered stable views, and each view selects a
-nonempty tag set. A window is eligible when its home output matches and its tags
-intersect the active view. Sophia sees only the resulting ordered output
-projection.
+one home output. The checked-in profile defines nine shared tag slots; every
+output owns nine distinct stable views that select those slots. Sharing the
+bounded slots preserves conventional cross-output view semantics and supports
+all sixteen protocol outputs without exhausting the 64-bit tag mask. A window
+is eligible when its home output matches and its tags intersect the active
+view. Sophia sees only the resulting ordered output projection.
 
 Columns are stable logical entities. Automatic widths preserve the initial
 equal-column projection; explicit widths use bounded Q16.16 scales and 64-bit

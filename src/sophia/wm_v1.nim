@@ -78,6 +78,7 @@ type
 
   SnapshotSessionOperation* = object
     operation*: uint64
+    slot*: uint16
     targetBits*: uint16
 
   ProjectionOutput* = object
@@ -217,22 +218,23 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
     payload.requireExact(20)
     payload.requireReserved(18, 2)
   of MessageKind.projectionRequest:
-    if payload.len < 72:
+    if payload.len < 76:
       fail(PolicyProtocolErrorKind.truncated, "truncated projection request")
-    if payload.len > 200:
+    if payload.len > 204:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "affected output bytes are excessive")
-    payload.requireReserved(70, 2)
-    let outputCount = int(payload.u16At(68))
-    if outputCount < 1 or outputCount > maxOutputs or payload.len != 72 + outputCount * 8:
+    payload.requireReserved(30, 2)
+    payload.requireReserved(74, 2)
+    let outputCount = int(payload.u16At(72))
+    if outputCount < 1 or outputCount > maxOutputs or payload.len != 76 + outputCount * 8:
       fail(
         PolicyProtocolErrorKind.fieldTooLarge, "affected output count does not match"
       )
     for index in 0 ..< outputCount:
-      let output = payload.u64At(72 + index * 8)
+      let output = payload.u64At(76 + index * 8)
       if output == 0:
         fail(PolicyProtocolErrorKind.fieldTooLarge, "invalid output identity")
       for previous in 0 ..< index:
-        if payload.u64At(72 + previous * 8) == output:
+        if payload.u64At(76 + previous * 8) == output:
           fail(PolicyProtocolErrorKind.fieldTooLarge, "duplicate output identity")
   of MessageKind.projectionBegin:
     payload.requireExact(32)
@@ -245,7 +247,8 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
     if payload.len > 4136:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "policy bindings are excessive")
     let bindingCount = int(payload.u16At(16))
-    if bindingCount > maxBindings or payload.len != 40 + bindingCount * snapshotBindingSize:
+    if bindingCount > maxBindings or
+        payload.len != 40 + bindingCount * snapshotBindingSize:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "policy binding count does not match")
   of MessageKind.policyConfigurationOutcome, MessageKind.sessionOperationOutcome:
     payload.requireExact(20)
@@ -358,13 +361,11 @@ proc decodeSnapshotBinding*(bytes: openArray[byte]): SnapshotBinding =
   result.keycode = bytes.u32At(8)
   result.modifierBits = bytes.u32At(12)
 
-proc decodeSnapshotSessionOperation*(
-    bytes: openArray[byte]
-): SnapshotSessionOperation =
+proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOperation =
   bytes.requireExact(snapshotSessionOperationSize)
-  bytes.requireReserved(10, 2)
   result.operation = bytes.u64At(0)
-  result.targetBits = bytes.u16At(8)
+  result.slot = bytes.u16At(8)
+  result.targetBits = bytes.u16At(10)
 
 proc decodeProjectionOutput*(bytes: openArray[byte]): ProjectionOutput =
   bytes.requireExact(projectionOutputSize)
