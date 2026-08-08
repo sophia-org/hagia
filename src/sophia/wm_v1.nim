@@ -1,3 +1,8 @@
+const
+  ## Fixed octet run shared by indicator labels and layout names. Declared
+  ## ahead of the type section because it bounds an array field.
+  indicatorLabelLen* = 32
+
 type
   PolicyProtocolErrorKind* {.pure.} = enum
     truncated
@@ -87,6 +92,24 @@ type
     focusIndex*: uint32
     focusGeneration*: uint32
 
+  ## Policy-authored desktop status. The label is a fixed octet run so the
+  ## record stays fixed width; `labelLen` gives the used prefix and the rest
+  ## must be zero.
+  ProjectionIndicator* = object
+    output*: uint64
+    slot*: uint32
+    indicator*: uint64
+    action*: uint64
+    stateBits*: uint16
+    labelLen*: uint16
+    label*: array[indicatorLabelLen, byte]
+
+  ProjectionOutputStatus* = object
+    output*: uint64
+    focusBits*: uint16
+    layoutLen*: uint16
+    layout*: array[indicatorLabelLen, byte]
+
   ProjectionPlacement* = object
     surfaceIndex*: uint32
     surfaceGeneration*: uint32
@@ -116,6 +139,9 @@ const
   snapshotSessionOperationSize* = 12
   projectionOutputSize* = 24
   projectionPlacementSize* = 60
+  projectionIndicatorSize* = 64
+  projectionOutputStatusSize* = 48
+  maxIndicators* = 256
 
 proc fail(kind: PolicyProtocolErrorKind, message: string) {.noreturn.} =
   var error = newException(PolicyProtocolError, message)
@@ -237,7 +263,7 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
         if payload.u64At(76 + previous * 8) == output:
           fail(PolicyProtocolErrorKind.fieldTooLarge, "duplicate output identity")
   of MessageKind.projectionBegin:
-    payload.requireExact(32)
+    payload.requireExact(36)
   of MessageKind.projectionEnd, MessageKind.projectionOutcome:
     payload.requireExact(28)
     payload.requireReserved(26, 2)
@@ -392,6 +418,36 @@ proc decodeProjectionPlacement*(bytes: openArray[byte]): ProjectionPlacement =
   result.cropHeight = bytes.i32At(52)
   result.transform = bytes.u16At(56)
   result.presentationBits = bytes.u16At(58)
+
+proc decodeProjectionIndicator*(bytes: openArray[byte]): ProjectionIndicator =
+  bytes.requireExact(projectionIndicatorSize)
+  result.output = bytes.u64At(0)
+  result.slot = bytes.u32At(8)
+  result.indicator = bytes.u64At(12)
+  result.action = bytes.u64At(20)
+  result.stateBits = bytes.u16At(28)
+  result.labelLen = bytes.u16At(30)
+  if int(result.labelLen) > indicatorLabelLen:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "indicator label length is excessive")
+  for index in 0 ..< indicatorLabelLen:
+    let value = bytes[32 + index]
+    if index >= int(result.labelLen) and value != 0:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "indicator label padding is not zero")
+    result.label[index] = value
+
+proc decodeProjectionOutputStatus*(bytes: openArray[byte]): ProjectionOutputStatus =
+  bytes.requireExact(projectionOutputStatusSize)
+  bytes.requireReserved(12, 4)
+  result.output = bytes.u64At(0)
+  result.focusBits = bytes.u16At(8)
+  result.layoutLen = bytes.u16At(10)
+  if int(result.layoutLen) > indicatorLabelLen:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "layout name length is excessive")
+  for index in 0 ..< indicatorLabelLen:
+    let value = bytes[16 + index]
+    if index >= int(result.layoutLen) and value != 0:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "layout name padding is not zero")
+    result.layout[index] = value
 
 proc encodeProjectionOutput*(record: ProjectionOutput): seq[byte] =
   result.addU64(record.output)

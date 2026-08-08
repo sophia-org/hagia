@@ -377,6 +377,10 @@ proc sendProjection(
   beginPayload.addU16(uint16(chunkCount))
   beginPayload.addU16(uint16(projection.outputs.len))
   beginPayload.addU32(uint32(placementCount))
+  # Hagia advertises no `indicators` capability yet, so it declares none. The
+  # counts are still written because the begin record must be exhaustive.
+  beginPayload.addU16(0)
+  beginPayload.addU16(0)
   client.sendFrame(
     Frame(
       kind: MessageKind.projectionBegin, transaction: transaction, payload: beginPayload

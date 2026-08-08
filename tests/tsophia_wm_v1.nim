@@ -113,7 +113,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 6
+  check lines.len == 8
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -137,6 +137,22 @@ proc checkRecords(path: string) =
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":
       check bytes.decodeProjectionPlacement().surfaceIndex == 3
+    of "projection_indicator":
+      let indicator = bytes.decodeProjectionIndicator()
+      check indicator.output == 1
+      check indicator.action == 5
+      check indicator.labelLen == 3
+      check indicator.label[0] == byte('w')
+      check indicator.label[1] == byte('e')
+      check indicator.label[2] == byte('b')
+      check indicator.label[3] == 0
+    of "projection_output_status":
+      let status = bytes.decodeProjectionOutputStatus()
+      check status.output == 1
+      check status.layoutLen == 4
+      check status.layout[0] == byte('T')
+      check status.layout[3] == byte('l')
+      check status.layout[4] == 0
     else:
       check false
 
