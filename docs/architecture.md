@@ -16,6 +16,11 @@ namespaces, XIDs, pixels, renderer handles, raw input, or portal payloads. The
 policy model stores stable Hagia IDs; opaque Sophia surface and output IDs stay
 inside `src/sophia`.
 
+The detailed allocation of retained Triad features is recorded in
+[`capability-map.md`](capability-map.md). That ledger also records the River and
+Niri lessons used by the port without treating either Wayland compositor as a
+Sophia dependency or authority model.
+
 ## Layers
 
 - `src/policy/types.nim` contains passive logical IDs and policy records.
@@ -67,3 +72,21 @@ migrates views, columns, and windows to a surviving output; an exact return
 restores still-live preferred state. Reused opaque IDs with a new generation
 receive new logical identities. Persistent recovery across a new Hagia process
 remains checkpoint work for the next milestone.
+
+## Management Lifecycle
+
+Engine starts a policy cycle from a complete snapshot and one reduced cause.
+Hagia stages the cause against a clone of its last committed model, returns a
+complete projection for every affected output, and promotes the candidate only
+after Engine reports a committed outcome. Non-idempotent actions remain
+ordered; only replaceable scene refreshes and continuous interaction geometry
+may coalesce.
+
+Hagia may request a fresh cycle after a private configuration or policy change.
+The request carries no geometry and grants no scene authority. Engine responds
+with a new complete snapshot, validates the ordinary projection, and preserves
+the last coherent scene while client sizes or presentation state settle.
+
+Animation remains Engine state derived from committed and target geometry.
+Hagia stores stable logical policy and emits integer targets; it neither drives
+a frame clock nor retains animation snapshots.

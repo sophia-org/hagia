@@ -44,6 +44,16 @@ proc kindFor(name: string): MessageKind =
     MessageKind.projectionEnd
   of "projection_outcome":
     MessageKind.projectionOutcome
+  of "policy_configuration":
+    MessageKind.policyConfiguration
+  of "policy_configuration_outcome":
+    MessageKind.policyConfigurationOutcome
+  of "policy_dirty":
+    MessageKind.policyDirty
+  of "session_operation_request":
+    MessageKind.sessionOperationRequest
+  of "session_operation_outcome":
+    MessageKind.sessionOperationOutcome
   else:
     raise newException(ValueError, "unknown corpus message")
 
@@ -78,7 +88,7 @@ proc corpusLines(path: string): seq[string] =
 
 proc checkValidFrames(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 10
+  check lines.len == 15
   for line in lines:
     let fields = line.split('|')
     check fields.len == 3
@@ -103,7 +113,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 5
+  check lines.len == 6
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -118,6 +128,10 @@ proc checkRecords(path: string) =
       check binding.action == 5
       check binding.keycode == 33
       check binding.modifierBits == 8
+    of "snapshot_session_operation":
+      let operation = bytes.decodeSnapshotSessionOperation()
+      check operation.operation == 11
+      check operation.targetBits == 1
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":

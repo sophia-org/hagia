@@ -314,6 +314,80 @@ proc clearFocus*(model: var PolicyModel, outputId: OutputId) =
     fail("focus output does not exist")
   model.outputs[outputId].focusedWindow = nullWindowId
 
+proc wrappedIndex(current, delta, length: int): int =
+  if length <= 0:
+    fail("cannot wrap an empty policy sequence")
+  ((current + delta) mod length + length) mod length
+
+proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId]
+
+proc focusRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  let eligible = model.eligibleWindows(outputId)
+  if eligible.len == 0:
+    model.clearFocus(outputId)
+    return
+  let current = model.outputs[outputId].focusedWindow
+  let currentIndex = eligible.find(current)
+  let target =
+    if currentIndex < 0:
+      if delta < 0: eligible[^1] else: eligible[0]
+    else:
+      eligible[wrappedIndex(currentIndex, delta, eligible.len)]
+  model.setFocus(outputId, target)
+
+proc activateViewRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  if outputId notin model.outputs:
+    fail("view output does not exist")
+  let views = model.outputs[outputId].views
+  let current = views.find(model.outputs[outputId].activeView)
+  if views.len == 0 or current < 0:
+    fail("output has no active view")
+  model.activateView(outputId, views[wrappedIndex(current, delta, views.len)])
+
+proc moveFocusedToRelativeOutput*(
+    model: var PolicyModel, outputId: OutputId, delta: int
+) =
+  if outputId notin model.outputs:
+    fail("source output does not exist")
+  if model.outputOrder.len < 2:
+    return
+  let window = model.outputs[outputId].focusedWindow
+  if window == nullWindowId:
+    return
+  let sourceIndex = model.outputOrder.find(outputId)
+  let target =
+    model.outputOrder[wrappedIndex(sourceIndex, delta, model.outputOrder.len)]
+  model.adoptWindowOutput(window, target)
+  model.setFocus(target, window)
+
+proc adjustedScale(current: Scale, delta: int): Scale =
+  let base = if current == autoScale: uint64(uint32(scaleOne)) else: uint64(uint32(current))
+  let step = uint64(uint32(scaleOne)) div 20
+  if delta > 0:
+    return Scale(uint32(min(uint64(high(uint32)), base + step * uint64(delta))))
+  let reduction = step * uint64(-delta)
+  let reduced = if reduction >= base: 0'u64 else: base - reduction
+  Scale(uint32(max(uint64(uint32(minimumScale)), reduced)))
+
+proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  if outputId notin model.outputs:
+    fail("column output does not exist")
+  let window = model.outputs[outputId].focusedWindow
+  if window == nullWindowId:
+    return
+  let column = model.windows[window].column
+  model.setColumnWidthScale(column, adjustedScale(model.columns[column].widthScale, delta))
+
+proc adjustFocusedWindow*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  if outputId notin model.outputs:
+    fail("window output does not exist")
+  let window = model.outputs[outputId].focusedWindow
+  if window == nullWindowId:
+    return
+  model.setWindowHeightScale(
+    window, adjustedScale(model.windows[window].heightScale, delta)
+  )
+
 proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId] =
   let output = model.output(outputId)
   if output.isNone:

@@ -13,12 +13,35 @@ type
     outputs*: seq[SnapshotOutput]
     surfaces*: seq[SnapshotSurface]
     bindings*: seq[SnapshotBinding]
+    sessionOperations*: seq[SnapshotSessionOperation]
+
+  ProjectionCauseKind* {.pure.} = enum
+    sceneChanged = 0
+    action = 1
+    focus = 2
+    interaction = 3
+
+  InteractionPhase* {.pure.} = enum
+    none = 0
+    begin = 1
+    update = 2
+    finish = 3
+
+  ProjectionCause* = object
+    kind*: ProjectionCauseKind
+    interactionPhase*: InteractionPhase
+    activationSerial*: uint64
+    action*: uint64
+    targetIndex*: uint32
+    targetGeneration*: uint32
+    x*, y*, width*, height*: int32
 
   ProjectionRequest* = object
     connectionEpoch*: uint64
     requestId*: uint64
     sceneGeneration*: uint64
     affectedOutputs*: seq[uint64]
+    cause*: ProjectionCause
 
   PolicyOutputProjection* = object
     output*: ProjectionOutput

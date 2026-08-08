@@ -44,6 +44,7 @@ proc prepare*(
     fail("policy projection identity is invalid")
   var candidate = session.committed.clone()
   candidate.reconcile(snapshot)
+  candidate.applyCause(request)
   result = candidate.projection(snapshot, request)
   session.pending = some(
     PendingProjection(adapter: candidate, request: request, transaction: transaction)

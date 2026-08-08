@@ -31,7 +31,7 @@ Actions, persistent recovery, configuration, and shell work remain explicit
 later milestones. Those features stay private Hagia policy; Sophia owns scene
 truth, input authority, validation, atomic commit, rendering, and scanout. See
 `docs/architecture.md`,
-`docs/provenance.md`, and `docs/roadmap.md`.
+`docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.
 
 ## License
 

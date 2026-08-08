@@ -26,20 +26,40 @@ experimental WM API v7.
 - [x] Model stale, invalid, timed-out, disconnect, and reconnect outcomes.
 - [x] Preserve output reconnect affinity rather than only migrating on removal.
 
-## Milestone 2: Daily-Driver Spatial Policy
+## Milestone 2: Public Protocol Alignment
 
 - [x] Port Triad's scrolling-column mathematics as a pure Hagia projection.
+- [ ] Update the independent codec and conformance corpus when Sophia completes
+  the draft revision-1 output, surface-state, cause, configuration,
+  interaction, and session-operation records.
+- [ ] Accept one complete reduced cause per policy request and retain ordered
+  non-idempotent action activations without exposing raw input.
+- [ ] Request a bounded fresh policy cycle after private state changes without
+  sending unsolicited geometry.
+- [ ] Prove frontend settlement, stale replacement, timeout, and last-committed
+  preservation against Sophia's canonical reducer.
+
+## Milestone 3: Daily-Driver Spatial Policy
+
 - [ ] Add view activation, tag changes, focus movement, and window movement as
   reducer messages driven by opaque registered actions.
+- [ ] Add output focus and atomic cross-output movement, column grouping,
+  consume/expel, width/height adjustment, layout cycling, and reset actions.
+- [ ] Add private floating restore geometry, reduced dialog/transient defaults,
+  fullscreen, minimize/restore, scratchpads, and bounded focus history.
 - [ ] Add bounded Engine-owned pointer move and resize interactions when the
   public protocol carries them.
 - [ ] Add session-local checkpointing with exact snapshot reconciliation.
 - [ ] Prove policy crash/restart while applications and the committed scene
   remain alive.
 
-## Milestone 3: Hagia Experience
+## Milestone 4: Hagia Experience
 
 - [ ] Port additional layouts only after deterministic geometry tests exist.
+- [ ] Add candidate-validated declarative configuration only after the public
+  policy lifecycle is stable; retain a checked-in bounded profile until then.
+- [ ] Add bounded Janet policy and layouts only after failure and deterministic
+  fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through

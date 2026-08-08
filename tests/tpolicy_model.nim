@@ -65,6 +65,10 @@ proc appendWireCycle(
   outputRecord.addU32(0)
   outputRecord.addU32(800)
   outputRecord.addU32(600)
+  outputRecord.addU32(0)
+  outputRecord.addU32(0)
+  outputRecord.addU32(800)
+  outputRecord.addU32(600)
   var outputPayload: seq[byte]
   outputPayload.addU64(epoch)
   outputPayload.addU16(0)
@@ -85,6 +89,8 @@ proc appendWireCycle(
   surfaceRecord.addU64(generation)
   surfaceRecord.addU64(10)
   surfaceRecord.addU16(31)
+  surfaceRecord.addU16(1)
+  surfaceRecord.addU16(0)
   surfaceRecord.addU16(0)
   surfaceRecord.addU32(0)
   surfaceRecord.addU32(0)
@@ -92,6 +98,8 @@ proc appendWireCycle(
   surfaceRecord.addU32(0)
   surfaceRecord.addU32(800)
   surfaceRecord.addU32(600)
+  surfaceRecord.addU32(0)
+  surfaceRecord.addU32(0)
   surfaceRecord.addU32(0)
   surfaceRecord.addU32(0)
   surfaceRecord.addU32(0)
@@ -127,6 +135,16 @@ proc appendWireCycle(
   requestPayload.addU64(epoch)
   requestPayload.addU64(requestId)
   requestPayload.addU64(generation)
+  requestPayload.addU16(0)
+  requestPayload.addU16(0)
+  requestPayload.addU64(0)
+  requestPayload.addU64(0)
+  requestPayload.addU32(0)
+  requestPayload.addU32(0)
+  requestPayload.addU32(0)
+  requestPayload.addU32(0)
+  requestPayload.addU32(0)
+  requestPayload.addU32(0)
   requestPayload.addU16(1)
   requestPayload.addU16(0)
   requestPayload.addU64(10)
@@ -336,6 +354,31 @@ suite "Hagia private policy model":
     model.validate()
 
 suite "Sophia snapshot adapter":
+  test "projection uses the Engine work rectangle":
+    let output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      width: 1000,
+      height: 700,
+      workY: 40,
+      workWidth: 1000,
+      workHeight: 660,
+    )
+    let scene = snapshot(1, @[output], @[surface(1, 10)])
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(scene)
+    let projection = adapter.projection(
+      scene,
+      ProjectionRequest(
+        connectionEpoch: 7,
+        requestId: 9,
+        sceneGeneration: 1,
+        affectedOutputs: @[10'u64],
+      ),
+    )
+    check projection.outputs[0].placements[0].y == 40
+    check projection.outputs[0].placements[0].height == 660
+
   test "complete snapshots preserve logical ids and admit hidden surfaces":
     let output = SnapshotOutput(
       output: 10,
@@ -438,6 +481,57 @@ suite "Sophia snapshot adapter":
     adapter.model().validate()
 
 suite "Sophia policy session":
+  test "repeated action tokens retain distinct committed activations":
+    var output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      focusIndex: 1,
+      focusGeneration: 1,
+      width: 900,
+      height: 600,
+    )
+    let firstScene =
+      snapshot(1, @[output], @[surface(1, 10), surface(2, 10), surface(3, 10)])
+    var session = initPolicySession()
+    let firstRequest = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.action, activationSerial: 1, action: 1
+      ),
+    )
+    let firstProjection = session.prepare(firstScene, firstRequest, 1)
+    check firstProjection.outputs[0].output.focusIndex == 2
+    session.settle(
+      ProjectionOutcome(
+        transaction: 1,
+        connectionEpoch: 7,
+        requestId: 1,
+        sceneGeneration: 2,
+        kind: ProjectionOutcomeKind.committed,
+      )
+    )
+
+    output.focusIndex = 2
+    let secondScene = snapshot(
+      2,
+      @[output],
+      @[surface(1, 10, 2), surface(2, 10, 2), surface(3, 10, 2)],
+    )
+    let secondRequest = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 2,
+      sceneGeneration: 2,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.action, activationSerial: 2, action: 1
+      ),
+    )
+    let secondProjection = session.prepare(secondScene, secondRequest, 2)
+    check secondProjection.outputs[0].output.focusIndex == 3
+
   test "a socket session settles several outcomes with monotonic transactions":
     var serverBytes: seq[byte]
     serverBytes.appendWelcome(9)

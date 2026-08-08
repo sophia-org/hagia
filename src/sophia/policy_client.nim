@@ -66,6 +66,8 @@ proc negotiatePolicy(socket: Socket): PolicyClient =
   var payload: seq[byte]
   payload.addU16(1)
   payload.addU16(1)
+  # Request only behavior implemented by this client. The independent codec
+  # still checks every draft revision-1 message in the shared corpus.
   payload.addU64(capabilityBindings or capabilityActions or capabilityMultiOutput)
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -96,7 +98,12 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
   var outputs = initHashSet[uint64]()
   for output in snapshot.outputs:
     if output.output == 0 or output.generation == 0 or output.width <= 0 or
-        output.height <= 0 or output.output in outputs:
+        output.height <= 0 or output.workWidth <= 0 or output.workHeight <= 0 or
+        output.workX < output.x or output.workY < output.y or
+        int64(output.workX) + int64(output.workWidth) >
+          int64(output.x) + int64(output.width) or
+        int64(output.workY) + int64(output.workHeight) >
+          int64(output.y) + int64(output.height) or output.output in outputs:
       fail("policy snapshot output is invalid")
     outputs.incl(output.output)
   var surfaces = initHashSet[(uint32, uint32)]()
@@ -113,6 +120,12 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
       (surface.minWidth > surface.maxWidth or surface.minHeight > surface.maxHeight)
     ):
       fail("policy surface constraints are invalid")
+    if surface.kind < 1 or surface.kind > 5 or
+        (surface.requestStateBits and not 7'u16) != 0 or
+        (surface.currentStateBits and not 7'u16) != 0 or
+        (surface.exactWidth == 0) != (surface.exactHeight == 0) or
+        surface.exactWidth < 0 or surface.exactHeight < 0:
+      fail("policy surface reduced state is invalid")
     surfaces.incl(identity)
   for surface in snapshot.surfaces:
     if surface.transientGeneration != 0 and
@@ -143,13 +156,16 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   let declaredOutputs = int(begin.payload.u16At(18))
   let declaredSurfaces = int(begin.payload.u32At(20))
   let declaredBindings = int(begin.payload.u16At(24))
+  let declaredSessionOperations = int(begin.payload.u16At(26))
   if connectionEpoch != client.connectionEpoch or generation == 0 or chunkCount == 0 or
       declaredOutputs == 0 or declaredOutputs > maxOutputs or
-      declaredSurfaces > maxSurfaces or declaredBindings > maxBindings:
+      declaredSurfaces > maxSurfaces or declaredBindings > maxBindings or
+      declaredSessionOperations > maxBindings:
     fail("policy snapshot header is invalid")
   var outputs: seq[SnapshotOutput]
   var surfaces: seq[SnapshotSurface]
   var bindings: seq[SnapshotBinding]
+  var sessionOperations: seq[SnapshotSessionOperation]
   for ordinal in 0 ..< chunkCount:
     let chunk = client.receiveFrame(MessageKind.snapshotChunk)
     if chunk.transaction != begin.transaction or
@@ -185,6 +201,16 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
         bindings.add(
           chunk.payload.recordBytes(index, snapshotBindingSize).decodeSnapshotBinding()
         )
+    of 4:
+      if chunk.payload.len != 16 + itemCount * snapshotSessionOperationSize or
+          sessionOperations.len + itemCount > declaredSessionOperations:
+        fail("policy session-operation chunk count is invalid")
+      for index in 0 ..< itemCount:
+        sessionOperations.add(
+          chunk.payload
+          .recordBytes(index, snapshotSessionOperationSize)
+          .decodeSnapshotSessionOperation()
+        )
     else:
       fail("unknown policy snapshot record kind")
   let finish = client.receiveFrame(MessageKind.snapshotEnd)
@@ -192,10 +218,15 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
       finish.payload.u64At(0) != client.connectionEpoch or
       finish.payload.u64At(8) != generation or
       finish.payload.u16At(16) != uint16(chunkCount) or outputs.len != declaredOutputs or
-      surfaces.len != declaredSurfaces or bindings.len != declaredBindings:
+      surfaces.len != declaredSurfaces or bindings.len != declaredBindings or
+      sessionOperations.len != declaredSessionOperations:
     fail("policy snapshot did not settle exactly")
   result = PolicySnapshot(
-    generation: generation, outputs: outputs, surfaces: surfaces, bindings: bindings
+    generation: generation,
+    outputs: outputs,
+    surfaces: surfaces,
+    bindings: bindings,
+    sessionOperations: sessionOperations,
   )
   result.validateSnapshot()
 
@@ -204,12 +235,28 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   result.connectionEpoch = frame.payload.u64At(0)
   result.requestId = frame.payload.u64At(8)
   result.sceneGeneration = frame.payload.u64At(16)
-  let outputCount = int(frame.payload.u16At(24))
+  let rawCause = frame.payload.u16At(24)
+  if rawCause > uint16(ord(high(ProjectionCauseKind))):
+    fail("policy projection cause is invalid")
+  result.cause.kind = ProjectionCauseKind(rawCause)
+  let rawPhase = frame.payload.u16At(26)
+  if rawPhase > uint16(ord(high(InteractionPhase))):
+    fail("policy interaction phase is invalid")
+  result.cause.interactionPhase = InteractionPhase(rawPhase)
+  result.cause.activationSerial = frame.payload.u64At(28)
+  result.cause.action = frame.payload.u64At(36)
+  result.cause.targetIndex = frame.payload.u32At(44)
+  result.cause.targetGeneration = frame.payload.u32At(48)
+  result.cause.x = frame.payload.i32At(52)
+  result.cause.y = frame.payload.i32At(56)
+  result.cause.width = frame.payload.i32At(60)
+  result.cause.height = frame.payload.i32At(64)
+  let outputCount = int(frame.payload.u16At(68))
   if result.connectionEpoch != client.connectionEpoch or result.requestId == 0 or
       result.sceneGeneration == 0 or outputCount == 0 or outputCount > maxOutputs:
     fail("policy projection request is invalid")
   for index in 0 ..< outputCount:
-    result.affectedOutputs.add(frame.payload.u64At(28 + index * 8))
+    result.affectedOutputs.add(frame.payload.u64At(72 + index * 8))
 
 proc allocateTransaction(client: PolicyClient): uint64 =
   result = client.nextTransaction

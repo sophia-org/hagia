@@ -1,6 +1,6 @@
 import std/[options, sets, tables]
 
-import ../policy/[projection, state, types]
+import ../policy/[actions, projection, state, types]
 import ./[session_types, wm_v1]
 
 type
@@ -45,7 +45,19 @@ proc constraints(surface: SnapshotSurface): SizeConstraints =
   )
 
 proc bounds(output: SnapshotOutput): Rect =
-  Rect(x: output.x, y: output.y, width: output.width, height: output.height)
+  ## Layout uses Engine's bounded work rectangle; panels and other reserved
+  ## shell regions never become private Hagia policy.
+  if output.workWidth > 0 and output.workHeight > 0:
+    Rect(
+      x: output.workX,
+      y: output.workY,
+      width: output.workWidth,
+      height: output.workHeight,
+    )
+  else:
+    # Unit-level policy fixtures may construct semantic records directly. The
+    # live wire validator requires a positive work rectangle before this layer.
+    Rect(x: output.x, y: output.y, width: output.width, height: output.height)
 
 proc handle(output: SnapshotOutput): OutputHandle =
   (output: output.output, generation: output.generation)
@@ -87,6 +99,32 @@ proc logicalOutput*(adapter: PolicyAdapter, output: uint64): Option[OutputId] =
 
 proc model*(adapter: PolicyAdapter): PolicyModel =
   adapter.model
+
+proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
+  if request.affectedOutputs.len == 0:
+    fail("policy cause has no affected output")
+  let rawOutput = request.affectedOutputs[0]
+  if rawOutput notin adapter.outputToLogical:
+    fail("policy cause names an unknown output")
+  let output = adapter.outputToLogical[rawOutput]
+  case request.cause.kind
+  of ProjectionCauseKind.sceneChanged:
+    discard
+  of ProjectionCauseKind.action:
+    if request.cause.activationSerial == 0 or request.cause.action < 1 or
+        request.cause.action > uint64(ord(high(PolicyAction))):
+      fail("policy action cause is invalid")
+    adapter.model.applyAction(output, PolicyAction(request.cause.action))
+  of ProjectionCauseKind.focus:
+    let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
+    if key notin adapter.surfaceToWindow:
+      fail("policy focus cause names an unknown surface")
+    adapter.model.setFocus(output, adapter.surfaceToWindow[key])
+  of ProjectionCauseKind.interaction:
+    # Hagia does not negotiate this capability until floating geometry is part
+    # of its committed private model.
+    fail("policy interaction cause is not negotiated")
+  adapter.model.validate()
 
 ## Reconcile only complete Sophia snapshots. The policy model never observes a
 ## partial transfer or stores a Sophia identity in its own entity tables.
