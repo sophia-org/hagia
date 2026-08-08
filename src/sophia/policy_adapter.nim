@@ -269,3 +269,44 @@ proc projection*(
         )
       )
     result.outputs.add(projection)
+
+    let outputState = adapter.model.outputs[logical.output]
+    for index, viewId in outputState.views:
+      let view = adapter.model.views[viewId]
+      var stateBits = 0'u16
+      if viewId == outputState.activeView:
+        stateBits = stateBits or (1'u16 shl 0)
+      for windowId in adapter.model.windowOrder:
+        let window = adapter.model.windows[windowId]
+        if window.homeOutput == logical.output and window.tags.intersects(view.selectedTags):
+          stateBits = stateBits or (1'u16 shl 2)
+          break
+      for otherOutputId in adapter.model.outputOrder:
+        if otherOutputId == logical.output:
+          continue
+        let other = adapter.model.outputs[otherOutputId]
+        if adapter.model.views[other.activeView].selectedTags.intersects(view.selectedTags):
+          stateBits = stateBits or (1'u16 shl 3)
+          break
+      let labelText = $(index + 1)
+      var indicator = ProjectionIndicator(
+        output: rawOutput,
+        slot: uint32(index),
+        indicator: uint64(uint32(viewId)),
+        action: uint64(ord(PolicyAction.activateView1) + index),
+        stateBits: stateBits,
+        labelLen: uint16(labelText.len),
+      )
+      for labelIndex, character in labelText:
+        indicator.label[labelIndex] = byte(character)
+      result.indicators.add(indicator)
+
+    const layoutText = "Scroller"
+    var status = ProjectionOutputStatus(
+      output: rawOutput,
+      focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),
+      layoutLen: uint16(layoutText.len),
+    )
+    for index, character in layoutText:
+      status.layout[index] = byte(character)
+    result.outputStatuses.add(status)

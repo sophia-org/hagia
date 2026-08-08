@@ -18,6 +18,7 @@ const
   capabilityChrome = 1'u64 shl 4
   capabilityConfiguration = 1'u64 shl 6
   capabilitySessionOperations = 1'u64 shl 7
+  capabilityIndicators = 1'u64 shl 8
   surfaceFocusable = 1'u16 shl 2
 
 proc fail(message: string) {.noreturn.} =
@@ -78,7 +79,8 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
     else:
       0'u64
   payload.addU64(
-    capabilityBindings or capabilityActions or capabilityMultiOutput or optional
+    capabilityBindings or capabilityActions or capabilityMultiOutput or
+      capabilityIndicators or optional
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -87,8 +89,8 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   result.capabilities = welcome.payload.u64At(4)
   if (
     result.capabilities and
-    (capabilityBindings or capabilityActions or capabilityMultiOutput)
-  ) != (capabilityBindings or capabilityActions or capabilityMultiOutput):
+    (capabilityBindings or capabilityActions or capabilityMultiOutput or capabilityIndicators)
+  ) != (capabilityBindings or capabilityActions or capabilityMultiOutput or capabilityIndicators):
     fail("Sophia omitted a required policy capability")
   if requestConfiguration and (result.capabilities and optional) != optional:
     fail("Sophia omitted native policy configuration")
@@ -360,16 +362,24 @@ proc sendProjection(
 ): ProjectionOutcome =
   var outputBytes: seq[byte]
   var placementBytes: seq[byte]
+  var indicatorBytes: seq[byte]
+  var statusBytes: seq[byte]
   var placementCount = 0
   for output in projection.outputs:
     outputBytes.add(output.output.encodeProjectionOutput())
     for placement in output.placements:
       placementBytes.add(placement.encodeProjectionPlacement())
       inc placementCount
+  for indicator in projection.indicators:
+    indicatorBytes.add(indicator.encodeProjectionIndicator())
+  for status in projection.outputStatuses:
+    statusBytes.add(status.encodeProjectionOutputStatus())
 
   if projection.outputs.len != request.affectedOutputs.len:
     fail("projection output count does not match the request")
-  let chunkCount = if placementCount == 0: 1 else: 2
+  let chunkCount = 1 + (if placementCount == 0: 0 else: 1) +
+    (if projection.indicators.len == 0: 0 else: 1) +
+    (if projection.outputStatuses.len == 0: 0 else: 1)
   var beginPayload: seq[byte]
   beginPayload.addU64(client.connectionEpoch)
   beginPayload.addU64(request.requestId)
@@ -377,10 +387,8 @@ proc sendProjection(
   beginPayload.addU16(uint16(chunkCount))
   beginPayload.addU16(uint16(projection.outputs.len))
   beginPayload.addU32(uint32(placementCount))
-  # Hagia advertises no `indicators` capability yet, so it declares none. The
-  # counts are still written because the begin record must be exhaustive.
-  beginPayload.addU16(0)
-  beginPayload.addU16(0)
+  beginPayload.addU16(uint16(projection.indicators.len))
+  beginPayload.addU16(uint16(projection.outputStatuses.len))
   client.sendFrame(
     Frame(
       kind: MessageKind.projectionBegin, transaction: transaction, payload: beginPayload
@@ -414,6 +422,24 @@ proc sendProjection(
         payload: placementPayload,
       )
     )
+  var nextOrdinal = if placementCount > 0: 2'u16 else: 1'u16
+  if projection.indicators.len > 0:
+    var payload: seq[byte]
+    payload.addU64(client.connectionEpoch)
+    payload.addU16(nextOrdinal)
+    payload.addU16(3)
+    payload.addU32(uint32(projection.indicators.len))
+    payload.add(indicatorBytes)
+    client.sendFrame(Frame(kind: MessageKind.projectionChunk, transaction: transaction, payload: payload))
+    inc nextOrdinal
+  if projection.outputStatuses.len > 0:
+    var payload: seq[byte]
+    payload.addU64(client.connectionEpoch)
+    payload.addU16(nextOrdinal)
+    payload.addU16(4)
+    payload.addU32(uint32(projection.outputStatuses.len))
+    payload.add(statusBytes)
+    client.sendFrame(Frame(kind: MessageKind.projectionChunk, transaction: transaction, payload: payload))
 
   var endPayload: seq[byte]
   endPayload.addU64(client.connectionEpoch)

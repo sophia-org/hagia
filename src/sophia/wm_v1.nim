@@ -472,3 +472,21 @@ proc encodeProjectionPlacement*(record: ProjectionPlacement): seq[byte] =
   result.addU32(cast[uint32](record.cropHeight))
   result.addU16(record.transform)
   result.addU16(record.presentationBits)
+
+proc encodeProjectionIndicator*(record: ProjectionIndicator): seq[byte] =
+  result.addU64(record.output)
+  result.addU32(record.slot)
+  result.addU64(record.indicator)
+  result.addU64(record.action)
+  result.addU16(record.stateBits)
+  result.addU16(record.labelLen)
+  for value in record.label:
+    result.add(value)
+
+proc encodeProjectionOutputStatus*(record: ProjectionOutputStatus): seq[byte] =
+  result.addU64(record.output)
+  result.addU16(record.focusBits)
+  result.addU16(record.layoutLen)
+  result.addU32(0)
+  for value in record.layout:
+    result.add(value)

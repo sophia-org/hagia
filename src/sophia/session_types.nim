@@ -56,6 +56,8 @@ type
 
   PolicyProjection* = object
     outputs*: seq[PolicyOutputProjection]
+    indicators*: seq[ProjectionIndicator]
+    outputStatuses*: seq[ProjectionOutputStatus]
 
   ProjectionOutcome* = object
     transaction*: uint64

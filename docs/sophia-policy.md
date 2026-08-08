@@ -19,3 +19,8 @@ reduces the complete snapshot into stable Hagia IDs, private tags and views,
 and a deterministic affected-output projection. This remains a dormant
 conformance path, not a login session; the installed Sophia candidate continues
 to use its experimental v7 xmonad bridge while the public protocol matures.
+
+Each affected output also emits nine presentation-only indicator slots and one
+output status record. Stable private view IDs become opaque indicator IDs;
+labels, state flags, and activation tokens cross the wire, while tag masks and
+the private layout model do not.

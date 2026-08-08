@@ -176,7 +176,7 @@ proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   var payload: seq[byte]
   payload.addU16(1)
   payload.addU16(0)
-  payload.addU64(7)
+  payload.addU64(7 or (1'u64 shl 8))
   payload.addU64(epoch)
   payload.addU16(16)
   payload.addU16(256)
@@ -411,6 +411,15 @@ suite "Sophia snapshot adapter":
     )
     check projection.outputs[0].placements[0].y == 40
     check projection.outputs[0].placements[0].height == 660
+    check projection.indicators.len == 9
+    check projection.indicators[0].output == 10
+    check projection.indicators[0].slot == 0
+    check projection.indicators[0].action == 11
+    check (projection.indicators[0].stateBits and 1) != 0
+    check projection.indicators[0].labelLen == 1
+    check projection.indicators[0].label[0] == byte('1')
+    check projection.outputStatuses.len == 1
+    check projection.outputStatuses[0].layoutLen == 8
 
   test "complete snapshots preserve logical ids and admit hidden surfaces":
     let output = SnapshotOutput(

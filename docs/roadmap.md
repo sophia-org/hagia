@@ -35,6 +35,8 @@ promotion waits on Sophia's frontend-settled public transport path.
   interaction, and session-operation records.
 - [x] Accept one complete reduced cause per policy request and retain ordered
   non-idempotent action activations without exposing raw input.
+- [x] Project private per-output views into the revision-1 indicator descriptor
+  and emit exact indicator/status transfer counts without exposing tag masks.
 - [x] Resolve terminal, browser, close, and logout actions through advertised
   profile-local session-operation slots; keep their tokens opaque and send an
   optional focused target only when the advertised operation permits it.
