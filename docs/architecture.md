@@ -1,0 +1,54 @@
+# Hagia Architecture
+
+Hagia is the standalone Sophia-native successor to Triad's spatial-policy
+ideas. It is not a compositor, a River compatibility layer, or a privileged
+Sophia component.
+
+## Ownership
+
+Sophia Engine owns physical input, output state, scene validation, atomic
+commit, rendering, and scanout. The Sophia session owns process supervision,
+application launch, logout, and endpoint admission. Hagia owns only its private
+spatial-policy model and bounded proposals.
+
+Hagia never receives client titles, classes, application IDs, PIDs, paths,
+namespaces, XIDs, pixels, renderer handles, raw input, or portal payloads. The
+policy model stores stable Hagia IDs; opaque Sophia surface and output IDs stay
+inside `src/sophia`.
+
+## Layers
+
+- `src/policy/types.nim` contains passive logical IDs and policy records.
+- `src/policy/state.nim` owns indexed mutations and invariants.
+- `src/policy/projection.nim` computes output projections without mutation.
+- `src/sophia/wm_v1.nim` implements the independent fixed wire.
+- `src/sophia/policy_adapter.nim` reconciles complete Sophia snapshots and
+  lowers logical projections back to current opaque identities.
+- `src/sophia/policy_client.nim` owns bounded transport sequencing only.
+
+The adapter exposes a snapshot to policy only after the complete begin/chunk/end
+transfer settles. A projection completely replaces every affected output.
+Rejected or interrupted work cannot mutate the last Engine-owned scene.
+
+## Triad Port Boundary
+
+The port starts with Triad's useful architecture: typed logical identities,
+tag-first membership, stable views, explicit state transitions, and pure layout
+projection. It does not start by copying Triad's runtime tree. River handles,
+Wayland protocols, shell surfaces, output management, process launching,
+metadata rules, screenshots, input configuration, and compositor-shaped state
+remain outside Hagia policy.
+
+Tags and views are private Hagia data. Each window has a nonempty tag set and
+one home output. Each output owns ordered stable views, and each view selects a
+nonempty tag set. A window is eligible when its home output matches and its tags
+intersect the active view. Sophia sees only the resulting ordered output
+projection.
+
+## Recovery Direction
+
+A complete Sophia snapshot is the restart boundary. Hagia reconciles live
+opaque identities into stable logical entities and discards vanished surfaces.
+Later milestones will add session-local checkpoints, output reconnect affinity,
+and commit-aware reducers. Engine must remain usable while Hagia is absent or
+restarting.

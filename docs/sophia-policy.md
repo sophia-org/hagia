@@ -14,7 +14,8 @@ other repository's source tree.
 
 The independent proof client also exercises Sophia's credential-checked socket,
 strict complete-snapshot assembly, exact affected-output request, full
-projection encoding, and explicit committed outcome. This is a dormant
-protocol proof, not a login-session or Triad migration. Hagia grows beyond it
-only when Sophia requires an independent conformance case. The broader port
-begins after Sophia's protocol and promotion gates are ready for product work.
+projection encoding, and explicit committed outcome. The first policy port now
+reduces the complete snapshot into stable Hagia IDs, private tags and views,
+and a deterministic affected-output projection. This remains a dormant
+conformance path, not a login session; the installed Sophia candidate continues
+to use its experimental v7 xmonad bridge while the public protocol matures.

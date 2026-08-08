@@ -57,6 +57,11 @@ type
     maxWidth*: int32
     maxHeight*: int32
 
+  SnapshotBinding* = object
+    action*: uint64
+    keycode*: uint32
+    modifierBits*: uint32
+
   ProjectionOutput* = object
     output*: uint64
     placementCount*: uint32
@@ -87,6 +92,7 @@ const
   maxBindings* = 256
   snapshotOutputSize* = 40
   snapshotSurfaceSize* = 68
+  snapshotBindingSize* = 16
   projectionOutputSize* = 24
   projectionPlacementSize* = 60
 
@@ -130,16 +136,26 @@ proc addU64*(bytes: var seq[byte], value: uint64) =
 
 proc messageKind(raw: uint16): MessageKind =
   case raw
-  of 32: MessageKind.clientHello
-  of 33: MessageKind.serverWelcome
-  of 34: MessageKind.snapshotBegin
-  of 35: MessageKind.snapshotChunk
-  of 36: MessageKind.snapshotEnd
-  of 37: MessageKind.projectionRequest
-  of 38: MessageKind.projectionBegin
-  of 39: MessageKind.projectionChunk
-  of 40: MessageKind.projectionEnd
-  of 41: MessageKind.projectionOutcome
+  of 32:
+    MessageKind.clientHello
+  of 33:
+    MessageKind.serverWelcome
+  of 34:
+    MessageKind.snapshotBegin
+  of 35:
+    MessageKind.snapshotChunk
+  of 36:
+    MessageKind.snapshotEnd
+  of 37:
+    MessageKind.projectionRequest
+  of 38:
+    MessageKind.projectionBegin
+  of 39:
+    MessageKind.projectionChunk
+  of 40:
+    MessageKind.projectionEnd
+  of 41:
+    MessageKind.projectionOutcome
   else:
     fail(PolicyProtocolErrorKind.wrongMessageKind, "unknown message kind")
 
@@ -179,7 +195,9 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
     payload.requireReserved(26, 2)
     let outputCount = int(payload.u16At(24))
     if outputCount < 1 or outputCount > maxOutputs or payload.len != 28 + outputCount * 8:
-      fail(PolicyProtocolErrorKind.fieldTooLarge, "affected output count does not match")
+      fail(
+        PolicyProtocolErrorKind.fieldTooLarge, "affected output count does not match"
+      )
     for index in 0 ..< outputCount:
       let output = payload.u64At(28 + index * 8)
       if output == 0:
@@ -216,7 +234,9 @@ proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
     fail(PolicyProtocolErrorKind.trailingBytes, "trailing frame bytes")
   if kind in {MessageKind.clientHello, MessageKind.serverWelcome}:
     if transaction != 0:
-      fail(PolicyProtocolErrorKind.invalidTransaction, "handshake transaction is nonzero")
+      fail(
+        PolicyProtocolErrorKind.invalidTransaction, "handshake transaction is nonzero"
+      )
   elif transaction == 0:
     fail(PolicyProtocolErrorKind.invalidTransaction, "required transaction is zero")
   result.kind = kind
@@ -230,7 +250,9 @@ proc encodeFrame*(frame: Frame): seq[byte] =
   frame.kind.validatePayload(frame.payload)
   if frame.kind in {MessageKind.clientHello, MessageKind.serverWelcome}:
     if frame.transaction != 0:
-      fail(PolicyProtocolErrorKind.invalidTransaction, "handshake transaction is nonzero")
+      fail(
+        PolicyProtocolErrorKind.invalidTransaction, "handshake transaction is nonzero"
+      )
   elif frame.transaction == 0:
     fail(PolicyProtocolErrorKind.invalidTransaction, "required transaction is zero")
   result = @[byte('S'), byte('O'), byte('P'), byte('H')]
@@ -270,6 +292,12 @@ proc decodeSnapshotSurface*(bytes: openArray[byte]): SnapshotSurface =
   result.minHeight = bytes.i32At(56)
   result.maxWidth = bytes.i32At(60)
   result.maxHeight = bytes.i32At(64)
+
+proc decodeSnapshotBinding*(bytes: openArray[byte]): SnapshotBinding =
+  bytes.requireExact(snapshotBindingSize)
+  result.action = bytes.u64At(0)
+  result.keycode = bytes.u32At(8)
+  result.modifierBits = bytes.u32At(12)
 
 proc decodeProjectionOutput*(bytes: openArray[byte]): ProjectionOutput =
   bytes.requireExact(projectionOutputSize)

@@ -4,9 +4,12 @@ import sophia/wm_v1
 
 proc hexNibble(character: char): int =
   case character
-  of '0' .. '9': ord(character) - ord('0')
-  of 'a' .. 'f': ord(character) - ord('a') + 10
-  else: -1
+  of '0' .. '9':
+    ord(character) - ord('0')
+  of 'a' .. 'f':
+    ord(character) - ord('a') + 10
+  else:
+    -1
 
 proc decodeHex(text: string): seq[byte] =
   if text.len mod 2 != 0:
@@ -21,30 +24,51 @@ proc decodeHex(text: string): seq[byte] =
 
 proc kindFor(name: string): MessageKind =
   case name
-  of "client_hello": MessageKind.clientHello
-  of "server_welcome": MessageKind.serverWelcome
-  of "snapshot_begin": MessageKind.snapshotBegin
-  of "snapshot_chunk": MessageKind.snapshotChunk
-  of "snapshot_end": MessageKind.snapshotEnd
-  of "projection_request": MessageKind.projectionRequest
-  of "projection_begin": MessageKind.projectionBegin
-  of "projection_chunk": MessageKind.projectionChunk
-  of "projection_end": MessageKind.projectionEnd
-  of "projection_outcome": MessageKind.projectionOutcome
-  else: raise newException(ValueError, "unknown corpus message")
+  of "client_hello":
+    MessageKind.clientHello
+  of "server_welcome":
+    MessageKind.serverWelcome
+  of "snapshot_begin":
+    MessageKind.snapshotBegin
+  of "snapshot_chunk":
+    MessageKind.snapshotChunk
+  of "snapshot_end":
+    MessageKind.snapshotEnd
+  of "projection_request":
+    MessageKind.projectionRequest
+  of "projection_begin":
+    MessageKind.projectionBegin
+  of "projection_chunk":
+    MessageKind.projectionChunk
+  of "projection_end":
+    MessageKind.projectionEnd
+  of "projection_outcome":
+    MessageKind.projectionOutcome
+  else:
+    raise newException(ValueError, "unknown corpus message")
 
 proc errorFor(name: string): PolicyProtocolErrorKind =
   case name
-  of "truncated": PolicyProtocolErrorKind.truncated
-  of "bad_magic": PolicyProtocolErrorKind.badMagic
-  of "unsupported_frame_version": PolicyProtocolErrorKind.unsupportedFrameVersion
-  of "wrong_message_kind": PolicyProtocolErrorKind.wrongMessageKind
-  of "payload_too_large": PolicyProtocolErrorKind.payloadTooLarge
-  of "reserved_nonzero": PolicyProtocolErrorKind.reservedNonzero
-  of "trailing_bytes": PolicyProtocolErrorKind.trailingBytes
-  of "invalid_transaction": PolicyProtocolErrorKind.invalidTransaction
-  of "field_too_large": PolicyProtocolErrorKind.fieldTooLarge
-  else: raise newException(ValueError, "unknown corpus error")
+  of "truncated":
+    PolicyProtocolErrorKind.truncated
+  of "bad_magic":
+    PolicyProtocolErrorKind.badMagic
+  of "unsupported_frame_version":
+    PolicyProtocolErrorKind.unsupportedFrameVersion
+  of "wrong_message_kind":
+    PolicyProtocolErrorKind.wrongMessageKind
+  of "payload_too_large":
+    PolicyProtocolErrorKind.payloadTooLarge
+  of "reserved_nonzero":
+    PolicyProtocolErrorKind.reservedNonzero
+  of "trailing_bytes":
+    PolicyProtocolErrorKind.trailingBytes
+  of "invalid_transaction":
+    PolicyProtocolErrorKind.invalidTransaction
+  of "field_too_large":
+    PolicyProtocolErrorKind.fieldTooLarge
+  else:
+    raise newException(ValueError, "unknown corpus error")
 
 proc corpusLines(path: string): seq[string] =
   for line in readFile(path).splitLines():
@@ -90,7 +114,10 @@ proc checkRecords(path: string) =
     of "snapshot_surface":
       check bytes.decodeSnapshotSurface().surfaceIndex == 3
     of "snapshot_binding":
-      check bytes.len == 16
+      let binding = bytes.decodeSnapshotBinding()
+      check binding.action == 5
+      check binding.keycode == 33
+      check binding.modifierBits == 8
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":
