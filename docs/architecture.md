@@ -24,11 +24,14 @@ inside `src/sophia`.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
 - `src/sophia/policy_adapter.nim` reconciles complete Sophia snapshots and
   lowers logical projections back to current opaque identities.
+- `src/sophia/policy_session.nim` stages private candidates and promotes only
+  projections that Sophia explicitly commits.
 - `src/sophia/policy_client.nim` owns bounded transport sequencing only.
 
 The adapter exposes a snapshot to policy only after the complete begin/chunk/end
 transfer settles. A projection completely replaces every affected output.
-Rejected or interrupted work cannot mutate the last Engine-owned scene.
+Rejected or interrupted work is discarded before it can mutate Hagia's last
+committed model or the Engine-owned scene.
 
 ## Triad Port Boundary
 
@@ -45,10 +48,22 @@ nonempty tag set. A window is eligible when its home output matches and its tags
 intersect the active view. Sophia sees only the resulting ordered output
 projection.
 
+Columns are stable logical entities. Automatic widths preserve the initial
+equal-column projection; explicit widths use bounded Q16.16 scales and 64-bit
+intermediate arithmetic. Hagia emits final integer target geometry. It does not
+animate, render, or retain client pixels.
+
 ## Recovery Direction
 
-A complete Sophia snapshot is the restart boundary. Hagia reconciles live
-opaque identities into stable logical entities and discards vanished surfaces.
-Later milestones will add session-local checkpoints, output reconnect affinity,
-and commit-aware reducers. Engine must remain usable while Hagia is absent or
-restarting.
+A complete Sophia snapshot is the restart boundary. Hagia reconciles it into a
+candidate cloned from the last committed private model. A committed outcome
+promotes that candidate; stale, invalid, timed-out, disconnected, malformed, or
+interrupted attempts discard it. Connection loss terminates the client so the
+Sophia supervisor owns restart and a fresh connection epoch.
+
+The adapter retains at most sixteen dormant exact `(output, generation)`
+handles. The policy model stores only the corresponding logical affinity. Loss
+migrates views, columns, and windows to a surviving output; an exact return
+restores still-live preferred state. Reused opaque IDs with a new generation
+receive new logical identities. Persistent recovery across a new Hagia process
+remains checkpoint work for the next milestone.

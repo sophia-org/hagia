@@ -1,6 +1,6 @@
 import std/[net, os, sets]
 
-import ./[policy_adapter, session_types, wm_v1]
+import ./[policy_session, session_types, wm_v1]
 
 type
   PolicyClientError* = object of CatchableError
@@ -61,8 +61,8 @@ proc connectWhenReady(path: string): Socket =
       sleep(10)
   fail("Sophia policy socket did not become ready")
 
-proc connectPolicy(path: string): PolicyClient =
-  result = PolicyClient(socket: path.connectWhenReady(), nextTransaction: 1)
+proc negotiatePolicy(socket: Socket): PolicyClient =
+  result = PolicyClient(socket: socket, nextTransaction: 1)
   var payload: seq[byte]
   payload.addU16(1)
   payload.addU16(1)
@@ -78,6 +78,9 @@ proc connectPolicy(path: string): PolicyClient =
       welcome.payload.u16At(22) > uint16(maxBindings) or welcome.payload.u32At(28) == 0 or
       welcome.payload.u32At(28) > uint32(maxPayloadLen):
     fail("Sophia advertised invalid policy limits")
+
+proc connectPolicy(path: string): PolicyClient =
+  path.connectWhenReady().negotiatePolicy()
 
 proc recordBytes(payload: openArray[byte], index, size: int): seq[byte] =
   let first = 16 + index * size
@@ -208,9 +211,33 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   for index in 0 ..< outputCount:
     result.affectedOutputs.add(frame.payload.u64At(28 + index * 8))
 
+proc allocateTransaction(client: PolicyClient): uint64 =
+  result = client.nextTransaction
+  inc client.nextTransaction
+  if result == 0 or client.nextTransaction == 0:
+    fail("policy transaction identity space is exhausted")
+
+proc decodeProjectionOutcome*(frame: Frame): ProjectionOutcome =
+  if frame.kind != MessageKind.projectionOutcome:
+    fail("policy outcome frame has the wrong kind")
+  let rawOutcome = frame.payload.u16At(24)
+  if rawOutcome < uint16(ord(low(ProjectionOutcomeKind))) or
+      rawOutcome > uint16(ord(high(ProjectionOutcomeKind))):
+    fail("Sophia returned an unknown policy outcome")
+  ProjectionOutcome(
+    transaction: frame.transaction,
+    connectionEpoch: frame.payload.u64At(0),
+    requestId: frame.payload.u64At(8),
+    sceneGeneration: frame.payload.u64At(16),
+    kind: ProjectionOutcomeKind(rawOutcome),
+  )
+
 proc sendProjection(
-    client: PolicyClient, request: ProjectionRequest, projection: PolicyProjection
-) =
+    client: PolicyClient,
+    request: ProjectionRequest,
+    transaction: uint64,
+    projection: PolicyProjection,
+): ProjectionOutcome =
   var outputBytes: seq[byte]
   var placementBytes: seq[byte]
   var placementCount = 0
@@ -222,10 +249,6 @@ proc sendProjection(
 
   if projection.outputs.len != request.affectedOutputs.len:
     fail("projection output count does not match the request")
-  let transaction = client.nextTransaction
-  inc client.nextTransaction
-  if transaction == 0 or client.nextTransaction == 0:
-    fail("policy transaction identity space is exhausted")
   let chunkCount = if placementCount == 0: 1 else: 2
   var beginPayload: seq[byte]
   beginPayload.addU64(client.connectionEpoch)
@@ -279,20 +302,50 @@ proc sendProjection(
       kind: MessageKind.projectionEnd, transaction: transaction, payload: endPayload
     )
   )
-  let outcome = client.receiveFrame(MessageKind.projectionOutcome)
-  if outcome.transaction != transaction or
-      outcome.payload.u64At(0) != client.connectionEpoch or
-      outcome.payload.u64At(8) != request.requestId or outcome.payload.u16At(24) != 1:
-    fail("Sophia rejected Hagia's projection proof")
+  let frame = client.receiveFrame(MessageKind.projectionOutcome)
+  result = frame.decodeProjectionOutcome()
+  if result.transaction != transaction or
+      result.connectionEpoch != client.connectionEpoch or
+      result.requestId != request.requestId or result.sceneGeneration == 0:
+    fail("Sophia returned a mismatched policy outcome")
 
 ## Exercise the smallest complete public-policy cycle without Triad machinery.
 proc runOnePolicyCycle*(path: string) =
   let client = path.connectPolicy()
-  var adapter = initPolicyAdapter()
+  var session = initPolicySession()
   try:
     let snapshot = client.receiveSnapshot()
     let request = client.receiveProjectionRequest()
-    adapter.reconcile(snapshot)
-    client.sendProjection(request, adapter.projection(snapshot, request))
+    let transaction = client.allocateTransaction()
+    let projection = session.prepare(snapshot, request, transaction)
+    let outcome = client.sendProjection(request, transaction, projection)
+    session.settle(outcome)
+    if outcome.kind != ProjectionOutcomeKind.committed:
+      fail("Sophia rejected Hagia's projection proof")
   finally:
+    session.abort()
     client.socket.close()
+
+## Process several settled projections on one authenticated connection. Sophia's
+## supervisor, rather than this client, owns restart policy after transport loss.
+proc runPolicySession(client: PolicyClient) =
+  var session = initPolicySession()
+  try:
+    while true:
+      let snapshot = client.receiveSnapshot()
+      let request = client.receiveProjectionRequest()
+      let transaction = client.allocateTransaction()
+      let projection = session.prepare(snapshot, request, transaction)
+      let outcome = client.sendProjection(request, transaction, projection)
+      session.settle(outcome)
+      if outcome.kind == ProjectionOutcomeKind.disconnected:
+        return
+  finally:
+    session.abort()
+    client.socket.close()
+
+proc runPolicySession*(path: string) =
+  path.connectPolicy().runPolicySession()
+
+proc runPolicySessionOnSocket*(socket: Socket) =
+  socket.negotiatePolicy().runPolicySession()

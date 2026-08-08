@@ -20,6 +20,11 @@ The first slice carries forward design concepts rather than source files:
 - centralized state mutation and pure layout projection; and
 - output-loss migration as an explicit state transition.
 
+The scrolling-column slice reviews Triad's `src/layouts/scroller.nim` and
+`tests/tlayouts.nim` at the same baseline. Hagia reimplements the behavior with
+bounded Q16.16 scales, integer target geometry, and its own tests; it does not
+copy Triad's float-based implementation or runtime interpolation.
+
 No River/Wayland adapter, generated protocol module, configuration parser,
 shell implementation, metadata rule, or Triad project history is imported.
 Future source-level ports must retain the applicable Triad MIT notice and name

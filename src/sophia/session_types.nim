@@ -1,6 +1,13 @@
 import ./wm_v1
 
 type
+  ProjectionOutcomeKind* {.pure.} = enum
+    committed = 1
+    rejectedStale = 2
+    rejectedInvalid = 3
+    timedOut = 4
+    disconnected = 5
+
   PolicySnapshot* = object
     generation*: uint64
     outputs*: seq[SnapshotOutput]
@@ -19,3 +26,10 @@ type
 
   PolicyProjection* = object
     outputs*: seq[PolicyOutputProjection]
+
+  ProjectionOutcome* = object
+    transaction*: uint64
+    connectionEpoch*: uint64
+    requestId*: uint64
+    sceneGeneration*: uint64
+    kind*: ProjectionOutcomeKind

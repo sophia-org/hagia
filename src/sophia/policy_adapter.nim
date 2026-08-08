@@ -6,12 +6,16 @@ import ./[session_types, wm_v1]
 type
   PolicyAdapterError* = object of CatchableError
 
+  OutputHandle = tuple[output, generation: uint64]
+
   PolicyAdapter* = object
     model: PolicyModel
     surfaceToWindow: Table[uint64, WindowId]
     windowToSurface: Table[WindowId, uint64]
     outputToLogical: Table[uint64, OutputId]
-    logicalToOutput: Table[OutputId, uint64]
+    activeOutputToLogical: Table[OutputHandle, OutputId]
+    dormantOutputToLogical: Table[OutputHandle, OutputId]
+    logicalToOutput: Table[OutputId, OutputHandle]
     surfaceFacts: Table[WindowId, SnapshotSurface]
 
 proc fail(message: string) {.noreturn.} =
@@ -43,8 +47,28 @@ proc constraints(surface: SnapshotSurface): SizeConstraints =
 proc bounds(output: SnapshotOutput): Rect =
   Rect(x: output.x, y: output.y, width: output.width, height: output.height)
 
+proc handle(output: SnapshotOutput): OutputHandle =
+  (output: output.output, generation: output.generation)
+
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
+
+proc clone*(adapter: PolicyAdapter): PolicyAdapter =
+  result.model = adapter.model.clone()
+  for key, value in adapter.surfaceToWindow.pairs:
+    result.surfaceToWindow[key] = value
+  for key, value in adapter.windowToSurface.pairs:
+    result.windowToSurface[key] = value
+  for key, value in adapter.outputToLogical.pairs:
+    result.outputToLogical[key] = value
+  for key, value in adapter.activeOutputToLogical.pairs:
+    result.activeOutputToLogical[key] = value
+  for key, value in adapter.dormantOutputToLogical.pairs:
+    result.dormantOutputToLogical[key] = value
+  for key, value in adapter.logicalToOutput.pairs:
+    result.logicalToOutput[key] = value
+  for key, value in adapter.surfaceFacts.pairs:
+    result.surfaceFacts[key] = value
 
 proc logicalWindow*(
     adapter: PolicyAdapter, surfaceIndex, surfaceGeneration: uint32
@@ -70,28 +94,46 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   if snapshot.generation == 0 or snapshot.outputs.len == 0:
     fail("Sophia snapshot is empty")
 
-  var liveOutputs = initHashSet[uint64]()
+  var previousActive: seq[(OutputHandle, OutputId)]
+  for output, logical in adapter.activeOutputToLogical.pairs:
+    previousActive.add((output, logical))
+  var liveOutputs = initHashSet[OutputHandle]()
   for output in snapshot.outputs:
-    liveOutputs.incl(output.output)
-    if output.output in adapter.outputToLogical:
-      adapter.model.updateOutput(
-        adapter.outputToLogical[output.output], output.bounds()
-      )
+    let current = output.handle()
+    liveOutputs.incl(current)
+    var logical: OutputId
+    if current in adapter.activeOutputToLogical:
+      logical = adapter.activeOutputToLogical[current]
+      adapter.model.updateOutput(logical, output.bounds())
+    elif current in adapter.dormantOutputToLogical:
+      logical = adapter.dormantOutputToLogical[current]
+      adapter.model.restoreOutput(logical, output.bounds())
+      adapter.dormantOutputToLogical.del(current)
     else:
-      let logical = adapter.model.addOutput(output.bounds())
-      adapter.outputToLogical[output.output] = logical
-      adapter.logicalToOutput[logical] = output.output
+      logical = adapter.model.addOutput(output.bounds())
+    adapter.activeOutputToLogical[current] = logical
+    adapter.outputToLogical[output.output] = logical
+    adapter.logicalToOutput[logical] = current
 
   let fallback = adapter.outputToLogical[snapshot.outputs[0].output]
-  var removedOutputs: seq[uint64]
-  for output in adapter.outputToLogical.keys:
-    if output notin liveOutputs:
-      removedOutputs.add(output)
-  for output in removedOutputs:
-    let logical = adapter.outputToLogical[output]
-    adapter.model.removeOutput(logical, fallback)
-    adapter.outputToLogical.del(output)
+  for item in previousActive:
+    let (output, logical) = item
+    if output in liveOutputs:
+      continue
+    let evicted = adapter.model.removeOutput(logical, fallback)
+    adapter.activeOutputToLogical.del(output)
+    adapter.dormantOutputToLogical[output] = logical
+    if output.output in adapter.outputToLogical and
+        adapter.outputToLogical[output.output] == logical:
+      adapter.outputToLogical.del(output.output)
     adapter.logicalToOutput.del(logical)
+    if evicted.isSome:
+      var evictedHandles: seq[OutputHandle]
+      for handle, dormantLogical in adapter.dormantOutputToLogical.pairs:
+        if dormantLogical == evicted.get():
+          evictedHandles.add(handle)
+      for handle in evictedHandles:
+        adapter.dormantOutputToLogical.del(handle)
 
   var liveSurfaces = initHashSet[uint64]()
   for surface in snapshot.surfaces:
@@ -102,6 +144,10 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.model.updateWindowFacts(
         window, surface.capabilityBits.capabilities(), surface.constraints()
       )
+      if surface.currentOutput != 0:
+        adapter.model.adoptWindowOutput(
+          window, adapter.outputToLogical[surface.currentOutput]
+        )
       adapter.surfaceFacts[window] = surface
     else:
       let rawHome =
@@ -133,6 +179,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
 
   for output in snapshot.outputs:
     if output.focusGeneration == 0:
+      adapter.model.clearFocus(adapter.outputToLogical[output.output])
       continue
     let key = surfaceKey(output.focusIndex, output.focusGeneration)
     if key in adapter.surfaceToWindow:
@@ -154,8 +201,8 @@ proc projection*(
       fail("projection request names an unknown output")
     affected.add(adapter.outputToLogical[output])
 
-  for logical in adapter.model.projectColumns(affected):
-    let rawOutput = adapter.logicalToOutput[logical.output]
+  for logical in adapter.model.projectScroller(affected):
+    let rawOutput = adapter.logicalToOutput[logical.output].output
     var output = ProjectionOutput(
       output: rawOutput, placementCount: uint32(logical.placements.len)
     )

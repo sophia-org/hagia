@@ -7,11 +7,11 @@ Sophia's shared valid, malformed, and record corpus. Its proof client completes
 one authenticated snapshot/request/projection/outcome cycle through Sophia's
 canonical reducer.
 
-The first Triad-policy slice is now active. It introduces stable Hagia IDs,
-private tags and views, deterministic column projection, complete-snapshot
-reconciliation, hidden-surface admission, and output-loss migration. It remains
-an offline conformance path while Sophia's installed session uses experimental
-WM API v7.
+The first Triad-policy slice now includes stable Hagia IDs, private tags and
+views, commit-aware multi-cycle reconciliation, bounded output affinity,
+hidden-surface admission, and deterministic fixed-point scrolling columns. It
+remains an offline conformance path while Sophia's installed session uses
+experimental WM API v7.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -22,13 +22,13 @@ WM API v7.
   policy model.
 - [x] Return complete affected-output column projections with constraints and
   focus.
-- [ ] Retain logical state across multiple request/outcome cycles.
-- [ ] Model stale, invalid, timed-out, disconnect, and reconnect outcomes.
-- [ ] Preserve output reconnect affinity rather than only migrating on removal.
+- [x] Retain logical state across multiple request/outcome cycles.
+- [x] Model stale, invalid, timed-out, disconnect, and reconnect outcomes.
+- [x] Preserve output reconnect affinity rather than only migrating on removal.
 
 ## Milestone 2: Daily-Driver Spatial Policy
 
-- [ ] Port Triad's scrolling-column mathematics as a pure Hagia projection.
+- [x] Port Triad's scrolling-column mathematics as a pure Hagia projection.
 - [ ] Add view activation, tag changes, focus movement, and window movement as
   reducer messages driven by opaque registered actions.
 - [ ] Add bounded Engine-owned pointer move and resize interactions when the

@@ -25,11 +25,12 @@ Hagia client through Sophia's authenticated transport and canonical Engine
 reducer.
 
 Hagia now carries the first bounded Triad-policy port: stable logical IDs,
-private tags and views, complete-snapshot reconciliation, and deterministic
-column projection. Scrolling layouts, actions, recovery, configuration, and
-shell work remain explicit later milestones. Those features stay private
-Hagia policy; Sophia owns scene truth, input authority, validation, atomic
-commit, rendering, and scanout. See `docs/architecture.md`,
+private tags and views, commit-aware complete-snapshot reconciliation, bounded
+output reconnect affinity, and deterministic fixed-point scrolling columns.
+Actions, persistent recovery, configuration, and shell work remain explicit
+later milestones. Those features stay private Hagia policy; Sophia owns scene
+truth, input authority, validation, atomic commit, rendering, and scanout. See
+`docs/architecture.md`,
 `docs/provenance.md`, and `docs/roadmap.md`.
 
 ## License
