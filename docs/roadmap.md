@@ -45,8 +45,11 @@ physical workload gates.
   checkpoint reconciles and commits, without sending unsolicited geometry.
   The request advances the private generation, scopes itself to the complete
   live output set, and cannot recur during ordinary action cycles.
-- [ ] Prove frontend settlement, stale replacement, timeout, and last-committed
-  preservation against Sophia's canonical reducer.
+- [x] Prove frontend settlement, stale replacement, timeout, and last-committed
+  preservation against Sophia's canonical reducer. Hagia's actual socket loop
+  discards a timed-out action candidate before the next complete projection;
+  Sophia retains separate staged-reducer, frontend-acknowledgement, restart,
+  and exact X-property settlement tests.
 
 ## Milestone 3: Daily-Driver Spatial Policy
 

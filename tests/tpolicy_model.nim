@@ -51,6 +51,7 @@ proc appendWireCycle(
       proposalTransaction: uint64,
     outcome: ProjectionOutcomeKind,
     policyGeneration = 1'u64,
+    action = 0'u64,
 ) =
   var beginPayload: seq[byte]
   beginPayload.addU64(epoch)
@@ -149,12 +150,12 @@ proc appendWireCycle(
   requestPayload.addU64(requestId)
   requestPayload.addU64(generation)
   requestPayload.addU64(policyGeneration)
+  requestPayload.addU16(if action == 0: 0 else: 1)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
-  requestPayload.addU16(0)
-  requestPayload.addU64(0)
-  requestPayload.addU64(0)
+  requestPayload.addU64(if action == 0: 0'u64 else: requestId)
+  requestPayload.addU64(action)
   requestPayload.addU32(0)
   requestPayload.addU32(0)
   requestPayload.addU32(0)
@@ -244,6 +245,17 @@ proc policyDirtyFrames(clientWire: seq[byte]): seq[Frame] =
       result.add(
         clientWire[offset ..< offset + frameLen].decodeFrame(MessageKind.policyDirty)
       )
+    offset += frameLen
+
+proc projectionPlacementCounts(clientWire: seq[byte]): seq[uint32] =
+  var offset = 0
+  while offset < clientWire.len:
+    doAssert clientWire.len - offset >= frameHeaderLen
+    let payloadLen = int(clientWire.u32At(offset + 16))
+    let frameLen = frameHeaderLen + payloadLen
+    doAssert offset + frameLen <= clientWire.len
+    if clientWire.u16At(offset + 6) == uint16(ord(MessageKind.projectionBegin)):
+      result.add(clientWire.u32At(offset + frameHeaderLen + 36))
     offset += frameLen
 
 suite "Hagia private policy model":
@@ -844,6 +856,20 @@ suite "Sophia policy session":
     let clientWire = serverBytes.runWireSession()
     check clientWire.u16At(6) == uint16(ord(MessageKind.clientHello))
     check clientWire.proposalTransactions() == @[1'u64, 2'u64, 3'u64]
+
+  test "a timed-out action cannot alter the next complete projection":
+    var serverBytes: seq[byte]
+    serverBytes.appendWelcome(9)
+    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
+    serverBytes.appendWireCycle(
+      9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.timedOut, 1, 3
+    )
+    serverBytes.appendWireCycle(
+      9, 2, 13, 103, 203, 3, ProjectionOutcomeKind.disconnected
+    )
+    let clientWire = serverBytes.runWireSession()
+    check clientWire.proposalTransactions() == @[1'u64, 2'u64, 3'u64]
+    check clientWire.projectionPlacementCounts() == @[1'u32, 0'u32, 1'u32]
 
   test "a supervised reconnect negotiates a fresh epoch and transaction space":
     var firstServer: seq[byte]
