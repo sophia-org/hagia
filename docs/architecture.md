@@ -100,6 +100,13 @@ the complete live output set. The request contains no placement or private
 identity. Sophia answers with an ordinary fresh snapshot/request cycle; normal
 action cycles do not create redundant refreshes.
 
+The revision-1 black-box proof keeps one authenticated connection and private
+adapter across four Sophia-owned complete scenes: constrained single output,
+two-output partition, output loss with migration, and the same raw output
+returning at a new generation. Each Hagia proposal must pass Sophia's canonical
+reducer. This is offline lifecycle evidence; it does not claim live KMS hotplug
+or installed-session promotion.
+
 ## Management Lifecycle
 
 Engine starts a policy cycle from a complete snapshot and one reduced cause.

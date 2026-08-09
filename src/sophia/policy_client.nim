@@ -593,22 +593,31 @@ proc requestFreshCycle(
       $snapshot.outputs.len
   )
 
-## Exercise the smallest complete public-policy cycle without Triad machinery.
-proc runOnePolicyCycle*(path: string) =
+## Exercise a bounded sequence of complete public-policy cycles without Triad
+## machinery. The shared revision-1 corpus uses one connection so output loss
+## and generational return exercise the client's retained private identity.
+proc runPolicyCycles*(path: string, cycleCount: int) =
+  if cycleCount < 1 or cycleCount > 16:
+    fail("policy proof cycle count is invalid")
   let client = path.connectPolicy(false)
   var session = initPolicySession()
   try:
-    let snapshot = client.receiveSnapshot()
-    let request = client.receiveProjectionRequest()
-    let transaction = client.allocateTransaction()
-    let projection = session.prepare(snapshot, request, transaction)
-    let outcome = client.sendProjection(request, transaction, projection)
-    session.settle(outcome)
-    if outcome.kind != ProjectionOutcomeKind.committed:
-      fail("Sophia rejected Hagia's projection proof")
+    for _ in 0 ..< cycleCount:
+      let snapshot = client.receiveSnapshot()
+      let request = client.receiveProjectionRequest()
+      let transaction = client.allocateTransaction()
+      let projection = session.prepare(snapshot, request, transaction)
+      let outcome = client.sendProjection(request, transaction, projection)
+      session.settle(outcome)
+      if outcome.kind != ProjectionOutcomeKind.committed:
+        fail("Sophia rejected Hagia's projection proof")
   finally:
     session.abort()
     client.socket.close()
+
+## Exercise the smallest complete public-policy cycle without Triad machinery.
+proc runOnePolicyCycle*(path: string) =
+  path.runPolicyCycles(1)
 
 ## Process several settled projections on one authenticated connection. Sophia's
 ## supervisor, rather than this client, owns restart policy after transport loss.

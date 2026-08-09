@@ -16,4 +16,7 @@ nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
 cd "$SOPHIA_STACK_ROOT"
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
-    "$build_dir/hagia-policy-proof" "$build_dir/session"
+    "$build_dir/hagia-policy-proof" "$build_dir/session" all
+
+printf '%s\n' \
+    'hagia_policy_behavior_corpus schema=1 status=complete revision=1 scenarios=4 sequential=true'
