@@ -76,8 +76,9 @@ unless explicitly excluded with an architectural or product rationale.
 
 The semantic migration command was exercised against the recorded baseline's
 `config.kdl`: all 34 classified settings received a report row (2 retained, 12
-transformed, 15 unsupported, and 5 authority-excluded), and the generated Hagia
-profile passed `config check`. No active configuration was read or overwritten.
+transformed, 15 unsupported, and 5 authority-excluded), an explicit target
+authority, and a nonempty result. The generated Hagia profile passed
+`config check`. No active configuration was read or overwritten.
 
 No River/Wayland adapter, generated protocol module, shell implementation,
 metadata rule, or Triad project history is imported. Hagia reuses the shared

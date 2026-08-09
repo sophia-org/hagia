@@ -112,6 +112,21 @@ proc migrateTriadProfile*(source: string): MigrationReport =
         "output", "output", MigrationDisposition.transformed,
         "delegated to Sophia effective output configuration",
       )
+    of "scratchpad":
+      result.add(
+        "scratchpad", "policy", MigrationDisposition.unsupported,
+        "requires reduced scratchpad lifecycle and restoration",
+      )
+    of "workspaces":
+      result.add(
+        "workspaces", "policy", MigrationDisposition.unsupported,
+        "requires dynamic workspace lifecycle and layout selection",
+      )
+    of "protocol-surfaces":
+      result.add(
+        "protocol-surfaces", "shell", MigrationDisposition.unsupported,
+        "requires the bounded Sophia-native Hagia shell interface",
+      )
     of "terminal", "spawn-at-startup", "screen-lock", "allow-exit-session":
       result.add(
         node.name, "session", MigrationDisposition.unsupported,
@@ -134,7 +149,7 @@ proc migrateTriadProfile*(source: string): MigrationReport =
       )
     else:
       result.add(
-        node.name, "", MigrationDisposition.unsupported,
+        node.name, "unowned", MigrationDisposition.unsupported,
         "no authority accepts this Triad setting",
       )
   result.outputProfile =

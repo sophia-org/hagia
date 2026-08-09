@@ -425,15 +425,16 @@ suite "Hagia foundation":
 layout { gaps 8; center-focused-column "on-overflow"; }
 bindings { bind "Super+q" "close-window"; bind "Super+x" "unknown"; }
 input { keyboard {}; }
+scratchpad { width-ratio 0.8; }
+workspaces { default-count 3; }
+protocol-surfaces { enabled #true; }
 window-rule { match app-id="browser"; }
 """
     let report = migrateTriadProfile(source)
-    check report.items.len == 7
+    check report.items.len == 10
     for item in report.items:
       check item.result.len > 0
-      if item.disposition in
-          {MigrationDisposition.retained, MigrationDisposition.transformed}:
-        check item.authority.len > 0
+      check item.authority.len > 0
     let directory = createTempDir("hagia-migration-", "")
     defer:
       removeDir(directory)
