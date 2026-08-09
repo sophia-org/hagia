@@ -10,6 +10,7 @@ type
 
   PolicySnapshot* = object
     generation*: uint64
+    activeOutput*: uint64
     outputs*: seq[SnapshotOutput]
     surfaces*: seq[SnapshotSurface]
     bindings*: seq[SnapshotBinding]
@@ -47,6 +48,7 @@ type
     connectionEpoch*: uint64
     requestId*: uint64
     sceneGeneration*: uint64
+    policyGeneration*: uint64
     affectedOutputs*: seq[uint64]
     cause*: ProjectionCause
 
@@ -55,6 +57,7 @@ type
     placements*: seq[ProjectionPlacement]
 
   PolicyProjection* = object
+    activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
     outputStatuses*: seq[ProjectionOutputStatus]

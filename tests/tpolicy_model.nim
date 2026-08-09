@@ -1,10 +1,16 @@
-import std/[net, options, posix, unittest]
+import std/[net, options, os, posix, tempfiles, unittest]
 
 import policy/[actions, projection, state, types]
-import sophia/[policy_adapter, policy_client, policy_session, session_types, wm_v1]
+import
+  sophia/[
+    policy_adapter, policy_checkpoint, policy_client, policy_session, session_types,
+    wm_v1,
+  ]
 
 proc focusableCapabilities(): WindowCapabilities =
-  WindowCapabilities(movable: true, resizable: true, focusable: true)
+  WindowCapabilities(
+    movable: true, resizable: true, focusable: true, fullscreenable: true
+  )
 
 proc surface(
     index: uint32, output: uint64, stateGeneration: uint64 = 1, minWidth: int32 = 0
@@ -24,7 +30,12 @@ proc surface(
 proc snapshot(
     generation: uint64, outputs: seq[SnapshotOutput], surfaces: seq[SnapshotSurface]
 ): PolicySnapshot =
-  PolicySnapshot(generation: generation, outputs: outputs, surfaces: surfaces)
+  PolicySnapshot(
+    generation: generation,
+    activeOutput: outputs[0].output,
+    outputs: outputs,
+    surfaces: surfaces,
+  )
 
 proc binaryString(bytes: openArray[byte]): string =
   result = newString(bytes.len)
@@ -43,6 +54,7 @@ proc appendWireCycle(
   var beginPayload: seq[byte]
   beginPayload.addU64(epoch)
   beginPayload.addU64(generation)
+  beginPayload.addU64(10)
   beginPayload.addU16(2)
   beginPayload.addU16(1)
   beginPayload.addU32(1)
@@ -135,6 +147,7 @@ proc appendWireCycle(
   requestPayload.addU64(epoch)
   requestPayload.addU64(requestId)
   requestPayload.addU64(generation)
+  requestPayload.addU64(1)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
@@ -229,7 +242,7 @@ suite "Hagia private policy model":
 
     model.applyAction(first, PolicyAction.moveToNextOutput)
     check model.window(window).get().homeOutput == second
-    let projected = model.projectColumns([first, second])
+    let projected = model.projectScroller([first, second])
     require projected.len == 2
     check projected[0].output == first
     check projected[0].placements.len == 0
@@ -289,7 +302,7 @@ suite "Hagia private policy model":
     check model.window(second).get().id == second
     model.validate()
 
-  test "column projection respects constraints and deterministic order":
+  test "scroller projection respects constraints and deterministic order":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(x: 10, y: 20, width: 1000, height: 700))
     let first = model.addWindow(
@@ -298,7 +311,7 @@ suite "Hagia private policy model":
     let second = model.addWindow(output, focusableCapabilities(), SizeConstraints())
     model.setFocus(output, second)
 
-    let projected = model.projectColumns([output])
+    let projected = model.projectScroller([output])
     require projected.len == 1
     check projected[0].focus == second
     check projected[0].placements.len == 2
@@ -407,6 +420,42 @@ suite "Hagia private policy model":
     check model.affinityOrder.len == maxOutputAffinities
     model.validate()
 
+  test "output focus, grouping, presentation, and bounded history reduce privately":
+    var model = initPolicyModel()
+    let first = model.addOutput(Rect(width: 900, height: 600))
+    let second = model.addOutput(Rect(x: 900, width: 900, height: 600))
+    model.ensureViewCount(first, 9)
+    model.ensureViewCount(second, 9)
+    let one = model.addWindow(first, focusableCapabilities(), SizeConstraints())
+    let two = model.addWindow(first, focusableCapabilities(), SizeConstraints())
+    model.setFocus(first, one)
+    model.setFocus(first, two)
+    model.applyAction(first, PolicyAction.consumeNextColumn)
+    check model.window(one).get().column == model.window(two).get().column
+    model.applyAction(first, PolicyAction.expelFocusedWindow)
+    check model.window(one).get().column != model.window(two).get().column
+    model.applyAction(first, PolicyAction.toggleFullscreen)
+    check model.window(two).get().fullscreen
+    model.applyAction(first, PolicyAction.minimizeFocused)
+    check model.window(two).get().minimized
+    check model.output(first).get().focusedWindow == one
+    model.applyAction(first, PolicyAction.restoreMinimized)
+    check not model.window(two).get().minimized
+    check model.output(first).get().focusedWindow == two
+    model.applyAction(first, PolicyAction.focusNextOutput)
+    check model.activeOutput == second
+    check model.output(first).get().focusHistory.len <= maxFocusHistory
+    model.validate()
+
+  test "minimized restore history remains bounded independently of state":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    for _ in 0 ..< maxMinimizedHistory + 6:
+      let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+      model.setWindowPresentation(window, false, false, true)
+    check model.minimizedOrder.len == maxMinimizedHistory
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "projection uses the Engine work rectangle":
     let output = SnapshotOutput(
@@ -424,7 +473,11 @@ suite "Sophia snapshot adapter":
     let projection = adapter.projection(
       scene,
       ProjectionRequest(
-        connectionEpoch: 7, requestId: 9, sceneGeneration: 1, affectedOutputs: @[10'u64]
+        connectionEpoch: 7,
+        requestId: 9,
+        sceneGeneration: 1,
+        policyGeneration: 1,
+        affectedOutputs: @[10'u64],
       ),
     )
     check projection.outputs[0].placements[0].y == 40
@@ -456,7 +509,11 @@ suite "Sophia snapshot adapter":
     require firstId.isSome and secondId.isSome
 
     let request = ProjectionRequest(
-      connectionEpoch: 7, requestId: 9, sceneGeneration: 1, affectedOutputs: @[10'u64]
+      connectionEpoch: 7,
+      requestId: 9,
+      sceneGeneration: 1,
+      policyGeneration: 1,
+      affectedOutputs: @[10'u64],
     )
     let projection = adapter.projection(firstSnapshot, request)
     require projection.outputs.len == 1
@@ -490,6 +547,7 @@ suite "Sophia snapshot adapter":
           connectionEpoch: 7,
           requestId: 9,
           sceneGeneration: 1,
+          policyGeneration: 1,
           affectedOutputs: @[11'u64],
         ),
       )
@@ -533,6 +591,7 @@ suite "Sophia snapshot adapter":
       connectionEpoch: 7,
       requestId: 9,
       sceneGeneration: 3,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64, 20'u64],
     )
     let projected = adapter.projection(returnedScene, request)
@@ -540,7 +599,76 @@ suite "Sophia snapshot adapter":
     check projected.outputs[1].placements.len == 1
     adapter.model().validate()
 
+  test "a private checkpoint remains a candidate until complete reconciliation":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    let first = snapshot(1, @[output], @[surface(1, 10)])
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(first)
+    let logicalWindow = adapter.logicalWindow(1, 1)
+    let payload = adapter.checkpointPayload()
+    var restored = payload.restoreCheckpointPayload()
+    restored.reconcile(snapshot(2, @[output], @[surface(1, 10, 2), surface(2, 10)]))
+    check restored.logicalWindow(1, 1) == logicalWindow
+    check restored.logicalWindow(2, 1).isSome
+    expect PolicyAdapterError:
+      discard ("BAD" & payload).restoreCheckpointPayload()
+
+  test "a private checkpoint is atomically replaced and loaded from disk":
+    let directory = createTempDir("hagia-checkpoint-", "")
+    let path = directory / "policy.checkpoint"
+    defer:
+      if fileExists(path):
+        removeFile(path)
+      removeDir(directory)
+
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    let logicalWindow = adapter.logicalWindow(1, 1)
+
+    savePolicyCheckpoint(path, adapter)
+    check getFilePermissions(path) == {fpUserRead, fpUserWrite}
+    let loaded = loadPolicyCheckpoint(path)
+    require loaded.isSome
+    check loaded.get().logicalWindow(1, 1) == logicalWindow
+
+    writeFile(path, "not a checkpoint")
+    expect PolicyCheckpointError:
+      discard loadPolicyCheckpoint(path)
+
 suite "Sophia policy session":
+  test "fullscreen uses output bounds while ordinary scroller geometry uses work area":
+    let output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      width: 900,
+      height: 600,
+      workY: 40,
+      workWidth: 900,
+      workHeight: 560,
+      focusIndex: 1,
+      focusGeneration: 1,
+    )
+    var scene = snapshot(1, @[output], @[surface(1, 10)])
+    scene.bindings = @[SnapshotBinding(action: 37)]
+    let request = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      policyGeneration: 1,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.action, activationSerial: 1, action: 37
+      ),
+    )
+    var session = initPolicySession()
+    let projected = session.prepare(scene, request, 1)
+    let placement = projected.outputs[0].placements[0]
+    check projected.activeOutput == 10
+    check placement.y == 0
+    check placement.height == 600
+    check (placement.presentationBits and 1) != 0
+
   test "one completed reduced pointer interaction becomes committed floating geometry":
     let output = SnapshotOutput(
       output: 10,
@@ -555,6 +683,7 @@ suite "Sophia policy session":
       connectionEpoch: 7,
       requestId: 1,
       sceneGeneration: 1,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64],
       cause: ProjectionCause(
         kind: ProjectionCauseKind.interaction,
@@ -593,6 +722,7 @@ suite "Sophia policy session":
       connectionEpoch: 7,
       requestId: 1,
       sceneGeneration: 1,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64],
       cause: ProjectionCause(
         kind: ProjectionCauseKind.action, activationSerial: 1, action: 1
@@ -617,6 +747,7 @@ suite "Sophia policy session":
       connectionEpoch: 7,
       requestId: 2,
       sceneGeneration: 2,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64],
       cause: ProjectionCause(
         kind: ProjectionCauseKind.action, activationSerial: 2, action: 1
@@ -635,12 +766,14 @@ suite "Sophia policy session":
       height: 600,
     )
     var scene = snapshot(1, @[output], @[surface(1, 10)])
+    scene.bindings = @[SnapshotBinding(action: 31, sessionOperationSlot: 3)]
     scene.sessionOperations =
       @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
     let request = ProjectionRequest(
       connectionEpoch: 7,
       requestId: 1,
       sceneGeneration: 1,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64],
       cause: ProjectionCause(
         kind: ProjectionCauseKind.action, activationSerial: 19, action: 31
@@ -656,11 +789,13 @@ suite "Sophia policy session":
 
   test "an unavailable session-operation slot fails closed":
     let output = SnapshotOutput(output: 10, generation: 1, width: 900, height: 600)
-    let scene = snapshot(1, @[output], @[surface(1, 10)])
+    var scene = snapshot(1, @[output], @[surface(1, 10)])
+    scene.bindings = @[SnapshotBinding(action: 29, sessionOperationSlot: 1)]
     let request = ProjectionRequest(
       connectionEpoch: 7,
       requestId: 1,
       sceneGeneration: 1,
+      policyGeneration: 1,
       affectedOutputs: @[10'u64],
       cause: ProjectionCause(
         kind: ProjectionCauseKind.action, activationSerial: 19, action: 29
@@ -715,7 +850,11 @@ suite "Sophia policy session":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
     let firstSnapshot = snapshot(1, @[output], @[surface(1, 10)])
     let firstRequest = ProjectionRequest(
-      connectionEpoch: 7, requestId: 1, sceneGeneration: 1, affectedOutputs: @[10'u64]
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      policyGeneration: 1,
+      affectedOutputs: @[10'u64],
     )
     var session = initPolicySession()
     discard session.prepare(firstSnapshot, firstRequest, 1)
@@ -737,7 +876,11 @@ suite "Sophia policy session":
     let secondSnapshot =
       snapshot(2, @[changedOutput], @[surface(1, 10, 2), surface(2, 10)])
     let secondRequest = ProjectionRequest(
-      connectionEpoch: 7, requestId: 2, sceneGeneration: 2, affectedOutputs: @[10'u64]
+      connectionEpoch: 7,
+      requestId: 2,
+      sceneGeneration: 2,
+      policyGeneration: 1,
+      affectedOutputs: @[10'u64],
     )
     discard session.prepare(secondSnapshot, secondRequest, 2)
     session.settle(
@@ -771,6 +914,7 @@ suite "Sophia policy session":
         connectionEpoch: 9,
         requestId: transaction,
         sceneGeneration: 1,
+        policyGeneration: 1,
         affectedOutputs: @[10'u64],
       )
       discard session.prepare(scene, request, transaction)
@@ -791,7 +935,11 @@ suite "Sophia policy session":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
     let scene = snapshot(1, @[output], @[surface(1, 10)])
     let request = ProjectionRequest(
-      connectionEpoch: 7, requestId: 1, sceneGeneration: 1, affectedOutputs: @[10'u64]
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      policyGeneration: 1,
+      affectedOutputs: @[10'u64],
     )
     var session = initPolicySession()
     discard session.prepare(scene, request, 1)

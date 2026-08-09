@@ -31,6 +31,8 @@ Sophia dependency or authority model.
   lowers logical projections back to current opaque identities.
 - `src/sophia/policy_session.nim` stages private candidates and promotes only
   projections that Sophia explicitly commits.
+- `src/sophia/policy_checkpoint.nim` validates and atomically replaces the
+  optional private session checkpoint.
 - `src/sophia/policy_client.nim` owns bounded transport sequencing only.
 
 The adapter exposes a snapshot to policy only after the complete begin/chunk/end
@@ -55,10 +57,11 @@ all sixteen protocol outputs without exhausting the 64-bit tag mask. A window
 is eligible when its home output matches and its tags intersect the active
 view. Sophia sees only the resulting ordered output projection.
 
-Columns are stable logical entities. Automatic widths preserve the initial
-equal-column projection; explicit widths use bounded Q16.16 scales and 64-bit
-intermediate arithmetic. Hagia emits final integer target geometry. It does not
-animate, render, or retain client pixels.
+Columns are stable logical entities. The retained profile has one scrolling
+layout only. Automatic widths divide the viewport deterministically; explicit
+widths use bounded Q16.16 scales and 64-bit intermediate arithmetic. Hagia
+emits final integer target geometry. It does not animate, render, or retain
+client pixels.
 
 ## Recovery Direction
 
@@ -72,8 +75,15 @@ The adapter retains at most sixteen dormant exact `(output, generation)`
 handles. The policy model stores only the corresponding logical affinity. Loss
 migrates views, columns, and windows to a surviving output; an exact return
 restores still-live preferred state. Reused opaque IDs with a new generation
-receive new logical identities. Persistent recovery across a new Hagia process
-remains checkpoint work for the next milestone.
+receive new logical identities. An optional session-local checkpoint retains
+the private adapter/model candidate across a new Hagia process. It is
+size-bounded, written owner-only through a same-directory fsynced atomic
+replacement, and validated before complete snapshot reconciliation. It is not
+a portable configuration format. Sophia allocates the path inside its private
+policy endpoint directory, so the file survives supervised child replacement
+but is deleted when the owning session ends. A checkpoint write failure disables
+further writes for that client epoch and reports a diagnostic; it does not turn
+an optional recovery optimization into a policy-session failure.
 
 ## Management Lifecycle
 

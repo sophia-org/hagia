@@ -50,15 +50,19 @@ physical workload gates.
 
 - [x] Add nine-view activation, focus movement, cross-output movement, and
   move-to-view reducer messages driven by opaque registered actions.
-- [ ] Add general tag mutation and explicit output-focus actions without
+- [ ] Add general tag mutation without
   exposing raw input or Sophia identities to the private model.
-- [ ] Add output focus, column grouping,
-  consume/expel, width/height adjustment, layout cycling, and reset actions.
-- [ ] Add private floating restore geometry, reduced dialog/transient defaults,
-  fullscreen, minimize/restore, scratchpads, and bounded focus history.
+- [x] Add output focus, column consume/expel, and width/height adjustment for
+  the one retained scrolling layout.
+- [ ] Add reduced dialog/transient defaults and scratchpads. Private floating
+  geometry, fullscreen, maximize, minimize/restore, and bounded focus history
+  now reduce deterministically; frontend X state signaling remains a Sophia
+  integration gate.
 - [x] Add bounded Engine-owned completed pointer move and resize interactions;
   Hagia receives only the exact target and final output-local geometry.
-- [ ] Add session-local checkpointing with exact snapshot reconciliation.
+- [x] Add bounded session-local checkpointing with exact snapshot
+  reconciliation. Sophia now carries an opt-in two-output physical gate; an
+  authorized retained run remains open.
 - [ ] Prove policy crash/restart while applications and the committed scene
   remain alive.
 

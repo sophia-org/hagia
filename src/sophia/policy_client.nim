@@ -1,6 +1,6 @@
 import std/[net, options, os, sets, strutils]
 
-import ./[policy_session, session_types, wm_v1]
+import ./[policy_adapter, policy_checkpoint, policy_session, session_types, wm_v1]
 
 type
   PolicyClientError* = object of CatchableError
@@ -138,7 +138,7 @@ proc recordBytes(payload: openArray[byte], index, size: int): seq[byte] =
   @payload[first ..< past]
 
 proc validateSnapshot(snapshot: PolicySnapshot) =
-  if snapshot.generation == 0 or snapshot.outputs.len == 0 or
+  if snapshot.generation == 0 or snapshot.activeOutput == 0 or snapshot.outputs.len == 0 or
       snapshot.outputs.len > maxOutputs or snapshot.surfaces.len > maxSurfaces:
     fail("policy snapshot count is invalid")
   var outputs = initHashSet[uint64]()
@@ -152,6 +152,8 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
         int64(output.y) + int64(output.height) or output.output in outputs:
       fail("policy snapshot output is invalid")
     outputs.incl(output.output)
+  if snapshot.activeOutput notin outputs:
+    fail("policy snapshot active output is invalid")
   var surfaces = initHashSet[(uint32, uint32)]()
   for surface in snapshot.surfaces:
     let identity = (surface.surfaceIndex, surface.surfaceGeneration)
@@ -172,6 +174,9 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
         (surface.exactWidth == 0) != (surface.exactHeight == 0) or surface.exactWidth < 0 or
         surface.exactHeight < 0:
       fail("policy surface reduced state is invalid")
+    if (surface.currentStateBits and 1) != 0 and (surface.currentStateBits and 2) != 0 or
+        (surface.currentStateBits and 4) != 0 and (surface.currentStateBits and 3) != 0:
+      fail("policy surface presentation state conflicts")
     surfaces.incl(identity)
   for surface in snapshot.surfaces:
     if surface.transientGeneration != 0 and
@@ -186,11 +191,25 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
         if surface.surfaceIndex == output.focusIndex and
             surface.surfaceGeneration == output.focusGeneration and
             surface.currentOutput == output.output and
-            (surface.capabilityBits and surfaceFocusable) != 0:
+            (surface.capabilityBits and surfaceFocusable) != 0 and
+            (surface.currentStateBits and 4) == 0:
           validFocus = true
           break
       if not validFocus:
         fail("policy output focus is invalid")
+  var actions = initHashSet[uint64]()
+  var operationSlots = initHashSet[uint16]()
+  for operation in snapshot.sessionOperations:
+    if operation.operation == 0 or operation.slot == 0 or
+        operation.slot in operationSlots:
+      fail("policy session operation is invalid")
+    operationSlots.incl(operation.slot)
+  for binding in snapshot.bindings:
+    if binding.action == 0 or binding.action in actions or
+        binding.sessionOperationSlot != 0 and
+        binding.sessionOperationSlot notin operationSlots:
+      fail("policy binding is invalid")
+    actions.incl(binding.action)
 
 ## Assemble into local scratch state; callers see a snapshot only after every
 ## identity, ordinal, record total, and terminal frame agrees.
@@ -198,13 +217,14 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   let begin = client.receiveFrame(MessageKind.snapshotBegin)
   let connectionEpoch = begin.payload.u64At(0)
   let generation = begin.payload.u64At(8)
-  let chunkCount = int(begin.payload.u16At(16))
-  let declaredOutputs = int(begin.payload.u16At(18))
-  let declaredSurfaces = int(begin.payload.u32At(20))
-  let declaredBindings = int(begin.payload.u16At(24))
-  let declaredSessionOperations = int(begin.payload.u16At(26))
+  let activeOutput = begin.payload.u64At(16)
+  let chunkCount = int(begin.payload.u16At(24))
+  let declaredOutputs = int(begin.payload.u16At(26))
+  let declaredSurfaces = int(begin.payload.u32At(28))
+  let declaredBindings = int(begin.payload.u16At(32))
+  let declaredSessionOperations = int(begin.payload.u16At(34))
   if connectionEpoch != client.connectionEpoch or generation == 0 or chunkCount == 0 or
-      declaredOutputs == 0 or declaredOutputs > maxOutputs or
+      activeOutput == 0 or declaredOutputs == 0 or declaredOutputs > maxOutputs or
       declaredSurfaces > maxSurfaces or declaredBindings > maxBindings or
       declaredSessionOperations > maxBindings:
     fail("policy snapshot header is invalid")
@@ -269,6 +289,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
     fail("policy snapshot did not settle exactly")
   result = PolicySnapshot(
     generation: generation,
+    activeOutput: activeOutput,
     outputs: outputs,
     surfaces: surfaces,
     bindings: bindings,
@@ -281,32 +302,34 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   result.connectionEpoch = frame.payload.u64At(0)
   result.requestId = frame.payload.u64At(8)
   result.sceneGeneration = frame.payload.u64At(16)
-  let rawCause = frame.payload.u16At(24)
+  result.policyGeneration = frame.payload.u64At(24)
+  let rawCause = frame.payload.u16At(32)
   if rawCause > uint16(ord(high(ProjectionCauseKind))):
     fail("policy projection cause is invalid")
   result.cause.kind = ProjectionCauseKind(rawCause)
-  let rawPhase = frame.payload.u16At(26)
+  let rawPhase = frame.payload.u16At(34)
   if rawPhase > uint16(ord(high(InteractionPhase))):
     fail("policy interaction phase is invalid")
   result.cause.interactionPhase = InteractionPhase(rawPhase)
-  let rawInteraction = frame.payload.u16At(28)
+  let rawInteraction = frame.payload.u16At(36)
   if rawInteraction > uint16(ord(high(InteractionKind))):
     fail("policy interaction kind is invalid")
   result.cause.interactionKind = InteractionKind(rawInteraction)
-  result.cause.activationSerial = frame.payload.u64At(32)
-  result.cause.action = frame.payload.u64At(40)
-  result.cause.targetIndex = frame.payload.u32At(48)
-  result.cause.targetGeneration = frame.payload.u32At(52)
-  result.cause.x = frame.payload.i32At(56)
-  result.cause.y = frame.payload.i32At(60)
-  result.cause.width = frame.payload.i32At(64)
-  result.cause.height = frame.payload.i32At(68)
-  let outputCount = int(frame.payload.u16At(72))
+  result.cause.activationSerial = frame.payload.u64At(40)
+  result.cause.action = frame.payload.u64At(48)
+  result.cause.targetIndex = frame.payload.u32At(56)
+  result.cause.targetGeneration = frame.payload.u32At(60)
+  result.cause.x = frame.payload.i32At(64)
+  result.cause.y = frame.payload.i32At(68)
+  result.cause.width = frame.payload.i32At(72)
+  result.cause.height = frame.payload.i32At(76)
+  let outputCount = int(frame.payload.u16At(80))
   if result.connectionEpoch != client.connectionEpoch or result.requestId == 0 or
-      result.sceneGeneration == 0 or outputCount == 0 or outputCount > maxOutputs:
+      result.sceneGeneration == 0 or result.policyGeneration == 0 or outputCount == 0 or
+      outputCount > maxOutputs:
     fail("policy projection request is invalid")
   for index in 0 ..< outputCount:
-    result.affectedOutputs.add(frame.payload.u64At(76 + index * 8))
+    result.affectedOutputs.add(frame.payload.u64At(84 + index * 8))
 
 proc allocateTransaction(client: PolicyClient): uint64 =
   result = client.nextTransaction
@@ -314,28 +337,44 @@ proc allocateTransaction(client: PolicyClient): uint64 =
   if result == 0 or client.nextTransaction == 0:
     fail("policy transaction identity space is exhausted")
 
-proc addBinding(payload: var seq[byte], action: uint64, keycode, modifiers: uint32) =
+proc addBinding(
+    payload: var seq[byte],
+    action: uint64,
+    keycode, modifiers: uint32,
+    sessionOperationSlot: uint16 = 0,
+) =
   payload.addU64(action)
   payload.addU32(keycode)
   payload.addU32(modifiers)
+  payload.addU16(sessionOperationSlot)
+  payload.addU16(0)
 
 proc installConfiguration(client: PolicyClient) =
   const
     super = 1'u32 shl 3
     shift = 1'u32 shl 0
   let bindings = @[
-    (1'u64, 36'u32, super),
-    (2'u64, 37'u32, super),
-    (5'u64, 106'u32, super or shift),
-    (6'u64, 105'u32, super or shift),
-    (7'u64, 38'u32, super),
-    (8'u64, 35'u32, super),
-    (9'u64, 38'u32, super or shift),
-    (10'u64, 35'u32, super or shift),
-    (29'u64, 28'u32, super),
-    (30'u64, 33'u32, super),
-    (31'u64, 46'u32, super or shift),
-    (32'u64, 16'u32, super or shift),
+    (1'u64, 36'u32, super, 0'u16),
+    (2'u64, 37'u32, super, 0'u16),
+    (5'u64, 106'u32, super or shift, 0'u16),
+    (6'u64, 105'u32, super or shift, 0'u16),
+    (7'u64, 38'u32, super, 0'u16),
+    (8'u64, 35'u32, super, 0'u16),
+    (9'u64, 38'u32, super or shift, 0'u16),
+    (10'u64, 35'u32, super or shift, 0'u16),
+    (29'u64, 28'u32, super, 1'u16),
+    (30'u64, 33'u32, super, 2'u16),
+    (31'u64, 46'u32, super or shift, 3'u16),
+    (32'u64, 16'u32, super or shift, 4'u16),
+    (33'u64, 105'u32, super, 0'u16),
+    (34'u64, 106'u32, super, 0'u16),
+    (35'u64, 26'u32, super, 0'u16),
+    (36'u64, 27'u32, super, 0'u16),
+    (37'u64, 21'u32, super, 0'u16),
+    (38'u64, 50'u32, super, 0'u16),
+    (39'u64, 49'u32, super, 0'u16),
+    (40'u64, 19'u32, super, 0'u16),
+    (41'u64, 20'u32, super, 0'u16),
   ]
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)
@@ -348,7 +387,7 @@ proc installConfiguration(client: PolicyClient) =
   payload.addU32(0xffffb6b0'u32)
   payload.addU32(0xff7c7c7c'u32)
   for binding in bindings:
-    payload.addBinding(binding[0], binding[1], binding[2])
+    payload.addBinding(binding[0], binding[1], binding[2], binding[3])
   for slot in 1 .. 9:
     payload.addBinding(uint64(10 + slot), uint32(slot + 1), super)
     payload.addBinding(uint64(19 + slot), uint32(slot + 1), super or shift)
@@ -410,6 +449,7 @@ proc sendProjection(
   beginPayload.addU64(client.connectionEpoch)
   beginPayload.addU64(request.requestId)
   beginPayload.addU64(request.sceneGeneration)
+  beginPayload.addU64(projection.activeOutput)
   beginPayload.addU16(uint16(chunkCount))
   beginPayload.addU16(uint16(projection.outputs.len))
   beginPayload.addU32(uint32(placementCount))
@@ -539,7 +579,25 @@ proc runOnePolicyCycle*(path: string) =
 ## Process several settled projections on one authenticated connection. Sophia's
 ## supervisor, rather than this client, owns restart policy after transport loss.
 proc runPolicySession(client: PolicyClient, configure: bool) =
+  let privateCheckpoint = checkpointPath()
+  var checkpointEnabled = privateCheckpoint.len > 0
+  var restoredCheckpoint = false
   var session = initPolicySession()
+  if checkpointEnabled:
+    try:
+      let restored = privateCheckpoint.loadPolicyCheckpoint()
+      if restored.isSome:
+        let candidate = restored.get()
+        stderr.writeLine(
+          "hagia_policy_checkpoint schema=1 status=loaded candidate_nonempty=" &
+            $candidate.hasWindows()
+        )
+        session = initPolicySession(candidate)
+        restoredCheckpoint = true
+    except PolicyCheckpointError as error:
+      stderr.writeLine(
+        "hagia_policy_checkpoint schema=1 status=discarded reason=" & error.msg
+      )
   try:
     if configure:
       client.installConfiguration()
@@ -550,11 +608,35 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
       let projection = session.prepare(snapshot, request, transaction)
+      if projection.activeOutput != snapshot.activeOutput:
+        stderr.writeLine(
+          "hagia_policy_projection schema=1 status=active_output_changed"
+        )
       injectConfiguredFault("projection_prepared")
       let operation = session.pendingOperation()
       let outcome = client.sendProjection(request, transaction, projection)
       injectConfiguredFault("outcome_received")
       session.settle(outcome)
+      if outcome.kind == ProjectionOutcomeKind.committed and checkpointEnabled:
+        try:
+          privateCheckpoint.savePolicyCheckpoint(session.committedAdapter())
+          let candidateNonempty = session.committedAdapter().hasWindows()
+          stderr.writeLine(
+            "hagia_policy_checkpoint schema=1 status=saved candidate_nonempty=" &
+              $candidateNonempty
+          )
+          injectConfiguredFault("checkpoint_saved")
+          if restoredCheckpoint:
+            stderr.writeLine(
+              "hagia_policy_checkpoint schema=1 status=reconciled candidate_nonempty=" &
+                $candidateNonempty
+            )
+            restoredCheckpoint = false
+        except PolicyCheckpointError as error:
+          checkpointEnabled = false
+          stderr.writeLine(
+            "hagia_policy_checkpoint schema=1 status=disabled reason=" & error.msg
+          )
       if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
         let operationOutcome = client.sendSessionOperation(operation.get())
         if operationOutcome == ProjectionOutcomeKind.disconnected:

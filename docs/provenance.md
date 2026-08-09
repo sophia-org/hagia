@@ -25,6 +25,14 @@ The scrolling-column slice reviews Triad's `src/layouts/scroller.nim` and
 bounded Q16.16 scales, integer target geometry, and its own tests; it does not
 copy Triad's float-based implementation or runtime interpolation.
 
+The current critical-path reducer extends that independent model with output
+focus, column consume/expel, bounded history, floating geometry, and
+fullscreen/maximize/minimize state. The checkpoint and Sophia adapter are new
+Hagia code derived from Sophia's public contract, not ports of Triad runtime
+state or serialization. The retained profile intentionally has one scroller
+and nine fixed views; general tag mutation, scratchpads, and additional layouts
+remain separately reviewable future ports.
+
 No River/Wayland adapter, generated protocol module, configuration parser,
 shell implementation, metadata rule, or Triad project history is imported.
 Future source-level ports must retain the applicable Triad MIT notice and name

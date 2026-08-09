@@ -92,7 +92,8 @@ proc projectScroller*(
     let output = model.output(outputId)
     if output.isNone:
       raise newException(PolicyStateError, "projection output does not exist")
-    let eligible = model.eligibleWindows(outputId)
+    let eligible =
+      model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
     var columns: seq[(ColumnData, seq[WindowId])]
     for columnId in model.columnOrder:
       let column = model.columns[columnId]
@@ -208,50 +209,6 @@ proc projectScroller*(
           )
         )
         y += int64(height) + int64(safeInnerGap)
-    model.appendFloating(outputId, eligible, projection)
-    model.selectFocus(output.get(), eligible, projection)
-    result.add(projection)
-
-proc projectColumns*(
-    model: PolicyModel, affectedOutputs: openArray[OutputId]
-): seq[LogicalOutputProjection] =
-  model.validate()
-  for outputId in affectedOutputs:
-    let output = model.output(outputId)
-    if output.isNone:
-      raise newException(PolicyStateError, "projection output does not exist")
-    let eligible = model.eligibleWindows(outputId)
-    let windows = eligible.filterIt(not model.windows[it].floating)
-    var projection = LogicalOutputProjection(output: outputId)
-    if windows.len > 0:
-      let count = int32(windows.len)
-      let columnWidth = output.get().bounds.width div count
-      if columnWidth <= 0:
-        raise newException(PolicyStateError, "output is too narrow for columns")
-      for index, windowId in windows:
-        let window = model.window(windowId).get()
-        let x = output.get().bounds.x + columnWidth * int32(index)
-        let width =
-          if index + 1 == windows.len:
-            output.get().bounds.x + output.get().bounds.width - x
-          else:
-            columnWidth
-        projection.placements.add(
-          LogicalPlacement(
-            window: windowId,
-            geometry: Rect(
-              x: x,
-              y: output.get().bounds.y,
-              width: width,
-              height: output.get().bounds.height,
-            ),
-            requestedWidth:
-              width.clamp(window.constraints.minWidth, window.constraints.maxWidth),
-            requestedHeight: output.get().bounds.height.clamp(
-                window.constraints.minHeight, window.constraints.maxHeight
-              ),
-          )
-        )
     model.appendFloating(outputId, eligible, projection)
     model.selectFocus(output.get(), eligible, projection)
     result.add(projection)

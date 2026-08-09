@@ -27,13 +27,13 @@ None of these repositories is a Hagia runtime or build dependency.
 | Triad capability | Sophia owner | Hagia status | Required interface or evidence |
 | --- | --- | --- | --- |
 | Stable tags, views, columns, and logical IDs | Hagia | Implemented | Pure model and reconciliation tests |
-| Tiling and scrolling layout | Hagia | Equal-column and scrolling projections implemented | Deterministic geometry and constraint tests |
-| Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Focus, view, output move, and size actions implemented; grouping and layout cycling missing | `sophia_wm_v1` action causes and ordered action tests |
+| Scrolling layout | Hagia | One fixed scrolling profile implemented; extra layouts are not critical-path work | Deterministic geometry and constraint tests |
+| Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Focus, view, output focus/move, consume/expel, and size actions implemented | `sophia_wm_v1` action causes and ordered action tests |
 | Output-local views and reconnect affinity | Hagia over Engine output facts | Nine-view actions and affinity implemented | Work rectangles, multi-output proposals, loss/return tests |
-| Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Missing | Reduced kinds/state, presentation decisions, restore tests |
-| Pointer move and resize | Engine grab and hit testing; Hagia geometry policy | Missing | Reduced begin/update/end interaction causes |
+| Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Floating and presentation reducers implemented; scratchpads and frontend X state signaling missing | Reduced kinds/state, presentation decisions, restore tests, frontend state evidence |
+| Pointer move and resize | Engine grab and hit testing; Hagia geometry policy | One bounded completed interaction implemented | Reduced final interaction cause; continuous updates deferred |
 | Policy reload or private policy command | Hagia may request a new cycle; Engine remains scene authority | Missing | Bounded policy-dirty request and complete fresh snapshot |
-| Policy checkpoint and restart | Hagia checkpoint; Sophia session supervision | In-process committed state only | Session-local checkpoint and exact reconciliation proof |
+| Policy checkpoint and restart | Hagia checkpoint; Sophia session supervision | Bounded owner-only atomic session checkpoint plus in-process state | Installed physical restore proof |
 | Keyboard matching and physical gestures | Engine | Outside Hagia | Registered opaque actions; no raw input crosses the wire |
 | Client state, pixels, configure delivery, and presentation | Engine and frontend authority | Outside Hagia | Settled snapshot generations and last-good preservation |
 | Application placement rules | Trusted classification and launch-provenance broker | Deferred | Opaque placement grants; no title, class, PID, or path |

@@ -29,6 +29,33 @@ type PolicyAction* {.pure.} = enum
   moveToView7 = 26
   moveToView8 = 27
   moveToView9 = 28
+  sessionTerminal = 29
+  sessionBrowser = 30
+  sessionClose = 31
+  sessionLogout = 32
+  focusNextOutput = 33
+  focusPreviousOutput = 34
+  consumeNextColumn = 35
+  expelFocusedWindow = 36
+  toggleFullscreen = 37
+  toggleMaximized = 38
+  minimizeFocused = 39
+  restoreMinimized = 40
+  toggleFloating = 41
+
+proc isPolicyAction*(raw: uint64): bool =
+  raw in 1'u64 .. 28'u64 or raw in 33'u64 .. 41'u64
+
+proc policyAction*(raw: uint64): PolicyAction =
+  if not raw.isPolicyAction():
+    raise newException(PolicyStateError, "policy action identity is invalid")
+  case raw
+  of 1'u64 .. 28'u64:
+    PolicyAction(raw)
+  of 33'u64 .. 41'u64:
+    PolicyAction(raw)
+  else:
+    raise newException(PolicyStateError, "policy action identity is invalid")
 
 proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction) =
   ## Reducer actions mutate private logical state only. Sophia validates the
@@ -58,3 +85,23 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.activateViewSlot(output, ord(action) - ord(PolicyAction.activateView1) + 1)
   of PolicyAction.moveToView1 .. PolicyAction.moveToView9:
     model.moveFocusedToViewSlot(output, ord(action) - ord(PolicyAction.moveToView1) + 1)
+  of PolicyAction.sessionTerminal .. PolicyAction.sessionLogout:
+    raise newException(PolicyStateError, "session operation entered policy reduction")
+  of PolicyAction.focusNextOutput:
+    model.focusOutputRelative(1)
+  of PolicyAction.focusPreviousOutput:
+    model.focusOutputRelative(-1)
+  of PolicyAction.consumeNextColumn:
+    model.consumeNextColumn()
+  of PolicyAction.expelFocusedWindow:
+    model.expelFocusedWindow()
+  of PolicyAction.toggleFullscreen:
+    model.toggleFocusedFullscreen()
+  of PolicyAction.toggleMaximized:
+    model.toggleFocusedMaximized()
+  of PolicyAction.minimizeFocused:
+    model.minimizeFocused()
+  of PolicyAction.restoreMinimized:
+    model.restoreLastMinimized()
+  of PolicyAction.toggleFloating:
+    model.toggleFocusedFloating()

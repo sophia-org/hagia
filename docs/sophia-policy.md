@@ -12,15 +12,29 @@ conformance test accepts a Sophia checkout path so both repositories can check
 the same retained golden corpus without making either build depend on the
 other repository's source tree.
 
-The independent proof client also exercises Sophia's credential-checked socket,
-strict complete-snapshot assembly, exact affected-output request, full
-projection encoding, and explicit committed outcome. The first policy port now
-reduces the complete snapshot into stable Hagia IDs, private tags and views,
-and a deterministic affected-output projection. This remains a dormant
-conformance path, not a login session; the installed Sophia candidate continues
-to use its experimental v7 xmonad bridge while the public protocol matures.
+The independent client exercises Sophia's credential-checked socket, strict
+complete-snapshot assembly, exact affected-output request, full projection
+encoding, and explicit committed outcome. The policy port reduces the complete
+snapshot into stable Hagia IDs, private tags, views, and one deterministic
+scrolling-column projection. Sophia's native public-policy owner now supervises
+this long-running client; the v7 xmonad bridge is retained compatibility
+evidence rather than the promotion path.
+
+The revision-1 boundary names the presented active output in both snapshot and
+proposal, carries the admitted private policy generation on every request, and
+maps a committed binding to an optional advertised session-operation slot.
+Hagia never infers operation authority from an action number. It validates the
+opaque operation token and its target permission separately, then waits for the
+projection commit before requesting the operation.
 
 Each affected output also emits nine presentation-only indicator slots and one
 output status record. Stable private view IDs become opaque indicator IDs;
 labels, state flags, and activation tokens cross the wire, while tag masks and
 the private layout model do not.
+
+Sophia gives the installed client an owner-only `HAGIA_POLICY_CHECKPOINT` path
+inside the policy endpoint directory. Hagia writes a bounded, fsynced,
+same-directory atomic replacement after a committed projection. On restart it
+validates the private indexes and treats the result only as a candidate for
+complete-snapshot reconciliation. The format is neither portable configuration
+nor part of `sophia_wm_v1`.

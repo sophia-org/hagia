@@ -27,16 +27,27 @@ reducer.
 Hagia now carries the first bounded Triad-policy port: stable logical IDs, nine
 shared tag slots with output-local views, commit-aware complete-snapshot
 reconciliation, bounded output reconnect affinity, deterministic fixed-point
-scrolling columns, atomic cross-output movement, completed reduced pointer
-move/resize, and a checked-in native action and chrome profile. The
+scrolling columns, atomic cross-output movement, output focus, column
+consume/expel, bounded focus/minimize histories, presentation-state reduction,
+completed reduced pointer move/resize, and a checked-in native action and
+chrome profile. The retained profile has one scrolling layout and nine fixed
+views; additional layouts are outside the critical path. The
 `hagia` executable is a long-running client of the session-owned
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
-recovery, floating lifecycle beyond exact final geometry, continuous pointer
-interaction, and shell work remain explicit later milestones. Sophia owns
-scene truth, input authority, validation, atomic
+recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
+owner-only, atomic replacement; restored state is revalidated and reconciled
+against a complete snapshot before use. A physical restore proof, floating
+lifecycle beyond exact final geometry, continuous pointer interaction, and
+shell work remain explicit later milestones. Sophia owns scene truth, input
+authority, validation, atomic
 commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,
 `docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.
+
+Sophia carries the opt-in installed hardware procedure in
+`tools/hagia_policy_physical_gate.sh`. It is intentionally not part of
+`nimble test`: taking DRM/KMS and physical input ownership requires explicit
+operator authorization.
 
 ## License
 

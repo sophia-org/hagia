@@ -80,6 +80,7 @@ type
     action*: uint64
     keycode*: uint32
     modifierBits*: uint32
+    sessionOperationSlot*: uint16
 
   SnapshotSessionOperation* = object
     operation*: uint64
@@ -135,7 +136,7 @@ const
   maxBindings* = 256
   snapshotOutputSize* = 56
   snapshotSurfaceSize* = 80
-  snapshotBindingSize* = 16
+  snapshotBindingSize* = 20
   snapshotSessionOperationSize* = 12
   projectionOutputSize* = 24
   projectionPlacementSize* = 60
@@ -236,7 +237,7 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
     payload.requireExact(32)
     payload.requireReserved(2, 2)
   of MessageKind.snapshotBegin:
-    payload.requireExact(28)
+    payload.requireExact(36)
   of MessageKind.snapshotChunk, MessageKind.projectionChunk:
     if payload.len < 16:
       fail(PolicyProtocolErrorKind.truncated, "truncated chunk prefix")
@@ -244,33 +245,33 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
     payload.requireExact(20)
     payload.requireReserved(18, 2)
   of MessageKind.projectionRequest:
-    if payload.len < 76:
+    if payload.len < 84:
       fail(PolicyProtocolErrorKind.truncated, "truncated projection request")
-    if payload.len > 204:
+    if payload.len > 212:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "affected output bytes are excessive")
-    payload.requireReserved(30, 2)
-    payload.requireReserved(74, 2)
-    let outputCount = int(payload.u16At(72))
-    if outputCount < 1 or outputCount > maxOutputs or payload.len != 76 + outputCount * 8:
+    payload.requireReserved(38, 2)
+    payload.requireReserved(82, 2)
+    let outputCount = int(payload.u16At(80))
+    if outputCount < 1 or outputCount > maxOutputs or payload.len != 84 + outputCount * 8:
       fail(
         PolicyProtocolErrorKind.fieldTooLarge, "affected output count does not match"
       )
     for index in 0 ..< outputCount:
-      let output = payload.u64At(76 + index * 8)
+      let output = payload.u64At(84 + index * 8)
       if output == 0:
         fail(PolicyProtocolErrorKind.fieldTooLarge, "invalid output identity")
       for previous in 0 ..< index:
-        if payload.u64At(76 + previous * 8) == output:
+        if payload.u64At(84 + previous * 8) == output:
           fail(PolicyProtocolErrorKind.fieldTooLarge, "duplicate output identity")
   of MessageKind.projectionBegin:
-    payload.requireExact(36)
+    payload.requireExact(44)
   of MessageKind.projectionEnd, MessageKind.projectionOutcome:
     payload.requireExact(28)
     payload.requireReserved(26, 2)
   of MessageKind.policyConfiguration:
     if payload.len < 40:
       fail(PolicyProtocolErrorKind.truncated, "truncated policy configuration")
-    if payload.len > 4136:
+    if payload.len > 5160:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "policy bindings are excessive")
     let bindingCount = int(payload.u16At(16))
     if bindingCount > maxBindings or
@@ -386,6 +387,8 @@ proc decodeSnapshotBinding*(bytes: openArray[byte]): SnapshotBinding =
   result.action = bytes.u64At(0)
   result.keycode = bytes.u32At(8)
   result.modifierBits = bytes.u32At(12)
+  result.sessionOperationSlot = bytes.u16At(16)
+  bytes.requireReserved(18, 2)
 
 proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOperation =
   bytes.requireExact(snapshotSessionOperationSize)

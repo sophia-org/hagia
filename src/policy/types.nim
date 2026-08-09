@@ -27,6 +27,9 @@ type
     heightScale*: Scale
     floating*: bool
     floatingGeometry*: Rect
+    fullscreen*: bool
+    maximized*: bool
+    minimized*: bool
     capabilities*: WindowCapabilities
     constraints*: SizeConstraints
 
@@ -48,6 +51,7 @@ type
     views*: seq[ViewId]
     activeView*: ViewId
     focusedWindow*: WindowId
+    focusHistory*: seq[WindowId]
 
   OutputAffinity* = object
     output*: OutputId
@@ -64,6 +68,8 @@ type
     views*: Table[ViewId, ViewData]
     outputs*: Table[OutputId, OutputData]
     outputOrder*: seq[OutputId]
+    activeOutput*: OutputId
+    minimizedOrder*: seq[WindowId]
     affinities*: Table[OutputId, OutputAffinity]
     affinityOrder*: seq[OutputId]
     nextWindowId*: uint32
@@ -84,6 +90,8 @@ const
   minimumScale* = Scale(3277)
   maxTagBits* = 64'u32
   maxOutputAffinities* = 16
+  maxFocusHistory* = 32
+  maxMinimizedHistory* = 64
 
 proc `==`*(left, right: WindowId): bool {.borrow.}
 proc `==`*(left, right: ViewId): bool {.borrow.}

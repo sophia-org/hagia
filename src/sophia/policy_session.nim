@@ -1,5 +1,6 @@
 import std/options
 
+import ../policy/actions
 import ./[policy_adapter, session_types, wm_v1]
 
 type
@@ -15,12 +16,16 @@ type
     committed: PolicyAdapter
     pending: Option[PendingProjection]
     committedSceneGeneration: uint64
+    committedPolicyGeneration: uint64
 
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicySessionError, message)
 
 proc initPolicySession*(): PolicySession =
   PolicySession(committed: initPolicyAdapter())
+
+proc initPolicySession*(adapter: PolicyAdapter): PolicySession =
+  PolicySession(committed: adapter)
 
 proc hasPending*(session: PolicySession): bool =
   session.pending.isSome
@@ -31,6 +36,9 @@ proc committedAdapter*(session: PolicySession): PolicyAdapter =
 proc committedGeneration*(session: PolicySession): uint64 =
   session.committedSceneGeneration
 
+proc policyGeneration*(session: PolicySession): uint64 =
+  session.committedPolicyGeneration
+
 proc pendingOperation*(session: PolicySession): Option[SessionOperationIntent] =
   if session.pending.isSome:
     session.pending.get().operation
@@ -40,15 +48,29 @@ proc pendingOperation*(session: PolicySession): Option[SessionOperationIntent] =
 proc operationFor(
     snapshot: PolicySnapshot, request: ProjectionRequest
 ): Option[SessionOperationIntent] =
-  if request.cause.kind != ProjectionCauseKind.action or request.cause.action < 29 or
-      request.cause.action > 32:
+  if request.cause.kind != ProjectionCauseKind.action:
+    return none(SessionOperationIntent)
+  var operationSlot = 0'u16
+  var actionKnown = false
+  for binding in snapshot.bindings:
+    if binding.action == request.cause.action:
+      if actionKnown:
+        fail("session operation action is ambiguous")
+      actionKnown = true
+      operationSlot = binding.sessionOperationSlot
+  if not actionKnown:
+    # Semantic unit fixtures may omit the installed binding table for pure
+    # policy actions; live snapshots always carry it.
+    if request.cause.action.isPolicyAction():
+      return none(SessionOperationIntent)
+    fail("policy action is not registered")
+  if operationSlot == 0:
     return none(SessionOperationIntent)
   if request.cause.activationSerial == 0:
     fail("session operation activation is invalid")
-  let slot = uint16(request.cause.action - 28)
   var selected: Option[SnapshotSessionOperation]
   for operation in snapshot.sessionOperations:
-    if operation.slot == slot:
+    if operation.slot == operationSlot:
       if selected.isSome:
         fail("session operation slot is ambiguous")
       selected = some(operation)
@@ -56,16 +78,14 @@ proc operationFor(
     fail("session operation slot is unavailable")
 
   var targetIndex, targetGeneration: uint32
-  if slot == 3:
-    if (selected.get().targetBits and 1) == 0:
-      fail("close operation does not permit a surface target")
+  if (selected.get().targetBits and 1) != 0:
     for output in snapshot.outputs:
-      if output.output == request.affectedOutputs[0]:
+      if output.output == snapshot.activeOutput:
         targetIndex = output.focusIndex
         targetGeneration = output.focusGeneration
         break
     if targetGeneration == 0:
-      fail("close operation has no focused surface")
+      fail("targeted session operation has no focused surface")
   some(
     SessionOperationIntent(
       requestId: request.cause.activationSerial,
@@ -85,7 +105,8 @@ proc prepare*(
   if session.pending.isSome:
     fail("a policy projection is already pending")
   if transaction == 0 or request.connectionEpoch == 0 or request.requestId == 0 or
-      request.sceneGeneration != snapshot.generation:
+      request.sceneGeneration != snapshot.generation or request.policyGeneration == 0 or
+      request.policyGeneration < session.committedPolicyGeneration:
     fail("policy projection identity is invalid")
   var candidate = session.committed.clone()
   candidate.reconcile(snapshot)
@@ -113,6 +134,7 @@ proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
   if outcome.kind == ProjectionOutcomeKind.committed:
     session.committed = pending.adapter
     session.committedSceneGeneration = outcome.sceneGeneration
+    session.committedPolicyGeneration = pending.request.policyGeneration
   session.pending = none(PendingProjection)
 
 proc abort*(session: var PolicySession) =

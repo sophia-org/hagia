@@ -11,6 +11,7 @@ proc initPolicyModel*(): PolicyModel =
   PolicyModel()
 
 proc clone*(model: PolicyModel): PolicyModel =
+  result.activeOutput = model.activeOutput
   result.nextWindowId = model.nextWindowId
   result.nextColumnId = model.nextColumnId
   result.nextViewId = model.nextViewId
@@ -20,6 +21,8 @@ proc clone*(model: PolicyModel): PolicyModel =
   for id in model.windowOrder:
     result.windowOrder.add(id)
     result.windows[id] = model.windows[id]
+  for id in model.minimizedOrder:
+    result.minimizedOrder.add(id)
   for id in model.columnOrder:
     var column = model.columns[id]
     column.windows = @[]
@@ -32,8 +35,11 @@ proc clone*(model: PolicyModel): PolicyModel =
   for id in model.outputOrder:
     var output = model.outputs[id]
     output.views = @[]
+    output.focusHistory = @[]
     for viewId in model.outputs[id].views:
       output.views.add(viewId)
+    for windowId in model.outputs[id].focusHistory:
+      output.focusHistory.add(windowId)
     result.outputOrder.add(id)
     result.outputs[id] = output
   for id in model.affinityOrder:
@@ -156,6 +162,13 @@ proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
   model.outputOrder.add(result)
   let viewId = model.addView(result, model.profileTag(1))
   model.outputs[result].activeView = viewId
+  if model.activeOutput == nullOutputId:
+    model.activeOutput = result
+
+proc setActiveOutput*(model: var PolicyModel, id: OutputId) =
+  if id notin model.outputs:
+    fail("active output does not exist")
+  model.activeOutput = id
 
 proc updateOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
   if bounds.width <= 0 or bounds.height <= 0:
@@ -197,6 +210,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   let column = model.windows[id].column
   model.windows.del(id)
   model.windowOrder.keepItIf(it != id)
+  model.minimizedOrder.keepItIf(it != id)
   if column in model.columns:
     model.columns[column].windows.keepItIf(it != id)
     if model.columns[column].windows.len == 0:
@@ -205,6 +219,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   for outputId in model.outputOrder:
     if model.outputs[outputId].focusedWindow == id:
       model.outputs[outputId].focusedWindow = nullWindowId
+    model.outputs[outputId].focusHistory.keepItIf(it != id)
   for outputId in model.affinityOrder:
     if model.affinities[outputId].focusedWindow == id:
       model.affinities[outputId].focusedWindow = nullWindowId
@@ -219,6 +234,29 @@ proc updateWindowFacts*(
     fail("window does not exist")
   model.windows[id].capabilities = capabilities
   model.windows[id].constraints = constraints
+
+proc setWindowPresentation*(
+    model: var PolicyModel, id: WindowId, fullscreen, maximized, minimized: bool
+) =
+  if id notin model.windows or (fullscreen and maximized) or
+      (minimized and (fullscreen or maximized)):
+    fail("window presentation state is invalid")
+  if fullscreen and not model.windows[id].capabilities.fullscreenable:
+    fail("window lacks fullscreen capability")
+  let wasMinimized = model.windows[id].minimized
+  model.windows[id].fullscreen = fullscreen
+  model.windows[id].maximized = maximized
+  model.windows[id].minimized = minimized
+  if minimized != wasMinimized:
+    model.minimizedOrder.keepItIf(it != id)
+    if minimized:
+      model.minimizedOrder.add(id)
+      if model.minimizedOrder.len > maxMinimizedHistory:
+        model.minimizedOrder.delete(0)
+  if minimized:
+    for outputId in model.outputOrder:
+      if model.outputs[outputId].focusedWindow == id:
+        model.outputs[outputId].focusedWindow = nullWindowId
 
 proc setColumnWidthScale*(model: var PolicyModel, id: ColumnId, scale: Scale) =
   if id notin model.columns:
@@ -285,6 +323,7 @@ proc adoptWindowOutput*(
   for currentOutput in model.outputOrder:
     if model.outputs[currentOutput].focusedWindow == windowId:
       model.outputs[currentOutput].focusedWindow = nullWindowId
+    model.outputs[currentOutput].focusHistory.keepItIf(it != windowId)
   let source = model.windows[windowId].column
   if model.columns[source].windows.len == 1:
     model.columns[source].homeOutput = outputId
@@ -338,9 +377,14 @@ proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
   let view = model.view(output.get().activeView)
   if view.isNone or window.get().homeOutput != outputId or
       not window.get().tags.intersects(view.get().selectedTags) or
-      not window.get().capabilities.focusable:
+      not window.get().capabilities.focusable or window.get().minimized:
     fail("focus target is not visible and focusable")
   model.outputs[outputId].focusedWindow = windowId
+  model.outputs[outputId].focusHistory.keepItIf(it != windowId)
+  model.outputs[outputId].focusHistory.add(windowId)
+  if model.outputs[outputId].focusHistory.len > maxFocusHistory:
+    model.outputs[outputId].focusHistory.delete(0)
+  model.activeOutput = outputId
 
 proc clearFocus*(model: var PolicyModel, outputId: OutputId) =
   if outputId notin model.outputs:
@@ -352,15 +396,31 @@ proc wrappedIndex(current, delta, length: int): int =
     fail("cannot wrap an empty policy sequence")
   ((current + delta) mod length + length) mod length
 
+proc focusOutputRelative*(model: var PolicyModel, delta: int) =
+  if model.activeOutput notin model.outputs or model.outputOrder.len == 0:
+    fail("active output is invalid")
+  let current = model.outputOrder.find(model.activeOutput)
+  model.activeOutput =
+    model.outputOrder[wrappedIndex(current, delta, model.outputOrder.len)]
+
 proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId]
 
 proc focusRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
-  let eligible = model.eligibleWindows(outputId)
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
   if eligible.len == 0:
     model.clearFocus(outputId)
     return
   let current = model.outputs[outputId].focusedWindow
   let currentIndex = eligible.find(current)
+  if currentIndex < 0:
+    var historyIndex = model.outputs[outputId].focusHistory.high
+    while historyIndex >= 0:
+      let remembered = model.outputs[outputId].focusHistory[historyIndex]
+      if remembered in eligible:
+        model.setFocus(outputId, remembered)
+        return
+      dec historyIndex
   let target =
     if currentIndex < 0:
       if delta < 0:
@@ -462,6 +522,110 @@ proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId] =
     if window.homeOutput == outputId and window.tags.intersects(view.get().selectedTags):
       result.add(windowId)
 
+proc toggleFocusedFullscreen*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("fullscreen output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  if not model.windows[windowId].capabilities.fullscreenable:
+    fail("fullscreen target lacks capability")
+  let enabled = not model.windows[windowId].fullscreen
+  model.windows[windowId].fullscreen = enabled
+  if enabled:
+    model.windows[windowId].maximized = false
+    model.windows[windowId].minimized = false
+
+proc toggleFocusedMaximized*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("maximize output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let enabled = not model.windows[windowId].maximized
+  model.windows[windowId].maximized = enabled
+  if enabled:
+    model.windows[windowId].fullscreen = false
+    model.windows[windowId].minimized = false
+
+proc minimizeFocused*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("minimize output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  model.windows[windowId].minimized = true
+  model.windows[windowId].fullscreen = false
+  model.windows[windowId].maximized = false
+  model.minimizedOrder.keepItIf(it != windowId)
+  model.minimizedOrder.add(windowId)
+  if model.minimizedOrder.len > maxMinimizedHistory:
+    model.minimizedOrder.delete(0)
+  model.clearFocus(outputId)
+  model.focusRelative(outputId, 1)
+
+proc restoreLastMinimized*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  var index = model.minimizedOrder.high
+  while index >= 0:
+    let windowId = model.minimizedOrder[index]
+    if windowId in model.windows and model.windows[windowId].homeOutput == outputId:
+      model.windows[windowId].minimized = false
+      model.minimizedOrder.delete(index)
+      if model.windows[windowId].capabilities.focusable:
+        model.setFocus(outputId, windowId)
+      return
+    dec index
+
+proc toggleFocusedFloating*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("floating output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let enabled = not model.windows[windowId].floating
+  model.windows[windowId].floating = enabled
+  if enabled and model.windows[windowId].floatingGeometry.width <= 0:
+    model.windows[windowId].floatingGeometry = model.outputs[outputId].bounds
+
+proc expelFocusedWindow*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("expel output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let source = model.windows[windowId].column
+  if model.columns[source].windows.len == 1:
+    return
+  model.columns[source].windows.keepItIf(it != windowId)
+  let target = model.addColumn(outputId)
+  model.columns[target].windows.add(windowId)
+  model.windows[windowId].column = target
+
+proc consumeNextColumn*(model: var PolicyModel) =
+  let outputId = model.activeOutput
+  if outputId notin model.outputs:
+    fail("consume output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let source = model.windows[windowId].column
+  var candidates: seq[ColumnId]
+  for columnId in model.columnOrder:
+    if model.columns[columnId].homeOutput == outputId:
+      candidates.add(columnId)
+  let current = candidates.find(source)
+  if candidates.len < 2 or current < 0:
+    return
+  model.moveWindowToColumn(
+    windowId, candidates[wrappedIndex(current, 1, candidates.len)]
+  )
+
 proc forgetAffinity(model: var PolicyModel, id: OutputId) =
   if id notin model.affinities:
     return
@@ -514,6 +678,8 @@ proc removeOutput*(model: var PolicyModel, id, fallback: OutputId): Option[Outpu
     model.outputs[fallback].focusedWindow = removed.focusedWindow
   model.outputs.del(id)
   model.outputOrder.keepItIf(it != id)
+  if model.activeOutput == id:
+    model.activeOutput = fallback
   if model.affinityOrder.len > maxOutputAffinities:
     result = some(model.affinityOrder[0])
     model.forgetAffinity(result.get())
@@ -552,7 +718,7 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
       model.columns[columnId].homeOutput = id
   let focus = saved.focusedWindow
   if focus in model.windows and model.windows[focus].homeOutput == id and
-      model.windows[focus].capabilities.focusable and
+      model.windows[focus].capabilities.focusable and not model.windows[focus].minimized and
       model.windows[focus].tags.intersects(model.views[activeView].selectedTags):
     model.outputs[id].focusedWindow = focus
   model.affinities.del(id)
@@ -563,6 +729,8 @@ proc validate*(model: PolicyModel) =
       model.windowOrder.len != model.windows.len or
       model.columnOrder.len != model.columns.len:
     fail("policy indexes and ordered identities diverged")
+  if model.outputs.len > 0 and model.activeOutput notin model.outputs:
+    fail("policy active output is invalid")
   var seenViews = initHashSet[ViewId]()
   for outputId in model.outputOrder:
     let output = model.outputs[outputId]
@@ -580,8 +748,17 @@ proc validate*(model: PolicyModel) =
         fail("policy output focus is invalid")
       let focus = model.windows[output.focusedWindow]
       if focus.homeOutput != outputId or not focus.capabilities.focusable or
-          not focus.tags.intersects(model.views[output.activeView].selectedTags):
+          not focus.tags.intersects(model.views[output.activeView].selectedTags) or
+          focus.minimized:
         fail("policy output focus is invalid")
+    if output.focusHistory.len > maxFocusHistory:
+      fail("policy focus history is excessive")
+    var seenFocus = initHashSet[WindowId]()
+    for windowId in output.focusHistory:
+      if windowId notin model.windows or windowId in seenFocus or
+          model.windows[windowId].homeOutput != outputId:
+        fail("policy focus history is invalid")
+      seenFocus.incl(windowId)
   if seenViews.len != model.views.len:
     fail("policy contains a detached view")
   for windowId in model.windowOrder:
@@ -603,6 +780,9 @@ proc validate*(model: PolicyModel) =
     if window.floating and
         not model.outputs[window.homeOutput].bounds.contains(window.floatingGeometry):
       fail("floating window geometry is invalid")
+    if (window.fullscreen and window.maximized) or
+        (window.minimized and (window.fullscreen or window.maximized)):
+      fail("policy presentation state is invalid")
   var seenWindows = initHashSet[WindowId]()
   for columnId in model.columnOrder:
     let column = model.columns[columnId]
@@ -621,6 +801,14 @@ proc validate*(model: PolicyModel) =
       seenWindows.incl(windowId)
   if seenWindows.len != model.windows.len:
     fail("policy contains a detached window")
+  if model.minimizedOrder.len > maxMinimizedHistory:
+    fail("minimized history is excessive")
+  var seenMinimized = initHashSet[WindowId]()
+  for windowId in model.minimizedOrder:
+    if windowId notin model.windows or windowId in seenMinimized or
+        not model.windows[windowId].minimized:
+      fail("minimized history is invalid")
+    seenMinimized.incl(windowId)
   if model.affinityOrder.len != model.affinities.len or
       model.affinityOrder.len > maxOutputAffinities:
     fail("output affinities are invalid")
