@@ -1,4 +1,4 @@
-import std/[net, options, os, sets]
+import std/[net, options, os, sets, strutils]
 
 import ./[policy_session, session_types, wm_v1]
 
@@ -10,6 +10,8 @@ type
     connectionEpoch: uint64
     capabilities: uint64
     nextTransaction: uint64
+
+var configuredFaultOccurrences {.threadvar.}: int
 
 const
   capabilityBindings = 1'u64 shl 0
@@ -23,6 +25,24 @@ const
 
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicyClientError, message)
+
+proc injectConfiguredFault(phase: string) =
+  ## Deterministic live-gate hook. It is inert unless both variables are set,
+  ## and the marker makes one supervised replacement the maximum effect.
+  let selected = getEnv("HAGIA_POLICY_FAULT_AFTER")
+  let marker = getEnv("HAGIA_POLICY_FAULT_MARKER")
+  if selected != phase or marker.len == 0 or fileExists(marker):
+    return
+  inc configuredFaultOccurrences
+  let occurrence = parseInt(getEnv("HAGIA_POLICY_FAULT_OCCURRENCE", "1"))
+  if configuredFaultOccurrences != occurrence:
+    return
+  let delayMsec = parseInt(getEnv("HAGIA_POLICY_FAULT_DELAY_MSEC", "0"))
+  if delayMsec > 0:
+    sleep(delayMsec)
+  writeFile(marker, phase & "\n")
+  stderr.writeLine("hagia_policy_fault schema=1 phase=" & phase)
+  quit(70)
 
 proc toBytes(data: string): seq[byte] =
   result = newSeq[byte](data.len)
@@ -88,9 +108,14 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
     fail("Sophia selected an unsupported policy revision")
   result.capabilities = welcome.payload.u64At(4)
   if (
-    result.capabilities and
-    (capabilityBindings or capabilityActions or capabilityMultiOutput or capabilityIndicators)
-  ) != (capabilityBindings or capabilityActions or capabilityMultiOutput or capabilityIndicators):
+    result.capabilities and (
+      capabilityBindings or capabilityActions or capabilityMultiOutput or
+      capabilityIndicators
+    )
+  ) != (
+    capabilityBindings or capabilityActions or capabilityMultiOutput or
+    capabilityIndicators
+  ):
     fail("Sophia omitted a required policy capability")
   if requestConfiguration and (result.capabilities and optional) != optional:
     fail("Sophia omitted native policy configuration")
@@ -377,7 +402,8 @@ proc sendProjection(
 
   if projection.outputs.len != request.affectedOutputs.len:
     fail("projection output count does not match the request")
-  let chunkCount = 1 + (if placementCount == 0: 0 else: 1) +
+  let chunkCount =
+    1 + (if placementCount == 0: 0 else: 1) +
     (if projection.indicators.len == 0: 0 else: 1) +
     (if projection.outputStatuses.len == 0: 0 else: 1)
   var beginPayload: seq[byte]
@@ -430,7 +456,11 @@ proc sendProjection(
     payload.addU16(3)
     payload.addU32(uint32(projection.indicators.len))
     payload.add(indicatorBytes)
-    client.sendFrame(Frame(kind: MessageKind.projectionChunk, transaction: transaction, payload: payload))
+    client.sendFrame(
+      Frame(
+        kind: MessageKind.projectionChunk, transaction: transaction, payload: payload
+      )
+    )
     inc nextOrdinal
   if projection.outputStatuses.len > 0:
     var payload: seq[byte]
@@ -439,7 +469,11 @@ proc sendProjection(
     payload.addU16(4)
     payload.addU32(uint32(projection.outputStatuses.len))
     payload.add(statusBytes)
-    client.sendFrame(Frame(kind: MessageKind.projectionChunk, transaction: transaction, payload: payload))
+    client.sendFrame(
+      Frame(
+        kind: MessageKind.projectionChunk, transaction: transaction, payload: payload
+      )
+    )
 
   var endPayload: seq[byte]
   endPayload.addU64(client.connectionEpoch)
@@ -452,6 +486,7 @@ proc sendProjection(
       kind: MessageKind.projectionEnd, transaction: transaction, payload: endPayload
     )
   )
+  injectConfiguredFault("projection_submitted")
   let frame = client.receiveFrame(MessageKind.projectionOutcome)
   result = frame.decodeProjectionOutcome()
   if result.transaction != transaction or
@@ -508,13 +543,17 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
   try:
     if configure:
       client.installConfiguration()
+      injectConfiguredFault("configuration_installed")
     while true:
       let snapshot = client.receiveSnapshot()
+      injectConfiguredFault("snapshot_received")
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
       let projection = session.prepare(snapshot, request, transaction)
+      injectConfiguredFault("projection_prepared")
       let operation = session.pendingOperation()
       let outcome = client.sendProjection(request, transaction, projection)
+      injectConfiguredFault("outcome_received")
       session.settle(outcome)
       if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
         let operationOutcome = client.sendSessionOperation(operation.get())

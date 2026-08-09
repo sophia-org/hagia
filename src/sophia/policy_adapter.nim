@@ -121,9 +121,29 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       fail("policy focus cause names an unknown surface")
     adapter.model.setFocus(output, adapter.surfaceToWindow[key])
   of ProjectionCauseKind.interaction:
-    # Hagia does not negotiate this capability until floating geometry is part
-    # of its committed private model.
-    fail("policy interaction cause is not negotiated")
+    if request.cause.interactionPhase != InteractionPhase.finish:
+      fail("only one reduced completed interaction is accepted")
+    let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
+    if key notin adapter.surfaceToWindow:
+      fail("policy interaction cause names an unknown surface")
+    let window = adapter.surfaceToWindow[key]
+    let geometry = Rect(
+      x: request.cause.x,
+      y: request.cause.y,
+      width: request.cause.width,
+      height: request.cause.height,
+    )
+    let facts = adapter.model.window(window).get()
+    case request.cause.interactionKind
+    of InteractionKind.move:
+      if not facts.capabilities.movable:
+        fail("policy move interaction targets an immovable surface")
+    of InteractionKind.resize:
+      if not facts.capabilities.resizable:
+        fail("policy resize interaction targets a fixed-size surface")
+    else:
+      fail("policy interaction kind is invalid")
+    adapter.model.setFloatingGeometry(output, window, geometry)
   adapter.model.validate()
 
 ## Reconcile only complete Sophia snapshots. The policy model never observes a
@@ -278,14 +298,17 @@ proc projection*(
         stateBits = stateBits or (1'u16 shl 0)
       for windowId in adapter.model.windowOrder:
         let window = adapter.model.windows[windowId]
-        if window.homeOutput == logical.output and window.tags.intersects(view.selectedTags):
+        if window.homeOutput == logical.output and
+            window.tags.intersects(view.selectedTags):
           stateBits = stateBits or (1'u16 shl 2)
           break
       for otherOutputId in adapter.model.outputOrder:
         if otherOutputId == logical.output:
           continue
         let other = adapter.model.outputs[otherOutputId]
-        if adapter.model.views[other.activeView].selectedTags.intersects(view.selectedTags):
+        if adapter.model.views[other.activeView].selectedTags.intersects(
+          view.selectedTags
+        ):
           stateBits = stateBits or (1'u16 shl 3)
           break
       let labelText = $(index + 1)

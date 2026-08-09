@@ -27,11 +27,13 @@ reducer.
 Hagia now carries the first bounded Triad-policy port: stable logical IDs, nine
 shared tag slots with output-local views, commit-aware complete-snapshot
 reconciliation, bounded output reconnect affinity, deterministic fixed-point
-scrolling columns, and a checked-in native action and chrome profile. The
+scrolling columns, atomic cross-output movement, completed reduced pointer
+move/resize, and a checked-in native action and chrome profile. The
 `hagia` executable is a long-running client of the session-owned
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
-recovery, floating, pointer interaction, and shell work remain explicit later
-milestones. Sophia owns scene truth, input authority, validation, atomic
+recovery, floating lifecycle beyond exact final geometry, continuous pointer
+interaction, and shell work remain explicit later milestones. Sophia owns
+scene truth, input authority, validation, atomic
 commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,
 `docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.

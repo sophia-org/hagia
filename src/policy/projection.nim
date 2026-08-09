@@ -1,4 +1,4 @@
-import std/[options, tables]
+import std/[options, sequtils, tables]
 
 import ./[state, types]
 
@@ -40,6 +40,44 @@ proc insetExtent(extent, gap: int32): int32 =
     return high(int32)
   int32(value)
 
+proc appendFloating(
+    model: PolicyModel,
+    outputId: OutputId,
+    eligible: openArray[WindowId],
+    projection: var LogicalOutputProjection,
+) =
+  for windowId in eligible:
+    let window = model.windows[windowId]
+    if not window.floating:
+      continue
+    projection.placements.add(
+      LogicalPlacement(
+        window: windowId,
+        geometry: window.floatingGeometry,
+        requestedWidth: window.floatingGeometry.width.clamp(
+          window.constraints.minWidth, window.constraints.maxWidth
+        ),
+        requestedHeight: window.floatingGeometry.height.clamp(
+          window.constraints.minHeight, window.constraints.maxHeight
+        ),
+      )
+    )
+
+proc selectFocus(
+    model: PolicyModel,
+    output: OutputData,
+    eligible: openArray[WindowId],
+    projection: var LogicalOutputProjection,
+) =
+  if output.focusedWindow in eligible and
+      model.windows[output.focusedWindow].capabilities.focusable:
+    projection.focus = output.focusedWindow
+  else:
+    for windowId in eligible:
+      if model.windows[windowId].capabilities.focusable:
+        projection.focus = windowId
+        break
+
 proc projectScroller*(
     model: PolicyModel,
     affectedOutputs: openArray[OutputId],
@@ -62,13 +100,15 @@ proc projectScroller*(
         continue
       var windows: seq[WindowId]
       for windowId in column.windows:
-        if windowId in eligible:
+        if windowId in eligible and not model.windows[windowId].floating:
           windows.add(windowId)
       if windows.len > 0:
         columns.add((column, windows))
 
     var projection = LogicalOutputProjection(output: outputId)
     if columns.len == 0:
+      model.appendFloating(outputId, eligible, projection)
+      model.selectFocus(output.get(), eligible, projection)
       result.add(projection)
       continue
     let bounds = output.get().bounds
@@ -168,14 +208,8 @@ proc projectScroller*(
           )
         )
         y += int64(height) + int64(safeInnerGap)
-    let currentFocus = output.get().focusedWindow
-    if currentFocus in eligible and model.windows[currentFocus].capabilities.focusable:
-      projection.focus = currentFocus
-    else:
-      for windowId in eligible:
-        if model.windows[windowId].capabilities.focusable:
-          projection.focus = windowId
-          break
+    model.appendFloating(outputId, eligible, projection)
+    model.selectFocus(output.get(), eligible, projection)
     result.add(projection)
 
 proc projectColumns*(
@@ -186,7 +220,8 @@ proc projectColumns*(
     let output = model.output(outputId)
     if output.isNone:
       raise newException(PolicyStateError, "projection output does not exist")
-    let windows = model.eligibleWindows(outputId)
+    let eligible = model.eligibleWindows(outputId)
+    let windows = eligible.filterIt(not model.windows[it].floating)
     var projection = LogicalOutputProjection(output: outputId)
     if windows.len > 0:
       let count = int32(windows.len)
@@ -217,13 +252,6 @@ proc projectColumns*(
               ),
           )
         )
-      let currentFocus = output.get().focusedWindow
-      if currentFocus in windows and
-          model.window(currentFocus).get().capabilities.focusable:
-        projection.focus = currentFocus
-      else:
-        for windowId in windows:
-          if model.window(windowId).get().capabilities.focusable:
-            projection.focus = windowId
-            break
+    model.appendFloating(outputId, eligible, projection)
+    model.selectFocus(output.get(), eligible, projection)
     result.add(projection)

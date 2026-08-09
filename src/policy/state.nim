@@ -234,6 +234,30 @@ proc setWindowHeightScale*(model: var PolicyModel, id: WindowId, scale: Scale) =
     fail("window scale is too small")
   model.windows[id].heightScale = scale
 
+proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId)
+
+proc contains(bounds, geometry: Rect): bool =
+  geometry.width > 0 and geometry.height > 0 and geometry.x >= bounds.x and
+    geometry.y >= bounds.y and
+    int64(geometry.x) + int64(geometry.width) <= int64(bounds.x) + int64(bounds.width) and
+    int64(geometry.y) + int64(geometry.height) <= int64(bounds.y) + int64(bounds.height)
+
+proc setFloatingGeometry*(
+    model: var PolicyModel, outputId: OutputId, windowId: WindowId, geometry: Rect
+) =
+  if outputId notin model.outputs or windowId notin model.windows:
+    fail("floating interaction target does not exist")
+  if model.windows[windowId].homeOutput != outputId or
+      not model.outputs[outputId].bounds.contains(geometry):
+    fail("floating interaction geometry is outside its output")
+  if not model.windows[windowId].capabilities.movable and
+      not model.windows[windowId].capabilities.resizable:
+    fail("floating interaction target is immutable")
+  model.windows[windowId].floating = true
+  model.windows[windowId].floatingGeometry = geometry
+  if model.windows[windowId].capabilities.focusable:
+    model.setFocus(outputId, windowId)
+
 proc moveWindowToColumn*(
     model: var PolicyModel, windowId: WindowId, columnId: ColumnId
 ) =
@@ -274,6 +298,8 @@ proc adoptWindowOutput*(
     model.windows[windowId].column = target
   model.windows[windowId].homeOutput = outputId
   model.windows[windowId].preferredOutput = outputId
+  model.windows[windowId].floating = false
+  model.windows[windowId].floatingGeometry = Rect()
   let activeView = model.outputs[outputId].activeView
   model.windows[windowId].tags =
     model.windows[windowId].tags.union(model.views[activeView].selectedTags)
@@ -574,6 +600,9 @@ proc validate*(model: PolicyModel) =
       )
     ):
       fail("policy window constraints are invalid")
+    if window.floating and
+        not model.outputs[window.homeOutput].bounds.contains(window.floatingGeometry):
+      fail("floating window geometry is invalid")
   var seenWindows = initHashSet[WindowId]()
   for columnId in model.columnOrder:
     let column = model.columns[columnId]

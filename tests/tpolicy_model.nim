@@ -1,6 +1,6 @@
 import std/[net, options, posix, unittest]
 
-import policy/[projection, state, types]
+import policy/[actions, projection, state, types]
 import sophia/[policy_adapter, policy_client, policy_session, session_types, wm_v1]
 
 proc focusableCapabilities(): WindowCapabilities =
@@ -220,6 +220,24 @@ proc proposalTransactions(clientWire: seq[byte]): seq[uint64] =
     offset += frameLen
 
 suite "Hagia private policy model":
+  test "cross-output movement replaces both output projections atomically":
+    var model = initPolicyModel()
+    let first = model.addOutput(Rect(width: 800, height: 600))
+    let second = model.addOutput(Rect(x: 800, width: 800, height: 600))
+    let window = model.addWindow(first, focusableCapabilities(), SizeConstraints())
+    model.setFocus(first, window)
+
+    model.applyAction(first, PolicyAction.moveToNextOutput)
+    check model.window(window).get().homeOutput == second
+    let projected = model.projectColumns([first, second])
+    require projected.len == 2
+    check projected[0].output == first
+    check projected[0].placements.len == 0
+    check projected[1].output == second
+    check projected[1].placements.len == 1
+    check projected[1].placements[0].window == window
+    model.validate()
+
   test "the nine-view profile reuses bounded tag slots across every output":
     var model = initPolicyModel()
     var outputs: seq[OutputId]
@@ -523,6 +541,42 @@ suite "Sophia snapshot adapter":
     adapter.model().validate()
 
 suite "Sophia policy session":
+  test "one completed reduced pointer interaction becomes committed floating geometry":
+    let output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      focusIndex: 1,
+      focusGeneration: 1,
+      width: 900,
+      height: 600,
+    )
+    let scene = snapshot(1, @[output], @[surface(1, 10)])
+    let request = ProjectionRequest(
+      connectionEpoch: 7,
+      requestId: 1,
+      sceneGeneration: 1,
+      affectedOutputs: @[10'u64],
+      cause: ProjectionCause(
+        kind: ProjectionCauseKind.interaction,
+        interactionPhase: InteractionPhase.finish,
+        interactionKind: InteractionKind.resize,
+        targetIndex: 1,
+        targetGeneration: 1,
+        x: 40,
+        y: 30,
+        width: 500,
+        height: 400,
+      ),
+    )
+    var session = initPolicySession()
+    let projected = session.prepare(scene, request, 1)
+    require projected.outputs.len == 1
+    require projected.outputs[0].placements.len == 1
+    let placement = projected.outputs[0].placements[0]
+    check (placement.x, placement.y, placement.width, placement.height) ==
+      (40'i32, 30'i32, 500'i32, 400'i32)
+    check projected.outputs[0].output.focusIndex == 1
+
   test "repeated action tokens retain distinct committed activations":
     var output = SnapshotOutput(
       output: 10,

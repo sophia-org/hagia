@@ -25,6 +25,8 @@ type
     column*: ColumnId
     tags*: TagMask
     heightScale*: Scale
+    floating*: bool
+    floatingGeometry*: Rect
     capabilities*: WindowCapabilities
     constraints*: SizeConstraints
 

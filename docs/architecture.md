@@ -92,3 +92,10 @@ the last coherent scene while client sizes or presentation state settle.
 Animation remains Engine state derived from committed and target geometry.
 Hagia stores stable logical policy and emits integer targets; it neither drives
 a frame clock nor retains animation snapshots.
+
+Engine may reduce one captured pointer move or resize to a completed
+interaction carrying an exact target handle and final output-local geometry.
+Hagia validates that target against the complete snapshot, checks its movement
+or resize capability and output bounds, and stores only committed floating
+geometry. It receives no raw motion stream, button, device, or global pointer
+history. Continuous interaction phases remain unnegotiated.

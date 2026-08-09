@@ -11,8 +11,9 @@ The first Triad-policy slice now includes stable Hagia IDs, a shared nine-slot
 tag profile on every output, commit-aware multi-cycle reconciliation, bounded
 output affinity, hidden-surface admission, deterministic fixed-point scrolling
 columns, and registered focus, view, movement, and size actions. The
-long-running `hagia` client is ready for Sophia's session-hosted endpoint; live
-promotion waits on Sophia's frontend-settled public transport path.
+long-running `hagia` client uses Sophia's session-hosted frontend-settled public
+transport. Promotion waits on the phase-controlled restart and installed
+physical workload gates.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -51,12 +52,12 @@ promotion waits on Sophia's frontend-settled public transport path.
   move-to-view reducer messages driven by opaque registered actions.
 - [ ] Add general tag mutation and explicit output-focus actions without
   exposing raw input or Sophia identities to the private model.
-- [ ] Add output focus and atomic cross-output movement, column grouping,
+- [ ] Add output focus, column grouping,
   consume/expel, width/height adjustment, layout cycling, and reset actions.
 - [ ] Add private floating restore geometry, reduced dialog/transient defaults,
   fullscreen, minimize/restore, scratchpads, and bounded focus history.
-- [ ] Add bounded Engine-owned pointer move and resize interactions when the
-  public protocol carries them.
+- [x] Add bounded Engine-owned completed pointer move and resize interactions;
+  Hagia receives only the exact target and final output-local geometry.
 - [ ] Add session-local checkpointing with exact snapshot reconciliation.
 - [ ] Prove policy crash/restart while applications and the committed scene
   remain alive.
