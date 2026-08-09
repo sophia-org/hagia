@@ -6,46 +6,46 @@ JsonFile ==
     IF "JSON" \in DOMAIN IOEnv THEN IOEnv.JSON
     ELSE "../traces/startup.ndjson"
 
-\* Local TLC 1.7.4 does not ship Specula's IOUtils Java override. This literal
-\* is the exact semantic mirror of ../traces/startup.ndjson; the JsonFile
-\* operator remains the instrumentation contract for the pipeline runner.
+\* Local TLC lacks Specula's IOUtils override. This is the exact semantic
+\* mirror of ../traces/startup.ndjson; JsonFile remains the runner contract.
+State(a, c, p, la, rb, ph, g, r, pr) ==
+    [active |-> a, candidate |-> c, preparedCount |-> p,
+     locallyActivatedCount |-> la, rollbackPendingCount |-> rb,
+     phase |-> ph, generation |-> g, rejectedCount |-> r, promotedCount |-> pr]
+
 TraceLog == <<
   [event |-> [name |-> "BeginProfile", digest |-> "d1",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 0,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 0, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "policy",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 1,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 1, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "shell",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 2,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 2, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "shortcut",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 3,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 3, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "session",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 4,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 4, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "input",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 5,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 5, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "output",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 6,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
+    state |-> State("none", "d1", 6, 0, 0, "preparing", 0, 0, 0)]],
   [event |-> [name |-> "PrepareAuthority", authority |-> "broker",
-    state |-> [active |-> "none", candidate |-> "d1", preparedCount |-> 7,
-      phase |-> "preparing", generation |-> 0, rejectedCount |-> 0,
-      activatedCount |-> 0]]],
-  [event |-> [name |-> "ActivateProfile", digest |-> "d1",
-    state |-> [active |-> "d1", candidate |-> "none", preparedCount |-> 0,
-      phase |-> "idle", generation |-> 1, rejectedCount |-> 0,
-      activatedCount |-> 1]]]
+    state |-> State("none", "d1", 7, 0, 0, "prepared", 0, 0, 0)]],
+  [event |-> [name |-> "RequestActivation",
+    state |-> State("none", "d1", 7, 0, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "policy",
+    state |-> State("none", "d1", 7, 1, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "shell",
+    state |-> State("none", "d1", 7, 2, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "shortcut",
+    state |-> State("none", "d1", 7, 3, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "session",
+    state |-> State("none", "d1", 7, 4, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "input",
+    state |-> State("none", "d1", 7, 5, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "output",
+    state |-> State("none", "d1", 7, 6, 0, "activating", 0, 0, 0)]],
+  [event |-> [name |-> "ActivateAuthority", authority |-> "broker",
+    state |-> State("d1", "none", 0, 0, 0, "idle", 1, 0, 1)]]
 >>
 
 ASSUME Len(TraceLog) > 0
@@ -53,17 +53,18 @@ ASSUME Len(TraceLog) > 0
 VARIABLE l
 traceVars == <<vars, l>>
 logline == TraceLog[l]
-
 IsEvent(name) == l <= Len(TraceLog) /\ logline.event.name = name
 
 ValidatePostState ==
     /\ active' = logline.event.state.active
     /\ candidate' = logline.event.state.candidate
     /\ Cardinality(prepared') = logline.event.state.preparedCount
+    /\ Cardinality(locallyActivated') = logline.event.state.locallyActivatedCount
+    /\ Cardinality(rollbackPending') = logline.event.state.rollbackPendingCount
     /\ phase' = logline.event.state.phase
     /\ generation' = logline.event.state.generation
     /\ Cardinality(rejected') = logline.event.state.rejectedCount
-    /\ Cardinality(activated') = logline.event.state.activatedCount
+    /\ Cardinality(promoted') = logline.event.state.promotedCount
 
 TraceBeginProfile ==
     /\ IsEvent("BeginProfile")
@@ -77,24 +78,27 @@ TracePrepareAuthority ==
     /\ ValidatePostState
     /\ l' = l + 1
 
-TraceActivateProfile ==
-    /\ IsEvent("ActivateProfile")
-    /\ ActivateProfile(logline.event.digest)
+TraceRequestActivation ==
+    /\ IsEvent("RequestActivation")
+    /\ RequestActivation
+    /\ ValidatePostState
+    /\ l' = l + 1
+
+TraceActivateAuthority ==
+    /\ IsEvent("ActivateAuthority")
+    /\ ActivateAuthority(logline.event.authority)
     /\ ValidatePostState
     /\ l' = l + 1
 
 TraceInit == Init /\ l = 1
-
 TraceNext ==
     \/ TraceBeginProfile
     \/ TracePrepareAuthority
-    \/ TraceActivateProfile
+    \/ TraceRequestActivation
+    \/ TraceActivateAuthority
     \/ /\ l > Len(TraceLog)
        /\ UNCHANGED traceVars
 
-\* INIT/NEXT specifications admit semantic stuttering at every state. Fairness
-\* makes trace progress the obligation while retaining the required completion
-\* property as a falsifiable check.
 TraceMatched == WF_traceVars(TraceNext) => <>(l > Len(TraceLog))
 TraceView == vars
 

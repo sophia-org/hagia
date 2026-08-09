@@ -8,27 +8,29 @@ is Category A (message-passing): safety depends on prepare/activate results from
 independent authorities plus durable staging, not shared-memory interleavings.
 The implementation milestone deliberately permits transactional startup only;
 watched reload is excluded until the same barrier is implemented. Core modeled
-logic is approximately 180 lines in `src/config/coordinator.nim` and
-`src/runtime/reducer.nim`.
+logic is implemented in `src/config/coordinator.nim`; the policy connection's
+independent settlement lifecycle remains in `src/runtime/reducer.nim`.
 
 ## 2. Scenarios
 
 ### Scenario 1: Partial authority preparation
 
-**Mechanism**: A candidate may be staged or prepared by only a subset of its
-authorities before one authority rejects or the coordinator loses progress.
+**Mechanism**: A candidate may be staged, prepared, or locally activated by
+only a subset of its authorities before one authority rejects.
 
 **Evidence**:
-- Code analysis: `src/config/coordinator.nim:77` stages seven distinct fragments.
-- Code analysis: `src/runtime/reducer.nim:80` retains a candidate separately from
-  the active digest, while rejection clears only the candidate at lines 93-95.
+- Code analysis: `src/config/coordinator.nim:111-121` retains one candidate and
+  dispatches prepare to all seven authorities.
+- Code analysis: `src/config/coordinator.nim:144-159` records per-authority
+  activation but promotes only when the complete set has acknowledged.
+- Code analysis: `src/config/coordinator.nim:93-101` dispatches idempotent
+  rollback to every authority after either preparation or activation failure.
 
-**Affected code paths**: `stageDesktopProfile`, `reduceRuntime` configuration
-branches.
+**Affected code paths**: `stageDesktopProfile`, `reduceProfileActivation`.
 
 **Suggested modeling approach**: Track the candidate digest, prepared authority
 set, phase, active digest, and rejected/activated histories. Split per-authority
-prepare, rejection, and activation into distinct actions.
+prepare, activation, rejection, and rollback completion into distinct actions.
 
 **Priority**: High. Partial activation would violate authority isolation and
 last-known-good startup.
@@ -39,10 +41,10 @@ last-known-good startup.
 that digest.
 
 **Evidence**:
-- Code analysis: `src/runtime/reducer.nim:134-138` compares effect digest with the
-  current candidate before promotion.
-- Code analysis: `src/config/coordinator.nim:68-75` embeds one shared generation
-  and digest in every authority fragment.
+- Code analysis: `src/config/coordinator.nim:123-124,145-148,161-162` ignores
+  stale identities and late activation completions during rollback.
+- Code analysis: `src/config/coordinator.nim:225-250` embeds one shared generation
+  and digest in every staged authority fragment and manifest.
 
 **Affected code paths**: `candidateFragment`, `reduceRuntime(effectCompleted)`.
 
@@ -74,7 +76,8 @@ current digest plus complete preparation.
 
 | Extension | Variables | Purpose | Scenario |
 |---|---|---|---|
-| Authority barrier | `candidate`, `prepared`, `phase` | Represent partial prepare | 1 |
+| Authority barrier | `candidate`, `prepared`, `locallyActivated`, `phase` | Represent partial prepare and activation | 1 |
+| Rollback barrier | `rollbackPending` | Require every authority to discard candidate state | 1 |
 | Candidate history | `rejected`, `activated` | Reject stale promotion | 2 |
 | Stable active state | `active`, `generation` | Preserve last-known-good | 1, 2 |
 
@@ -83,10 +86,11 @@ current digest plus complete preparation.
 | Invariant | Type | Description | Targets |
 |---|---|---|---|
 | `TypeOK` | Safety | Every state remains structurally typed | Both |
-| `ActiveWasFullyPrepared` | Safety | Every active digest crossed the full barrier | 1 |
-| `RejectedNeverActivated` | Safety | Rejected digests never enter activated history | 2 |
-| `PartialPreparationNotActive` | Safety | Current partial candidate cannot be active | 1 |
-| `LastKnownGoodOnReject` | Safety | Rejection does not change the active digest | 1, 2 |
+| `ActiveWasFullyActivated` | Safety | Every active digest crossed both full barriers | 1 |
+| `RejectedNeverPromoted` | Safety | Rejected digests never enter promoted history | 2 |
+| `PartialCandidateNotActive` | Safety | A partial candidate cannot be globally active | 1 |
+| `LastKnownGoodUntilPromotion` | Safety | Candidate work does not change active state | 1, 2 |
+| `RollbackCannotPromote` | Safety | Rollback never changes the active digest | 1 |
 
 ## 6. Findings Pending Verification
 
@@ -94,8 +98,8 @@ current digest plus complete preparation.
 
 | ID | Description | Expected invariant violation | Scenario |
 |---|---|---|---|
-| MC1 | Can any subset of authority acknowledgements activate a digest? | `ActiveWasFullyPrepared` | 1 |
-| MC2 | Can a stale completion activate a rejected digest? | `RejectedNeverActivated` | 2 |
+| MC1 | Can any subset of authority acknowledgements promote a digest? | `ActiveWasFullyActivated` | 1 |
+| MC2 | Can a stale completion promote a rejected digest? | `RejectedNeverPromoted` | 2 |
 
 ### 6.2 Test-Verifiable
 

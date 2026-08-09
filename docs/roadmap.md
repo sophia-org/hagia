@@ -82,7 +82,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [ ] Port additional retained layouts with deterministic geometry tests.
 - [x] Add the bounded unified desktop profile foundation, provenance-bearing
   authority candidates, compiled fallback, offline CLI, and semantic Triad
-  migration. Cross-authority live activation remains deliberately deferred.
+  migration. The executable prepare/activate/rollback barrier is modeled and
+  tested; trusted Sophia authority-protocol wiring and watched live activation
+  remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

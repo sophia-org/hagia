@@ -12,14 +12,15 @@
 | Invariant | Defined | Wired | Enabled |
 |---|---|---|---|
 | `TypeOK` | `base.tla` | `MCTypeOK` | both hunt cfgs |
-| `ActiveWasFullyPrepared` | `base.tla` | direct | both hunt cfgs |
-| `RejectedNeverActivated` | `base.tla` | direct | stale-completion cfg |
-| `PartialPreparationNotActive` | `base.tla` | direct | partial-prepare cfg |
-| `LastKnownGoodOnReject` | `base.tla` | direct | partial-prepare cfg |
+| `ActiveWasFullyActivated` | `base.tla` | direct | both hunt cfgs |
+| `RejectedNeverPromoted` | `base.tla` | direct | stale-completion cfg |
+| `PartialCandidateNotActive` | `base.tla` | direct | partial-prepare cfg |
+| `LastKnownGoodUntilPromotion` | `base.tla` | direct | partial-prepare cfg |
+| `RollbackCannotPromote` | `base.tla` | direct | partial-prepare cfg |
 
 ## Model-checkable findings
 
 | Finding | Trigger | Expected invariant | Hunting configuration |
 |---|---|---|---|
-| MC1 | activation during partial prepare | `ActiveWasFullyPrepared` | partial-prepare |
-| MC2 | completion for rejected digest | `RejectedNeverActivated` | stale-completion |
+| MC1 | promotion during partial prepare or activation | `ActiveWasFullyActivated` | partial-prepare |
+| MC2 | completion for rejected digest | `RejectedNeverPromoted` | stale-completion |

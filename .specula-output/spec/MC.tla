@@ -13,19 +13,29 @@ MCBeginProfile(d) ==
     /\ BeginProfile(d)
     /\ faultCounts' = [faultCounts EXCEPT !.begin = @ + 1]
 
-MCRejectProfile ==
+MCRejectPreparation(a) ==
     /\ faultCounts.reject < RejectLimit
-    /\ RejectProfile
+    /\ RejectPreparation(a)
+    /\ faultCounts' = [faultCounts EXCEPT !.reject = @ + 1]
+
+MCRejectActivation(a) ==
+    /\ faultCounts.reject < RejectLimit
+    /\ RejectActivation(a)
     /\ faultCounts' = [faultCounts EXCEPT !.reject = @ + 1]
 
 MCNext ==
     \/ \E d \in Digests : MCBeginProfile(d)
     \/ \E a \in Authorities : PrepareAuthority(a) /\ UNCHANGED faultCounts
-    \/ MCRejectProfile
-    \/ \E d \in Digests : ActivateProfile(d) /\ UNCHANGED faultCounts
+    \/ \E a \in Authorities : MCRejectPreparation(a)
+    \/ RequestActivation /\ UNCHANGED faultCounts
+    \/ \E a \in Authorities : ActivateAuthority(a) /\ UNCHANGED faultCounts
+    \/ \E a \in Authorities : MCRejectActivation(a)
+    \/ \E a \in Authorities : CompleteRollback(a) /\ UNCHANGED faultCounts
     \/ \E d \in Digests : IgnoreStaleCompletion(d) /\ UNCHANGED faultCounts
+    \/ \E a \in Authorities : IgnoreLateActivation(a) /\ UNCHANGED faultCounts
 
 MCTypeOK == TypeOK /\ faultCounts \in [begin: 0..BeginLimit, reject: 0..RejectLimit]
 MCView == vars
+MCSymmetry == AuthoritySymmetry
 
 =====================================================

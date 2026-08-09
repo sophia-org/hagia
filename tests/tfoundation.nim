@@ -238,6 +238,155 @@ suite "Hagia foundation":
       check source.contains("generation=7") or source.contains("profile-generation 7")
       check source.contains(profile.digest)
 
+  test "all authorities prepare and activate one shared profile generation":
+    var activation =
+      ProfileActivationModel(activeGeneration: 1, activeDigest: "known-good")
+    var update = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.beginCandidate,
+        generation: 2,
+        digest: "candidate",
+      )
+    )
+    check update.effects.len == allProfileAuthorities.card
+    activation = update.model
+    for authority in ProfileAuthority:
+      activation = activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.authorityPrepared,
+          authority: authority,
+          generation: 2,
+          digest: "candidate",
+          success: true,
+        )
+      ).model
+    check activation.phase == ProfileActivationPhase.prepared
+    update = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.activationRequested,
+        generation: 2,
+        digest: "candidate",
+      )
+    )
+    check update.effects.len == allProfileAuthorities.card
+    activation = update.model
+    for authority in ProfileAuthority:
+      activation = activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.authorityActivated,
+          authority: authority,
+          generation: 2,
+          digest: "candidate",
+          success: true,
+        )
+      ).model
+    check activation.phase == ProfileActivationPhase.idle
+    check activation.activeGeneration == 2
+    check activation.activeDigest == "candidate"
+    check activation.candidateDigest.len == 0
+
+  test "prepare rejection rolls every authority back to last known good":
+    var activation =
+      ProfileActivationModel(activeGeneration: 4, activeDigest: "known-good")
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.beginCandidate, generation: 5, digest: "rejected"
+      )
+    ).model
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityPrepared,
+        authority: ProfileAuthority.policy,
+        generation: 5,
+        digest: "rejected",
+        success: true,
+      )
+    ).model
+    let rejected = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityPrepared,
+        authority: ProfileAuthority.shell,
+        generation: 5,
+        digest: "rejected",
+        success: false,
+      )
+    )
+    check rejected.model.phase == ProfileActivationPhase.rollingBack
+    check rejected.effects.len == allProfileAuthorities.card
+    check rejected.model.activeDigest == "known-good"
+    activation = rejected.model
+    for authority in ProfileAuthority:
+      activation = activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.rollbackCompleted,
+          authority: authority,
+          generation: 5,
+          digest: "rejected",
+          success: true,
+        )
+      ).model
+    check activation.phase == ProfileActivationPhase.idle
+    check activation.activeGeneration == 4
+    check activation.activeDigest == "known-good"
+
+  test "partial activation cannot promote and stale completions are ignored":
+    var activation =
+      ProfileActivationModel(activeGeneration: 8, activeDigest: "known-good")
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.beginCandidate, generation: 9, digest: "partial"
+      )
+    ).model
+    for authority in ProfileAuthority:
+      activation = activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.authorityPrepared,
+          authority: authority,
+          generation: 9,
+          digest: "partial",
+          success: true,
+        )
+      ).model
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.activationRequested,
+        generation: 9,
+        digest: "partial",
+      )
+    ).model
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityActivated,
+        authority: ProfileAuthority.policy,
+        generation: 9,
+        digest: "partial",
+        success: true,
+      )
+    ).model
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityActivated,
+        authority: ProfileAuthority.shell,
+        generation: 9,
+        digest: "partial",
+        success: false,
+      )
+    ).model
+    let beforeStale = activation
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityActivated,
+        authority: ProfileAuthority.shortcut,
+        generation: 7,
+        digest: "stale",
+        success: true,
+      )
+    ).model
+    check activation == beforeStale
+    check activation.activeGeneration == 8
+    check activation.activeDigest == "known-good"
+    check activation.phase == ProfileActivationPhase.rollingBack
+
   test "semantic migration classifies every accepted setting and refuses overwrite":
     let source = """
 layout { gaps 8; center-focused-column "on-overflow"; }
