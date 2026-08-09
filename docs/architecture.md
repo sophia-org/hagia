@@ -75,6 +75,11 @@ promotes that candidate; stale, invalid, timed-out, disconnected, malformed, or
 interrupted attempts discard it. Connection loss terminates the client so the
 Sophia supervisor owns restart and a fresh connection epoch.
 
+The live recovery harness may arm one named, marker-bounded crash hook after
+negotiation, complete snapshot assembly, projection phases, checkpoint writes,
+or session-operation boundaries. These hooks are inert without the explicit
+proof environment and never alter normal settlement semantics.
+
 The adapter retains at most sixteen dormant exact `(output, generation)`
 handles. The policy model stores only the corresponding logical affinity. Loss
 migrates views, columns, and windows to a surviving output; an exact return

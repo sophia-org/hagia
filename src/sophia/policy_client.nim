@@ -127,6 +127,7 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
       welcome.payload.u16At(22) > uint16(maxBindings) or welcome.payload.u32At(28) == 0 or
       welcome.payload.u32At(28) > uint32(maxPayloadLen):
     fail("Sophia advertised invalid policy limits")
+  injectConfiguredFault("negotiated")
 
 proc connectPolicy(path: string, requestConfiguration: bool): PolicyClient =
   path.connectWhenReady().negotiatePolicy(requestConfiguration)
@@ -552,12 +553,14 @@ proc sendSessionOperation(
       payload: payload,
     )
   )
+  injectConfiguredFault("operation_submitted")
   let outcome = client.receiveFrame(MessageKind.sessionOperationOutcome)
   let raw = outcome.payload.u16At(16)
   if outcome.transaction != transaction or
       outcome.payload.u64At(0) != client.connectionEpoch or
       outcome.payload.u64At(8) != intent.requestId or raw < 1 or raw > 5:
     fail("Sophia returned an invalid session-operation outcome")
+  injectConfiguredFault("operation_outcome_received")
   ProjectionOutcomeKind(raw)
 
 proc requestFreshCycle(
