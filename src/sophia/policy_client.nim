@@ -19,6 +19,7 @@ const
   capabilityActions = 1'u64 shl 1
   capabilityMultiOutput = 1'u64 shl 2
   capabilityChrome = 1'u64 shl 4
+  capabilityPolicyDirty = 1'u64 shl 5
   capabilityConfiguration = 1'u64 shl 6
   capabilitySessionOperations = 1'u64 shl 7
   capabilityIndicators = 1'u64 shl 8
@@ -96,7 +97,8 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   # still checks every draft revision-1 message in the shared corpus.
   let optional =
     if requestConfiguration:
-      capabilityChrome or capabilityConfiguration or capabilitySessionOperations
+      capabilityChrome or capabilityPolicyDirty or capabilityConfiguration or
+        capabilitySessionOperations
     else:
       0'u64
   payload.addU64(
