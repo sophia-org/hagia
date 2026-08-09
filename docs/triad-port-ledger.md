@@ -36,7 +36,7 @@ separately and does not move this recorded baseline.
 | --- | --- | --- |
 | Stable logical windows, outputs, tags, views, columns, and reconciliation | Complete | Keep opaque Sophia identities adapter-local and preserve complete-snapshot settlement. |
 | Scrolling columns and fixed-point geometry | Partial | The retained scroller is implemented; port remaining user-visible proportions, focus/centering rules, movement, gaps, and constraint behavior selected by the migrated profile. |
-| Tags, workspaces, names, dynamic creation/pruning, occupancy navigation, and output affinity | Partial | Nine fixed views, basic moves, and nonempty multi-tag view/window actions exist; names, dynamic workspace lifecycle, and occupied navigation remain open. |
+| Tags, workspaces, names, dynamic creation/pruning, occupancy navigation, and output affinity | Partial | Nine fixed views, nonempty multi-tag actions, dynamic creation/pruning, occupied navigation, and stable output affinity exist; configured names and complete command parity remain open. |
 | Focus, movement, exchange, grouping, histories, and cross-output behavior | Partial | Core focus and column operations exist; complete Triad command semantics and parity cases remain open. |
 | Floating, fullscreen, maximize, minimize, restore, and client-visible state | Partial | Core reducers and frontend settlement exist; complete floating placement, snapping, restoration, and rule-driven defaults remain open. |
 | Dialogs, transients, popups, and scratchpads | Open | Port reduced parent/role facts, standard and named scratchpad lifecycle, geometry, cycling, and restoration without exposing metadata. Popup rendering remains outside WM policy. |
@@ -100,10 +100,10 @@ rejected before the port gate closes.
 
 ## Port Order
 
-The first blocking tranche continues with dynamic workspace lifecycle,
-scratchpads, and reduced transient defaults, followed by the remaining pure layouts and
-candidate-validated configuration. Each tranche ports or reimplements the
-relevant Triad tests before live integration.
+The first blocking tranche continues with scratchpads and reduced transient
+defaults now that dynamic workspace lifecycle is present, followed by the
+remaining pure layouts and candidate-validated configuration. Each tranche
+ports or reimplements the relevant Triad tests before live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
 bootstrap profile consumes 39 of revision 1's 64 binding slots, while Triad's

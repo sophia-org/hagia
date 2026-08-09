@@ -1,8 +1,16 @@
 module entities
 
 sig LogicalId {}
-sig Tag { tagId: one LogicalId }
-sig Output { outputId: one LogicalId }
+abstract sig TagKind {}
+one sig ProfileTag, DynamicTag extends TagKind {}
+sig Tag {
+  tagId: one LogicalId,
+  kind: one TagKind
+}
+sig Output {
+  outputId: one LogicalId,
+  active: one View
+}
 sig View {
   viewId: one LogicalId,
   owner: one Output,
@@ -29,6 +37,14 @@ fact IdentityUniqueness {
 
 fact OwnershipConsistency {
   all window: Window | window.column.owner = window.owner
+  all output: Output | output.active.owner = output
+}
+
+fact DynamicWorkspaceLiveness {
+  all tag: Tag |
+    tag.kind = DynamicTag implies
+      (some window: Window | tag in window.member) or
+      (some output: Output | tag in output.active.selected)
 }
 
 assert EntityOwnership {
@@ -55,7 +71,15 @@ assert UniqueIds {
   all disj a, b: Tag | a.tagId != b.tagId
 }
 
+assert NoStaleDynamicWorkspace {
+  no tag: Tag |
+    tag.kind = DynamicTag and
+    (no window: Window | tag in window.member) and
+    (no output: Output | tag in output.active.selected)
+}
+
 check EntityOwnership for 8
 check MembershipNonempty for 8
 check NoDanglingReferences for 8
 check UniqueIds for 8
+check NoStaleDynamicWorkspace for 8

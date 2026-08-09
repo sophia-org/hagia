@@ -62,7 +62,8 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   move-to-view reducer messages driven by opaque registered actions.
 - [x] Add nonempty multi-tag view and focused-window mutation without exposing
   raw input or Sophia identities to the private model. Dynamic workspace
-  creation, pruning, names, and occupancy navigation remain separately open.
+  creation, pruning, and occupied navigation now preserve stable identities;
+  configured names and the complete migrated command surface remain open.
 - [x] Add output focus, column consume/expel, and width/height adjustment for
   the one retained scrolling layout.
 - [ ] Add reduced dialog/transient defaults and scratchpads. Private floating

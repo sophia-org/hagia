@@ -13,6 +13,10 @@ type
   TagMask* = distinct uint64
   Scale* = distinct uint32
 
+  TagKind* {.pure.} = enum
+    profile
+    dynamic
+
   Rect* = object
     x*, y*, width*, height*: int32
 
@@ -51,6 +55,8 @@ type
   TagData* = object
     id*: TagId
     slot*: uint32
+    kind*: TagKind
+    name*: string
 
   WindowTagMembership* = object
     window*: WindowId
@@ -115,6 +121,7 @@ const
   maxOutputAffinities* = 16
   maxFocusHistory* = 32
   maxMinimizedHistory* = 64
+  maxWorkspaceNameBytes* = 64
   defaultPolicySettings* = PolicySettings(viewCount: 9)
 
 proc `==`*(left, right: WindowId): bool {.borrow.}

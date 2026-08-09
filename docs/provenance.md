@@ -64,13 +64,22 @@ baseline. Hagia independently adds nonempty multi-tag view and window
 membership transitions through opaque actions; it does not import Triad
 entities, commands, or compositor bindings.
 
+The dynamic-workspace slice reuses the authority-neutral lifecycle and test
+patterns in Triad's `src/systems/workspaces.nim`,
+`src/entities/active_workspace_ops.nim`, and
+`tests/tcore_output_sticky_scratchpad.nim` at that baseline. Hagia represents
+each workspace with its existing stable `TagId` and output-owned `ViewId`,
+reimplements occupied navigation and pruning through centralized mutations,
+and keeps reusable numeric slots separate from non-recycled logical identity.
+
 The current bootstrap reducer extends that independent model with output
 focus, column consume/expel, bounded history, floating geometry, and
 fullscreen/maximize/minimize state. The checkpoint and Sophia adapter are new
 Hagia code derived from Sophia's public contract, not ports of Triad runtime
 state or serialization. The retained profile intentionally has one scroller
-and nine fixed views; dynamic workspaces, scratchpads, additional layouts,
-shell behavior, metadata rules, and Janet remain reviewed but incomplete ports.
+and nine fixed views; dynamic workspaces now have an unbound reducer lifecycle,
+while configured workspace names, scratchpads, additional layouts, shell
+behavior, metadata rules, and Janet remain reviewed but incomplete ports.
 They are tracked in `docs/triad-port-ledger.md` and block revision-1 stability
 unless explicitly excluded with an architectural or product rationale.
 

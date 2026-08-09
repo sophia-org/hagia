@@ -60,6 +60,9 @@ type PolicyAction* {.pure.} = enum
   toggleFocusedTag7 = 57
   toggleFocusedTag8 = 58
   toggleFocusedTag9 = 59
+  newWorkspace = 60
+  focusPreviousOccupiedWorkspace = 61
+  focusNextOccupiedWorkspace = 62
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -86,7 +89,8 @@ proc toggleFocusedTagAction*(slot: int): PolicyAction =
 
 proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
-    raw in PolicyAction.focusNextOutput.raw() .. PolicyAction.toggleFocusedTag9.raw()
+    raw in
+    PolicyAction.focusNextOutput.raw() .. PolicyAction.focusNextOccupiedWorkspace.raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
@@ -147,3 +151,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.toggleFocusedWindowTagSlot(
       output, ord(action) - ord(PolicyAction.toggleFocusedTag1) + 1
     )
+  of PolicyAction.newWorkspace:
+    discard model.addDynamicWorkspace(output)
+  of PolicyAction.focusPreviousOccupiedWorkspace:
+    model.focusOccupiedWorkspaceRelative(output, -1)
+  of PolicyAction.focusNextOccupiedWorkspace:
+    model.focusOccupiedWorkspaceRelative(output, 1)

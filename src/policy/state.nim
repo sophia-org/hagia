@@ -5,6 +5,10 @@ import ./types
 
 type PolicyStateError* = object of CatchableError
 
+proc setActiveOutput*(model: var PolicyModel, id: OutputId)
+proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId)
+proc wrappedIndex(current, delta, length: int): int
+
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicyStateError, message)
 
@@ -85,7 +89,8 @@ proc union(left, right: TagMask): TagMask =
   TagMask(uint64(left) or uint64(right))
 
 proc nextTagSlot*(model: PolicyModel): uint32 =
-  model.counters.tags
+  for _, tag in model.tags.pairs:
+    result = max(result, tag.slot)
 
 proc intersects*(left, right: openArray[TagId]): bool =
   for leftTag in left:
@@ -170,10 +175,16 @@ proc profileTag(model: var PolicyModel, slot: uint32): TagId =
   for tagId, tag in model.tags.pairs:
     if tag.slot == slot:
       return tagId
-  while model.counters.tags < slot:
-    let tagId = TagId(nextRaw(model.counters.tags, "tag"))
-    model.tags[tagId] = TagData(id: tagId, slot: uint32(tagId))
-  TagId(slot)
+  result = TagId(nextRaw(model.counters.tags, "tag"))
+  model.tags[result] = TagData(id: result, slot: slot, kind: TagKind.profile)
+
+proc tagIdForSlot*(model: PolicyModel, slot: uint32): TagId =
+  if slot == 0 or slot > maxTagBits:
+    return nullTagId
+  for tagId, tag in model.tags.pairs:
+    if tag.slot == slot:
+      return tagId
+  nullTagId
 
 proc tagIdsForMask(model: var PolicyModel, mask: TagMask): seq[TagId] =
   if mask == emptyTagMask:
@@ -218,6 +229,111 @@ proc addView*(
   model.views[result] = ViewData(id: result, preferredOutput: outputId)
   model.viewTags[result] = @tags
   model.outputs[outputId].views.add(result)
+
+proc workspaceOccupied*(model: PolicyModel, tagId: TagId): bool =
+  if tagId notin model.tags:
+    return false
+  for windowId in model.windowOrder:
+    if tagId in model.windowTagIds(windowId):
+      return true
+
+proc setWorkspaceName*(model: var PolicyModel, tagId: TagId, name: string) =
+  if tagId notin model.tags or name.len > maxWorkspaceNameBytes or '\0' in name:
+    fail("workspace name is invalid")
+  model.tags[tagId].name = name
+
+proc nextDynamicWorkspaceSlot*(model: PolicyModel): uint32 =
+  let first = uint32(model.settings.viewCount + 1)
+  if first > maxTagBits:
+    return 0
+  for slot in first .. maxTagBits:
+    if model.tagIdForSlot(slot) == nullTagId:
+      return slot
+
+proc pruneDynamicWorkspaces*(model: var PolicyModel): seq[TagId] =
+  ## Dynamic workspace slots are reusable, but their logical TagId and ViewId
+  ## identities never are. Only inactive, unoccupied workspaces may disappear.
+  let tagIds = model.tags.ids
+  for tagId in tagIds:
+    if model.tags[tagId].kind != TagKind.dynamic or model.workspaceOccupied(tagId):
+      continue
+    var active = false
+    for outputId in model.outputOrder:
+      if tagId in model.viewTagIds(model.outputs[outputId].activeView):
+        active = true
+        break
+    if active:
+      continue
+    var removedViews: seq[ViewId]
+    for viewId in model.views.ids:
+      if tagId in model.viewTagIds(viewId):
+        removedViews.add(viewId)
+    for viewId in removedViews:
+      for outputId in model.outputOrder:
+        model.outputs[outputId].views.keepItIf(it != viewId)
+      for outputId in model.affinityOrder:
+        model.affinities[outputId].views.keepItIf(it != viewId)
+        if model.affinities[outputId].activeView == viewId:
+          if model.affinities[outputId].views.len == 0:
+            fail("dynamic workspace removal detached an output affinity")
+          model.affinities[outputId].activeView = model.affinities[outputId].views[0]
+      model.viewTags.del(viewId)
+      model.views.del(viewId)
+    model.tags.del(tagId)
+    result.add(tagId)
+
+proc addDynamicWorkspace*(
+    model: var PolicyModel, outputId: OutputId, name = ""
+): ViewId =
+  if outputId notin model.outputs:
+    fail("dynamic workspace output does not exist")
+  if name.len > maxWorkspaceNameBytes or '\0' in name:
+    fail("workspace name is invalid")
+  discard model.pruneDynamicWorkspaces()
+  let slot = model.nextDynamicWorkspaceSlot()
+  if slot == 0:
+    fail("dynamic workspace slots are exhausted")
+  let tagId = TagId(nextRaw(model.counters.tags, "tag"))
+  model.tags[tagId] = TagData(id: tagId, slot: slot, kind: TagKind.dynamic, name: name)
+  result = model.addView(outputId, [tagId])
+  model.activateView(outputId, result)
+
+proc focusOccupiedWorkspaceRelative*(
+    model: var PolicyModel, outputId: OutputId, delta: int
+) =
+  if outputId notin model.outputs:
+    fail("occupied workspace output does not exist")
+  var occupied: seq[TagId]
+  for slot in 1'u32 .. maxTagBits:
+    let tagId = model.tagIdForSlot(slot)
+    if tagId != nullTagId and model.workspaceOccupied(tagId):
+      occupied.add(tagId)
+  if occupied.len == 0:
+    return
+  let activeTags = model.viewTagIds(model.outputs[outputId].activeView)
+  var current = -1
+  for index, tagId in occupied:
+    if tagId in activeTags:
+      current = index
+      break
+  let targetIndex =
+    if current < 0:
+      if delta < 0: occupied.high else: 0
+    else:
+      wrappedIndex(current, delta, occupied.len)
+  let target = occupied[targetIndex]
+  var targetOutput = nullOutputId
+  var targetView = nullViewId
+  for candidateOutput in model.outputOrder:
+    for viewId in model.outputs[candidateOutput].views:
+      if target in model.viewTagIds(viewId) and
+          (targetOutput == nullOutputId or candidateOutput == outputId):
+        targetOutput = candidateOutput
+        targetView = viewId
+  if targetOutput == nullOutputId:
+    fail("occupied workspace has no live view")
+  model.setActiveOutput(targetOutput)
+  model.activateView(targetOutput, targetView)
 
 proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
   if outputId notin model.outputs or count < 1 or count > 9:
@@ -296,6 +412,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   for outputId in model.affinityOrder:
     if model.affinities[outputId].focusedWindow == id:
       model.affinities[outputId].focusedWindow = nullWindowId
+  discard model.pruneDynamicWorkspaces()
 
 proc updateWindowFacts*(
     model: var PolicyModel,
@@ -428,6 +545,7 @@ proc setWindowTags*(model: var PolicyModel, id: WindowId, tags: TagMask) =
     let activeView = model.outputs[outputId].activeView
     if not model.windowTagIds(id).intersects(model.viewTagIds(activeView)):
       model.outputs[outputId].focusedWindow = nullWindowId
+  discard model.pruneDynamicWorkspaces()
 
 proc setWindowTagIds*(model: var PolicyModel, id: WindowId, tags: openArray[TagId]) =
   if tags.len == 0 or id notin model.windows:
@@ -443,6 +561,7 @@ proc setWindowTagIds*(model: var PolicyModel, id: WindowId, tags: openArray[TagI
     if model.outputs[outputId].focusedWindow == id and
         not unique.intersects(model.viewTagIds(model.outputs[outputId].activeView)):
       model.outputs[outputId].focusedWindow = nullWindowId
+  discard model.pruneDynamicWorkspaces()
 
 proc setViewTags*(
     model: var PolicyModel, outputId: OutputId, viewId: ViewId, tags: TagMask
@@ -511,6 +630,7 @@ proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId) =
     if window.isNone or window.get().homeOutput != outputId or
         not model.windowTagIds(focus).intersects(tags):
       model.outputs[outputId].focusedWindow = nullWindowId
+  discard model.pruneDynamicWorkspaces()
 
 proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
   let output = model.output(outputId)
@@ -983,9 +1103,18 @@ proc validate*(model: PolicyModel) =
     fail("policy tag relationship indexes diverged")
   var seenSlots = initHashSet[uint32]()
   for tagId, tag in model.tags.pairs:
-    if tag.id != tagId or tag.slot == 0 or tag.slot > maxTagBits or tag.slot in seenSlots:
+    if tag.id != tagId or tag.slot == 0 or tag.slot > maxTagBits or tag.slot in seenSlots or
+        tag.name.len > maxWorkspaceNameBytes or '\0' in tag.name:
       fail("policy tag entity is invalid")
     seenSlots.incl(tag.slot)
+    if tag.kind == TagKind.dynamic and not model.workspaceOccupied(tagId):
+      var active = false
+      for outputId in model.outputOrder:
+        if tagId in model.viewTagIds(model.outputs[outputId].activeView):
+          active = true
+          break
+      if not active:
+        fail("policy retains an inactive empty dynamic workspace")
   if model.minimizedOrder.len > maxMinimizedHistory:
     fail("minimized history is excessive")
   var seenMinimized = initHashSet[WindowId]()

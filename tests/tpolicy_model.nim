@@ -335,6 +335,53 @@ suite "Hagia private policy model":
     check model.nextTagSlot == 9
     model.validate()
 
+  test "empty dynamic workspaces prune without recycling logical identities":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 800))
+    model.ensureViewCount(output, 9)
+
+    let firstView = model.addDynamicWorkspace(output, "temporary")
+    let firstTag = model.viewTagIds(firstView)[0]
+    check model.tags[firstTag].slot == 10
+    check model.tags[firstTag].kind == TagKind.dynamic
+    check model.tags[firstTag].name == "temporary"
+
+    model.activateViewSlot(output, 1)
+    check firstTag notin model.tags
+    check firstView notin model.views
+
+    let secondView = model.addDynamicWorkspace(output)
+    let secondTag = model.viewTagIds(secondView)[0]
+    check model.tags[secondTag].slot == 10
+    check uint32(secondTag) > uint32(firstTag)
+    check uint32(secondView) > uint32(firstView)
+    model.validate()
+
+  test "occupied dynamic workspaces persist and navigate across outputs":
+    var model = initPolicyModel()
+    let first = model.addOutput(Rect(width: 800, height: 600))
+    let second = model.addOutput(Rect(x: 800, width: 800, height: 600))
+    model.ensureViewCount(first, 9)
+    model.ensureViewCount(second, 9)
+
+    let dynamicView = model.addDynamicWorkspace(second)
+    let dynamicTag = model.viewTagIds(dynamicView)[0]
+    let window = model.addWindow(second, focusableCapabilities(), SizeConstraints())
+    model.setFocus(second, window)
+    model.activateViewSlot(second, 1)
+
+    check dynamicTag in model.tags
+    check model.workspaceOccupied(dynamicTag)
+    model.focusOccupiedWorkspaceRelative(first, 1)
+    check model.activeOutput == second
+    check model.output(second).get().activeView == dynamicView
+
+    model.removeWindow(window)
+    model.activateViewSlot(second, 1)
+    check dynamicTag notin model.tags
+    check dynamicView notin model.views
+    model.validate()
+
   test "view actions switch visibility and move the focused window":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1200, height: 800))
@@ -682,6 +729,34 @@ suite "Sophia snapshot adapter":
     check restored.logicalWindow(2, 1).isSome
     expect PolicyAdapterError:
       discard ("BAD" & payload).restoreCheckpointPayload()
+
+  test "checkpoint v2 retains dynamic workspace identity and reusable slot":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[]))
+    adapter.applyCause(
+      ProjectionRequest(
+        connectionEpoch: 1,
+        requestId: 1,
+        sceneGeneration: 1,
+        policyGeneration: 1,
+        affectedOutputs: @[10'u64],
+        cause: ProjectionCause(
+          kind: ProjectionCauseKind.action,
+          activationSerial: 1,
+          action: PolicyAction.newWorkspace.raw(),
+        ),
+      )
+    )
+    let dynamicTag = adapter.model().tagIdForSlot(10)
+    check dynamicTag != nullTagId
+
+    var restored = adapter.checkpointPayload().restoreCheckpointPayload()
+    check restored.model().tagIdForSlot(10) == dynamicTag
+    check restored.model().tags[dynamicTag].kind == TagKind.dynamic
+    restored.reconcile(snapshot(2, @[output], @[]))
+    check restored.model().tagIdForSlot(10) == dynamicTag
+    restored.model().validate()
 
   test "a private checkpoint is atomically replaced and loaded from disk":
     let directory = createTempDir("hagia-checkpoint-", "")

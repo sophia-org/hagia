@@ -17,6 +17,8 @@
 (declare-fun columnOutput (Int) Int)
 (declare-fun windowHasTag (Int Int) Bool)
 (declare-fun viewHasTag (Int Int) Bool)
+(declare-fun dynamicTag (Int) Bool)
+(declare-fun activeTag (Int) Bool)
 
 (assert (and (> w1 0) (> w2 0) (distinct w1 w2)))
 (assert (and (> c1 0) (> c2 0) (distinct c1 c2)))
@@ -35,11 +37,26 @@
 (assert (or (windowHasTag w2 t1) (windowHasTag w2 t2)))
 (assert (or (viewHasTag v1 t1) (viewHasTag v1 t2)))
 (assert (or (viewHasTag v2 t1) (viewHasTag v2 t2)))
+(assert
+  (=>
+    (dynamicTag t1)
+    (or (windowHasTag w1 t1) (windowHasTag w2 t1) (activeTag t1))))
+(assert
+  (=>
+    (dynamicTag t2)
+    (or (windowHasTag w1 t2) (windowHasTag w2 t2) (activeTag t2))))
 
 ; Each requested bad state must be impossible under the implementation
 ; invariants above.
 (push)
 (assert (not (= (windowOutput w1) (columnOutput (windowColumn w1)))))
+(check-sat)
+(pop)
+(push)
+(assert (dynamicTag t1))
+(assert (not (windowHasTag w1 t1)))
+(assert (not (windowHasTag w2 t1)))
+(assert (not (activeTag t1)))
 (check-sat)
 (pop)
 (push)
