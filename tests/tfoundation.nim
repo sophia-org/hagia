@@ -238,6 +238,39 @@ suite "Hagia foundation":
       check source.contains("generation=7") or source.contains("profile-generation 7")
       check source.contains(profile.digest)
 
+  test "Hagia loads only a bounded owner-safe staged policy candidate":
+    let directory = createTempDir("hagia-policy-candidate-", "")
+    defer:
+      removeDir(directory)
+    let digest = repeat('a', 64)
+    let policyPath = directory / "policy.profile.kdl"
+    writeFile(
+      policyPath,
+      "schema 1\nprofile-generation 8\nprofile-digest \"" & digest &
+        "\"\npolicy { layout \"scroller\"; view-count 8; outer-gap 3; }\n",
+    )
+    policyPath.ownerOnly()
+    let candidate = loadAuthorityCandidate(policyPath, ProfileAuthority.policy)
+    check candidate.authority == ProfileAuthority.policy
+    check candidate.generation == 8
+    check candidate.digest == digest
+    check candidate.values.len == 3
+    check candidate.values[0].provenance.path == policyPath.expandFilename()
+
+    let sessionPath = directory / "session.profile.kdl"
+    writeFile(
+      sessionPath,
+      "schema 1\nprofile-generation 8\nprofile-digest \"" & digest &
+        "\"\nsession { terminal \"foot\"; }\n",
+    )
+    sessionPath.ownerOnly()
+    expect DesktopProfileError:
+      discard loadAuthorityCandidate(sessionPath, ProfileAuthority.policy)
+
+    setFilePermissions(policyPath, {fpUserRead, fpUserWrite, fpGroupRead, fpGroupWrite})
+    expect DesktopProfileError:
+      discard loadAuthorityCandidate(policyPath, ProfileAuthority.policy)
+
   test "all authorities prepare and activate one shared profile generation":
     var activation =
       ProfileActivationModel(activeGeneration: 1, activeDigest: "known-good")

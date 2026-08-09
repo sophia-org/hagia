@@ -43,21 +43,30 @@ proc run(arguments: seq[string]) =
       socketPath = argument[9 .. ^1]
     elif not argument.startsWith("--config="):
       raise newException(ValueError, "usage: hagia [--socket=PATH] [--config=PATH]")
-  # Startup is transactional: reject every participating profile section
-  # before opening the graphical-session policy connection.
-  let profile = loadDesktopProfile(explicitConfig)
+  let candidatePath = getEnv("HAGIA_POLICY_CANDIDATE")
+  if candidatePath.len > 0 and explicitConfig.len > 0:
+    raise newException(
+      ValueError, "hagia: --config cannot replace Sophia's staged policy candidate"
+    )
+  # Installed startup receives only Sophia's immutable, already partitioned
+  # policy candidate. Standalone development retains the compiled/profile path.
+  let candidate =
+    if candidatePath.len > 0:
+      loadAuthorityCandidate(candidatePath, ProfileAuthority.policy)
+    else:
+      loadDesktopProfile(explicitConfig).candidates[ProfileAuthority.policy]
   operationalLog(OperationalLevel.info, "configuration", "validated")
   recordEvidence(
     EvidenceEvent(
       kind: EvidenceKind.configuration,
-      generation: profile.generation,
+      generation: candidate.generation,
       status: "validated",
-      digest: profile.digest,
+      digest: candidate.digest,
     )
   )
   if socketPath.len == 0:
     raise newException(ValueError, "hagia: SOPHIA_WM_SOCKET or --socket is required")
-  runPolicySession(socketPath, profile.candidates[ProfileAuthority.policy])
+  runPolicySession(socketPath, candidate)
 
 try:
   run(commandLineParams())

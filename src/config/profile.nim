@@ -1,4 +1,4 @@
-import std/[algorithm, options, os, posix, sets, tables]
+import std/[algorithm, options, os, posix, sets, strutils, tables]
 
 import kdl
 import nimcrypto/[hash, sha2]
@@ -280,6 +280,81 @@ proc loadDesktopProfile*(
   result.sources = state.sources
   result.digest = $sha256.digest(state.digestInput)
   result.candidates = nodes.partition(generation, result.digest)
+
+proc loadAuthorityCandidate*(
+    path: string, expectedAuthority: ProfileAuthority
+): AuthorityCandidate =
+  if path.len == 0 or not path.isAbsolute():
+    fail("authority candidate path must be absolute")
+  let canonical = path.checkedPath()
+  let size = getFileSize(canonical)
+  if size < 1 or size > maxProfileBytes:
+    fail("authority candidate size is outside the bounded profile limit")
+  var document: KdlDoc
+  try:
+    document = parseKdl(readFile(canonical))
+  except CatchableError as error:
+    fail("authority candidate syntax error: " & error.msg)
+  var schemaSeen = false
+  var generationSeen = false
+  var digestSeen = false
+  var authoritySeen = false
+  var settings = initHashSet[string]()
+  for ordinal, node in document:
+    case node.name
+    of "schema":
+      var schema = 0
+      try:
+        if node.args.len == 1:
+          schema = node.args[0].get(int)
+      except CatchableError:
+        discard
+      if schemaSeen or node.args.len != 1 or schema != 1 or node.props.len != 0 or
+          node.children.len != 0 or node.tag.isSome:
+        fail("authority candidate requires exactly one schema 1 declaration")
+      schemaSeen = true
+    of "profile-generation":
+      var generation = 0'u64
+      try:
+        if node.args.len == 1:
+          generation = node.args[0].get(uint64)
+      except CatchableError:
+        discard
+      if generationSeen or generation == 0 or node.props.len != 0 or
+          node.children.len != 0 or node.tag.isSome:
+        fail("authority candidate generation is invalid")
+      generationSeen = true
+      result.generation = generation
+    of "profile-digest":
+      let digest = node.stringArg("authority candidate digest")
+      if digestSeen or digest.len != 64 or
+          not digest.allCharsInSet({'0' .. '9', 'a' .. 'f', 'A' .. 'F'}):
+        fail("authority candidate digest must be 64 hexadecimal characters")
+      digestSeen = true
+      result.digest = digest.toLowerAscii()
+    else:
+      let owner = node.name.authority()
+      if authoritySeen or owner != expectedAuthority:
+        fail("authority candidate crossed its assigned authority boundary")
+      if node.args.len != 0 or node.props.len != 0 or node.tag.isSome:
+        fail("authority candidate section has an ambiguous shape")
+      authoritySeen = true
+      result.authority = owner
+      for child in node.children:
+        owner.validateSetting(child)
+        let key = owner.settingKey(child)
+        if key in settings:
+          fail("duplicate authority candidate setting " & key)
+        settings.incl(key)
+        result.values.add(
+          ProfileValue(
+            key: key,
+            encoded: child.inline(),
+            provenance: ValueProvenance(path: canonical, ordinal: ordinal + 1),
+          )
+        )
+  if not schemaSeen or not generationSeen or not digestSeen or not authoritySeen:
+    fail("authority candidate is incomplete")
 
 proc effectiveProfile*(profile: DesktopProfileGeneration): string =
   result.add("generation " & $profile.generation & "\n")

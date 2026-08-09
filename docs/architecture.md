@@ -158,8 +158,10 @@ overrides fail closed.
 
 Expansion produces one SHA-256-identified `DesktopProfileGeneration` and seven
 provenance-bearing authority candidates. Hagia consumes only the policy
-candidate. The trusted session coordinator may stage exact owner-only fragments
-with the same generation and digest. The executable coordinator reducer requires
+candidate. The trusted Sophia session coordinator validates the complete
+profile, stages exact owner-only fragments with the same generation and digest,
+and passes Hagia only the immutable policy-fragment path. The executable
+coordinator reducer requires
 all seven authorities to prepare and activate that identity before promotion;
 any failure emits generation-wide idempotent rollback while preserving the
 last-known-good profile. Watched live reload remains disabled until Sophia wires
