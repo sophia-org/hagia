@@ -21,6 +21,10 @@ The detailed allocation of retained Triad features is recorded in
 Niri lessons used by the port without treating either Wayland compositor as a
 Sophia dependency or authority model.
 
+The engineering form of this port is normative in the
+[style guide](style-guide.md), [data-oriented design](data-oriented-design.md),
+and [DRY principles](dry-principles.md).
+
 ## Layers
 
 - `src/policy/types.nim` contains passive logical IDs and policy records.

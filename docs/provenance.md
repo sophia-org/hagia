@@ -12,6 +12,13 @@ docs: document River-blocked mirroring path
 2026-07-22
 ```
 
+Hagia's engineering guidance reviews `docs/triad-style-guide.md`,
+`docs/dod-architecture.md`, `docs/architecture.md`, and `CONTRIBUTING.md` at
+that same baseline. `docs/style-guide.md`, `docs/data-oriented-design.md`, and
+`docs/dry-principles.md` adapt those rules to Hagia. River/Wayland ownership,
+screen-buffer advice, and Triad's concrete dense entity manager are not copied
+as requirements where Hagia has no such authority or measurement evidence.
+
 The first slice carries forward design concepts rather than source files:
 
 - typed logical window, view, output, and tag identities;

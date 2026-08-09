@@ -444,7 +444,10 @@ proc projection*(
     result.outputs.add(projection)
 
     let outputState = adapter.model.outputs[logical.output]
-    for index, viewId in outputState.views:
+    # Migrated views retained for a disconnected output affinity remain model
+    # state, not extra public profile slots on the fallback output.
+    for index in 0 ..< min(outputState.views.len, 9):
+      let viewId = outputState.views[index]
       let view = adapter.model.views[viewId]
       var stateBits = 0'u16
       if viewId == outputState.activeView:
@@ -469,7 +472,7 @@ proc projection*(
         output: rawOutput,
         slot: uint32(index),
         indicator: uint64(uint32(viewId)),
-        action: uint64(ord(PolicyAction.activateView1) + index),
+        action: (index + 1).activateViewAction().raw(),
         stateBits: stateBits,
         labelLen: uint16(labelText.len),
       )

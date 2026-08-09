@@ -44,6 +44,10 @@ commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,
 `docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.
 
+Contributor rules are indexed in `docs/README.md`. Hagia carries Triad's
+reviewed NEP-1/`nph`, data-oriented, single-lookup, and DRY discipline while
+adapting it to Sophia's stricter authority and independent-wire boundaries.
+
 Sophia carries the opt-in installed hardware procedure in
 `tools/hagia_policy_physical_gate.sh`. It is intentionally not part of
 `nimble test`: taking DRM/KMS and physical input ownership requires explicit

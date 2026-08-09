@@ -15,15 +15,19 @@ Sophia's authority boundaries to every port.
    Hagia data and translates projections back. Sophia IDs stay adapter-local.
 4. Keep data passive and mutation centralized. Types define records; state
    modules own indexed mutation; projection modules remain pure.
-5. Follow NEP-1 and use two-space indentation, `camelCase` values and procs,
-   `PascalCase` types, pure enums, and UFCS. Format every touched Nim-family
-   file with `nph`.
+5. Follow `docs/style-guide.md`, `docs/data-oriented-design.md`, and
+   `docs/dry-principles.md`. Use two-space indentation, `camelCase` values and
+   procs, `PascalCase` types, pure enums, UFCS, single semantic ownership, and
+   bounded centralized mutation. Format every touched Nim-family file with
+   `nph`.
 6. Run Nim builds and tests serially because they share Nim caches. The
    cross-repository gate is:
 
    ```sh
    SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
    ```
+
+   Use `nimble verify` for the formatting-plus-test contributor gate.
 
 7. Do not run or reload Hagia inside a live Sophia session without explicit
    approval. Offline unit and local socket-conformance tests are safe.

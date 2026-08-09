@@ -233,6 +233,15 @@ proc proposalTransactions(clientWire: seq[byte]): seq[uint64] =
     offset += frameLen
 
 suite "Hagia private policy model":
+  test "view action identities have one bounded symbolic mapping":
+    for slot in 1 .. 9:
+      check slot.activateViewAction().raw() == uint64(10 + slot)
+      check slot.moveToViewAction().raw() == uint64(19 + slot)
+    expect PolicyStateError:
+      discard 0.activateViewAction()
+    expect PolicyStateError:
+      discard 10.moveToViewAction()
+
   test "cross-output movement replaces both output projections atomically":
     var model = initPolicyModel()
     let first = model.addOutput(Rect(width: 800, height: 600))
@@ -597,6 +606,9 @@ suite "Sophia snapshot adapter":
     let projected = adapter.projection(returnedScene, request)
     check projected.outputs[0].placements.len == 1
     check projected.outputs[1].placements.len == 1
+    check projected.indicators.len == 18
+    for indicator in projected.indicators:
+      check indicator.action in 11'u64 .. 19'u64
     adapter.model().validate()
 
   test "a private checkpoint remains a candidate until complete reconciliation":

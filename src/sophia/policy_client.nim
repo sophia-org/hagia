@@ -1,5 +1,6 @@
 import std/[net, options, os, sets, strutils]
 
+import ../policy/actions
 import ./[policy_adapter, policy_checkpoint, policy_session, session_types, wm_v1]
 
 type
@@ -354,27 +355,27 @@ proc installConfiguration(client: PolicyClient) =
     super = 1'u32 shl 3
     shift = 1'u32 shl 0
   let bindings = @[
-    (1'u64, 36'u32, super, 0'u16),
-    (2'u64, 37'u32, super, 0'u16),
-    (5'u64, 106'u32, super or shift, 0'u16),
-    (6'u64, 105'u32, super or shift, 0'u16),
-    (7'u64, 38'u32, super, 0'u16),
-    (8'u64, 35'u32, super, 0'u16),
-    (9'u64, 38'u32, super or shift, 0'u16),
-    (10'u64, 35'u32, super or shift, 0'u16),
-    (29'u64, 28'u32, super, 1'u16),
-    (30'u64, 33'u32, super, 2'u16),
-    (31'u64, 46'u32, super or shift, 3'u16),
-    (32'u64, 16'u32, super or shift, 4'u16),
-    (33'u64, 105'u32, super, 0'u16),
-    (34'u64, 106'u32, super, 0'u16),
-    (35'u64, 26'u32, super, 0'u16),
-    (36'u64, 27'u32, super, 0'u16),
-    (37'u64, 21'u32, super, 0'u16),
-    (38'u64, 50'u32, super, 0'u16),
-    (39'u64, 49'u32, super, 0'u16),
-    (40'u64, 19'u32, super, 0'u16),
-    (41'u64, 20'u32, super, 0'u16),
+    (PolicyAction.focusNext.raw(), 36'u32, super, 0'u16),
+    (PolicyAction.focusPrevious.raw(), 37'u32, super, 0'u16),
+    (PolicyAction.moveToNextOutput.raw(), 106'u32, super or shift, 0'u16),
+    (PolicyAction.moveToPreviousOutput.raw(), 105'u32, super or shift, 0'u16),
+    (PolicyAction.growColumn.raw(), 38'u32, super, 0'u16),
+    (PolicyAction.shrinkColumn.raw(), 35'u32, super, 0'u16),
+    (PolicyAction.growWindow.raw(), 38'u32, super or shift, 0'u16),
+    (PolicyAction.shrinkWindow.raw(), 35'u32, super or shift, 0'u16),
+    (PolicyAction.sessionTerminal.raw(), 28'u32, super, 1'u16),
+    (PolicyAction.sessionBrowser.raw(), 33'u32, super, 2'u16),
+    (PolicyAction.sessionClose.raw(), 46'u32, super or shift, 3'u16),
+    (PolicyAction.sessionLogout.raw(), 16'u32, super or shift, 4'u16),
+    (PolicyAction.focusNextOutput.raw(), 105'u32, super, 0'u16),
+    (PolicyAction.focusPreviousOutput.raw(), 106'u32, super, 0'u16),
+    (PolicyAction.consumeNextColumn.raw(), 26'u32, super, 0'u16),
+    (PolicyAction.expelFocusedWindow.raw(), 27'u32, super, 0'u16),
+    (PolicyAction.toggleFullscreen.raw(), 21'u32, super, 0'u16),
+    (PolicyAction.toggleMaximized.raw(), 50'u32, super, 0'u16),
+    (PolicyAction.minimizeFocused.raw(), 49'u32, super, 0'u16),
+    (PolicyAction.restoreMinimized.raw(), 19'u32, super, 0'u16),
+    (PolicyAction.toggleFloating.raw(), 20'u32, super, 0'u16),
   ]
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)
@@ -389,8 +390,8 @@ proc installConfiguration(client: PolicyClient) =
   for binding in bindings:
     payload.addBinding(binding[0], binding[1], binding[2], binding[3])
   for slot in 1 .. 9:
-    payload.addBinding(uint64(10 + slot), uint32(slot + 1), super)
-    payload.addBinding(uint64(19 + slot), uint32(slot + 1), super or shift)
+    payload.addBinding(slot.activateViewAction().raw(), uint32(slot + 1), super)
+    payload.addBinding(slot.moveToViewAction().raw(), uint32(slot + 1), super or shift)
   let transaction = client.allocateTransaction()
   client.sendFrame(
     Frame(

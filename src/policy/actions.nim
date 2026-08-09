@@ -43,19 +43,27 @@ type PolicyAction* {.pure.} = enum
   restoreMinimized = 40
   toggleFloating = 41
 
+proc raw*(action: PolicyAction): uint64 =
+  uint64(ord(action))
+
+proc activateViewAction*(slot: int): PolicyAction =
+  if slot notin 1 .. 9:
+    raise newException(PolicyStateError, "view action slot is invalid")
+  PolicyAction(ord(PolicyAction.activateView1) + slot - 1)
+
+proc moveToViewAction*(slot: int): PolicyAction =
+  if slot notin 1 .. 9:
+    raise newException(PolicyStateError, "move-to-view action slot is invalid")
+  PolicyAction(ord(PolicyAction.moveToView1) + slot - 1)
+
 proc isPolicyAction*(raw: uint64): bool =
-  raw in 1'u64 .. 28'u64 or raw in 33'u64 .. 41'u64
+  raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
+    raw in PolicyAction.focusNextOutput.raw() .. PolicyAction.toggleFloating.raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
     raise newException(PolicyStateError, "policy action identity is invalid")
-  case raw
-  of 1'u64 .. 28'u64:
-    PolicyAction(raw)
-  of 33'u64 .. 41'u64:
-    PolicyAction(raw)
-  else:
-    raise newException(PolicyStateError, "policy action identity is invalid")
+  PolicyAction(raw)
 
 proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction) =
   ## Reducer actions mutate private logical state only. Sophia validates the

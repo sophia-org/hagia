@@ -9,3 +9,7 @@ requires "nim >= 2.2.4"
 
 task test, "Run the independent Sophia policy conformance suite":
   exec "sh tools/check_sophia_policy.sh"
+
+task verify, "Check formatting and run the independent conformance suite":
+  exec "nph --check src tests hagia.nimble"
+  exec "sh tools/check_sophia_policy.sh"
