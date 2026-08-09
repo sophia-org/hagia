@@ -72,10 +72,12 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [x] Add bounded Engine-owned completed pointer move and resize interactions;
   Hagia receives only the exact target and final output-local geometry.
 - [x] Add bounded session-local checkpointing with exact snapshot
-  reconciliation. Sophia now carries an opt-in two-output physical gate; an
-  authorized retained run remains open.
-- [ ] Prove policy crash/restart while applications and the committed scene
-  remain alive.
+  reconciliation. Sophia carries an opt-in two-output physical gate, and the
+  retained installed run has passed.
+- [x] Prove policy crash/restart while applications and the committed scene
+  remain alive. The installed two-output gate retained fullscreen, restored a
+  nonempty checkpoint at connection epoch two, completed the post-restart
+  action sequence, and shut down with clean session health.
 
 ## Milestone 4: Hagia Experience
 
