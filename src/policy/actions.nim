@@ -42,6 +42,24 @@ type PolicyAction* {.pure.} = enum
   minimizeFocused = 39
   restoreMinimized = 40
   toggleFloating = 41
+  toggleViewTag1 = 42
+  toggleViewTag2 = 43
+  toggleViewTag3 = 44
+  toggleViewTag4 = 45
+  toggleViewTag5 = 46
+  toggleViewTag6 = 47
+  toggleViewTag7 = 48
+  toggleViewTag8 = 49
+  toggleViewTag9 = 50
+  toggleFocusedTag1 = 51
+  toggleFocusedTag2 = 52
+  toggleFocusedTag3 = 53
+  toggleFocusedTag4 = 54
+  toggleFocusedTag5 = 55
+  toggleFocusedTag6 = 56
+  toggleFocusedTag7 = 57
+  toggleFocusedTag8 = 58
+  toggleFocusedTag9 = 59
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -56,9 +74,19 @@ proc moveToViewAction*(slot: int): PolicyAction =
     raise newException(PolicyStateError, "move-to-view action slot is invalid")
   PolicyAction(ord(PolicyAction.moveToView1) + slot - 1)
 
+proc toggleViewTagAction*(slot: int): PolicyAction =
+  if slot notin 1 .. 9:
+    raise newException(PolicyStateError, "view-tag action slot is invalid")
+  PolicyAction(ord(PolicyAction.toggleViewTag1) + slot - 1)
+
+proc toggleFocusedTagAction*(slot: int): PolicyAction =
+  if slot notin 1 .. 9:
+    raise newException(PolicyStateError, "window-tag action slot is invalid")
+  PolicyAction(ord(PolicyAction.toggleFocusedTag1) + slot - 1)
+
 proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
-    raw in PolicyAction.focusNextOutput.raw() .. PolicyAction.toggleFloating.raw()
+    raw in PolicyAction.focusNextOutput.raw() .. PolicyAction.toggleFocusedTag9.raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
@@ -113,3 +141,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.restoreLastMinimized()
   of PolicyAction.toggleFloating:
     model.toggleFocusedFloating()
+  of PolicyAction.toggleViewTag1 .. PolicyAction.toggleViewTag9:
+    model.toggleViewTagSlot(output, ord(action) - ord(PolicyAction.toggleViewTag1) + 1)
+  of PolicyAction.toggleFocusedTag1 .. PolicyAction.toggleFocusedTag9:
+    model.toggleFocusedWindowTagSlot(
+      output, ord(action) - ord(PolicyAction.toggleFocusedTag1) + 1
+    )

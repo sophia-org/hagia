@@ -263,10 +263,44 @@ suite "Hagia private policy model":
     for slot in 1 .. 9:
       check slot.activateViewAction().raw() == uint64(10 + slot)
       check slot.moveToViewAction().raw() == uint64(19 + slot)
+      check slot.toggleViewTagAction().raw() == uint64(41 + slot)
+      check slot.toggleFocusedTagAction().raw() == uint64(50 + slot)
     expect PolicyStateError:
       discard 0.activateViewAction()
     expect PolicyStateError:
       discard 10.moveToViewAction()
+    expect PolicyStateError:
+      discard 0.toggleViewTagAction()
+    expect PolicyStateError:
+      discard 10.toggleFocusedTagAction()
+
+  test "general tag actions preserve nonempty views and window membership":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 800))
+    model.ensureViewCount(output, 9)
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+
+    model.applyAction(output, 2.toggleViewTagAction())
+    check model.view(model.output(output).get().activeView).get().selectedTags ==
+      TagMask(uint64(tagForSlot(1)) or uint64(tagForSlot(2)))
+    model.applyAction(output, 2.toggleFocusedTagAction())
+    check model.window(window).get().tags ==
+      TagMask(uint64(tagForSlot(1)) or uint64(tagForSlot(2)))
+
+    model.applyAction(output, 1.toggleViewTagAction())
+    check model.view(model.output(output).get().activeView).get().selectedTags ==
+      tagForSlot(2)
+    check model.output(output).get().focusedWindow == window
+    model.applyAction(output, 2.toggleViewTagAction())
+    check model.view(model.output(output).get().activeView).get().selectedTags ==
+      tagForSlot(2)
+
+    model.applyAction(output, 1.toggleFocusedTagAction())
+    check model.window(window).get().tags == tagForSlot(2)
+    model.applyAction(output, 2.toggleFocusedTagAction())
+    check model.window(window).get().tags == tagForSlot(2)
+    model.validate()
 
   test "cross-output movement replaces both output projections atomically":
     var model = initPolicyModel()

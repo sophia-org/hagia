@@ -356,6 +356,42 @@ proc setWindowTags*(model: var PolicyModel, id: WindowId, tags: TagMask) =
     if not tags.intersects(model.views[activeView].selectedTags):
       model.outputs[outputId].focusedWindow = nullWindowId
 
+proc setViewTags*(
+    model: var PolicyModel, outputId: OutputId, viewId: ViewId, tags: TagMask
+) =
+  if tags == emptyTagMask:
+    fail("a view must retain at least one tag")
+  if outputId notin model.outputs or viewId notin model.outputs[outputId].views:
+    fail("view does not belong to the output")
+  model.views[viewId].selectedTags = tags
+  if model.outputs[outputId].activeView != viewId:
+    return
+  let focus = model.outputs[outputId].focusedWindow
+  if focus != nullWindowId and not model.windows[focus].tags.intersects(tags):
+    model.outputs[outputId].focusedWindow = nullWindowId
+
+proc toggleViewTagSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
+  if outputId notin model.outputs or slot < 1 or slot > int(maxTagBits):
+    fail("view tag slot is outside the bounded range")
+  let viewId = model.outputs[outputId].activeView
+  let current = model.views[viewId].selectedTags
+  let next = TagMask(uint64(current) xor uint64(tagForSlot(uint32(slot))))
+  if next != emptyTagMask:
+    model.setViewTags(outputId, viewId, next)
+
+proc toggleFocusedWindowTagSlot*(
+    model: var PolicyModel, outputId: OutputId, slot: int
+) =
+  if outputId notin model.outputs or slot < 1 or slot > int(maxTagBits):
+    fail("window tag slot is outside the bounded range")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let current = model.windows[windowId].tags
+  let next = TagMask(uint64(current) xor uint64(tagForSlot(uint32(slot))))
+  if next != emptyTagMask:
+    model.setWindowTags(windowId, next)
+
 proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId) =
   let output = model.output(outputId)
   if output.isNone or viewId notin output.get().views:

@@ -21,6 +21,12 @@ The detailed allocation of retained Triad features is recorded in
 Niri lessons used by the port without treating either Wayland compositor as a
 Sophia dependency or authority model.
 
+Port completion is defined by the
+[`triad-port-ledger.md`](triad-port-ledger.md). The initial fixed profile is an
+experimental boundary proof, not the revision-1 feature ceiling. Retained
+Triad behavior may expose missing WM facts or operations while it is ported, so
+`sophia_wm_v1` must remain revisable until that ledger closes.
+
 The engineering form of this port is normative in the
 [style guide](style-guide.md), [data-oriented design](data-oriented-design.md),
 and [DRY principles](dry-principles.md).

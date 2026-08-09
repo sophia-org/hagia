@@ -24,21 +24,24 @@ Sophia's generated Rust and C99 codecs, then runs the independently compiled
 Hagia client through Sophia's authenticated transport and canonical Engine
 reducer.
 
-Hagia now carries the first bounded Triad-policy port: stable logical IDs, nine
+Hagia now carries the first bounded Triad-policy slice: stable logical IDs, nine
 shared tag slots with output-local views, commit-aware complete-snapshot
 reconciliation, bounded output reconnect affinity, deterministic fixed-point
 scrolling columns, atomic cross-output movement, output focus, column
 consume/expel, bounded focus/minimize histories, presentation-state reduction,
-completed reduced pointer move/resize, and a checked-in native action and
-chrome profile. The retained profile has one scrolling layout and nine fixed
-views; additional layouts are outside the critical path. The
+nonempty multi-tag view/window mutation, completed reduced pointer move/resize,
+and a checked-in native action and chrome profile. The retained bootstrap
+profile has one scrolling layout and
+nine fixed views. It proves the boundary but does not complete the Triad port,
+and Sophia revision 1 remains experimental until the retained behavior in
+`docs/triad-port-ledger.md` is implemented across its assigned authorities. The
 `hagia` executable is a long-running client of the session-owned
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
 recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
 owner-only, atomic replacement; restored state is revalidated and reconciled
-against a complete snapshot before use. A physical restore proof, floating
-lifecycle beyond exact final geometry, continuous pointer interaction, and
-shell work remain explicit later milestones. Sophia owns scene truth, input
+against a complete snapshot before use. The physical checkpoint/restart and
+presentation-state workload has passed; broader parity, continuous pointer
+interaction, and shell work remain open. Sophia owns scene truth, input
 authority, validation, atomic
 commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,

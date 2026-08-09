@@ -27,7 +27,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Triad capability | Sophia owner | Hagia status | Required interface or evidence |
 | --- | --- | --- | --- |
 | Stable tags, views, columns, and logical IDs | Hagia | Implemented | Pure model and reconciliation tests |
-| Scrolling layout | Hagia | One fixed scrolling profile implemented; extra layouts are not critical-path work | Deterministic geometry and constraint tests |
+| Scrolling and additional retained layouts | Hagia policy; visible tabs and feedback in Hagia Shell | One fixed scrolling profile implemented; remaining retained layouts are freeze-path work | Deterministic geometry, constraint, transition, and shell correspondence tests |
 | Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Focus, view, output focus/move, consume/expel, and size actions implemented | `sophia_wm_v1` action causes and ordered action tests |
 | Output-local views and reconnect affinity | Hagia over Engine output facts | Nine-view actions and affinity implemented | Work rectangles, multi-output proposals, loss/return tests |
 | Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Floating and presentation reducers implemented; scratchpads and frontend X state signaling missing | Reduced kinds/state, presentation decisions, restore tests, frontend state evidence |
@@ -41,7 +41,12 @@ None of these repositories is a Hagia runtime or build dependency.
 | Launch, logout, lock, output power, and configuration | Sophia session or dedicated authority | Terminal, browser, close, and logout slot requests implemented; other services deferred | Advertised opaque operations or role-specific interfaces |
 | Screenshot, capture, clipboard, drag-and-drop, files, and notifications | Sophia portals | Deferred | Explicit grants and bounded payload handoff |
 | Status and diagnostics | Redacted shell/status and diagnostic interfaces | Deferred | Full initial state plus typed bounded updates |
-| KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Deferred | Candidate validation, atomic activation, deterministic fallback |
+| KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Open and freeze-blocking | Candidate validation, atomic activation, bounded evaluation, deterministic fallback |
+
+The complete retained-behavior inventory and revision-1 gate are in
+[`triad-port-ledger.md`](triad-port-ledger.md). A feature assigned to a shell,
+session service, broker, or portal still counts toward the Hagia desktop port;
+it does not acquire WM authority merely to keep the old Triad process shape.
 
 ## Interface Rules
 

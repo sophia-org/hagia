@@ -14,8 +14,9 @@ tag profile on every output, commit-aware multi-cycle reconciliation, bounded
 output affinity, hidden-surface admission, deterministic fixed-point scrolling
 columns, and registered focus, view, movement, and size actions. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
-transport. Promotion waits on the phase-controlled restart and installed
-physical workload gates.
+transport. The installed physical checkpoint/restart workload has passed. This
+promotes the bootstrap path for daily use; it does not freeze revision 1.
+Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -59,8 +60,9 @@ physical workload gates.
 
 - [x] Add nine-view activation, focus movement, cross-output movement, and
   move-to-view reducer messages driven by opaque registered actions.
-- [ ] Add general tag mutation without
-  exposing raw input or Sophia identities to the private model.
+- [x] Add nonempty multi-tag view and focused-window mutation without exposing
+  raw input or Sophia identities to the private model. Dynamic workspace
+  creation, pruning, names, and occupancy navigation remain separately open.
 - [x] Add output focus, column consume/expel, and width/height adjustment for
   the one retained scrolling layout.
 - [ ] Add reduced dialog/transient defaults and scratchpads. Private floating
@@ -77,12 +79,23 @@ physical workload gates.
 
 ## Milestone 4: Hagia Experience
 
-- [ ] Port additional layouts only after deterministic geometry tests exist.
-- [ ] Add candidate-validated declarative configuration only after the public
-  policy lifecycle is stable; retain a checked-in bounded profile until then.
+- [ ] Port additional retained layouts with deterministic geometry tests.
+- [ ] Add candidate-validated declarative configuration while the public
+  policy lifecycle remains experimental; retain a checked-in bounded fallback.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities.
+
+## Milestone 5: Port Completion And Revision-1 Evaluation
+
+- [ ] Close every retained row in `triad-port-ledger.md` across Hagia policy,
+  Hagia Shell, Sophia services, and brokers/portals.
+- [ ] Validate migration of the retained Triad default configuration without
+  silent command or behavior loss.
+- [ ] Pass deterministic parity, authority-loss, restart, and installed
+  physical scenarios for the completed desktop.
+- [ ] Only then run the shared cross-client reconnect/restart corpus, archive a
+  revision-1 compatibility client, and evaluate `sophia_wm_v1` for stability.

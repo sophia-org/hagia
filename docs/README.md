@@ -12,6 +12,9 @@ porting useful Triad behavior.
   contract.
 - [Capability map](capability-map.md): where Triad features belong under
   Sophia's split authorities.
+- [Triad port completion ledger](triad-port-ledger.md): retained behavior,
+  ownership, evidence, and the completion gate before Sophia freezes
+  `sophia_wm_v1` revision 1.
 - [Port provenance](provenance.md): reviewed Triad sources and baseline.
 - [Roadmap](roadmap.md): implemented and deferred work.
 
@@ -22,4 +25,3 @@ porting useful Triad behavior.
   mutations, and pure projections.
 - [DRY principles](dry-principles.md): semantic ownership, justified
   duplication, and abstraction rules.
-

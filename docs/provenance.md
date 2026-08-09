@@ -32,13 +32,21 @@ The scrolling-column slice reviews Triad's `src/layouts/scroller.nim` and
 bounded Q16.16 scales, integer target geometry, and its own tests; it does not
 copy Triad's float-based implementation or runtime interpolation.
 
-The current critical-path reducer extends that independent model with output
+The general tag-action slice reviews Triad's `src/entities/tag_ops.nim`,
+`src/systems/workspaces.nim`, and retained default bindings at the same
+baseline. Hagia independently adds nonempty multi-tag view and window
+membership transitions through opaque actions; it does not import Triad
+entities, commands, or compositor bindings.
+
+The current bootstrap reducer extends that independent model with output
 focus, column consume/expel, bounded history, floating geometry, and
 fullscreen/maximize/minimize state. The checkpoint and Sophia adapter are new
 Hagia code derived from Sophia's public contract, not ports of Triad runtime
 state or serialization. The retained profile intentionally has one scroller
-and nine fixed views; general tag mutation, scratchpads, and additional layouts
-remain separately reviewable future ports.
+and nine fixed views; dynamic workspaces, scratchpads, additional layouts,
+configuration, and Janet remain reviewed but incomplete ports. They are tracked
+in `docs/triad-port-ledger.md` and block revision-1 stability unless explicitly
+excluded with an architectural or product rationale.
 
 No River/Wayland adapter, generated protocol module, configuration parser,
 shell implementation, metadata rule, or Triad project history is imported.
