@@ -41,8 +41,10 @@ physical workload gates.
 - [x] Resolve terminal, browser, close, and logout actions through advertised
   profile-local session-operation slots; keep their tokens opaque and send an
   optional focused target only when the advertised operation permits it.
-- [ ] Request a bounded fresh policy cycle after private state changes without
-  sending unsolicited geometry.
+- [x] Request one bounded fresh policy cycle after a restored private
+  checkpoint reconciles and commits, without sending unsolicited geometry.
+  The request advances the private generation, scopes itself to the complete
+  live output set, and cannot recur during ordinary action cycles.
 - [ ] Prove frontend settlement, stale replacement, timeout, and last-committed
   preservation against Sophia's canonical reducer.
 

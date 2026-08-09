@@ -560,6 +560,36 @@ proc sendSessionOperation(
     fail("Sophia returned an invalid session-operation outcome")
   ProjectionOutcomeKind(raw)
 
+proc requestFreshCycle(
+    client: PolicyClient, policyGeneration: uint64, snapshot: PolicySnapshot
+) =
+  if policyGeneration == high(uint64) or snapshot.outputs.len == 0 or
+      snapshot.outputs.len > maxOutputs:
+    fail("policy refresh identity is invalid")
+  var payload: seq[byte]
+  payload.addU64(client.connectionEpoch)
+  payload.addU64(policyGeneration + 1)
+  payload.addU16(uint16(snapshot.outputs.len))
+  payload.addU16(0)
+  var outputs = initHashSet[uint64]()
+  for output in snapshot.outputs:
+    if output.output == 0 or output.output in outputs:
+      fail("policy refresh output scope is invalid")
+    outputs.incl(output.output)
+    payload.addU64(output.output)
+  client.sendFrame(
+    Frame(
+      kind: MessageKind.policyDirty,
+      transaction: client.allocateTransaction(),
+      payload: payload,
+    )
+  )
+  stderr.writeLine(
+    "hagia_policy_refresh schema=1 status=requested reason=checkpoint_reconciled" &
+      " policy_generation=" & $(policyGeneration + 1) & " outputs=" &
+      $snapshot.outputs.len
+  )
+
 ## Exercise the smallest complete public-policy cycle without Triad machinery.
 proc runOnePolicyCycle*(path: string) =
   let client = path.connectPolicy(false)
@@ -632,7 +662,6 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
               "hagia_policy_checkpoint schema=1 status=reconciled candidate_nonempty=" &
                 $candidateNonempty
             )
-            restoredCheckpoint = false
         except PolicyCheckpointError as error:
           checkpointEnabled = false
           stderr.writeLine(
@@ -642,6 +671,9 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
         let operationOutcome = client.sendSessionOperation(operation.get())
         if operationOutcome == ProjectionOutcomeKind.disconnected:
           return
+      if outcome.kind == ProjectionOutcomeKind.committed and restoredCheckpoint:
+        client.requestFreshCycle(session.policyGeneration(), snapshot)
+        restoredCheckpoint = false
       if outcome.kind == ProjectionOutcomeKind.disconnected:
         return
   finally:

@@ -32,7 +32,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Output-local views and reconnect affinity | Hagia over Engine output facts | Nine-view actions and affinity implemented | Work rectangles, multi-output proposals, loss/return tests |
 | Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Floating and presentation reducers implemented; scratchpads and frontend X state signaling missing | Reduced kinds/state, presentation decisions, restore tests, frontend state evidence |
 | Pointer move and resize | Engine grab and hit testing; Hagia geometry policy | One bounded completed interaction implemented | Reduced final interaction cause; continuous updates deferred |
-| Policy reload or private policy command | Hagia may request a new cycle; Engine remains scene authority | Missing | Bounded policy-dirty request and complete fresh snapshot |
+| Policy reload or private policy command | Hagia may request a new cycle; Engine remains scene authority | Restored-checkpoint adoption emits one bounded generational refresh; general reload is deferred | Complete fresh snapshot after `PolicyDirty`; future candidate-validated reload |
 | Policy checkpoint and restart | Hagia checkpoint; Sophia session supervision | Bounded owner-only atomic session checkpoint plus in-process state | Installed physical restore proof |
 | Keyboard matching and physical gestures | Engine | Outside Hagia | Registered opaque actions; no raw input crosses the wire |
 | Client state, pixels, configure delivery, and presentation | Engine and frontend authority | Outside Hagia | Settled snapshot generations and last-good preservation |

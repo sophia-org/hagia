@@ -50,6 +50,7 @@ proc appendWireCycle(
     epoch, generation, requestId, snapshotTransaction, requestTransaction,
       proposalTransaction: uint64,
     outcome: ProjectionOutcomeKind,
+    policyGeneration = 1'u64,
 ) =
   var beginPayload: seq[byte]
   beginPayload.addU64(epoch)
@@ -147,7 +148,7 @@ proc appendWireCycle(
   requestPayload.addU64(epoch)
   requestPayload.addU64(requestId)
   requestPayload.addU64(generation)
-  requestPayload.addU64(1)
+  requestPayload.addU64(policyGeneration)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
   requestPayload.addU16(0)
@@ -230,6 +231,19 @@ proc proposalTransactions(clientWire: seq[byte]): seq[uint64] =
     let kind = clientWire.u16At(offset + 6)
     if kind == uint16(ord(MessageKind.projectionBegin)):
       result.add(clientWire.u64At(offset + 8))
+    offset += frameLen
+
+proc policyDirtyFrames(clientWire: seq[byte]): seq[Frame] =
+  var offset = 0
+  while offset < clientWire.len:
+    doAssert clientWire.len - offset >= frameHeaderLen
+    let payloadLen = int(clientWire.u32At(offset + 16))
+    let frameLen = frameHeaderLen + payloadLen
+    doAssert offset + frameLen <= clientWire.len
+    if clientWire.u16At(offset + 6) == uint16(ord(MessageKind.policyDirty)):
+      result.add(
+        clientWire[offset ..< offset + frameLen].decodeFrame(MessageKind.policyDirty)
+      )
     offset += frameLen
 
 suite "Hagia private policy model":
@@ -845,6 +859,36 @@ suite "Sophia policy session":
       10, 2, 21, 102, 202, 1, ProjectionOutcomeKind.disconnected
     )
     check replacementServer.runWireSession().proposalTransactions() == @[1'u64]
+
+  test "a reconciled private checkpoint requests one bounded fresh cycle":
+    let directory = createTempDir("hagia-refresh-", "")
+    defer:
+      delEnv("HAGIA_POLICY_CHECKPOINT")
+      if fileExists(directory / "policy.checkpoint"):
+        removeFile(directory / "policy.checkpoint")
+      removeDir(directory)
+    let path = directory / "policy.checkpoint"
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    path.savePolicyCheckpoint(adapter)
+    putEnv("HAGIA_POLICY_CHECKPOINT", path)
+
+    var serverBytes: seq[byte]
+    serverBytes.appendWelcome(9)
+    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
+    serverBytes.appendWireCycle(
+      9, 2, 12, 102, 202, 3, ProjectionOutcomeKind.disconnected, 2
+    )
+    let clientWire = serverBytes.runWireSession()
+    check clientWire.proposalTransactions() == @[1'u64, 3'u64]
+    let refreshes = clientWire.policyDirtyFrames()
+    require refreshes.len == 1
+    check refreshes[0].transaction == 2
+    check refreshes[0].payload.u64At(0) == 9
+    check refreshes[0].payload.u64At(8) == 2
+    check refreshes[0].payload.u16At(16) == 1
+    check refreshes[0].payload.u64At(20) == 10
 
   test "projection outcomes reject unknown status values":
     var payload: seq[byte]

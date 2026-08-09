@@ -89,6 +89,12 @@ but is deleted when the owning session ends. A checkpoint write failure disables
 further writes for that client epoch and reports a diagnostic; it does not turn
 an optional recovery optimization into a policy-session failure.
 
+After a restored checkpoint reconciles and its first projection commits, Hagia
+advances its private generation and emits exactly one `PolicyDirty` request for
+the complete live output set. The request contains no placement or private
+identity. Sophia answers with an ordinary fresh snapshot/request cycle; normal
+action cycles do not create redundant refreshes.
+
 ## Management Lifecycle
 
 Engine starts a policy cycle from a complete snapshot and one reduced cause.
