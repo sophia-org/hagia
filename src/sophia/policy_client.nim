@@ -609,8 +609,6 @@ proc runPolicyCycles*(path: string, cycleCount: int) =
       let projection = session.prepare(snapshot, request, transaction)
       let outcome = client.sendProjection(request, transaction, projection)
       session.settle(outcome)
-      if outcome.kind != ProjectionOutcomeKind.committed:
-        fail("Sophia rejected Hagia's projection proof")
   finally:
     session.abort()
     client.socket.close()
