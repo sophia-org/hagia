@@ -4,10 +4,10 @@
 
 Hagia independently implements the draft `sophia_wm_v1` wire in Nim and passes
 Sophia's shared valid, malformed, and record corpus. Its proof client completes
-the shared seven-cycle behavior corpus through Sophia's canonical reducer on
+the shared eleven-cycle behavior corpus through Sophia's canonical reducer on
 one authenticated connection, retaining private state across two-output
 admission, loss, migration, generational return, an ordered action, timeout,
-and post-timeout recovery.
+stale/invalid rejection, and recovery after every noncommitted outcome.
 
 The first Triad-policy slice now includes stable Hagia IDs, a shared nine-slot
 tag profile on every output, commit-aware multi-cycle reconciliation, bounded
