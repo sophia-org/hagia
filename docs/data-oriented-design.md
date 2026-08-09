@@ -12,7 +12,7 @@ policy model and may return bounded proposals. A convenient data structure
 never expands that authority.
 
 Opaque Sophia handles live only in `src/sophia`. Policy records contain Hagia
-logical IDs, tag masks, view membership, columns, histories, presentation
+logical IDs, explicit tag membership, columns, histories, presentation
 intent, and deterministic geometry.
 
 ## Territories
@@ -31,8 +31,9 @@ reconcile current generational handles with stable Hagia IDs.
 
 ## Canonical State And Derived Indexes
 
-`PolicyModel` is the canonical private policy state. Ordered ID sequences and
-lookup tables are derived indexes over the same entities. A state transition
+`PolicyModel` is the canonical private policy state. Each entity kind uses a
+dense sequence plus an ID-to-slot index. Swap-and-pop removal updates that
+index, while separate ordered ID sequences retain semantic order. A state transition
 must update every related index in one procedure and finish in a state accepted
 by `model.validate()`.
 
@@ -41,10 +42,10 @@ transitions. Projection code never repairs invalid state. Checkpoint restore
 validates the canonical model and every forward/reverse adapter index before it
 can become a reconciliation candidate.
 
-Hagia currently uses bounded tables plus explicit order sequences rather than
-Triad's dense swap-and-pop entity manager. That is deliberate for the present
-small model. A dense representation requires measurements and an atomic
-migration of all index invariants; it is not a stylistic rewrite.
+The shared `EntityStore[Id, T]` is storage only. It never owns focus, layout,
+membership, or ordering semantics. `validateDense` and `PolicyModel.validate`
+jointly check physical indexes and logical relationships after centralized
+mutation.
 
 ## Identities And Relationships
 
@@ -52,14 +53,16 @@ Logical ID zero is null and is never issued. Physical storage position has no
 meaning. Relationships use IDs and bounded tables or masks rather than object
 graphs:
 
-- tag membership is a nonzero bitmask;
+- tags are stable `TagId` entities and window/view membership is explicit;
 - views select tag masks;
 - columns and outputs hold ordered logical IDs;
 - focus and minimize history are bounded ID sequences; and
 - external surface/output handles remain adapter mappings that include their
   generation.
 
-An opaque handle reused with a new generation receives a new logical identity.
+Compatibility mask helpers exist only at the action boundary; masks are not
+canonical identity. An opaque handle reused with a new generation receives a
+new logical identity.
 
 ## Unidirectional Settlement
 
@@ -82,4 +85,3 @@ Keep all collections protocol-bounded. Retain only state needed for future
 policy decisions. Hagia owns no pixels or screen-sized buffers. Prefer one
 lookup, one bounded pass, and immutable local projection data. Add caches only
 with an invalidation owner, a bound, and measurement evidence.
-

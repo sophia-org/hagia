@@ -1,6 +1,8 @@
-import std/[marshal, options, sets, strutils, tables]
+import std/[algorithm, json, jsonutils, options, sets, strutils, tables]
 
-import ../policy/[actions, projection, state, types]
+import ../config/[policy_candidate, profile]
+import ../observability
+import ../policy/[actions, projection, reducer, state, types]
 import ./[session_types, wm_v1]
 
 type
@@ -17,6 +19,42 @@ type
     dormantOutputToLogical: Table[OutputHandle, OutputId]
     logicalToOutput: Table[OutputId, OutputHandle]
     surfaceFacts: Table[WindowId, SnapshotSurface]
+
+  TagRelationDto = object
+    owner: uint32
+    tags: seq[uint32]
+
+  SurfaceDto = object
+    key: uint64
+    window: uint32
+    facts: SnapshotSurface
+
+  OutputDto = object
+    output: uint64
+    generation: uint64
+    logical: uint32
+
+  CheckpointV2Dto = object
+    schema: uint32
+    counters: IdCounters
+    settings: PolicySettings
+    activeOutput: uint32
+    windows: seq[WindowData]
+    windowOrder: seq[uint32]
+    columns: seq[ColumnData]
+    columnOrder: seq[uint32]
+    views: seq[ViewData]
+    tags: seq[TagData]
+    outputs: seq[OutputData]
+    outputOrder: seq[uint32]
+    windowTags: seq[TagRelationDto]
+    viewTags: seq[TagRelationDto]
+    minimizedOrder: seq[uint32]
+    affinities: seq[OutputAffinity]
+    affinityOrder: seq[uint32]
+    surfaces: seq[SurfaceDto]
+    activeOutputs: seq[OutputDto]
+    dormantOutputs: seq[OutputDto]
 
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicyAdapterError, message)
@@ -82,6 +120,13 @@ proc constrainedExtent(extent, minimum, maximum, exact: int32): int32 =
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
 
+proc initPolicyAdapter*(candidate: AuthorityCandidate): PolicyAdapter =
+  result = initPolicyAdapter()
+  result.model.applyPolicyCandidate(candidate)
+
+proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate) =
+  adapter.model.applyPolicyCandidate(candidate)
+
 proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   result.model = adapter.model.clone()
   for key, value in adapter.surfaceToWindow.pairs:
@@ -120,17 +165,152 @@ proc model*(adapter: PolicyAdapter): PolicyModel =
 proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
+proc idOrder[T](left, right: T): int =
+  cmp(uint32(left.id), uint32(right.id))
+
+proc checkpointDto(adapter: PolicyAdapter): CheckpointV2Dto =
+  result.schema = 2
+  result.counters = adapter.model.counters
+  result.settings = adapter.model.settings
+  result.activeOutput = uint32(adapter.model.activeOutput)
+  for _, window in adapter.model.windows.pairs:
+    result.windows.add(window)
+  result.windows.sort(idOrder[WindowData])
+  for id in adapter.model.windowOrder:
+    result.windowOrder.add(uint32(id))
+  for _, column in adapter.model.columns.pairs:
+    result.columns.add(column)
+  result.columns.sort(idOrder[ColumnData])
+  for id in adapter.model.columnOrder:
+    result.columnOrder.add(uint32(id))
+  for _, view in adapter.model.views.pairs:
+    result.views.add(view)
+  result.views.sort(idOrder[ViewData])
+  for _, tag in adapter.model.tags.pairs:
+    result.tags.add(tag)
+  result.tags.sort(idOrder[TagData])
+  for _, output in adapter.model.outputs.pairs:
+    result.outputs.add(output)
+  result.outputs.sort(idOrder[OutputData])
+  for id in adapter.model.outputOrder:
+    result.outputOrder.add(uint32(id))
+  for id in adapter.model.windowOrder:
+    var relation = TagRelationDto(owner: uint32(id))
+    for tag in adapter.model.windowTagIds(id):
+      relation.tags.add(uint32(tag))
+    relation.tags.sort()
+    result.windowTags.add(relation)
+  var viewIds = adapter.model.views.ids
+  viewIds.sort(
+    proc(left, right: ViewId): int =
+      cmp(uint32(left), uint32(right))
+  )
+  for id in viewIds:
+    var relation = TagRelationDto(owner: uint32(id))
+    for tag in adapter.model.viewTagIds(id):
+      relation.tags.add(uint32(tag))
+    relation.tags.sort()
+    result.viewTags.add(relation)
+  for id in adapter.model.minimizedOrder:
+    result.minimizedOrder.add(uint32(id))
+  for id in adapter.model.affinityOrder:
+    result.affinities.add(adapter.model.affinities[id])
+    result.affinityOrder.add(uint32(id))
+  for key, window in adapter.surfaceToWindow.pairs:
+    result.surfaces.add(
+      SurfaceDto(key: key, window: uint32(window), facts: adapter.surfaceFacts[window])
+    )
+  result.surfaces.sort(
+    proc(left, right: SurfaceDto): int =
+      cmp(left.window, right.window)
+  )
+  for handle, logical in adapter.activeOutputToLogical.pairs:
+    result.activeOutputs.add(
+      OutputDto(
+        output: handle.output, generation: handle.generation, logical: uint32(logical)
+      )
+    )
+  result.activeOutputs.sort(
+    proc(left, right: OutputDto): int =
+      cmp(left.logical, right.logical)
+  )
+  for handle, logical in adapter.dormantOutputToLogical.pairs:
+    result.dormantOutputs.add(
+      OutputDto(
+        output: handle.output, generation: handle.generation, logical: uint32(logical)
+      )
+    )
+  result.dormantOutputs.sort(
+    proc(left, right: OutputDto): int =
+      cmp(left.logical, right.logical)
+  )
+
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-1\n" & $$adapter
+  "HAGIA-POLICY-CHECKPOINT-2\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  const prefix = "HAGIA-POLICY-CHECKPOINT-1\n"
+  const prefix = "HAGIA-POLICY-CHECKPOINT-2\n"
+  if payload.startsWith("HAGIA-POLICY-CHECKPOINT-1\n"):
+    fail("policy checkpoint v1 is unsupported; a complete snapshot will rebuild it")
   if not payload.startsWith(prefix):
     fail("policy checkpoint version is invalid")
+  var dto: CheckpointV2Dto
   try:
-    result = to[PolicyAdapter](payload[prefix.len .. ^1])
+    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV2Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
+  if dto.schema != 2:
+    fail("policy checkpoint schema is invalid")
+  result.model.counters = dto.counters
+  result.model.settings = dto.settings
+  result.model.activeOutput = OutputId(dto.activeOutput)
+  for window in dto.windows:
+    result.model.windows[window.id] = window
+  for raw in dto.windowOrder:
+    result.model.windowOrder.add(WindowId(raw))
+  for column in dto.columns:
+    result.model.columns[column.id] = column
+  for raw in dto.columnOrder:
+    result.model.columnOrder.add(ColumnId(raw))
+  for view in dto.views:
+    result.model.views[view.id] = view
+  for tag in dto.tags:
+    result.model.tags[tag.id] = tag
+  for output in dto.outputs:
+    result.model.outputs[output.id] = output
+  for raw in dto.outputOrder:
+    result.model.outputOrder.add(OutputId(raw))
+  for relation in dto.windowTags:
+    let owner = WindowId(relation.owner)
+    for raw in relation.tags:
+      result.model.windowTags.mgetOrPut(owner, @[]).add(TagId(raw))
+  for relation in dto.viewTags:
+    let owner = ViewId(relation.owner)
+    for raw in relation.tags:
+      result.model.viewTags.mgetOrPut(owner, @[]).add(TagId(raw))
+  for raw in dto.minimizedOrder:
+    result.model.minimizedOrder.add(WindowId(raw))
+  if dto.affinities.len != dto.affinityOrder.len:
+    fail("policy checkpoint affinity records diverged")
+  for index, raw in dto.affinityOrder:
+    let id = OutputId(raw)
+    result.model.affinities[id] = dto.affinities[index]
+    result.model.affinityOrder.add(id)
+  for surface in dto.surfaces:
+    let window = WindowId(surface.window)
+    result.surfaceToWindow[surface.key] = window
+    result.windowToSurface[window] = surface.key
+    result.surfaceFacts[window] = surface.facts
+  for output in dto.activeOutputs:
+    let handle = (output: output.output, generation: output.generation)
+    let logical = OutputId(output.logical)
+    result.activeOutputToLogical[handle] = logical
+    result.outputToLogical[output.output] = logical
+    result.logicalToOutput[logical] = handle
+  for output in dto.dormantOutputs:
+    result.dormantOutputToLogical[
+      (output: output.output, generation: output.generation)
+    ] = OutputId(output.logical)
   result.model.validate()
   if result.surfaceToWindow.len > maxSurfaces or
       result.surfaceToWindow.len != result.windowToSurface.len or
@@ -181,20 +361,28 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   if rawOutput notin adapter.outputToLogical:
     fail("policy cause names an unknown output")
   let output = adapter.model.activeOutput
+  var message = PolicyMsg(kind: PolicyMsgKind.sceneChanged, output: output)
   case request.cause.kind
   of ProjectionCauseKind.sceneChanged:
     discard
   of ProjectionCauseKind.action:
     if request.cause.activationSerial == 0 or not request.cause.action.isPolicyAction():
       fail("policy action cause is invalid")
-    adapter.model.applyAction(output, request.cause.action.policyAction())
+    message = PolicyMsg(
+      kind: PolicyMsgKind.action,
+      output: output,
+      action: request.cause.action.policyAction(),
+    )
   of ProjectionCauseKind.focus:
     let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
     if key notin adapter.surfaceToWindow:
       fail("policy focus cause names an unknown surface")
     let window = adapter.surfaceToWindow[key]
-    adapter.model.setActiveOutput(adapter.model.windows[window].homeOutput)
-    adapter.model.setFocus(adapter.model.activeOutput, window)
+    message = PolicyMsg(
+      kind: PolicyMsgKind.focus,
+      output: adapter.model.windows[window].homeOutput,
+      focusWindow: window,
+    )
   of ProjectionCauseKind.interaction:
     if request.cause.interactionPhase != InteractionPhase.finish:
       fail("only one reduced completed interaction is accepted")
@@ -203,25 +391,41 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       fail("policy interaction cause names an unknown surface")
     let window = adapter.surfaceToWindow[key]
     let interactionOutput = adapter.model.windows[window].homeOutput
-    adapter.model.setActiveOutput(interactionOutput)
     let geometry = Rect(
       x: request.cause.x,
       y: request.cause.y,
       width: request.cause.width,
       height: request.cause.height,
     )
-    let facts = adapter.model.window(window).get()
     case request.cause.interactionKind
     of InteractionKind.move:
-      if not facts.capabilities.movable:
-        fail("policy move interaction targets an immovable surface")
+      message = PolicyMsg(
+        kind: PolicyMsgKind.interaction,
+        output: interactionOutput,
+        interactionWindow: window,
+        interactionKind: PolicyInteractionKind.move,
+        geometry: geometry,
+      )
     of InteractionKind.resize:
-      if not facts.capabilities.resizable:
-        fail("policy resize interaction targets a fixed-size surface")
+      message = PolicyMsg(
+        kind: PolicyMsgKind.interaction,
+        output: interactionOutput,
+        interactionWindow: window,
+        interactionKind: PolicyInteractionKind.resize,
+        geometry: geometry,
+      )
     else:
       fail("policy interaction kind is invalid")
-    adapter.model.setFloatingGeometry(interactionOutput, window, geometry)
-  adapter.model.validate()
+  adapter.model = adapter.model.reducePolicy(message).candidate
+  recordEvidence(
+    EvidenceEvent(
+      kind: EvidenceKind.reducer,
+      epoch: request.connectionEpoch,
+      generation: request.policyGeneration,
+      requestId: request.requestId,
+      status: $message.kind,
+    )
+  )
 
 ## Reconcile only complete Sophia snapshots. The policy model never observes a
 ## partial transfer or stores a Sophia identity in its own entity tables.
@@ -248,7 +452,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.dormantOutputToLogical.del(current)
     else:
       logical = adapter.model.addOutput(output.bounds())
-      adapter.model.ensureViewCount(logical, 9)
+      adapter.model.ensureViewCount(logical, adapter.model.settings.viewCount)
     adapter.activeOutputToLogical[current] = logical
     adapter.outputToLogical[output.output] = logical
     adapter.logicalToOutput[logical] = current
@@ -345,7 +549,10 @@ proc projection*(
       fail("projection request names an unknown output")
     affected.add(adapter.outputToLogical[output])
 
-  for logical in adapter.model.projectScroller(affected):
+  for logical in adapter.model.projectScroller(
+    affected, adapter.model.settings.outerGap, adapter.model.settings.innerGap,
+    adapter.model.settings.viewportOffset,
+  ):
     let rawOutput = adapter.logicalToOutput[logical.output].output
     var outputSnapshot: SnapshotOutput
     var foundOutput = false
@@ -413,11 +620,13 @@ proc projection*(
           presentationBits: presentationBits,
         )
       )
-    let view = adapter.model.views[adapter.model.outputs[logical.output].activeView]
+    let viewId = adapter.model.outputs[logical.output].activeView
     for windowId in adapter.model.windowOrder:
       let window = adapter.model.windows[windowId]
       if window.homeOutput != logical.output or not window.minimized or
-          not window.tags.intersects(view.selectedTags):
+          not adapter.model.windowTagIds(windowId).intersects(
+            adapter.model.viewTagIds(viewId)
+          ):
         continue
       let surface = adapter.surfaceFacts[windowId]
       let geometry = outputSnapshot.bounds()
@@ -448,22 +657,23 @@ proc projection*(
     # state, not extra public profile slots on the fallback output.
     for index in 0 ..< min(outputState.views.len, 9):
       let viewId = outputState.views[index]
-      let view = adapter.model.views[viewId]
       var stateBits = 0'u16
       if viewId == outputState.activeView:
         stateBits = stateBits or (1'u16 shl 0)
       for windowId in adapter.model.windowOrder:
         let window = adapter.model.windows[windowId]
         if window.homeOutput == logical.output and
-            window.tags.intersects(view.selectedTags):
+            adapter.model.windowTagIds(windowId).intersects(
+              adapter.model.viewTagIds(viewId)
+            ):
           stateBits = stateBits or (1'u16 shl 2)
           break
       for otherOutputId in adapter.model.outputOrder:
         if otherOutputId == logical.output:
           continue
         let other = adapter.model.outputs[otherOutputId]
-        if adapter.model.views[other.activeView].selectedTags.intersects(
-          view.selectedTags
+        if adapter.model.viewTagIds(other.activeView).intersects(
+          adapter.model.viewTagIds(viewId)
         ):
           stateBits = stateBits or (1'u16 shl 3)
           break

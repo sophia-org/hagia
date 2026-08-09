@@ -80,8 +80,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 ## Milestone 4: Hagia Experience
 
 - [ ] Port additional retained layouts with deterministic geometry tests.
-- [ ] Add candidate-validated declarative configuration while the public
-  policy lifecycle remains experimental; retain a checked-in bounded fallback.
+- [x] Add the bounded unified desktop profile foundation, provenance-bearing
+  authority candidates, compiled fallback, offline CLI, and semantic Triad
+  migration. Cross-authority live activation remains deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

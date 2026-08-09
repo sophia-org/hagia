@@ -4,14 +4,16 @@ Hagia is a standalone spatial-policy project for the Sophia display server.
 It is the planned Sophia-native port of Triad's useful policy and desktop
 experience, not a Triad plugin, compatibility branch, or River client. Hagia
 imports none of Triad's River/Wayland runtime machinery or project history. It
-ports useful policy deliberately from a recorded Triad baseline.
+ports useful policy deliberately from a recorded Triad baseline, reusing
+authority-neutral storage, identity, include-expansion, and test patterns with
+source-level provenance and license notices.
 
 The first retained slice independently implements Sophia's `sophia_wm_v1`
 wire in Nim. Its proof client negotiates a private session socket, strictly
 assembles a complete snapshot, reconciles it into stable Hagia entities,
 answers the exact affected-output request with a complete private-tag
-projection, and requires an explicit committed outcome. It links only Nim's
-standard library.
+projection, and requires an explicit committed outcome. It imports no Sophia,
+Wayland, River, or Triad runtime library.
 
 Run its cross-repository conformance gate against a Sophia checkout:
 
@@ -39,7 +41,9 @@ and Sophia revision 1 remains experimental until the retained behavior in
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
 recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
 owner-only, atomic replacement; restored state is revalidated and reconciled
-against a complete snapshot before use. The physical checkpoint/restart and
+against a complete snapshot before use. Checkpoint v2 is an explicit,
+stable-ID-ordered logical DTO; v1 is rejected and rebuilt from a complete
+snapshot. The physical checkpoint/restart and
 presentation-state workload has passed; broader parity, continuous pointer
 interaction, and shell work remain open. Sophia owns scene truth, input
 authority, validation, atomic
@@ -51,6 +55,18 @@ Contributor rules are indexed in `docs/README.md`. Hagia carries Triad's
 reviewed NEP-1/`nph`, data-oriented, single-lookup, and DRY discipline while
 adapting it to Sophia's stricter authority and independent-wire boundaries.
 
+Validate or inspect the unified desktop profile without opening a session:
+
+```sh
+hagia config check [--config=/absolute/path]
+hagia config print-effective [--config=/absolute/path]
+hagia config migrate-triad --input=/path/config.kdl --output-dir=/new/directory
+```
+
+The profile uses explicit authority sections and bounded owner-safe includes.
+Migration never overwrites output files and reports every retained,
+transformed, unsupported, or authority-excluded Triad setting.
+
 Sophia carries the opt-in installed hardware procedure in
 `tools/hagia_policy_physical_gate.sh`. It is intentionally not part of
 `nimble test`: taking DRM/KMS and physical input ownership requires explicit
@@ -59,4 +75,5 @@ operator authorization.
 ## License
 
 Hagia is released under the BSD 3-Clause License. Copyright 2026 Mason Austin
-Green.
+Green. Source-derived Triad portions and their MIT terms are recorded in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

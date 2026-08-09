@@ -1,0 +1,9 @@
+{"tag":"trace","event":{"name":"BeginProfile","digest":"d1","state":{"active":"none","candidate":"d1","preparedCount":0,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"policy","state":{"active":"none","candidate":"d1","preparedCount":1,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"shell","state":{"active":"none","candidate":"d1","preparedCount":2,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"shortcut","state":{"active":"none","candidate":"d1","preparedCount":3,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"session","state":{"active":"none","candidate":"d1","preparedCount":4,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"input","state":{"active":"none","candidate":"d1","preparedCount":5,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"output","state":{"active":"none","candidate":"d1","preparedCount":6,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"PrepareAuthority","authority":"broker","state":{"active":"none","candidate":"d1","preparedCount":7,"phase":"preparing","generation":0,"rejectedCount":0,"activatedCount":0}}}
+{"tag":"trace","event":{"name":"ActivateProfile","digest":"d1","state":{"active":"d1","candidate":"none","preparedCount":0,"phase":"idle","generation":1,"rejectedCount":0,"activatedCount":1}}}

@@ -282,24 +282,22 @@ suite "Hagia private policy model":
     model.setFocus(output, window)
 
     model.applyAction(output, 2.toggleViewTagAction())
-    check model.view(model.output(output).get().activeView).get().selectedTags ==
+    check model.viewTagMask(model.output(output).get().activeView) ==
       TagMask(uint64(tagForSlot(1)) or uint64(tagForSlot(2)))
     model.applyAction(output, 2.toggleFocusedTagAction())
-    check model.window(window).get().tags ==
+    check model.windowTagMask(window) ==
       TagMask(uint64(tagForSlot(1)) or uint64(tagForSlot(2)))
 
     model.applyAction(output, 1.toggleViewTagAction())
-    check model.view(model.output(output).get().activeView).get().selectedTags ==
-      tagForSlot(2)
+    check model.viewTagMask(model.output(output).get().activeView) == tagForSlot(2)
     check model.output(output).get().focusedWindow == window
     model.applyAction(output, 2.toggleViewTagAction())
-    check model.view(model.output(output).get().activeView).get().selectedTags ==
-      tagForSlot(2)
+    check model.viewTagMask(model.output(output).get().activeView) == tagForSlot(2)
 
     model.applyAction(output, 1.toggleFocusedTagAction())
-    check model.window(window).get().tags == tagForSlot(2)
+    check model.windowTagMask(window) == tagForSlot(2)
     model.applyAction(output, 2.toggleFocusedTagAction())
-    check model.window(window).get().tags == tagForSlot(2)
+    check model.windowTagMask(window) == tagForSlot(2)
     model.validate()
 
   test "cross-output movement replaces both output projections atomically":
@@ -333,7 +331,7 @@ suite "Hagia private policy model":
       let data = model.output(output).get()
       check data.views.len == 9
       for index, view in data.views:
-        check model.view(view).get().selectedTags == tagForSlot(uint32(index + 1))
+        check model.viewTagMask(view) == tagForSlot(uint32(index + 1))
     check model.nextTagSlot == 9
     model.validate()
 

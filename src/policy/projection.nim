@@ -1,4 +1,4 @@
-import std/[options, sequtils, tables]
+import std/[options, sequtils]
 
 import ./[state, types]
 

@@ -6,6 +6,9 @@ srcDir = "src"
 bin = @["hagia", "hagia_policy_proof"]
 
 requires "nim >= 2.2.4"
+requires "chronicles >= 0.10.3"
+requires "nimcrypto >= 0.6.2"
+requires "nimkdl >= 2.1.0"
 
 task test, "Run the independent Sophia policy conformance suite":
   exec "sh tools/check_sophia_policy.sh"

@@ -1,5 +1,6 @@
 import std/[options, sequtils, sets, tables]
 
+import ./entity_store
 import ./types
 
 type PolicyStateError* = object of CatchableError
@@ -7,17 +8,23 @@ type PolicyStateError* = object of CatchableError
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicyStateError, message)
 
+proc nextRaw(counter: var uint32, kind: string): uint32 =
+  ## Ported from Triad's centralized nonzero logical-ID generator. Keeping the
+  ## exhaustion check before increment makes wraparound terminal and testable.
+  if counter == high(uint32):
+    fail(kind & " identity space is exhausted")
+  inc counter
+  if counter == 0:
+    fail(kind & " identity counter wrapped to zero")
+  counter
+
 proc initPolicyModel*(): PolicyModel =
-  PolicyModel()
+  PolicyModel(settings: defaultPolicySettings)
 
 proc clone*(model: PolicyModel): PolicyModel =
+  result.settings = model.settings
   result.activeOutput = model.activeOutput
-  result.nextWindowId = model.nextWindowId
-  result.nextColumnId = model.nextColumnId
-  result.nextViewId = model.nextViewId
-  result.nextOutputId = model.nextOutputId
-  result.nextTagSlot = model.nextTagSlot
-  result.nextDisconnectOrder = model.nextDisconnectOrder
+  result.counters = model.counters
   for id in model.windowOrder:
     result.windowOrder.add(id)
     result.windows[id] = model.windows[id]
@@ -32,6 +39,12 @@ proc clone*(model: PolicyModel): PolicyModel =
     result.columns[id] = column
   for id, view in model.views.pairs:
     result.views[id] = view
+  for id, tag in model.tags.pairs:
+    result.tags[id] = tag
+  for id, tags in model.windowTags.pairs:
+    result.windowTags[id] = @tags
+  for id, tags in model.viewTags.pairs:
+    result.viewTags[id] = @tags
   for id in model.outputOrder:
     var output = model.outputs[id]
     output.views = @[]
@@ -71,6 +84,21 @@ proc intersects*(left, right: TagMask): bool =
 proc union(left, right: TagMask): TagMask =
   TagMask(uint64(left) or uint64(right))
 
+proc nextTagSlot*(model: PolicyModel): uint32 =
+  model.counters.tags
+
+proc intersects*(left, right: openArray[TagId]): bool =
+  for leftTag in left:
+    if leftTag in right:
+      return true
+  false
+
+proc unionTags(left, right: openArray[TagId]): seq[TagId] =
+  result = @left
+  for tag in right:
+    if tag notin result:
+      result.add(tag)
+
 proc outputIds*(model: PolicyModel): seq[OutputId] =
   model.outputOrder
 
@@ -101,35 +129,64 @@ proc affinity*(model: PolicyModel, id: OutputId): Option[OutputAffinity] =
   else:
     none(OutputAffinity)
 
+proc windowTagIds*(model: PolicyModel, id: WindowId): seq[TagId] =
+  if id in model.windowTags:
+    model.windowTags[id]
+  else:
+    @[]
+
+proc viewTagIds*(model: PolicyModel, id: ViewId): seq[TagId] =
+  if id in model.viewTags:
+    model.viewTags[id]
+  else:
+    @[]
+
+proc tagsToMask(model: PolicyModel, tags: openArray[TagId]): TagMask =
+  var bits = 0'u64
+  for tagId in tags:
+    if tagId notin model.tags:
+      fail("tag membership names an unknown tag")
+    let slot = model.tags[tagId].slot
+    if slot == 0 or slot > maxTagBits:
+      fail("tag slot is outside Hagia's bounded range")
+    bits = bits or uint64(tagForSlot(slot))
+  TagMask(bits)
+
+proc windowTagMask*(model: PolicyModel, id: WindowId): TagMask =
+  model.tagsToMask(model.windowTagIds(id))
+
+proc viewTagMask*(model: PolicyModel, id: ViewId): TagMask =
+  model.tagsToMask(model.viewTagIds(id))
+
 proc allocateOutputId(model: var PolicyModel): OutputId =
-  inc model.nextOutputId
-  if model.nextOutputId == 0:
-    fail("output identity space is exhausted")
-  OutputId(model.nextOutputId)
+  OutputId(nextRaw(model.counters.outputs, "output"))
 
 proc allocateViewId(model: var PolicyModel): ViewId =
-  inc model.nextViewId
-  if model.nextViewId == 0:
-    fail("view identity space is exhausted")
-  ViewId(model.nextViewId)
+  ViewId(nextRaw(model.counters.views, "view"))
 
-proc profileTag(model: var PolicyModel, slot: uint32): TagMask =
+proc profileTag(model: var PolicyModel, slot: uint32): TagId =
   if slot == 0 or slot > maxTagBits:
     fail("tag slot is outside Hagia's bounded range")
-  model.nextTagSlot = max(model.nextTagSlot, slot)
-  tagForSlot(slot)
+  for tagId, tag in model.tags.pairs:
+    if tag.slot == slot:
+      return tagId
+  while model.counters.tags < slot:
+    let tagId = TagId(nextRaw(model.counters.tags, "tag"))
+    model.tags[tagId] = TagData(id: tagId, slot: uint32(tagId))
+  TagId(slot)
+
+proc tagIdsForMask(model: var PolicyModel, mask: TagMask): seq[TagId] =
+  if mask == emptyTagMask:
+    fail("tag membership must be nonempty")
+  for slot in 1'u32 .. maxTagBits:
+    if (uint64(mask) and uint64(tagForSlot(slot))) != 0:
+      result.add(model.profileTag(slot))
 
 proc allocateWindowId(model: var PolicyModel): WindowId =
-  inc model.nextWindowId
-  if model.nextWindowId == 0:
-    fail("window identity space is exhausted")
-  WindowId(model.nextWindowId)
+  WindowId(nextRaw(model.counters.windows, "window"))
 
 proc allocateColumnId(model: var PolicyModel): ColumnId =
-  inc model.nextColumnId
-  if model.nextColumnId == 0:
-    fail("column identity space is exhausted")
-  ColumnId(model.nextColumnId)
+  ColumnId(nextRaw(model.counters.columns, "column"))
 
 proc addColumn(model: var PolicyModel, outputId: OutputId): ColumnId =
   result = model.allocateColumnId()
@@ -143,8 +200,23 @@ proc addView*(model: var PolicyModel, outputId: OutputId, tags: TagMask): ViewId
   if outputId notin model.outputs:
     fail("view output does not exist")
   result = model.allocateViewId()
-  model.views[result] =
-    ViewData(id: result, preferredOutput: outputId, selectedTags: tags)
+  model.views[result] = ViewData(id: result, preferredOutput: outputId)
+  model.viewTags[result] = model.tagIdsForMask(tags)
+  model.outputs[outputId].views.add(result)
+
+proc addView*(
+    model: var PolicyModel, outputId: OutputId, tags: openArray[TagId]
+): ViewId =
+  if tags.len == 0:
+    fail("a view must select at least one tag")
+  if outputId notin model.outputs:
+    fail("view output does not exist")
+  for tagId in tags:
+    if tagId notin model.tags:
+      fail("view membership names an unknown tag")
+  result = model.allocateViewId()
+  model.views[result] = ViewData(id: result, preferredOutput: outputId)
+  model.viewTags[result] = @tags
   model.outputs[outputId].views.add(result)
 
 proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
@@ -152,7 +224,7 @@ proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
     fail("view profile is outside Hagia's bounded range")
   while model.outputs[outputId].views.len < count:
     let slot = uint32(model.outputs[outputId].views.len + 1)
-    discard model.addView(outputId, model.profileTag(slot))
+    discard model.addView(outputId, [model.profileTag(slot)])
 
 proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
   if bounds.width <= 0 or bounds.height <= 0:
@@ -160,7 +232,7 @@ proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
   result = model.allocateOutputId()
   model.outputs[result] = OutputData(id: result, bounds: bounds)
   model.outputOrder.add(result)
-  let viewId = model.addView(result, model.profileTag(1))
+  let viewId = model.addView(result, [model.profileTag(1)])
   model.outputs[result].activeView = viewId
   if model.activeOutput == nullOutputId:
     model.activeOutput = result
@@ -196,11 +268,11 @@ proc addWindow*(
     homeOutput: homeOutput,
     preferredOutput: homeOutput,
     column: column,
-    tags: activeView.get().selectedTags,
     heightScale: scaleOne,
     capabilities: capabilities,
     constraints: constraints,
   )
+  model.windowTags[result] = model.viewTagIds(activeView.get().id)
   model.windowOrder.add(result)
   model.columns[column].windows.add(result)
 
@@ -209,6 +281,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
     return
   let column = model.windows[id].column
   model.windows.del(id)
+  model.windowTags.del(id)
   model.windowOrder.keepItIf(it != id)
   model.minimizedOrder.keepItIf(it != id)
   if column in model.columns:
@@ -340,20 +413,35 @@ proc adoptWindowOutput*(
   model.windows[windowId].floating = false
   model.windows[windowId].floatingGeometry = Rect()
   let activeView = model.outputs[outputId].activeView
-  model.windows[windowId].tags =
-    model.windows[windowId].tags.union(model.views[activeView].selectedTags)
+  model.windowTags[windowId] =
+    model.windowTagIds(windowId).unionTags(model.viewTagIds(activeView))
 
 proc setWindowTags*(model: var PolicyModel, id: WindowId, tags: TagMask) =
   if tags == emptyTagMask:
     fail("a window must retain at least one tag")
   if id notin model.windows:
     fail("window does not exist")
-  model.windows[id].tags = tags
+  model.windowTags[id] = model.tagIdsForMask(tags)
   for outputId in model.outputOrder:
     if model.outputs[outputId].focusedWindow != id:
       continue
     let activeView = model.outputs[outputId].activeView
-    if not tags.intersects(model.views[activeView].selectedTags):
+    if not model.windowTagIds(id).intersects(model.viewTagIds(activeView)):
+      model.outputs[outputId].focusedWindow = nullWindowId
+
+proc setWindowTagIds*(model: var PolicyModel, id: WindowId, tags: openArray[TagId]) =
+  if tags.len == 0 or id notin model.windows:
+    fail("a window must retain at least one valid tag")
+  var unique: seq[TagId]
+  for tagId in tags:
+    if tagId notin model.tags:
+      fail("window membership names an unknown tag")
+    if tagId notin unique:
+      unique.add(tagId)
+  model.windowTags[id] = unique
+  for outputId in model.outputOrder:
+    if model.outputs[outputId].focusedWindow == id and
+        not unique.intersects(model.viewTagIds(model.outputs[outputId].activeView)):
       model.outputs[outputId].focusedWindow = nullWindowId
 
 proc setViewTags*(
@@ -363,18 +451,37 @@ proc setViewTags*(
     fail("a view must retain at least one tag")
   if outputId notin model.outputs or viewId notin model.outputs[outputId].views:
     fail("view does not belong to the output")
-  model.views[viewId].selectedTags = tags
+  model.viewTags[viewId] = model.tagIdsForMask(tags)
   if model.outputs[outputId].activeView != viewId:
     return
   let focus = model.outputs[outputId].focusedWindow
-  if focus != nullWindowId and not model.windows[focus].tags.intersects(tags):
+  if focus != nullWindowId and
+      not model.windowTagIds(focus).intersects(model.viewTagIds(viewId)):
     model.outputs[outputId].focusedWindow = nullWindowId
+
+proc setViewTagIds*(
+    model: var PolicyModel, outputId: OutputId, viewId: ViewId, tags: openArray[TagId]
+) =
+  if tags.len == 0 or outputId notin model.outputs or
+      viewId notin model.outputs[outputId].views:
+    fail("a view must retain at least one valid tag")
+  var unique: seq[TagId]
+  for tagId in tags:
+    if tagId notin model.tags:
+      fail("view membership names an unknown tag")
+    if tagId notin unique:
+      unique.add(tagId)
+  model.viewTags[viewId] = unique
+  if model.outputs[outputId].activeView == viewId:
+    let focus = model.outputs[outputId].focusedWindow
+    if focus != nullWindowId and not model.windowTagIds(focus).intersects(unique):
+      model.outputs[outputId].focusedWindow = nullWindowId
 
 proc toggleViewTagSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
   if outputId notin model.outputs or slot < 1 or slot > int(maxTagBits):
     fail("view tag slot is outside the bounded range")
   let viewId = model.outputs[outputId].activeView
-  let current = model.views[viewId].selectedTags
+  let current = model.viewTagMask(viewId)
   let next = TagMask(uint64(current) xor uint64(tagForSlot(uint32(slot))))
   if next != emptyTagMask:
     model.setViewTags(outputId, viewId, next)
@@ -387,7 +494,7 @@ proc toggleFocusedWindowTagSlot*(
   let windowId = model.outputs[outputId].focusedWindow
   if windowId == nullWindowId:
     return
-  let current = model.windows[windowId].tags
+  let current = model.windowTagMask(windowId)
   let next = TagMask(uint64(current) xor uint64(tagForSlot(uint32(slot))))
   if next != emptyTagMask:
     model.setWindowTags(windowId, next)
@@ -400,9 +507,9 @@ proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId) =
   let focus = model.outputs[outputId].focusedWindow
   if focus != nullWindowId:
     let window = model.window(focus)
-    let tags = model.views[viewId].selectedTags
+    let tags = model.viewTagIds(viewId)
     if window.isNone or window.get().homeOutput != outputId or
-        not window.get().tags.intersects(tags):
+        not model.windowTagIds(focus).intersects(tags):
       model.outputs[outputId].focusedWindow = nullWindowId
 
 proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
@@ -412,7 +519,7 @@ proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
     fail("focus target does not exist")
   let view = model.view(output.get().activeView)
   if view.isNone or window.get().homeOutput != outputId or
-      not window.get().tags.intersects(view.get().selectedTags) or
+      not model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id)) or
       not window.get().capabilities.focusable or window.get().minimized:
     fail("focus target is not visible and focusable")
   model.outputs[outputId].focusedWindow = windowId
@@ -488,7 +595,7 @@ proc moveFocusedToViewSlot*(model: var PolicyModel, outputId: OutputId, slot: in
   if window == nullWindowId:
     return
   let view = model.outputs[outputId].views[slot - 1]
-  model.setWindowTags(window, model.views[view].selectedTags)
+  model.setWindowTagIds(window, model.viewTagIds(view))
   model.activateView(outputId, view)
   model.setFocus(outputId, window)
 
@@ -555,7 +662,8 @@ proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId] =
     fail("projection output has no active view")
   for windowId in model.windowOrder:
     let window = model.windows[windowId]
-    if window.homeOutput == outputId and window.tags.intersects(view.get().selectedTags):
+    if window.homeOutput == outputId and
+        model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id)):
       result.add(windowId)
 
 proc toggleFocusedFullscreen*(model: var PolicyModel) =
@@ -684,22 +792,21 @@ proc removeOutput*(model: var PolicyModel, id, fallback: OutputId): Option[Outpu
   if id == fallback or id notin model.outputs or fallback notin model.outputs:
     fail("output migration is invalid")
   let removed = model.outputs[id]
-  inc model.nextDisconnectOrder
-  if model.nextDisconnectOrder == 0:
+  if model.counters.disconnects == high(uint64):
     fail("output disconnect order is exhausted")
+  inc model.counters.disconnects
   model.affinities[id] = OutputAffinity(
     output: id,
     views: removed.views,
     activeView: removed.activeView,
     focusedWindow: removed.focusedWindow,
-    disconnectedOrder: model.nextDisconnectOrder,
+    disconnectedOrder: model.counters.disconnects,
   )
   model.affinityOrder.keepItIf(it != id)
   model.affinityOrder.add(id)
   let fallbackView = model.outputs[fallback].activeView
-  model.views[fallbackView].selectedTags = model.views[fallbackView].selectedTags.union(
-    model.views[removed.activeView].selectedTags
-  )
+  model.viewTags[fallbackView] =
+    model.viewTagIds(fallbackView).unionTags(model.viewTagIds(removed.activeView))
   for viewId in removed.views:
     if viewId notin model.outputs[fallback].views:
       model.outputs[fallback].views.add(viewId)
@@ -735,8 +842,8 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
     views.add(viewId)
   if views.len == 0:
     let viewId = model.allocateViewId()
-    model.views[viewId] =
-      ViewData(id: viewId, preferredOutput: id, selectedTags: model.profileTag(1))
+    model.views[viewId] = ViewData(id: viewId, preferredOutput: id)
+    model.viewTags[viewId] = @[model.profileTag(1)]
     views.add(viewId)
   let activeView =
     if saved.activeView in views:
@@ -755,18 +862,41 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
   let focus = saved.focusedWindow
   if focus in model.windows and model.windows[focus].homeOutput == id and
       model.windows[focus].capabilities.focusable and not model.windows[focus].minimized and
-      model.windows[focus].tags.intersects(model.views[activeView].selectedTags):
+      model.windowTagIds(focus).intersects(model.viewTagIds(activeView)):
     model.outputs[id].focusedWindow = focus
   model.affinities.del(id)
   model.affinityOrder.keepItIf(it != id)
 
 proc validate*(model: PolicyModel) =
+  if model.settings.viewCount < 1 or model.settings.viewCount > 9 or
+      model.settings.outerGap < 0 or model.settings.innerGap < 0 or
+      model.settings.viewportOffset < 0:
+    fail("policy settings are invalid")
+  if not model.windows.validateDense() or not model.columns.validateDense() or
+      not model.views.validateDense() or not model.tags.validateDense() or
+      not model.outputs.validateDense():
+    fail("policy dense entity index is invalid")
   if model.outputOrder.len != model.outputs.len or
       model.windowOrder.len != model.windows.len or
       model.columnOrder.len != model.columns.len:
     fail("policy indexes and ordered identities diverged")
   if model.outputs.len > 0 and model.activeOutput notin model.outputs:
     fail("policy active output is invalid")
+  for id in model.windows.ids:
+    if uint32(id) == 0 or uint32(id) > model.counters.windows:
+      fail("policy window counter is invalid")
+  for id in model.columns.ids:
+    if uint32(id) == 0 or uint32(id) > model.counters.columns:
+      fail("policy column counter is invalid")
+  for id in model.views.ids:
+    if uint32(id) == 0 or uint32(id) > model.counters.views:
+      fail("policy view counter is invalid")
+  for id in model.tags.ids:
+    if uint32(id) == 0 or uint32(id) > model.counters.tags:
+      fail("policy tag counter is invalid")
+  for id in model.outputs.ids:
+    if uint32(id) == 0 or uint32(id) > model.counters.outputs:
+      fail("policy output counter is invalid")
   var seenViews = initHashSet[ViewId]()
   for outputId in model.outputOrder:
     let output = model.outputs[outputId]
@@ -775,17 +905,23 @@ proc validate*(model: PolicyModel) =
       fail("policy output is invalid")
     for viewId in output.views:
       if viewId notin model.views or viewId in seenViews or
-          model.views[viewId].selectedTags == emptyTagMask or
+          model.viewTagIds(viewId).len == 0 or
           model.views[viewId].preferredOutput == nullOutputId:
         fail("policy view is invalid")
+      var seenViewTags = initHashSet[TagId]()
+      for tagId in model.viewTagIds(viewId):
+        if tagId notin model.tags or tagId in seenViewTags:
+          fail("policy view tag membership is invalid")
+        seenViewTags.incl(tagId)
       seenViews.incl(viewId)
     if output.focusedWindow != nullWindowId:
       if output.focusedWindow notin model.windows:
         fail("policy output focus is invalid")
       let focus = model.windows[output.focusedWindow]
       if focus.homeOutput != outputId or not focus.capabilities.focusable or
-          not focus.tags.intersects(model.views[output.activeView].selectedTags) or
-          focus.minimized:
+          not model.windowTagIds(focus.id).intersects(
+            model.viewTagIds(output.activeView)
+          ) or focus.minimized:
         fail("policy output focus is invalid")
     if output.focusHistory.len > maxFocusHistory:
       fail("policy focus history is excessive")
@@ -801,8 +937,14 @@ proc validate*(model: PolicyModel) =
     let window = model.windows[windowId]
     if window.id != windowId or window.homeOutput notin model.outputs or
         window.preferredOutput == nullOutputId or window.column notin model.columns or
-        window.tags == emptyTagMask or uint32(window.heightScale) < uint32(minimumScale):
+        model.windowTagIds(windowId).len == 0 or
+        uint32(window.heightScale) < uint32(minimumScale):
       fail("policy window is invalid")
+    var seenWindowTags = initHashSet[TagId]()
+    for tagId in model.windowTagIds(windowId):
+      if tagId notin model.tags or tagId in seenWindowTags:
+        fail("policy window tag membership is invalid")
+      seenWindowTags.incl(tagId)
     if window.constraints.minWidth < 0 or window.constraints.minHeight < 0 or
         window.constraints.maxWidth < 0 or window.constraints.maxHeight < 0 or
         (window.constraints.minWidth == 0) != (window.constraints.minHeight == 0) or
@@ -837,6 +979,13 @@ proc validate*(model: PolicyModel) =
       seenWindows.incl(windowId)
   if seenWindows.len != model.windows.len:
     fail("policy contains a detached window")
+  if model.windowTags.len != model.windows.len or model.viewTags.len != model.views.len:
+    fail("policy tag relationship indexes diverged")
+  var seenSlots = initHashSet[uint32]()
+  for tagId, tag in model.tags.pairs:
+    if tag.id != tagId or tag.slot == 0 or tag.slot > maxTagBits or tag.slot in seenSlots:
+      fail("policy tag entity is invalid")
+    seenSlots.incl(tag.slot)
   if model.minimizedOrder.len > maxMinimizedHistory:
     fail("minimized history is excessive")
   var seenMinimized = initHashSet[WindowId]()
@@ -863,3 +1012,5 @@ proc validate*(model: PolicyModel) =
         fail("output affinity view is invalid")
     seenAffinities.incl(outputId)
     previousOrder = affinity.disconnectedOrder
+  if previousOrder > model.counters.disconnects:
+    fail("output disconnect counter is invalid")

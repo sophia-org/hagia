@@ -1,5 +1,7 @@
 import std/[net, options, os, sets, strutils]
 
+import ../config/profile
+import ../observability
 import ../policy/actions
 import ./[policy_adapter, policy_checkpoint, policy_session, session_types, wm_v1]
 
@@ -43,7 +45,8 @@ proc injectConfiguredFault(phase: string) =
   if delayMsec > 0:
     sleep(delayMsec)
   writeFile(marker, phase & "\n")
-  stderr.writeLine("hagia_policy_fault schema=1 phase=" & phase)
+  operationalLog(OperationalLevel.failure, "fault_injected", phase)
+  recordEvidence(EvidenceEvent(kind: EvidenceKind.connection, status: phase))
   quit(70)
 
 proc toBytes(data: string): seq[byte] =
@@ -589,10 +592,16 @@ proc requestFreshCycle(
       payload: payload,
     )
   )
-  stderr.writeLine(
-    "hagia_policy_refresh schema=1 status=requested reason=checkpoint_reconciled" &
-      " policy_generation=" & $(policyGeneration + 1) & " outputs=" &
-      $snapshot.outputs.len
+  operationalLog(
+    OperationalLevel.info, "policy_refresh", "requested", "checkpoint_reconciled"
+  )
+  recordEvidence(
+    EvidenceEvent(
+      kind: EvidenceKind.reducer,
+      epoch: client.connectionEpoch,
+      generation: policyGeneration + 1,
+      status: "refresh_requested",
+    )
   )
 
 ## Exercise a bounded sequence of complete public-policy cycles without Triad
@@ -621,26 +630,38 @@ proc runOnePolicyCycle*(path: string) =
 
 ## Process several settled projections on one authenticated connection. Sophia's
 ## supervisor, rather than this client, owns restart policy after transport loss.
-proc runPolicySession(client: PolicyClient, configure: bool) =
+proc runPolicySession(
+    client: PolicyClient,
+    configure: bool,
+    policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
+) =
   let privateCheckpoint = checkpointPath()
   var checkpointEnabled = privateCheckpoint.len > 0
   var restoredCheckpoint = false
-  var session = initPolicySession()
+  var session =
+    if policyCandidate.isSome:
+      initPolicySession(initPolicyAdapter(policyCandidate.get()))
+    else:
+      initPolicySession()
   if checkpointEnabled:
     try:
       let restored = privateCheckpoint.loadPolicyCheckpoint()
       if restored.isSome:
-        let candidate = restored.get()
-        stderr.writeLine(
-          "hagia_policy_checkpoint schema=1 status=loaded candidate_nonempty=" &
-            $candidate.hasWindows()
+        var candidate = restored.get()
+        if policyCandidate.isSome:
+          candidate.applyPolicyCandidate(policyCandidate.get())
+        operationalLog(
+          OperationalLevel.info,
+          "checkpoint",
+          "loaded",
+          "candidate_nonempty=" & $candidate.hasWindows(),
         )
+        recordEvidence(EvidenceEvent(kind: EvidenceKind.checkpoint, status: "loaded"))
         session = initPolicySession(candidate)
         restoredCheckpoint = true
     except PolicyCheckpointError as error:
-      stderr.writeLine(
-        "hagia_policy_checkpoint schema=1 status=discarded reason=" & error.msg
-      )
+      operationalLog(OperationalLevel.warning, "checkpoint", "discarded", error.msg)
+      recordEvidence(EvidenceEvent(kind: EvidenceKind.checkpoint, status: "discarded"))
   try:
     if configure:
       client.installConfiguration()
@@ -652,32 +673,53 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
       let transaction = client.allocateTransaction()
       let projection = session.prepare(snapshot, request, transaction)
       if projection.activeOutput != snapshot.activeOutput:
-        stderr.writeLine(
-          "hagia_policy_projection schema=1 status=active_output_changed"
-        )
+        operationalLog(OperationalLevel.info, "projection", "active_output_changed")
       injectConfiguredFault("projection_prepared")
       let operation = session.pendingOperation()
       let outcome = client.sendProjection(request, transaction, projection)
       injectConfiguredFault("outcome_received")
       session.settle(outcome)
+      recordEvidence(
+        EvidenceEvent(
+          kind: EvidenceKind.settlement,
+          epoch: request.connectionEpoch,
+          generation: outcome.sceneGeneration,
+          requestId: request.requestId,
+          transaction: transaction,
+          status: $outcome.kind,
+        )
+      )
       if outcome.kind == ProjectionOutcomeKind.committed and checkpointEnabled:
         try:
           privateCheckpoint.savePolicyCheckpoint(session.committedAdapter())
           let candidateNonempty = session.committedAdapter().hasWindows()
-          stderr.writeLine(
-            "hagia_policy_checkpoint schema=1 status=saved candidate_nonempty=" &
-              $candidateNonempty
+          operationalLog(
+            OperationalLevel.info,
+            "checkpoint",
+            "saved",
+            "candidate_nonempty=" & $candidateNonempty,
+          )
+          recordEvidence(
+            EvidenceEvent(
+              kind: EvidenceKind.checkpoint,
+              epoch: request.connectionEpoch,
+              generation: outcome.sceneGeneration,
+              status: "saved",
+            )
           )
           injectConfiguredFault("checkpoint_saved")
           if restoredCheckpoint:
-            stderr.writeLine(
-              "hagia_policy_checkpoint schema=1 status=reconciled candidate_nonempty=" &
-                $candidateNonempty
+            operationalLog(
+              OperationalLevel.info,
+              "checkpoint",
+              "reconciled",
+              "candidate_nonempty=" & $candidateNonempty,
             )
         except PolicyCheckpointError as error:
           checkpointEnabled = false
-          stderr.writeLine(
-            "hagia_policy_checkpoint schema=1 status=disabled reason=" & error.msg
+          operationalLog(OperationalLevel.warning, "checkpoint", "disabled", error.msg)
+          recordEvidence(
+            EvidenceEvent(kind: EvidenceKind.checkpoint, status: "disabled")
           )
       if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
         let operationOutcome = client.sendSessionOperation(operation.get())
@@ -694,6 +736,9 @@ proc runPolicySession(client: PolicyClient, configure: bool) =
 
 proc runPolicySession*(path: string) =
   path.connectPolicy(true).runPolicySession(true)
+
+proc runPolicySession*(path: string, candidate: AuthorityCandidate) =
+  path.connectPolicy(true).runPolicySession(true, some(candidate))
 
 proc runPolicySessionOnSocket*(socket: Socket) =
   socket.negotiatePolicy(false).runPolicySession(false)

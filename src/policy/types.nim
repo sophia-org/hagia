@@ -1,10 +1,15 @@
 import std/[hashes, tables]
 
+import ./entity_store
+
+export entity_store
+
 type
   WindowId* = distinct uint32
   ViewId* = distinct uint32
   OutputId* = distinct uint32
   ColumnId* = distinct uint32
+  TagId* = distinct uint32
   TagMask* = distinct uint64
   Scale* = distinct uint32
 
@@ -23,7 +28,6 @@ type
     homeOutput*: OutputId
     preferredOutput*: OutputId
     column*: ColumnId
-    tags*: TagMask
     heightScale*: Scale
     floating*: bool
     floatingGeometry*: Rect
@@ -43,7 +47,26 @@ type
   ViewData* = object
     id*: ViewId
     preferredOutput*: OutputId
-    selectedTags*: TagMask
+
+  TagData* = object
+    id*: TagId
+    slot*: uint32
+
+  WindowTagMembership* = object
+    window*: WindowId
+    tag*: TagId
+
+  ViewTagMembership* = object
+    view*: ViewId
+    tag*: TagId
+
+  IdCounters* = object
+    windows*, columns*, views*, outputs*, tags*: uint32
+    disconnects*: uint64
+
+  PolicySettings* = object
+    viewCount*: int
+    outerGap*, innerGap*, viewportOffset*: int32
 
   OutputData* = object
     id*: OutputId
@@ -61,29 +84,29 @@ type
     disconnectedOrder*: uint64
 
   PolicyModel* = object
-    windows*: Table[WindowId, WindowData]
+    settings*: PolicySettings
+    windows*: EntityStore[WindowId, WindowData]
     windowOrder*: seq[WindowId]
-    columns*: Table[ColumnId, ColumnData]
+    columns*: EntityStore[ColumnId, ColumnData]
     columnOrder*: seq[ColumnId]
-    views*: Table[ViewId, ViewData]
-    outputs*: Table[OutputId, OutputData]
+    views*: EntityStore[ViewId, ViewData]
+    tags*: EntityStore[TagId, TagData]
+    outputs*: EntityStore[OutputId, OutputData]
     outputOrder*: seq[OutputId]
+    windowTags*: Table[WindowId, seq[TagId]]
+    viewTags*: Table[ViewId, seq[TagId]]
     activeOutput*: OutputId
     minimizedOrder*: seq[WindowId]
     affinities*: Table[OutputId, OutputAffinity]
     affinityOrder*: seq[OutputId]
-    nextWindowId*: uint32
-    nextColumnId*: uint32
-    nextViewId*: uint32
-    nextOutputId*: uint32
-    nextTagSlot*: uint32
-    nextDisconnectOrder*: uint64
+    counters*: IdCounters
 
 const
   nullWindowId* = WindowId(0)
   nullViewId* = ViewId(0)
   nullOutputId* = OutputId(0)
   nullColumnId* = ColumnId(0)
+  nullTagId* = TagId(0)
   emptyTagMask* = TagMask(0)
   autoScale* = Scale(0)
   scaleOne* = Scale(1'u32 shl 16)
@@ -92,11 +115,13 @@ const
   maxOutputAffinities* = 16
   maxFocusHistory* = 32
   maxMinimizedHistory* = 64
+  defaultPolicySettings* = PolicySettings(viewCount: 9)
 
 proc `==`*(left, right: WindowId): bool {.borrow.}
 proc `==`*(left, right: ViewId): bool {.borrow.}
 proc `==`*(left, right: OutputId): bool {.borrow.}
 proc `==`*(left, right: ColumnId): bool {.borrow.}
+proc `==`*(left, right: TagId): bool {.borrow.}
 proc `==`*(left, right: TagMask): bool {.borrow.}
 proc `==`*(left, right: Scale): bool {.borrow.}
 
@@ -104,6 +129,7 @@ proc `$`*(id: WindowId): string {.borrow.}
 proc `$`*(id: ViewId): string {.borrow.}
 proc `$`*(id: OutputId): string {.borrow.}
 proc `$`*(id: ColumnId): string {.borrow.}
+proc `$`*(id: TagId): string {.borrow.}
 
 proc hash*(id: WindowId): Hash =
   hash(uint32(id))
@@ -115,6 +141,9 @@ proc hash*(id: OutputId): Hash =
   hash(uint32(id))
 
 proc hash*(id: ColumnId): Hash =
+  hash(uint32(id))
+
+proc hash*(id: TagId): Hash =
   hash(uint32(id))
 
 proc hash*(mask: TagMask): Hash =

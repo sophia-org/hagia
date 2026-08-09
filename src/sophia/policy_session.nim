@@ -1,6 +1,7 @@
 import std/options
 
 import ../policy/actions
+import ../runtime/reducer
 import ./[policy_adapter, session_types, wm_v1]
 
 type
@@ -17,6 +18,7 @@ type
     pending: Option[PendingProjection]
     committedSceneGeneration: uint64
     committedPolicyGeneration: uint64
+    runtime: RuntimeModel
 
 proc fail(message: string) {.noreturn.} =
   raise newException(PolicySessionError, message)
@@ -38,6 +40,9 @@ proc committedGeneration*(session: PolicySession): uint64 =
 
 proc policyGeneration*(session: PolicySession): uint64 =
   session.committedPolicyGeneration
+
+proc runtimeModel*(session: PolicySession): RuntimeModel =
+  session.runtime
 
 proc pendingOperation*(session: PolicySession): Option[SessionOperationIntent] =
   if session.pending.isSome:
@@ -108,6 +113,17 @@ proc prepare*(
       request.sceneGeneration != snapshot.generation or request.policyGeneration == 0 or
       request.policyGeneration < session.committedPolicyGeneration:
     fail("policy projection identity is invalid")
+  if session.runtime.connectionEpoch != request.connectionEpoch:
+    session.runtime = session.runtime.reduceRuntime(
+      RuntimeMsg(kind: RuntimeMsgKind.connectionStarted, epoch: request.connectionEpoch)
+    ).model
+  session.runtime = session.runtime.reduceRuntime(
+    RuntimeMsg(
+      kind: RuntimeMsgKind.snapshotCompleted,
+      epoch: request.connectionEpoch,
+      generation: snapshot.generation,
+    )
+  ).model
   var candidate = session.committed.clone()
   candidate.reconcile(snapshot)
   let operation = snapshot.operationFor(request)
@@ -122,6 +138,14 @@ proc prepare*(
       operation: operation,
     )
   )
+  session.runtime = session.runtime.reduceRuntime(
+    RuntimeMsg(
+      kind: RuntimeMsgKind.projectionPrepared,
+      epoch: request.connectionEpoch,
+      requestId: request.requestId,
+      transaction: transaction,
+    )
+  ).model
 
 proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
   if session.pending.isNone:
@@ -135,7 +159,20 @@ proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
     session.committed = pending.adapter
     session.committedSceneGeneration = outcome.sceneGeneration
     session.committedPolicyGeneration = pending.request.policyGeneration
+  session.runtime = session.runtime.reduceRuntime(
+    RuntimeMsg(
+      kind: RuntimeMsgKind.projectionSettled,
+      epoch: outcome.connectionEpoch,
+      requestId: outcome.requestId,
+      transaction: outcome.transaction,
+      committed: outcome.kind == ProjectionOutcomeKind.committed,
+    )
+  ).model
   session.pending = none(PendingProjection)
 
 proc abort*(session: var PolicySession) =
   session.pending = none(PendingProjection)
+  if session.runtime.phase != RuntimePhase.disconnected:
+    session.runtime = session.runtime.reduceRuntime(
+      RuntimeMsg(kind: RuntimeMsgKind.connectionLost)
+    ).model

@@ -38,6 +38,7 @@ proc savePolicyCheckpoint*(path: string, adapter: PolicyAdapter) =
     if payload.len == 0 or int64(payload.len) > maxPolicyCheckpointBytes:
       raise
         newException(PolicyCheckpointError, "private policy checkpoint is excessive")
+    setFilePermissions(temporary, {fpUserRead, fpUserWrite})
     candidate.write(payload)
     candidate.flushFile()
     if posix.fsync(candidate.getFileHandle()) != 0:

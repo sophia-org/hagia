@@ -35,7 +35,14 @@ and [DRY principles](dry-principles.md).
 
 - `src/policy/types.nim` contains passive logical IDs and policy records.
 - `src/policy/state.nim` owns indexed mutations and invariants.
+- `src/policy/reducer.nim` maps typed messages to pure candidate updates and intents.
 - `src/policy/projection.nim` computes output projections without mutation.
+- `src/runtime/reducer.nim` owns connection, candidate, settlement, and effect state.
+- `src/runtime/effect_executor.nim` executes injected outer I/O and returns typed
+  completion messages.
+- `src/config` discovers, expands, partitions, stages, and migrates desktop profiles.
+- `src/observability.nim` separates redacted Chronicles operations from the
+  opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
 - `src/sophia/policy_adapter.nim` reconciles complete Sophia snapshots and
   lowers logical projections back to current opaque identities.
@@ -59,11 +66,11 @@ Wayland protocols, shell surfaces, output management, process launching,
 metadata rules, screenshots, input configuration, and compositor-shaped state
 remain outside Hagia policy.
 
-Tags and views are private Hagia data. Each window has a nonempty tag set and
+Tags and views are private Hagia data. Each window has a nonempty `TagId` set and
 one home output. The checked-in profile defines nine shared tag slots; every
 output owns nine distinct stable views that select those slots. Sharing the
 bounded slots preserves conventional cross-output view semantics and supports
-all sixteen protocol outputs without exhausting the 64-bit tag mask. A window
+all sixteen protocol outputs without conflating identity with a tag mask. A window
 is eligible when its home output matches and its tags intersect the active
 view. Sophia sees only the resulting ordered output projection.
 
@@ -139,3 +146,26 @@ Hagia validates that target against the complete snapshot, checks its movement
 or resize capability and output bounds, and stores only committed floating
 geometry. It receives no raw motion stream, button, device, or global pointer
 history. Continuous interaction phases remain unnegotiated.
+
+## Desktop Profile
+
+The user-facing profile is `${XDG_CONFIG_HOME:-$HOME/.config}/hagia/config.kdl`.
+Discovery prefers an explicit absolute path, the XDG file,
+`/etc/hagia/config.kdl`, then compiled defaults. Top-level includes are
+depth-first and bounded to depth 10, 64 owner-safe regular files, and one MiB
+in aggregate. Cycles, duplicate settings, unknown ownership, and hard-control
+overrides fail closed.
+
+Expansion produces one SHA-256-identified `DesktopProfileGeneration` and seven
+provenance-bearing authority candidates. Hagia consumes only the policy
+candidate. The trusted session coordinator may stage exact owner-only fragments
+with the same generation and digest. Watched live reload remains disabled until
+the modeled all-authority prepare/activate/rollback barrier is implemented.
+
+## Observability
+
+Chronicles emits redacted operational events at the level selected by
+`HAGIA_LOG_LEVEL`. The separate `HAGIA_EVIDENCE_NDJSON` sink is disabled unless
+an absolute path is supplied. Its schema contains only reducer, configuration,
+settlement, checkpoint, and connection correlation fields; it excludes raw
+Sophia handles and application metadata and rotates at bounded size.
