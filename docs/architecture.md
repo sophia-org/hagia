@@ -208,7 +208,10 @@ identity and constructs the immutable configuration topology. It preserves
 Engine semantic order, derives checked current positions, and rejects missing
 or duplicate identities and selected-mode/pixel-size disagreement. It exposes
 only the current backend's integer scale, normal transform, and completely
-discovered VRR capability. Live owner wiring and activation remain deferred.
+discovered VRR capability. Native startup now runs this projection and
+reconciliation after creating the atomic owner but before launching graphical
+clients. Failure aborts startup; success is recorded as reconciled but not
+activated. Atomic testing, apply, and rollback remain deferred.
 
 The semantic Triad migrator now lowers supported keyboard, XKB, mouse,
 workspace-count/default-layout, terminal/logout, and named-output values into
