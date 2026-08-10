@@ -127,8 +127,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   fragments through semantic payload promotion. Sophia session preparation now
   also centralizes the canonical candidate and a typed, bounded CLI-superior
   application overlay into one pure cloned-registry operation; rejected
-  selectors leave accepted state unchanged. Live authority protocols,
-  recovery, and watched activation remain deliberately deferred.
+  selectors leave accepted state unchanged. The canonical typed session payload
+  is now retained in its real authority-local slot and effective configuration
+  reads that prepared payload, but startup assembly cannot activate it. Live
+  authority protocols, recovery, and watched activation remain deliberately
+  deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

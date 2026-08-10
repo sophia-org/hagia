@@ -245,6 +245,10 @@ authority applies that overlay and the canonical typed session candidate to a
 clone of its trusted application registry, preserving CLI precedence and
 discarding the clone on unknown, ambiguous, duplicate, or over-limit values.
 This does not activate the participant or enable desktop-profile reload.
+Trusted startup now retains the canonical typed session payload in a real
+session-owned generic slot and derives the effective application configuration
+from that slot's candidate. Tests require exact bundle/key parity and
+`Prepared` phase; configuration assembly cannot promote the slot.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
