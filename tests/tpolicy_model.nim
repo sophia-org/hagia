@@ -501,6 +501,45 @@ suite "Hagia private policy model":
     let projected = model.projectScroller([output])
     check projected[0].placements[0].geometry.width == high(int32)
 
+  test "native layout cycle projects tile grid monocle and vertical scroller":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[2])
+    let view = model.outputs[output].activeView
+
+    model.applyAction(output, PolicyAction.switchLayout)
+    check model.views[view].layout == LayoutMode.tile
+    let tile = model.projectLayout([output], 10, 10)[0]
+    check tile.placements.len == 4
+    check tile.placements[0].geometry == Rect(x: 10, y: 10, width: 485, height: 780)
+    check tile.placements[1].geometry == Rect(x: 505, y: 10, width: 485, height: 253)
+
+    model.applyAction(output, PolicyAction.switchLayout)
+    check model.views[view].layout == LayoutMode.grid
+    let grid = model.projectLayout([output], 10, 10)[0]
+    check grid.placements[0].geometry == Rect(x: 10, y: 10, width: 485, height: 385)
+    check grid.placements[3].geometry == Rect(x: 505, y: 405, width: 485, height: 385)
+
+    model.applyAction(output, PolicyAction.switchLayout)
+    check model.views[view].layout == LayoutMode.monocle
+    let monocle = model.projectLayout([output], 10, 10)[0]
+    check monocle.placements.len == 1
+    check monocle.placements[0].window == windows[2]
+    check monocle.placements[0].geometry == Rect(x: 10, y: 10, width: 980, height: 780)
+
+    model.applyAction(output, PolicyAction.switchLayout)
+    check model.views[view].layout == LayoutMode.verticalScroller
+    let vertical = model.projectLayout([output])[0]
+    check vertical.placements.len == 4
+    check vertical.placements[0].geometry == Rect(width: 1000, height: 200)
+    check vertical.placements[3].geometry == Rect(y: 600, width: 1000, height: 200)
+    model.applyAction(output, PolicyAction.switchLayout)
+    check model.views[view].layout == LayoutMode.scroller
+    model.validate()
+
   test "output removal migrates private views and windows":
     var model = initPolicyModel()
     let firstOutput = model.addOutput(Rect(width: 1000, height: 700))
@@ -854,10 +893,26 @@ suite "Sophia snapshot adapter":
     )
     let dynamicTag = adapter.model().tagIdForSlot(10)
     check dynamicTag != nullTagId
+    adapter.applyCause(
+      ProjectionRequest(
+        connectionEpoch: 1,
+        requestId: 2,
+        sceneGeneration: 1,
+        policyGeneration: 2,
+        affectedOutputs: @[10'u64],
+        cause: ProjectionCause(
+          kind: ProjectionCauseKind.action,
+          activationSerial: 2,
+          action: PolicyAction.switchLayout.raw(),
+        ),
+      )
+    )
 
     var restored = adapter.checkpointPayload().restoreCheckpointPayload()
     check restored.model().tagIdForSlot(10) == dynamicTag
     check restored.model().tags[dynamicTag].kind == TagKind.dynamic
+    let activeView = restored.model().outputs[restored.model().activeOutput].activeView
+    check restored.model().views[activeView].layout == LayoutMode.tile
     restored.reconcile(snapshot(2, @[output], @[]))
     check restored.model().tagIdForSlot(10) == dynamicTag
     restored.model().validate()

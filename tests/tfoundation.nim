@@ -247,15 +247,21 @@ suite "Hagia foundation":
     writeFile(
       policyPath,
       "schema 1\nprofile-generation 8\nprofile-digest \"" & digest &
-        "\"\npolicy { layout \"scroller\"; view-count 8; outer-gap 3; }\n",
+        "\"\npolicy { layout \"grid\"; " &
+        "layout-cycle \"scroller\" \"grid\" \"monocle\"; " &
+        "view-count 8; outer-gap 3; }\n",
     )
     policyPath.ownerOnly()
     let candidate = loadAuthorityCandidate(policyPath, ProfileAuthority.policy)
     check candidate.authority == ProfileAuthority.policy
     check candidate.generation == 8
     check candidate.digest == digest
-    check candidate.values.len == 3
+    check candidate.values.len == 4
     check candidate.values[0].provenance.path == policyPath.expandFilename()
+    var model = initPolicyModel()
+    model.applyPolicyCandidate(candidate)
+    check model.settings.layoutCycle ==
+      @[LayoutMode.grid, LayoutMode.scroller, LayoutMode.monocle]
 
     let sessionPath = directory / "session.profile.kdl"
     writeFile(

@@ -71,6 +71,27 @@ proc migrateTriadProfile*(source: string): MigrationReport =
             MigrationDisposition.retained,
             "compiled scroller equivalent",
           )
+        of "layout-cycle":
+          var layouts: seq[string]
+          var valid = child.args.len > 0 and child.args.len <= 5
+          for argument in child.args:
+            if argument.kind != KString or
+                argument.kString() notin
+                ["scroller", "tile", "grid", "monocle", "vertical-scroller"]:
+              valid = false
+            else:
+              layouts.add(argument.pretty())
+          if valid:
+            policySettings.add("  layout-cycle " & layouts.join(" "))
+            result.add(
+              "layout.layout-cycle", "policy", MigrationDisposition.transformed,
+              "native policy layout cycle",
+            )
+          else:
+            result.add(
+              "layout.layout-cycle", "policy", MigrationDisposition.unsupported,
+              "contains an unavailable native layout",
+            )
         else:
           result.add(
             "layout." & child.name,
@@ -86,7 +107,7 @@ proc migrateTriadProfile*(source: string): MigrationReport =
           let command = child.args[1].kString()
           if command in [
             "close-window", "toggle-fullscreen", "toggle-maximized", "minimize",
-            "focus-next", "spawn-terminal",
+            "focus-next", "spawn-terminal", "switch-layout",
           ] or command.startsWith("focus-workspace "):
             shortcutSettings.add(
               "  bind " & child.args[0].pretty() & " " & child.args[1].pretty()

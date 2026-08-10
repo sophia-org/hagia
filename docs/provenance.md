@@ -58,6 +58,15 @@ The scrolling-column slice reviews Triad's `src/layouts/scroller.nim` and
 bounded Q16.16 scales, integer target geometry, and its own tests; it does not
 copy Triad's float-based implementation or runtime interpolation.
 
+The native layout-cycle slice reviews Triad's `src/layouts/grid_math.nim`,
+`src/janet/bundled_layouts/tile.janet`,
+`src/janet/bundled_layouts/grid.janet`,
+`src/janet/bundled_layouts/monocle.janet`, and the layout cases in
+`tests/tlayouts.nim` at the recorded baseline. Hagia ports the integer geometry
+and semantic ordering into native pure projections; it does not embed Janet or
+copy Triad's compositor-wide layout dispatcher. Vertical scroller reuses the
+same constrained scroller projection through an audited coordinate transpose.
+
 The general tag-action slice reviews Triad's `src/entities/tag_ops.nim`,
 `src/systems/workspaces.nim`, and retained default bindings at the same
 baseline. Hagia independently adds nonempty multi-tag view and window
@@ -96,8 +105,8 @@ They are tracked in `docs/triad-port-ledger.md` and block revision-1 stability
 unless explicitly excluded with an architectural or product rationale.
 
 The semantic migration command was exercised against the recorded baseline's
-`config.kdl`: all 34 classified settings received a report row (2 retained, 12
-transformed, 15 unsupported, and 5 authority-excluded), an explicit target
+`config.kdl`: all 34 classified settings received a report row (2 retained, 14
+transformed, 13 unsupported, and 5 authority-excluded), an explicit target
 authority, and a nonempty result. The generated Hagia profile passed
 `config check`. No active configuration was read or overwritten.
 

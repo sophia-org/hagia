@@ -1,4 +1,4 @@
-import std/[options, sequtils]
+import std/[math, options, sequtils]
 
 import ./[state, types]
 
@@ -212,3 +212,189 @@ proc projectScroller*(
     model.appendFloating(outputId, eligible, projection)
     model.selectFocus(output.get(), eligible, projection)
     result.add(projection)
+
+proc tiledWindows(
+    model: PolicyModel, outputId: OutputId, eligible: openArray[WindowId]
+): seq[WindowId] =
+  for columnId in model.columnOrder:
+    let column = model.columns[columnId]
+    if column.homeOutput != outputId:
+      continue
+    for windowId in column.windows:
+      if windowId in eligible and not model.windows[windowId].floating:
+        result.add(windowId)
+
+proc appendPlacement(
+    model: PolicyModel,
+    windowId: WindowId,
+    geometry: Rect,
+    projection: var LogicalOutputProjection,
+) =
+  let window = model.windows[windowId]
+  projection.placements.add(
+    LogicalPlacement(
+      window: windowId,
+      geometry: geometry,
+      requestedWidth:
+        geometry.width.clamp(window.constraints.minWidth, window.constraints.maxWidth),
+      requestedHeight: geometry.height.clamp(
+        window.constraints.minHeight, window.constraints.maxHeight
+      ),
+    )
+  )
+
+proc usableBounds(bounds: Rect, outerGap: int32): Rect =
+  let gap = max(0'i32, outerGap)
+  result = Rect(
+    x: bounds.x + gap,
+    y: bounds.y + gap,
+    width: bounds.width.insetExtent(gap),
+    height: bounds.height.insetExtent(gap),
+  )
+  if result.width <= 0 or result.height <= 0:
+    raise newException(PolicyStateError, "output gaps consume the viewport")
+
+proc gridDimensions(count: int): tuple[columns, rows: int] =
+  if count <= 0:
+    return (0, 0)
+  result.columns = int(ceil(sqrt(float64(count))))
+  result.rows = int(ceil(float64(count) / float64(result.columns)))
+
+proc projectNative(
+    model: PolicyModel, outputId: OutputId, mode: LayoutMode, outerGap, innerGap: int32
+): LogicalOutputProjection =
+  let output = model.outputs[outputId]
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  let tiled = model.tiledWindows(outputId, eligible)
+  let bounds = output.bounds.usableBounds(outerGap)
+  let gap = max(0'i32, innerGap)
+  result.output = outputId
+  case mode
+  of LayoutMode.scroller, LayoutMode.verticalScroller:
+    raise newException(PolicyStateError, "scrolling layout entered native projection")
+  of LayoutMode.tile:
+    if tiled.len == 1:
+      model.appendPlacement(tiled[0], bounds, result)
+    elif tiled.len > 1:
+      if gap >= bounds.width:
+        raise newException(PolicyStateError, "tile gap consumes the viewport")
+      let masterWidth = (bounds.width - gap) div 2
+      let stackWidth = bounds.width - gap - masterWidth
+      model.appendPlacement(
+        tiled[0],
+        Rect(x: bounds.x, y: bounds.y, width: masterWidth, height: bounds.height),
+        result,
+      )
+      let stackCount = tiled.len - 1
+      let stackGaps = int64(gap) * int64(stackCount - 1)
+      if stackGaps >= int64(bounds.height):
+        raise newException(PolicyStateError, "tile gaps consume the stack")
+      let baseHeight = int32((int64(bounds.height) - stackGaps) div stackCount)
+      var y = bounds.y
+      for index in 1 .. tiled.high:
+        let height =
+          if index == tiled.high:
+            bounds.y + bounds.height - y
+          else:
+            baseHeight
+        model.appendPlacement(
+          tiled[index],
+          Rect(x: bounds.x + masterWidth + gap, y: y, width: stackWidth, height: height),
+          result,
+        )
+        y += height + gap
+  of LayoutMode.grid:
+    let dimensions = gridDimensions(tiled.len)
+    if dimensions.columns > 0:
+      let horizontalGaps = int64(gap) * int64(dimensions.columns - 1)
+      let verticalGaps = int64(gap) * int64(dimensions.rows - 1)
+      if horizontalGaps >= int64(bounds.width) or verticalGaps >= int64(bounds.height):
+        raise newException(PolicyStateError, "grid gaps consume the viewport")
+      let width = int32((int64(bounds.width) - horizontalGaps) div dimensions.columns)
+      let height = int32((int64(bounds.height) - verticalGaps) div dimensions.rows)
+      for index, windowId in tiled:
+        let column = index mod dimensions.columns
+        let row = index div dimensions.columns
+        let cellWidth =
+          if column + 1 == dimensions.columns:
+            bounds.width - int32(column) * (width + gap)
+          else:
+            width
+        let cellHeight =
+          if row + 1 == dimensions.rows:
+            bounds.height - int32(row) * (height + gap)
+          else:
+            height
+        model.appendPlacement(
+          windowId,
+          Rect(
+            x: bounds.x + int32(column) * (width + gap),
+            y: bounds.y + int32(row) * (height + gap),
+            width: cellWidth,
+            height: cellHeight,
+          ),
+          result,
+        )
+  of LayoutMode.monocle:
+    if tiled.len > 0:
+      let selected =
+        if output.focusedWindow in tiled:
+          output.focusedWindow
+        else:
+          tiled[0]
+      model.appendPlacement(selected, bounds, result)
+  model.appendFloating(outputId, eligible, result)
+  var visible: seq[WindowId]
+  for placement in result.placements:
+    visible.add(placement.window)
+  model.selectFocus(output, visible, result)
+
+proc transpose(rect: Rect): Rect =
+  Rect(x: rect.y, y: rect.x, width: rect.height, height: rect.width)
+
+proc projectVerticalScroller(
+    model: PolicyModel, outputId: OutputId, outerGap, innerGap, viewportOffset: int32
+): LogicalOutputProjection =
+  var transposed = model.clone()
+  transposed.outputs[outputId].bounds = transposed.outputs[outputId].bounds.transpose()
+  for windowId in transposed.windowOrder:
+    if transposed.windows[windowId].homeOutput != outputId:
+      continue
+    let constraints = transposed.windows[windowId].constraints
+    transposed.windows[windowId].constraints = SizeConstraints(
+      minWidth: constraints.minHeight,
+      minHeight: constraints.minWidth,
+      maxWidth: constraints.maxHeight,
+      maxHeight: constraints.maxWidth,
+    )
+    transposed.windows[windowId].floatingGeometry =
+      transposed.windows[windowId].floatingGeometry.transpose()
+  result = transposed.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]
+  for placement in result.placements.mitems:
+    placement.geometry = placement.geometry.transpose()
+    swap(placement.requestedWidth, placement.requestedHeight)
+
+proc projectLayout*(
+    model: PolicyModel,
+    affectedOutputs: openArray[OutputId],
+    outerGap: int32 = 0,
+    innerGap: int32 = 0,
+    viewportOffset: int32 = 0,
+): seq[LogicalOutputProjection] =
+  model.validate()
+  for outputId in affectedOutputs:
+    if outputId notin model.outputs:
+      raise newException(PolicyStateError, "projection output does not exist")
+    let mode = model.views[model.outputs[outputId].activeView].layout
+    case mode
+    of LayoutMode.scroller:
+      result.add(
+        model.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]
+      )
+    of LayoutMode.verticalScroller:
+      result.add(
+        model.projectVerticalScroller(outputId, outerGap, innerGap, viewportOffset)
+      )
+    of LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle:
+      result.add(model.projectNative(outputId, mode, outerGap, innerGap))

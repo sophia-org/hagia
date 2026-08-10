@@ -56,6 +56,7 @@ const
 schema 1
 policy {
   layout "scroller"
+  layout-cycle "scroller" "tile" "grid" "monocle" "vertical-scroller"
   view-count 9
   outer-gap 0
   inner-gap 0
@@ -191,7 +192,10 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
   let supported =
     case authority
     of ProfileAuthority.policy:
-      node.name in ["layout", "view-count", "outer-gap", "inner-gap", "viewport-offset"]
+      node.name in [
+        "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap",
+        "viewport-offset",
+      ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
     of ProfileAuthority.shortcut:
@@ -209,8 +213,21 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
   if node.args.len > 32 or node.props.len > 32 or node.children.len > 64:
     fail("desktop profile setting exceeds structural bounds")
   if authority == ProfileAuthority.policy and node.name == "layout":
-    if node.stringArg("policy layout") != "scroller":
+    if node.stringArg("policy layout") notin
+        ["scroller", "tile", "grid", "monocle", "vertical-scroller"]:
       fail("unsupported Hagia policy layout")
+  if authority == ProfileAuthority.policy and node.name == "layout-cycle":
+    if node.args.len == 0 or node.args.len > 5 or node.props.len != 0 or
+        node.children.len != 0:
+      fail("policy layout-cycle requires one to five layout names")
+    var layouts = initHashSet[string]()
+    for argument in node.args:
+      if argument.kind != KString or
+          argument.kString() notin
+          ["scroller", "tile", "grid", "monocle", "vertical-scroller"] or
+          argument.kString() in layouts:
+        fail("policy layout-cycle contains an invalid or duplicate layout")
+      layouts.incl(argument.kString())
   if authority in {ProfileAuthority.shell, ProfileAuthority.broker} and
       node.name == "enabled":
     if node.args.len != 1 or node.args[0].kind != KBool or node.args[0].kBool():

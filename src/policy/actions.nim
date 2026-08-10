@@ -66,6 +66,7 @@ type PolicyAction* {.pure.} = enum
   moveToScratchpad = 63
   toggleScratchpad = 64
   restoreScratchpad = 65
+  switchLayout = 66
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -94,7 +95,7 @@ proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
     raw in
     PolicyAction.focusNextOutput.raw() .. PolicyAction.focusNextOccupiedWorkspace.raw() or
-    raw in PolicyAction.moveToScratchpad.raw() .. PolicyAction.restoreScratchpad.raw()
+    raw in PolicyAction.moveToScratchpad.raw() .. PolicyAction.switchLayout.raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
@@ -167,3 +168,5 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.toggleScratchpad(output)
   of PolicyAction.restoreScratchpad:
     model.restoreVisibleScratchpad()
+  of PolicyAction.switchLayout:
+    model.cycleLayout(output)

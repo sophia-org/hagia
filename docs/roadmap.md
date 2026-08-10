@@ -82,7 +82,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 
 ## Milestone 4: Hagia Experience
 
-- [ ] Port additional retained layouts with deterministic geometry tests.
+- [x] Port the retained native scroller, tile, grid, monocle, and vertical
+  scroller cycle with per-view logical state, deterministic geometry tests,
+  checkpoint persistence, and an opaque `Super+n` action. Frames, tabs, BSP,
+  split trees, and Janet layouts remain separate later tranches.
 - [x] Add the bounded unified desktop profile foundation, provenance-bearing
   authority candidates, compiled fallback, offline CLI, and semantic Triad
   migration. Trusted Sophia startup now validates and stages all authority

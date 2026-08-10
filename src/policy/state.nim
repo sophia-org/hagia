@@ -29,6 +29,7 @@ proc initPolicyModel*(): PolicyModel =
 
 proc clone*(model: PolicyModel): PolicyModel =
   result.settings = model.settings
+  result.settings.layoutCycle = @(model.settings.layoutCycle)
   result.activeOutput = model.activeOutput
   result.counters = model.counters
   result.visibleScratchpad = model.visibleScratchpad
@@ -237,7 +238,9 @@ proc addView*(model: var PolicyModel, outputId: OutputId, tags: TagMask): ViewId
   if outputId notin model.outputs:
     fail("view output does not exist")
   result = model.allocateViewId()
-  model.views[result] = ViewData(id: result, preferredOutput: outputId)
+  model.views[result] = ViewData(
+    id: result, preferredOutput: outputId, layout: model.settings.layoutCycle[0]
+  )
   model.viewTags[result] = model.tagIdsForMask(tags)
   model.outputs[outputId].views.add(result)
 
@@ -252,7 +255,9 @@ proc addView*(
     if tagId notin model.tags or model.tags[tagId].kind == TagKind.scratchpad:
       fail("view membership names an unknown tag")
   result = model.allocateViewId()
-  model.views[result] = ViewData(id: result, preferredOutput: outputId)
+  model.views[result] = ViewData(
+    id: result, preferredOutput: outputId, layout: model.settings.layoutCycle[0]
+  )
   model.viewTags[result] = @tags
   model.outputs[outputId].views.add(result)
 
@@ -364,6 +369,18 @@ proc focusOccupiedWorkspaceRelative*(
     fail("occupied workspace has no live view")
   model.setActiveOutput(targetOutput)
   model.activateView(targetOutput, targetView)
+
+proc cycleLayout*(model: var PolicyModel, outputId: OutputId, delta = 1) =
+  if outputId notin model.outputs or model.settings.layoutCycle.len == 0:
+    fail("layout cycle target is invalid")
+  let viewId = model.outputs[outputId].activeView
+  let current = model.settings.layoutCycle.find(model.views[viewId].layout)
+  let index =
+    if current < 0:
+      0
+    else:
+      wrappedIndex(current, delta, model.settings.layoutCycle.len)
+  model.views[viewId].layout = model.settings.layoutCycle[index]
 
 proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
   if outputId notin model.outputs or count < 1 or count > 9:
@@ -1222,7 +1239,8 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
     views.add(viewId)
   if views.len == 0:
     let viewId = model.allocateViewId()
-    model.views[viewId] = ViewData(id: viewId, preferredOutput: id)
+    model.views[viewId] =
+      ViewData(id: viewId, preferredOutput: id, layout: model.settings.layoutCycle[0])
     model.viewTags[viewId] = @[model.profileTag(1)]
     views.add(viewId)
   let activeView =
@@ -1250,8 +1268,14 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
 proc validate*(model: PolicyModel) =
   if model.settings.viewCount < 1 or model.settings.viewCount > 9 or
       model.settings.outerGap < 0 or model.settings.innerGap < 0 or
-      model.settings.viewportOffset < 0:
+      model.settings.viewportOffset < 0 or model.settings.layoutCycle.len == 0 or
+      model.settings.layoutCycle.len > ord(high(LayoutMode)) + 1:
     fail("policy settings are invalid")
+  var seenLayouts = initHashSet[LayoutMode]()
+  for layout in model.settings.layoutCycle:
+    if layout in seenLayouts:
+      fail("policy layout cycle contains duplicates")
+    seenLayouts.incl(layout)
   if not model.windows.validateDense() or not model.columns.validateDense() or
       not model.views.validateDense() or not model.tags.validateDense() or
       not model.outputs.validateDense():

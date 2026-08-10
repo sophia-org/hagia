@@ -26,6 +26,13 @@ type
     popup
     unknown
 
+  LayoutMode* {.pure.} = enum
+    scroller
+    tile
+    grid
+    monocle
+    verticalScroller
+
   Rect* = object
     x*, y*, width*, height*: int32
 
@@ -62,6 +69,7 @@ type
   ViewData* = object
     id*: ViewId
     preferredOutput*: OutputId
+    layout*: LayoutMode
 
   TagData* = object
     id*: TagId
@@ -84,6 +92,7 @@ type
   PolicySettings* = object
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
+    layoutCycle*: seq[LayoutMode]
 
   OutputData* = object
     id*: OutputId
@@ -151,7 +160,11 @@ const
   maxMinimizedHistory* = 64
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64
-  defaultPolicySettings* = PolicySettings(viewCount: 9)
+  defaultLayoutCycle* = @[
+    LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
+    LayoutMode.verticalScroller,
+  ]
+  defaultPolicySettings* = PolicySettings(viewCount: 9, layoutCycle: defaultLayoutCycle)
 
 proc `==`*(left, right: WindowId): bool {.borrow.}
 proc `==`*(left, right: ViewId): bool {.borrow.}

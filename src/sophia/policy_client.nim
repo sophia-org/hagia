@@ -379,9 +379,10 @@ proc installConfiguration(client: PolicyClient) =
     (PolicyAction.expelFocusedWindow.raw(), 27'u32, super, 0'u16),
     (PolicyAction.toggleFullscreen.raw(), 21'u32, super, 0'u16),
     (PolicyAction.toggleMaximized.raw(), 50'u32, super, 0'u16),
-    (PolicyAction.minimizeFocused.raw(), 49'u32, super, 0'u16),
+    (PolicyAction.minimizeFocused.raw(), 23'u32, super, 0'u16),
     (PolicyAction.restoreMinimized.raw(), 19'u32, super, 0'u16),
     (PolicyAction.toggleFloating.raw(), 20'u32, super, 0'u16),
+    (PolicyAction.switchLayout.raw(), 49'u32, super, 0'u16),
   ]
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)

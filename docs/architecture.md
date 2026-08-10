@@ -74,11 +74,13 @@ all sixteen protocol outputs without conflating identity with a tag mask. A wind
 is eligible when its home output matches and its tags intersect the active
 view. Sophia sees only the resulting ordered output projection.
 
-Columns are stable logical entities. The retained profile has one scrolling
-layout only. Automatic widths divide the viewport deterministically; explicit
-widths use bounded Q16.16 scales and 64-bit intermediate arithmetic. Hagia
-emits final integer target geometry. It does not animate, render, or retain
-client pixels.
+Columns are stable logical entities. Each view retains its native layout
+selection independently of dense storage order. The compiled cycle contains
+scroller, tile, grid, monocle, and vertical scroller. Automatic scroller widths
+divide the viewport deterministically; explicit widths use bounded Q16.16
+scales and 64-bit intermediate arithmetic. All layout families emit final
+integer target geometry. Hagia does not animate, render, or retain client
+pixels.
 
 ## Recovery Direction
 

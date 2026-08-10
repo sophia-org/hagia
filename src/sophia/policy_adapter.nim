@@ -649,7 +649,7 @@ proc projection*(
       fail("projection request names an unknown output")
     affected.add(adapter.outputToLogical[output])
 
-  for logical in adapter.model.projectScroller(
+  for logical in adapter.model.projectLayout(
     affected, adapter.model.settings.outerGap, adapter.model.settings.innerGap,
     adapter.model.settings.viewportOffset,
   ):
@@ -790,7 +790,13 @@ proc projection*(
         indicator.label[labelIndex] = byte(character)
       result.indicators.add(indicator)
 
-    const layoutText = "Scroller"
+    let layoutText =
+      case adapter.model.views[outputState.activeView].layout
+      of LayoutMode.scroller: "Scroller"
+      of LayoutMode.tile: "Tile"
+      of LayoutMode.grid: "Grid"
+      of LayoutMode.monocle: "Monocle"
+      of LayoutMode.verticalScroller: "Vertical Scroller"
     var status = ProjectionOutputStatus(
       output: rawOutput,
       focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),
