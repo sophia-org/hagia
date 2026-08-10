@@ -269,6 +269,12 @@ key, and retains the prepared shortcut slot. Public policy launch consumes the
 context once; early failure/drop removes it before graphical startup. This is
 still preparation rather than activation.
 
+Sophia's synchronous coordinator now exposes prepare as a separate typed
+startup barrier. It drains all seven prepare effects, performs generation-wide
+rollback on any rejection, and otherwise stops exactly at `Prepared` with the
+prior active identity unchanged and no activation calls. The full driver reuses
+that same operation before activation, preventing orchestration drift.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.
