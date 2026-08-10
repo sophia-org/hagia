@@ -189,6 +189,13 @@ silently degrading. Hagia receives no input candidate or device identity.
 Device-scoped live activation and rollback remain part of the deferred shared
 authority protocol.
 
+The output fragment is also prepared into a typed, topology-independent
+candidate before staging. It bounds exact connector identities, modes,
+fixed-point scale, position, transform, enablement, a unique startup-focus
+request, and VRR policy. This step performs no DRM/KMS operation; topology
+reconciliation, atomic test, activation, and rollback remain Sophia-owned and
+deferred.
+
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
 independent profile implementations normalize chord identity, reject duplicate

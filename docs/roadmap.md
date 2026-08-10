@@ -106,8 +106,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   startup, and logout selectors are now prepared by Sophia against its trusted
   application registry and lowered to opaque operation slots. Typed keyboard
   and pointer startup candidates now activate through Sophia with strict
-  libinput failure; capture, locking, broader launch environment, device-scoped
-  reload/rollback, and remaining dedicated configuration services remain.
+  libinput failure. Typed output candidates are validated and staged without
+  touching hardware; capture, locking, broader launch environment, output
+  reconciliation/activation, device-scoped reload/rollback, and remaining
+  dedicated configuration services remain.
 
 ## Milestone 5: Port Completion And Revision-1 Evaluation
 
