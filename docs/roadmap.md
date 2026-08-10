@@ -135,8 +135,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   slot collection was introduced. The transient typed bundle is now partitioned
   once into separate session, input, output, and shortcut ownership; current
   input overlays and output reconciliation read those prepared payloads. Live
-  authority protocols, recovery, and watched activation remain deliberately
-  deferred.
+  public-session preparation now also occurs before display/device setup: one
+  linear context stages and re-admits every exact fragment and transfers into
+  policy launch with cleanup on early failure. Authority activation protocols,
+  recovery, and watched activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

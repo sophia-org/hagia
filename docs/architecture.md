@@ -261,6 +261,14 @@ owner constructs the fourth slot. Keyboard/pointer overlay and output
 reconciliation consume their owner payloads, leaving no long-lived centralized
 bundle and changing no hardware state.
 
+Public Hagia filesystem preparation now has one linear launch context created
+immediately after trusted configuration parsing, before display sockets, seats,
+input/output setup, or process launch. Sophia creates the owner-only policy
+directory, stages the profile, re-admits all seven fragments against the exact
+key, and retains the prepared shortcut slot. Public policy launch consumes the
+context once; early failure/drop removes it before graphical startup. This is
+still preparation rather than activation.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.
