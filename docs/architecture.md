@@ -232,8 +232,11 @@ Sophia's offline coordinator refinement executor now uses seven of those slots
 instead of identity-only participants. The existing failure-position matrix
 therefore proves candidate payload promotion, complete last-known-good payload
 restoration, exact rollback divergence, and deterministic recovery alongside
-the coordinator and participant identities. This strengthens startup evidence
-without creating a production slot collection or effect path.
+the coordinator and participant identities. A second integration case stages
+the compiled profile, re-admits all seven owner-safe fragments through Sophia's
+shared loader, and proves every semantic payload is promoted under the exact
+shared key. This strengthens startup evidence without creating a production
+slot collection or effect path.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
