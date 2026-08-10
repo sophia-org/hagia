@@ -199,6 +199,12 @@ connectors, ambiguous/unavailable modes, unsupported scale/transform/VRR,
 overlap, and all-dark results. Trusted snapshot construction, atomic KMS test,
 activation, and rollback remain Sophia-owned and deferred.
 
+Sophia's existing atomic scanout owner now provides the read-only side of that
+trusted snapshot: Engine output identity, exact kernel connector identity,
+bounded advertised and selected timings, and VRR property status. This reuses
+the owned libdrm selection rather than creating a parallel discovery path.
+Coordinator translation and activation remain deferred.
+
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
 independent profile implementations normalize chord identity, reject duplicate

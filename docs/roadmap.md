@@ -109,8 +109,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   libinput failure. Typed output candidates are validated and staged without
   touching hardware, then reconcile purely against immutable capability data;
   capture, locking, broader launch environment, trusted topology snapshot
-  wiring, output activation, device-scoped reload/rollback, and remaining
-  dedicated configuration services remain.
+  translation (the atomic owner now exposes read-only libdrm capabilities),
+  output activation, device-scoped reload/rollback, and remaining dedicated
+  configuration services remain.
 
 ## Milestone 5: Port Completion And Revision-1 Evaluation
 
