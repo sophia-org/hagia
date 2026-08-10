@@ -139,8 +139,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   linear context stages and re-admits every exact fragment and transfers into
   policy launch with cleanup on early failure. The coordinator now also exposes
   a prepare-only driver that stops at the complete seven-authority `Prepared`
-  barrier and performs rollback without any activation call. Production owner
-  dispatch, recovery, and watched activation remain deliberately deferred.
+  barrier and performs rollback without any activation call. Public Hagia
+  startup now dispatches that barrier through fixed references to the separate
+  owners before graphical setup, including generation-wide rollback tests at
+  every failure position. Activation, recovery, and watched reload remain
+  deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

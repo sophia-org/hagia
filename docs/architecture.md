@@ -265,15 +265,22 @@ Public Hagia filesystem preparation now has one linear launch context created
 immediately after trusted configuration parsing, before display sockets, seats,
 input/output setup, or process launch. Sophia creates the owner-only policy
 directory, stages the profile, re-admits all seven fragments against the exact
-key, and retains the prepared shortcut slot. Public policy launch consumes the
-context once; early failure/drop removes it before graphical startup. This is
-still preparation rather than activation.
+key, and retains named raw policy/shell/broker owners plus the prepared
+shortcut owner. The typed session/input/output slots remain with their existing
+owners. Public policy launch consumes the context once; early failure/drop
+removes it before graphical startup. This is still preparation rather than
+activation.
 
 Sophia's synchronous coordinator now exposes prepare as a separate typed
 startup barrier. It drains all seven prepare effects, performs generation-wide
 rollback on any rejection, and otherwise stops exactly at `Prepared` with the
 prior active identity unchanged and no activation calls. The full driver reuses
 that same operation before activation, preventing orchestration drift.
+Public Hagia startup now connects that barrier to the seven separate owners
+through a transient fixed-field dispatcher. It runs before display, device, or
+process setup; success retains the coordinator and every participant at the
+same `Prepared` key, while failure at any position rolls all seven owners back
+and aborts. The dispatcher fails closed on activation requests.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
