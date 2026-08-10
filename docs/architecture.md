@@ -193,8 +193,11 @@ The output fragment is also prepared into a typed, topology-independent
 candidate before staging. It bounds exact connector identities, modes,
 fixed-point scale, position, transform, enablement, a unique startup-focus
 request, and VRR policy. This step performs no DRM/KMS operation; topology
-reconciliation, atomic test, activation, and rollback remain Sophia-owned and
-deferred.
+reconciliation is a pure Sophia function over an immutable capability snapshot.
+It preserves stable connector order and rejects unknown or disconnected
+connectors, ambiguous/unavailable modes, unsupported scale/transform/VRR,
+overlap, and all-dark results. Trusted snapshot construction, atomic KMS test,
+activation, and rollback remain Sophia-owned and deferred.
 
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
