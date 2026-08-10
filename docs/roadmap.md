@@ -142,22 +142,27 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   barrier and performs rollback without any activation call. Public Hagia
   startup now dispatches that barrier through fixed references to the separate
   owners before graphical setup, including generation-wide rollback tests at
-  every failure position. Activation, recovery, and watched reload remain
-  deliberately deferred.
+  every failure position. An explicit opt-in now activates the six local
+  owners, completes Hagia's exact prepare/activate handshake as the final
+  barrier, and retains the started supervisor and worker for graphical session
+  construction. Bounded missing-client admission, process failure, rejection,
+  and disconnect abort before graphics and roll all owners back. The installed
+  default and watched reload remain deliberately unchanged.
 - [x] Extend the shared `sophia_wm_v1` schema to revision 3 with bounded,
   typed prepare, activate, and rollback records for the external policy
   authority. Hagia validates exact epoch, generation, digest, outcome, and
-  reserved fields against the generated Sophia corpus. The capability is not
-  requested or active in production until the authority-local state machine
-  and pre-graphics acknowledgement barrier are connected.
+  reserved fields against the generated Sophia corpus. The capability is
+  requested only by the explicit pre-graphics activation path.
 - [x] Add independent Sophia- and Hagia-side pure handoff reducers. They prove
   exact epoch/transaction/generation/digest settlement, inert stale replies,
   deterministic retry, explicit rollback after rejection, and candidate-state
-  discard. Production capability negotiation remains disabled.
+  discard. Normal policy sessions still omit the capability.
 - [x] Add opt-in typed socket plumbing and isolated Unix-socket tests for the
   startup handoff. Hagia's participant receive path is bounded and rejects
-  normal policy traffic before activation. The installed connection path still
-  omits the capability and has no behavioral change.
+  normal policy traffic before activation. The cross-repository gate now runs
+  the real Hagia executable through Sophia's opt-in pre-graphics admission and
+  proves all-owner activation and teardown. Restart uses the same activated key
+  with a fresh connection epoch. The installed default still omits the option.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

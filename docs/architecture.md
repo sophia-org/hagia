@@ -280,24 +280,34 @@ Public Hagia startup now connects that barrier to the seven separate owners
 through a transient fixed-field dispatcher. It runs before display, device, or
 process setup; success retains the coordinator and every participant at the
 same `Prepared` key, while failure at any position rolls all seven owners back
-and aborts. The dispatcher fails closed on activation requests.
+and aborts. An explicit Sophia startup option continues through the six local
+owners, launches Hagia on the private policy endpoint, and admits the external
+policy owner only after its exact prepare and activate acknowledgements. The
+final policy completion promotes the shared key before display, seat, KMS, or
+input setup. Rejection, disconnect, process failure, or a bounded admission
+timeout terminates Hagia, rolls every owner back, and removes the private
+staging directory.
 
 Wire revision 3 reserves fixed-size profile prepare, activate, and rollback
 commands and their typed completions for the external Hagia policy authority.
 The independent Hagia decoder rejects null identity components, malformed
 digests, unknown outcomes, and nonzero reserved fields and is checked against
-Sophia's generated golden corpus. Production does not request the capability
-yet; wire availability is not authority activation.
+Sophia's generated golden corpus. Sophia requests the capability only for the
+explicit pre-graphics activation path; normal policy startup remains unchanged.
 Hagia's independent pure participant reducer now binds the loaded policy
 candidate to that identity, accepts only exact phase transitions, makes exact
 retries idempotent, and discards prepared or active candidate state on
-rollback. It remains outside the socket loop until the pre-graphics process
-owner can complete the full prepare/activate/rollback barrier.
+rollback.
 The policy client now contains a bounded startup-only socket loop that requests
 the capability explicitly, reduces commands through that participant, and
 sends the matching typed completion before accepting another phase. Its
-socketpair test proves negotiation and exact prepare/activate ordering. Normal
-policy connections do not call this loop and still omit the capability.
+socketpair test proves negotiation and exact prepare/activate ordering. The
+cross-repository gate also launches the real Hagia executable through Sophia's
+supervisor and proves complete owner activation and cleanup without acquiring
+graphical resources. A supervised restart reuses the activated generation and
+digest under a fresh connection epoch. Normal policy connections do not call
+this loop and still omit the capability. Watched reload remains deferred until
+the same global visibility and rollback guarantees exist beyond startup.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
