@@ -180,6 +180,15 @@ For a normal native-policy session, any shortcut that names an unavailable
 session capability rejects the profile before graphical startup; no executable
 path or argument crosses into Hagia.
 
+Sophia likewise prepares the input fragment into a typed startup candidate.
+Keyboard RMLVO, repeat timing, and initial lock state overlay Sophia's effective
+configuration with explicit CLI RMLVO values superior. Pointer configuration
+lowers to a backend-owned libinput policy; unsupported requested settings fail
+startup, and hot-plug configuration failure stops input acquisition instead of
+silently degrading. Hagia receives no input candidate or device identity.
+Device-scoped live activation and rollback remain part of the deferred shared
+authority protocol.
+
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
 independent profile implementations normalize chord identity, reject duplicate

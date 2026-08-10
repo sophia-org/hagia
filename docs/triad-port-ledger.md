@@ -65,7 +65,7 @@ least-authority shell endpoint and target-resolved input.
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | Typed key/pointer startup candidates now resolve Hagia's semantic action catalog into Engine-owned matching without sending raw input to Hagia; add the retained axis, gesture, and switch candidates. |
-| Input-device and XKB configuration | Open | Use a dedicated validated configuration authority with device-scoped capabilities and rollback. |
+| Input-device and XKB configuration | Partial | Typed startup candidates now activate RMLVO, repeat timing, initial lock state, natural scrolling, acceleration, handedness, middle emulation, and wheel scaling through Sophia. Add device-scoped capabilities plus cross-authority live prepare/activate/rollback. |
 | Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | Engine owns topology and work areas; add candidate validation, atomic multi-output activation, rollback, and a separate power authority. |
 | Launch, startup environment, configured processes, and shell supervision | Partial | Typed terminal/browser/startup/logout selectors resolve only against Sophia's registered applications, with CLI overrides superior, and lower to opaque slots; port the remaining retained launch environment and supervision behavior. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
