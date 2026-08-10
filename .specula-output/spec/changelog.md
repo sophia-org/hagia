@@ -27,3 +27,21 @@ no bugs found across two exhaustive configurations. Startup trace: pass.
 The extended model converged without a counterexample: 1,360 distinct standard
 states, 228 partial-prepare hunt states, 939 stale-completion hunt states, and a
 17-state startup trace.
+
+## Round 3 - Generation Identity Fidelity
+
+- [bug] Code/model cross-check found that a rejected `(generation, digest)`
+  could be admitted again, allowing delayed completions from the rejected
+  attempt to promote it. A public-API reducer reproduction confirmed the
+  violation before `latestGeneration` made every attempt monotonic.
+- [extension] Model candidate identity as the exact generation/digest pair,
+  retain `latestGeneration` across rollback, permit digest reuse only at a
+  newer generation, and explore stale completions with independently chosen
+  generations and digests.
+- [fix-inv] `CandidateIdentityIsFresh` now applies before rollback. The initial
+  form incorrectly rejected the required state where a rejected candidate is
+  retained while generation-wide rollback acknowledgements remain pending.
+
+The repaired model converged with no remaining counterexample: 2,271 distinct
+standard states, 228 partial-prepare states, 1,427 stale-completion states, and
+a 17-state generated startup trace. All four finite state spaces were exhausted.

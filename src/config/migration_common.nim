@@ -85,9 +85,7 @@ proc number*(value: KdlVal, parsed: var float64): bool =
   except CatchableError:
     false
 
-proc oneBoolean*(
-    node: KdlNode, allowFlag: bool
-): tuple[valid: bool, encoded: string] =
+proc oneBoolean*(node: KdlNode, allowFlag: bool): tuple[valid: bool, encoded: string] =
   if not node.plainShape():
     return
   if allowFlag and node.args.len == 0:

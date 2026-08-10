@@ -170,8 +170,13 @@ and passes Hagia only the immutable policy-fragment path. The executable
 coordinator reducer requires
 all seven authorities to prepare and activate that identity before promotion;
 any failure emits generation-wide idempotent rollback while preserving the
-last-known-good profile. Watched live reload remains disabled until Sophia wires
-that barrier through dedicated authority protocols.
+last-known-good profile. Every attempted generation advances a monotonic
+counter even when rejected, so an old generation never re-enters admission and
+delayed completions cannot alias a retry; counter exhaustion is terminal.
+The generation/digest lifecycle, partial barriers, rollback, and stale
+completions are exhaustively model checked by the repository's TLA+ gate.
+Watched live reload remains disabled until Sophia wires that barrier through
+dedicated authority protocols.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

@@ -17,10 +17,13 @@
 | `PartialCandidateNotActive` | `base.tla` | direct | partial-prepare cfg |
 | `LastKnownGoodUntilPromotion` | `base.tla` | direct | partial-prepare cfg |
 | `RollbackCannotPromote` | `base.tla` | direct | partial-prepare cfg |
+| `GenerationNeverRecycles` | `base.tla` | direct | both hunt cfgs |
+| `CandidateIdentityIsFresh` | `base.tla` | direct | both hunt cfgs |
 
 ## Model-checkable findings
 
 | Finding | Trigger | Expected invariant | Hunting configuration |
 |---|---|---|---|
 | MC1 | promotion during partial prepare or activation | `ActiveWasFullyActivated` | partial-prepare |
-| MC2 | completion for rejected digest | `RejectedNeverPromoted` | stale-completion |
+| MC2 | completion for rejected generation/digest | `RejectedNeverPromoted` | stale-completion |
+| MC3 | reuse of an attempted generation | `GenerationNeverRecycles` | stale-completion |

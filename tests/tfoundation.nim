@@ -115,7 +115,7 @@ suite "Hagia foundation":
   test "effect execution returns typed reducer completion":
     let executor = RuntimeEffectExecutor(
       persistCheckpoint: proc(effect: RuntimeEffect): bool =
-      effect.generation == 9
+        effect.generation == 9
     )
     let completion = executor.executeEffect(
       RuntimeEffect(kind: RuntimeEffectKind.persistCheckpoint, generation: 9)
@@ -420,6 +420,75 @@ suite "Hagia foundation":
     check activation.activeGeneration == 4
     check activation.activeDigest == "known-good"
 
+  test "rejected profile generations never recycle":
+    var activation =
+      ProfileActivationModel(activeGeneration: 4, activeDigest: "known-good")
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.beginCandidate,
+        generation: 5,
+        digest: "candidate",
+      )
+    ).model
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityPrepared,
+        authority: ProfileAuthority.policy,
+        generation: 5,
+        digest: "candidate",
+        success: false,
+      )
+    ).model
+    for authority in ProfileAuthority:
+      activation = activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.rollbackCompleted,
+          authority: authority,
+          generation: 5,
+          digest: "candidate",
+          success: true,
+        )
+      ).model
+
+    check activation.latestGeneration == 5
+    expect DesktopProfileError:
+      discard activation.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.beginCandidate,
+          generation: 5,
+          digest: "candidate",
+        )
+      )
+
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.beginCandidate,
+        generation: 6,
+        digest: "candidate",
+      )
+    ).model
+    let beforeStale = activation
+    activation = activation.reduceProfileActivation(
+      ProfileActivationMsg(
+        kind: ProfileActivationMsgKind.authorityPrepared,
+        authority: ProfileAuthority.policy,
+        generation: 5,
+        digest: "candidate",
+        success: true,
+      )
+    ).model
+    check activation == beforeStale
+
+    let exhausted = ProfileActivationModel(latestGeneration: high(uint64))
+    expect DesktopProfileError:
+      discard exhausted.reduceProfileActivation(
+        ProfileActivationMsg(
+          kind: ProfileActivationMsgKind.beginCandidate,
+          generation: high(uint64),
+          digest: "exhausted",
+        )
+      )
+
   test "partial activation cannot promote and stale completions are ignored":
     var activation =
       ProfileActivationModel(activeGeneration: 8, activeDigest: "known-good")
@@ -551,7 +620,8 @@ protocol-surfaces { enabled #true; }
     check layoutUnsupported
 
   test "semantic migration reports ambiguity and unsupported device policy":
-    let report = migrateTriadProfile("""
+    let report = migrateTriadProfile(
+      """
 input {
   mouse { natural-scroll #true; natural-scroll #false; }
   touchpad { tap #true; natural-scroll #true; }
@@ -560,7 +630,8 @@ output {
   monitor "DP-1" { vrr 3; enabled #true; disabled #false; }
   monitor "DP-1" { mode "preferred"; }
 }
-""")
+"""
+    )
     check report.outputProfile.count("natural-scroll") == 1
     check report.outputProfile.count("named DP-1") == 1
     var unsupported = initHashSet[string]()

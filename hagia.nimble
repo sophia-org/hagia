@@ -17,3 +17,4 @@ task verify, "Check formatting and run the independent conformance suite":
   exec "nph --check src tests hagia.nimble"
   exec "sh tools/check_sophia_policy.sh"
   exec "sh tools/check_foundation_models.sh"
+  exec "sh tools/check_profile_lifecycle_model.sh"

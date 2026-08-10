@@ -6,13 +6,11 @@ import ./[migration_common, migration_output, profile]
 
 export migration_common
 
-type
-
-  CommandMigration = object
-    authority: string
-    disposition: MigrationDisposition
-    result: string
-    outputCommand: string
+type CommandMigration = object
+  authority: string
+  disposition: MigrationDisposition
+  result: string
+  outputCommand: string
 
 proc commandMigration(
     authority: string,
@@ -393,8 +391,7 @@ proc migrateKeyboard(
     report: var MigrationReport,
 ) =
   report.add(
-    "input.keyboard", "input", MigrationDisposition.retained,
-    "input keyboard candidate",
+    "input.keyboard", "input", MigrationDisposition.retained, "input keyboard candidate"
   )
   var children: seq[string]
   for child in node.children:
@@ -432,7 +429,8 @@ proc migrateKeyboard(
         report.unsupportedSetting(source, "input", "XKB setting requires child values")
       elif "xkb" in emitted:
         report.unsupportedSetting(
-          source, "input", "duplicate setting is ambiguous; no last-writer-wins migration"
+          source, "input",
+          "duplicate setting is ambiguous; no last-writer-wins migration",
         )
       else:
         emitted.incl("xkb")
@@ -460,11 +458,19 @@ proc migrateMouse(
       let value = child.oneBoolean(true)
       if value.valid:
         report.emitSetting(
-          children, emitted, source, "input", child.name, value.encoded,
-          "input pointer " & child.name, MigrationDisposition.transformed,
+          children,
+          emitted,
+          source,
+          "input",
+          child.name,
+          value.encoded,
+          "input pointer " & child.name,
+          MigrationDisposition.transformed,
         )
       else:
-        report.unsupportedSetting(source, "input", "pointer setting requires a flag or bool")
+        report.unsupportedSetting(
+          source, "input", "pointer setting requires a flag or bool"
+        )
     of "accel-profile":
       let value = child.oneString(1, 16)
       if value.valid and value.value in ["flat", "adaptive"]:
@@ -473,7 +479,9 @@ proc migrateMouse(
           "input pointer acceleration profile", MigrationDisposition.transformed,
         )
       else:
-        report.unsupportedSetting(source, "input", "unsupported pointer acceleration profile")
+        report.unsupportedSetting(
+          source, "input", "unsupported pointer acceleration profile"
+        )
     of "accel-speed":
       let value = child.oneNumber(-1.0, 1.0)
       if value.valid:
@@ -482,7 +490,9 @@ proc migrateMouse(
           "input pointer acceleration speed", MigrationDisposition.transformed,
         )
       else:
-        report.unsupportedSetting(source, "input", "acceleration speed must be in -1..1")
+        report.unsupportedSetting(
+          source, "input", "acceleration speed must be in -1..1"
+        )
     of "scroll-factor":
       let value = child.oneNumber(0.01, 10.0)
       if value.valid:
@@ -531,16 +541,20 @@ proc migrateInput(
         child.migrateMouse(settings, emitted, report)
     of "touchpad", "trackpoint", "trackball":
       report.unsupportedSetting(
-        "input." & child.name, "input",
+        "input." & child.name,
+        "input",
         "device-class-specific policy cannot be represented by the global pointer candidate",
       )
       for setting in child.children:
         report.unsupportedSetting(
-          "input." & child.name & "." & setting.name, "input",
+          "input." & child.name & "." & setting.name,
+          "input",
           "device-class-specific input setting is not yet representable",
         )
     else:
-      report.unsupportedSetting("input." & child.name, "input", "unsupported input setting")
+      report.unsupportedSetting(
+        "input." & child.name, "input", "unsupported input setting"
+      )
 
 proc classifyTree(
     report: var MigrationReport,
@@ -551,9 +565,7 @@ proc classifyTree(
 ) =
   report.add(path, authority, disposition, reason)
   for child in node.children:
-    report.classifyTree(
-      child, path & "." & child.name, authority, disposition, reason
-    )
+    report.classifyTree(child, path & "." & child.name, authority, disposition, reason)
 
 proc migrateTriadProfile*(source: string): MigrationReport =
   var document: KdlDoc
@@ -691,19 +703,25 @@ proc migrateTriadProfile*(source: string): MigrationReport =
             viewCount = int(value.value)
             workspaceSettings.incl(child.name)
             result.add(
-              source, "policy", MigrationDisposition.transformed,
+              source,
+              "policy",
+              MigrationDisposition.transformed,
               "policy view-count " & value.encoded,
             )
           else:
             result.unsupportedSetting(source, "policy", "view count must be in 1..9")
         of "default-layout":
           let value = child.oneString(1, 32)
-          if value.valid and value.value in
-              ["scroller", "tile", "grid", "monocle", "vertical-scroller"]:
+          if value.valid and
+              value.value in [
+                "scroller", "tile", "grid", "monocle", "vertical-scroller"
+              ]:
             policySettings[0] = "  layout " & value.encoded
             workspaceSettings.incl(child.name)
             result.add(
-              source, "policy", MigrationDisposition.transformed,
+              source,
+              "policy",
+              MigrationDisposition.transformed,
               "native policy layout " & value.value,
             )
           else:
@@ -740,7 +758,9 @@ proc migrateTriadProfile*(source: string): MigrationReport =
           sessionSettings.add("  terminal " & value.encoded)
           sessionSettingsSeen.incl("terminal")
           result.add(
-            source, "session", MigrationDisposition.transformed,
+            source,
+            "session",
+            MigrationDisposition.transformed,
             "session terminal application " & value.value,
           )
     of "allow-exit-session":
@@ -816,8 +836,8 @@ proc migrateTriadProfile*(source: string): MigrationReport =
     "schema 1\npolicy {\n" & policySettings.join("\n") &
     "\n}\nshell { enabled #false; }\nshortcut {\n" & shortcutSettings.join("\n") &
     "\n}\nsession {\n" & sessionSettings.join("\n") & "\n}\ninput {\n" &
-    inputSettings.join("\n") & "\n}\noutput {\n" &
-    outputSettings.join("\n") & "\n}\nbroker { enabled #false; }\n"
+    inputSettings.join("\n") & "\n}\noutput {\n" & outputSettings.join("\n") &
+    "\n}\nbroker { enabled #false; }\n"
 
 proc writeMigration*(inputPath, outputDirectory: string): MigrationReport =
   if inputPath.len == 0 or outputDirectory.len == 0 or not outputDirectory.isAbsolute():

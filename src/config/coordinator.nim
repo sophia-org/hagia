@@ -23,6 +23,7 @@ type
     phase*: ProfileActivationPhase
     activeGeneration*: uint64
     activeDigest*: string
+    latestGeneration*: uint64
     candidateGeneration*: uint64
     candidateDigest*: string
     preparedAuthorities*: set[ProfileAuthority]
@@ -110,10 +111,12 @@ proc reduceProfileActivation*(
   case message.kind
   of ProfileActivationMsgKind.beginCandidate:
     if model.phase != ProfileActivationPhase.idle or message.generation == 0 or
-        message.generation <= model.activeGeneration or message.digest.len == 0 or
+        message.generation <= model.activeGeneration or
+        message.generation <= model.latestGeneration or message.digest.len == 0 or
         message.digest == model.activeDigest:
       raise newException(DesktopProfileError, "profile candidate identity is invalid")
     result.model.phase = ProfileActivationPhase.preparing
+    result.model.latestGeneration = message.generation
     result.model.candidateGeneration = message.generation
     result.model.candidateDigest = message.digest
     result.addEffects(

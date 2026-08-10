@@ -95,8 +95,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   fragments while Hagia receives only its policy candidate. The executable
   prepare/activate/rollback barrier is modeled and tested. Policy candidates
   reconcile atomically against live/checkpoint logical state and retain the
-  last-known-good model on failure; live authority protocol wiring and watched
-  activation remain deliberately deferred.
+  last-known-good model on failure. A generation-aware TLA+ gate now exhausts
+  partial preparation, activation, rollback, and stale-completion state spaces;
+  its implementation-fidelity pass also closed rejected-generation reuse.
+  Live authority protocol wiring and watched activation remain deliberately
+  deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

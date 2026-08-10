@@ -1,4 +1,12 @@
 {
   "schema": 1,
-  "findings": []
+  "findings": [
+    {
+      "id": "HAGIA-PROFILE-1",
+      "source": "code-review",
+      "status": "reproduced-fixed",
+      "severity": "medium",
+      "location": "src/config/coordinator.nim:112"
+    }
+  ]
 }

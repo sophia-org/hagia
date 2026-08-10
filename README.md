@@ -26,6 +26,10 @@ Sophia's generated Rust and C99 codecs, then runs the independently compiled
 Hagia client through Sophia's authenticated transport and canonical Engine
 reducer.
 
+`nimble verify` additionally checks formatting, bounded Alloy/Z3 entity
+invariants, and the generation-aware TLA+ startup/rollback lifecycle. Set
+`HAGIA_TLA2TOOLS_JAR` when the TLC jar is not under `~/src/Specula/lib/`.
+
 Hagia now carries the first bounded Triad-policy slice: stable logical IDs, nine
 shared tag slots with output-local views, commit-aware complete-snapshot
 reconciliation, bounded output reconnect affinity, deterministic fixed-point

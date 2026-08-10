@@ -28,29 +28,30 @@ only a subset of its authorities before one authority rejects.
 
 **Affected code paths**: `stageDesktopProfile`, `reduceProfileActivation`.
 
-**Suggested modeling approach**: Track the candidate digest, prepared authority
-set, phase, active digest, and rejected/activated histories. Split per-authority
-prepare, activation, rejection, and rollback completion into distinct actions.
+**Suggested modeling approach**: Track the exact candidate generation/digest,
+the monotonic latest-attempted generation, prepared authority set, phase,
+active identity, and rejected/activated histories. Split per-authority prepare,
+activation, rejection, and rollback completion into distinct actions.
 
 **Priority**: High. Partial activation would violate authority isolation and
 last-known-good startup.
 
 ### Scenario 2: Stale completion after replacement
 
-**Mechanism**: A completion for a rejected or superseded digest must not activate
-that digest.
+**Mechanism**: A completion for a rejected or superseded generation/digest must
+not activate that identity, including when a newer generation reuses a digest.
 
 **Evidence**:
 - Code analysis: `src/config/coordinator.nim:123-124,145-148,161-162` ignores
   stale identities and late activation completions during rollback.
-- Code analysis: `src/config/coordinator.nim:225-250` embeds one shared generation
+- Code analysis: `src/config/coordinator.nim:227-252` embeds one shared generation
   and digest in every staged authority fragment and manifest.
 
 **Affected code paths**: `candidateFragment`, `reduceRuntime(effectCompleted)`.
 
-**Suggested modeling approach**: Parameterize preparation and activation by
-digest; allow stale completions nondeterministically and guard activation on the
-current digest plus complete preparation.
+**Suggested modeling approach**: Parameterize candidate admission and stale
+completion by generation and digest; allow stale identities nondeterministically
+and guard activation on the exact identity plus complete preparation.
 
 **Priority**: High. Epoch/digest confusion can promote a rejected profile.
 
@@ -58,11 +59,11 @@ current digest plus complete preparation.
 
 ### 3.1 Model
 
-- Candidate versus active digest and last-known-good preservation (Scenarios 1-2).
+- Candidate versus active identity and last-known-good preservation (Scenarios 1-2).
 - One prepare transition per authority, since staging and authority acceptance
   are separate failure boundaries.
 - Reject/rollback at every partial-preparation point.
-- Stale completion attempts for non-current digests.
+- Stale completion attempts for non-current generations and digests.
 
 ### 3.2 Do Not Model
 
@@ -78,8 +79,9 @@ current digest plus complete preparation.
 |---|---|---|---|
 | Authority barrier | `candidate`, `prepared`, `locallyActivated`, `phase` | Represent partial prepare and activation | 1 |
 | Rollback barrier | `rollbackPending` | Require every authority to discard candidate state | 1 |
-| Candidate history | `rejected`, `activated` | Reject stale promotion | 2 |
-| Stable active state | `active`, `generation` | Preserve last-known-good | 1, 2 |
+| Candidate history | `rejected`, `promoted` | Reject stale promotion | 2 |
+| Stable active state | `active`, `activeGeneration` | Preserve last-known-good | 1, 2 |
+| Monotonic attempts | `latestGeneration` | Prevent rejected epoch reuse | 2 |
 
 ## 5. Proposed Invariants
 
@@ -87,10 +89,11 @@ current digest plus complete preparation.
 |---|---|---|---|
 | `TypeOK` | Safety | Every state remains structurally typed | Both |
 | `ActiveWasFullyActivated` | Safety | Every active digest crossed both full barriers | 1 |
-| `RejectedNeverPromoted` | Safety | Rejected digests never enter promoted history | 2 |
+| `RejectedNeverPromoted` | Safety | Rejected identities never enter promoted history | 2 |
 | `PartialCandidateNotActive` | Safety | A partial candidate cannot be globally active | 1 |
 | `LastKnownGoodUntilPromotion` | Safety | Candidate work does not change active state | 1, 2 |
 | `RollbackCannotPromote` | Safety | Rollback never changes the active digest | 1 |
+| `GenerationNeverRecycles` | Safety | Every attempt permanently advances its generation | 2 |
 
 ## 6. Findings Pending Verification
 

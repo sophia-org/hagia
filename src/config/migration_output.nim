@@ -35,8 +35,7 @@ proc outputPosition(node: KdlNode): tuple[valid: bool, encoded: string] =
   if node.args.len == 2:
     var x, y: int64
     if node.args[0].integer(x) and node.args[1].integer(y) and
-        x in -1_000_000'i64 .. 1_000_000'i64 and
-        y in -1_000_000'i64 .. 1_000_000'i64:
+        x in -1_000_000'i64 .. 1_000_000'i64 and y in -1_000_000'i64 .. 1_000_000'i64:
       return (true, $x & " " & $y)
   elif node.args.len == 1 and node.args[0].kind == KString:
     let value = node.args[0].kString()
@@ -45,8 +44,7 @@ proc outputPosition(node: KdlNode): tuple[valid: bool, encoded: string] =
       try:
         let x = parseBiggestInt(value[0 ..< separator])
         let y = parseBiggestInt(value[separator + 1 .. ^1])
-        if x in -1_000_000'i64 .. 1_000_000'i64 and
-            y in -1_000_000'i64 .. 1_000_000'i64:
+        if x in -1_000_000'i64 .. 1_000_000'i64 and y in -1_000_000'i64 .. 1_000_000'i64:
           return (true, $x & " " & $y)
       except ValueError:
         discard
@@ -64,15 +62,24 @@ proc outputTransform(node: KdlNode): tuple[valid: bool, encoded: string] =
     value = $integer
   let transformed =
     case value
-    of "normal", "0": "normal"
-    of "90", "1": "90"
-    of "180", "2": "180"
-    of "270", "3": "270"
-    of "flipped", "4": "flipped"
-    of "flipped-90", "5": "flipped-90"
-    of "flipped-180", "6": "flipped-180"
-    of "flipped-270", "7": "flipped-270"
-    else: return
+    of "normal", "0":
+      "normal"
+    of "90", "1":
+      "90"
+    of "180", "2":
+      "180"
+    of "270", "3":
+      "270"
+    of "flipped", "4":
+      "flipped"
+    of "flipped-90", "5":
+      "flipped-90"
+    of "flipped-180", "6":
+      "flipped-180"
+    of "flipped-270", "7":
+      "flipped-270"
+    else:
+      return
   (true, "\"" & transformed & "\"")
 
 proc migrateNamedOutput(
@@ -133,7 +140,9 @@ proc migrateNamedOutput(
             "fixed output scale candidate",
           )
         else:
-          report.unsupportedSetting(source, "output", "scale supports at most three decimals")
+          report.unsupportedSetting(
+            source, "output", "scale supports at most three decimals"
+          )
       else:
         report.unsupportedSetting(source, "output", "scale is outside 0.25..8")
     of "position":
@@ -145,7 +154,8 @@ proc migrateNamedOutput(
         )
       else:
         report.unsupportedSetting(
-          source, "output", "automatic or malformed position needs topology-backed resolution"
+          source, "output",
+          "automatic or malformed position needs topology-backed resolution",
         )
     of "transform":
       let value = child.outputTransform()
@@ -173,9 +183,13 @@ proc migrateNamedOutput(
     of "focus-at-startup":
       let value = child.oneBoolean(true)
       if not value.valid:
-        report.unsupportedSetting(source, "output", "startup focus requires a flag or bool")
+        report.unsupportedSetting(
+          source, "output", "startup focus requires a flag or bool"
+        )
       elif value.encoded == "#true" and focused:
-        report.unsupportedSetting(source, "output", "only one output may request startup focus")
+        report.unsupportedSetting(
+          source, "output", "only one output may request startup focus"
+        )
       else:
         if value.encoded == "#true":
           focused = true
@@ -191,14 +205,21 @@ proc migrateNamedOutput(
           "typed output VRR policy",
         )
       else:
-        report.unsupportedSetting(source, "output", "Hagia output VRR mode must be 0..2")
+        report.unsupportedSetting(
+          source, "output", "Hagia output VRR mode must be 0..2"
+        )
     of "adaptive-sync":
       let value = child.oneBoolean(false)
       if value.valid:
         report.emitSetting(
-          children, emitted, source, "output", "vrr",
+          children,
+          emitted,
+          source,
+          "output",
+          "vrr",
           if value.encoded == "#true": "1" else: "0",
-          "adaptive-sync converted to typed VRR policy", MigrationDisposition.transformed,
+          "adaptive-sync converted to typed VRR policy",
+          MigrationDisposition.transformed,
         )
       else:
         report.unsupportedSetting(source, "output", "adaptive-sync requires one bool")
@@ -215,7 +236,9 @@ proc migrateNamedOutput(
       "    named " & identity.encoded & " {\n" & children.join("\n") & "\n    }"
     )
     report.add(
-      sourceRoot, "output", MigrationDisposition.transformed,
+      sourceRoot,
+      "output",
+      MigrationDisposition.transformed,
       "named output candidate " & identity.value,
     )
 
@@ -243,8 +266,11 @@ proc migrateOutput*(
       )
       for setting in child.children:
         report.unsupportedSetting(
-          "output.default." & setting.name, "output",
+          "output.default." & setting.name,
+          "output",
           "fallback output setting is not yet representable",
         )
     else:
-      report.unsupportedSetting("output." & child.name, "output", "unsupported output setting")
+      report.unsupportedSetting(
+        "output." & child.name, "output", "unsupported output setting"
+      )
