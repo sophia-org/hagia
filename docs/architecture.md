@@ -238,6 +238,14 @@ shared loader, and proves every semantic payload is promoted under the exact
 shared key. This strengthens startup evidence without creating a production
 slot collection or effect path.
 
+Sophia's first production-owned preparation seam is now session-local and
+pure. Explicit CLI application additions, arguments, startup order, and action
+selectors are parsed once into a bounded immutable overlay. The session
+authority applies that overlay and the canonical typed session candidate to a
+clone of its trusted application registry, preserving CLI precedence and
+discarding the clone on unknown, ambiguous, duplicate, or over-limit values.
+This does not activate the participant or enable desktop-profile reload.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.

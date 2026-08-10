@@ -124,7 +124,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   matrix through seven such slots, proving payload promotion and
   last-known-good restoration as well as identity convergence. An integration
   case now drives the same path from all seven exact owner-safe staged
-  fragments through semantic payload promotion. Live authority protocols,
+  fragments through semantic payload promotion. Sophia session preparation now
+  also centralizes the canonical candidate and a typed, bounded CLI-superior
+  application overlay into one pure cloned-registry operation; rejected
+  selectors leave accepted state unchanged. Live authority protocols,
   recovery, and watched activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
