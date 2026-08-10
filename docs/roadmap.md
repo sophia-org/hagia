@@ -114,8 +114,13 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   instead of immediately preparing a validated profile again. A shared Sophia
   loader now admits each staged fragment only for its assigned authority and
   exact key using owner-safe bounded I/O; Hagia's policy loader remains the
-  independent implementation. Live authority protocols, recovery, and watched
-  activation remain deliberately deferred.
+  independent implementation. A generic pure authority-local slot now couples
+  one participant identity to its bounded active, previous, and prepared
+  payloads; typed and admitted-fragment preparation shares this path, semantic
+  retries ignore only provenance paths, and every rejected transition leaves
+  identity and payload unchanged. The slot is not a coordinator-owned state
+  collection and has no production effect handler. Live authority protocols,
+  recovery, and watched activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

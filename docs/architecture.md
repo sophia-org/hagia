@@ -217,6 +217,17 @@ DTO. Round-trip tests cover fragments for all seven authorities. The Nim reader
 remains independent conformance evidence rather than a shared runtime
 dependency.
 
+Sophia now also centralizes one authority's participant identity and payload
+ownership in a generic pure candidate slot. The slot holds only bounded active,
+previous-active, and prepared payloads; it accepts either the canonical typed
+candidate or an admitted raw fragment, delegates identity transitions to the
+shared participant reducer, and mutates payload state only after that
+transition succeeds. Exact retries compare semantic settings while ignoring
+staging-path provenance, but authority, key, or payload conflicts fail without
+changing either state. Exact rollback restores the previous payload. This is an
+authority-local building block, not a coordinator-owned copy of all authority
+state, and no production effect handler invokes it yet.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.
