@@ -19,6 +19,9 @@
 (declare-fun viewHasTag (Int Int) Bool)
 (declare-fun dynamicTag (Int) Bool)
 (declare-fun activeTag (Int) Bool)
+(declare-fun scratchpadTag (Int) Bool)
+(declare-fun restoreHasTag (Int Int) Bool)
+(declare-fun windowParent (Int) Int)
 
 (assert (and (> w1 0) (> w2 0) (distinct w1 w2)))
 (assert (and (> c1 0) (> c2 0) (distinct c1 c2)))
@@ -37,6 +40,18 @@
 (assert (or (windowHasTag w2 t1) (windowHasTag w2 t2)))
 (assert (or (viewHasTag v1 t1) (viewHasTag v1 t2)))
 (assert (or (viewHasTag v2 t1) (viewHasTag v2 t2)))
+(assert (or (= (windowParent w1) 0) (= (windowParent w1) w2)))
+(assert (or (= (windowParent w2) 0) (= (windowParent w2) w1)))
+(assert
+  (and
+    (=> (scratchpadTag t1) (and (not (viewHasTag v1 t1)) (not (viewHasTag v2 t1))))
+    (=> (scratchpadTag t2) (and (not (viewHasTag v1 t2)) (not (viewHasTag v2 t2))))))
+(assert
+  (=>
+    (and (scratchpadTag t1) (windowHasTag w1 t1))
+    (or
+      (and (not (scratchpadTag t1)) (restoreHasTag w1 t1))
+      (and (not (scratchpadTag t2)) (restoreHasTag w1 t2)))))
 (assert
   (=>
     (dynamicTag t1)
@@ -65,5 +80,21 @@
 (pop)
 (push)
 (assert (and (not (windowHasTag w1 t1)) (not (windowHasTag w1 t2))))
+(check-sat)
+(pop)
+(push)
+(assert (scratchpadTag t1))
+(assert (viewHasTag v1 t1))
+(check-sat)
+(pop)
+(push)
+(assert (scratchpadTag t1))
+(assert (windowHasTag w1 t1))
+(assert (not (restoreHasTag w1 t1)))
+(assert (not (restoreHasTag w1 t2)))
+(check-sat)
+(pop)
+(push)
+(assert (= (windowParent w1) w1))
 (check-sat)
 (pop)

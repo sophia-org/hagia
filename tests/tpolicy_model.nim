@@ -1,4 +1,4 @@
-import std/[net, options, os, posix, tempfiles, unittest]
+import std/[net, options, os, posix, tables, tempfiles, unittest]
 
 import policy/[actions, projection, state, types]
 import
@@ -570,6 +570,65 @@ suite "Hagia private policy model":
     check model.minimizedOrder.len == maxMinimizedHistory
     model.validate()
 
+  test "scratchpad hide show and restore preserve logical state":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    model.ensureViewCount(output, 9)
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let originalTags = model.windowTagIds(window)
+    model.setFocus(output, window)
+
+    model.applyAction(output, PolicyAction.moveToScratchpad)
+    check model.scratchpadOrder == @[window]
+    check model.visibleScratchpad == nullWindowId
+    check model.projectScroller([output])[0].placements.len == 0
+    check model.tags[model.scratchpadTag].kind == TagKind.scratchpad
+
+    model.applyAction(output, PolicyAction.toggleScratchpad)
+    check model.visibleScratchpad == window
+    check model.projectScroller([output])[0].placements.len == 1
+    check model.output(output).get().focusedWindow == window
+    model.applyAction(output, PolicyAction.toggleScratchpad)
+    check model.projectScroller([output])[0].placements.len == 0
+
+    model.applyAction(output, PolicyAction.toggleScratchpad)
+    model.applyAction(output, PolicyAction.restoreScratchpad)
+    check model.scratchpadOrder.len == 0
+    check model.windowTagIds(window) == originalTags
+    check model.projectScroller([output])[0].placements.len == 1
+    model.validate()
+
+  test "named scratchpads and parent relations clean up centrally":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    let parent = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let child = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setWindowRelation(child, WindowKind.dialog, parent)
+    model.moveWindowToScratchpad(child)
+    model.assignNamedScratchpad(ScratchpadSlotId(7), child)
+    model.toggleNamedScratchpad(output, ScratchpadSlotId(7))
+    check model.visibleScratchpad == child
+    model.removeWindow(parent)
+    check model.windows[child].parent == nullWindowId
+    model.removeWindow(child)
+    check model.namedScratchpads.len == 0
+    check model.scratchpadRestore.len == 0
+    model.validate()
+
+  test "standard scratchpads cycle in semantic order":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let second = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.moveWindowToScratchpad(first)
+    model.moveWindowToScratchpad(second)
+    model.toggleScratchpad(output)
+    check model.visibleScratchpad == first
+    model.toggleScratchpad(output)
+    model.toggleScratchpad(output)
+    check model.visibleScratchpad == second
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "projection uses the Engine work rectangle":
     let output = SnapshotOutput(
@@ -605,6 +664,51 @@ suite "Sophia snapshot adapter":
     check projection.indicators[0].label[0] == byte('1')
     check projection.outputStatuses.len == 1
     check projection.outputStatuses[0].layoutLen == 8
+
+  test "dialogs inherit logical ownership while popups stay outside layout":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
+    var parentSurface = surface(1, 10)
+    parentSurface.kind = 1
+    var dialogSurface = surface(2, 10)
+    dialogSurface.kind = 2
+    dialogSurface.width = 320
+    dialogSurface.height = 180
+    dialogSurface.transientIndex = 1
+    dialogSurface.transientGeneration = 1
+    var popupSurface = surface(3, 10)
+    popupSurface.kind = 4
+    popupSurface.transientIndex = 1
+    popupSurface.transientGeneration = 1
+    let scene = snapshot(1, @[output], @[parentSurface, dialogSurface, popupSurface])
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(scene)
+    let parent = adapter.logicalWindow(1, 1).get()
+    let dialog = adapter.logicalWindow(2, 1).get()
+    let popup = adapter.logicalWindow(3, 1).get()
+    check adapter.model().windows[dialog].parent == parent
+    check adapter.model().windows[dialog].kind == WindowKind.dialog
+    check adapter.model().windows[dialog].floating
+    check adapter.model().windowTagIds(dialog) == adapter.model().windowTagIds(parent)
+    check adapter.model().windows[popup].kind == WindowKind.popup
+    let projected = adapter.projection(
+      scene,
+      ProjectionRequest(
+        connectionEpoch: 1,
+        requestId: 1,
+        sceneGeneration: 1,
+        policyGeneration: 1,
+        affectedOutputs: @[10'u64],
+      ),
+    )
+    check projected.outputs[0].placements.len == 2
+
+    dialogSurface.transientIndex = 0
+    dialogSurface.transientGeneration = 0
+    popupSurface.transientIndex = 0
+    popupSurface.transientGeneration = 0
+    adapter.reconcile(snapshot(2, @[output], @[dialogSurface, popupSurface]))
+    check adapter.model().windows[dialog].parent == nullWindowId
+    adapter.model().validate()
 
   test "complete snapshots preserve logical ids and admit hidden surfaces":
     let output = SnapshotOutput(
@@ -756,6 +860,45 @@ suite "Sophia snapshot adapter":
     check restored.model().tags[dynamicTag].kind == TagKind.dynamic
     restored.reconcile(snapshot(2, @[output], @[]))
     check restored.model().tagIdForSlot(10) == dynamicTag
+    restored.model().validate()
+
+  test "checkpoint v2 retains scratchpad restore and transient relations":
+    var output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      focusIndex: 2,
+      focusGeneration: 1,
+      width: 800,
+      height: 600,
+    )
+    var parentSurface = surface(1, 10)
+    parentSurface.kind = 1
+    var dialogSurface = surface(2, 10)
+    dialogSurface.kind = 2
+    dialogSurface.transientIndex = 1
+    dialogSurface.transientGeneration = 1
+    let scene = snapshot(1, @[output], @[parentSurface, dialogSurface])
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(scene)
+    adapter.applyCause(
+      ProjectionRequest(
+        connectionEpoch: 1,
+        requestId: 1,
+        sceneGeneration: 1,
+        policyGeneration: 1,
+        affectedOutputs: @[10'u64],
+        cause: ProjectionCause(
+          kind: ProjectionCauseKind.action,
+          activationSerial: 1,
+          action: PolicyAction.moveToScratchpad.raw(),
+        ),
+      )
+    )
+    let dialog = adapter.logicalWindow(2, 1).get()
+    check dialog in adapter.model().scratchpadRestore
+    let restored = adapter.checkpointPayload().restoreCheckpointPayload()
+    check dialog in restored.model().scratchpadRestore
+    check restored.model().windows[dialog].parent == restored.logicalWindow(1, 1).get()
     restored.model().validate()
 
   test "a private checkpoint is atomically replaced and loaded from disk":

@@ -72,14 +72,26 @@ each workspace with its existing stable `TagId` and output-owned `ViewId`,
 reimplements occupied navigation and pruning through centralized mutations,
 and keeps reusable numeric slots separate from non-recycled logical identity.
 
+The scratchpad and reduced-transient slice reviews Triad's
+`src/entities/scratchpad_ops.nim`, `src/systems/scratchpad.nim`,
+`tests/tcore_output_sticky_scratchpad.nim`, and
+`tests/tcore_parented_geometry.nim` at the recorded baseline. Hagia reuses the
+ordered standard/named scratchpad lifecycle, centralized stale-reference
+cleanup, restore-membership, and parent-centered constraint test patterns. It
+reimplements them with stable logical IDs, a private non-view scratchpad tag,
+bounded typed relations, and Sophia's metadata-free surface kind and transient
+owner facts. Popup surfaces retain logical identity for cleanup but remain
+outside WM policy projection.
+
 The current bootstrap reducer extends that independent model with output
 focus, column consume/expel, bounded history, floating geometry, and
 fullscreen/maximize/minimize state. The checkpoint and Sophia adapter are new
 Hagia code derived from Sophia's public contract, not ports of Triad runtime
 state or serialization. The retained profile intentionally has one scroller
-and nine fixed views; dynamic workspaces now have an unbound reducer lifecycle,
-while configured workspace names, scratchpads, additional layouts, shell
-behavior, metadata rules, and Janet remain reviewed but incomplete ports.
+and nine fixed views; dynamic workspace and scratchpad actions now have an
+unbound reducer lifecycle, while configured workspace names, additional
+layouts, shell behavior, metadata rules, and Janet remain reviewed but
+incomplete ports.
 They are tracked in `docs/triad-port-ledger.md` and block revision-1 stability
 unless explicitly excluded with an architectural or product rationale.
 

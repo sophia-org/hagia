@@ -39,7 +39,7 @@ separately and does not move this recorded baseline.
 | Tags, workspaces, names, dynamic creation/pruning, occupancy navigation, and output affinity | Partial | Nine fixed views, nonempty multi-tag actions, dynamic creation/pruning, occupied navigation, and stable output affinity exist; configured names and complete command parity remain open. |
 | Focus, movement, exchange, grouping, histories, and cross-output behavior | Partial | Core focus and column operations exist; complete Triad command semantics and parity cases remain open. |
 | Floating, fullscreen, maximize, minimize, restore, and client-visible state | Partial | Core reducers and frontend settlement exist; complete floating placement, snapping, restoration, and rule-driven defaults remain open. |
-| Dialogs, transients, popups, and scratchpads | Open | Port reduced parent/role facts, standard and named scratchpad lifecycle, geometry, cycling, and restoration without exposing metadata. Popup rendering remains outside WM policy. |
+| Dialogs, transients, popups, and scratchpads | Complete | Reduced parent/role facts drive dialog defaults; standard and named scratchpads cycle and restore through bounded logical relations. Popup rendering remains outside WM policy. |
 | Additional native layouts, frames, tabs, BSP/split trees, grid, and layout switching | Open | Port pure layout state and projection with deterministic geometry tests. Visible tabs and layout feedback belong to Hagia Shell. |
 | Declarative policy configuration | Open | Parse and validate a candidate, reconcile it against live state, activate atomically, and retain the prior policy on failure. |
 | Janet commands and layouts | Open | Bound execution and memory, validate candidates, make output deterministic, and prove native fallback before activation. |
@@ -100,9 +100,9 @@ rejected before the port gate closes.
 
 ## Port Order
 
-The first blocking tranche continues with scratchpads and reduced transient
-defaults now that dynamic workspace lifecycle is present, followed by the
-remaining pure layouts and candidate-validated configuration. Each tranche
+The first blocking tranche continues with the remaining pure layouts now that
+dynamic workspaces, scratchpads, and reduced transient defaults are present,
+followed by candidate-validated configuration. Each tranche
 ports or reimplements the relevant Triad tests before live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's

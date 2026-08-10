@@ -66,10 +66,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   configured names and the complete migrated command surface remain open.
 - [x] Add output focus, column consume/expel, and width/height adjustment for
   the one retained scrolling layout.
-- [ ] Add reduced dialog/transient defaults and scratchpads. Private floating
-  geometry, fullscreen, maximize, minimize/restore, and bounded focus history
-  now reduce deterministically; frontend X state signaling remains a Sophia
-  integration gate.
+- [x] Add reduced dialog/transient defaults and scratchpads. Standard and named
+  scratchpad relations use a private non-view tag and bounded restore state;
+  dialogs inherit logical output/tag ownership and parent-centered constrained
+  geometry, while popup rendering remains outside WM policy.
 - [x] Add bounded Engine-owned completed pointer move and resize interactions;
   Hagia receives only the exact target and final output-local geometry.
 - [x] Add bounded session-local checkpointing with exact snapshot

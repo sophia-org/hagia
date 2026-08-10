@@ -46,6 +46,9 @@ run_alloy MembershipNonempty
 run_alloy NoDanglingReferences
 run_alloy UniqueIds
 run_alloy NoStaleDynamicWorkspace
+run_alloy ScratchpadsCannotBecomeViews
+run_alloy ScratchpadsRetainRestoreMembership
+run_alloy ParentGraphIsAcyclic
 
 actual=$work/entities.actual
 "$z3_bin" "$root/validation/z3/entities.smt2" >"$actual"

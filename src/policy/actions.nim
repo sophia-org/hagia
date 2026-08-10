@@ -63,6 +63,9 @@ type PolicyAction* {.pure.} = enum
   newWorkspace = 60
   focusPreviousOccupiedWorkspace = 61
   focusNextOccupiedWorkspace = 62
+  moveToScratchpad = 63
+  toggleScratchpad = 64
+  restoreScratchpad = 65
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -90,7 +93,8 @@ proc toggleFocusedTagAction*(slot: int): PolicyAction =
 proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
     raw in
-    PolicyAction.focusNextOutput.raw() .. PolicyAction.focusNextOccupiedWorkspace.raw()
+    PolicyAction.focusNextOutput.raw() .. PolicyAction.focusNextOccupiedWorkspace.raw() or
+    raw in PolicyAction.moveToScratchpad.raw() .. PolicyAction.restoreScratchpad.raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
@@ -157,3 +161,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.focusOccupiedWorkspaceRelative(output, -1)
   of PolicyAction.focusNextOccupiedWorkspace:
     model.focusOccupiedWorkspaceRelative(output, 1)
+  of PolicyAction.moveToScratchpad:
+    model.moveFocusedToScratchpad(output)
+  of PolicyAction.toggleScratchpad:
+    model.toggleScratchpad(output)
+  of PolicyAction.restoreScratchpad:
+    model.restoreVisibleScratchpad()

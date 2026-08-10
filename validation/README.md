@@ -1,10 +1,12 @@
 # Foundation Verification Models
 
 - `alloy/entities.als` checks logical-ID uniqueness, ownership, nonempty
-  membership, and dangling-reference invariants over bounded entity worlds.
+  membership, dangling references, private scratchpad isolation and restore
+  membership, and acyclic parent relations over bounded entity worlds.
 - `z3/entities.smt2` asks for representative invariant violations and requires
   each query to be unsatisfiable. The dynamic-workspace query also rejects an
-  empty dynamic tag after it is no longer active.
+  empty dynamic tag after it is no longer active, a scratchpad tag selected by
+  a view, missing restore membership, and a self-parent relation.
 - `.specula-output/spec/base.tla` checks the cross-authority profile lifecycle.
   A candidate cannot promote until every authority prepared and activated the
   shared digest; preparation failure, partial activation, rollback, and stale

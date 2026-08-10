@@ -2,7 +2,7 @@ module entities
 
 sig LogicalId {}
 abstract sig TagKind {}
-one sig ProfileTag, DynamicTag extends TagKind {}
+one sig ProfileTag, DynamicTag, ScratchpadTag extends TagKind {}
 sig Tag {
   tagId: one LogicalId,
   kind: one TagKind
@@ -24,7 +24,9 @@ sig Window {
   windowId: one LogicalId,
   owner: one Output,
   column: one Column,
-  member: some Tag
+  member: some Tag,
+  parent: lone Window,
+  restore: set Tag
 }
 
 fact IdentityUniqueness {
@@ -43,8 +45,17 @@ fact OwnershipConsistency {
 fact DynamicWorkspaceLiveness {
   all tag: Tag |
     tag.kind = DynamicTag implies
-      (some window: Window | tag in window.member) or
+      (some window: Window | tag in window.member or tag in window.restore) or
       (some output: Output | tag in output.active.selected)
+}
+
+fact ScratchpadIsolation {
+  all view: View | no tag: view.selected | tag.kind = ScratchpadTag
+  all window: Window |
+    (some tag: window.member | tag.kind = ScratchpadTag) implies
+      ((all tag: window.member | tag.kind = ScratchpadTag) and
+      (some tag: window.restore | tag.kind != ScratchpadTag))
+  no window: Window | window in window.^parent
 }
 
 assert EntityOwnership {
@@ -75,7 +86,22 @@ assert NoStaleDynamicWorkspace {
   no tag: Tag |
     tag.kind = DynamicTag and
     (no window: Window | tag in window.member) and
+    (no window: Window | tag in window.restore) and
     (no output: Output | tag in output.active.selected)
+}
+
+assert ScratchpadsCannotBecomeViews {
+  no view: View, tag: view.selected | tag.kind = ScratchpadTag
+}
+
+assert ScratchpadsRetainRestoreMembership {
+  all window: Window |
+    (some tag: window.member | tag.kind = ScratchpadTag) implies
+      (some tag: window.restore | tag.kind != ScratchpadTag)
+}
+
+assert ParentGraphIsAcyclic {
+  no window: Window | window in window.^parent
 }
 
 check EntityOwnership for 8
@@ -83,3 +109,6 @@ check MembershipNonempty for 8
 check NoDanglingReferences for 8
 check UniqueIds for 8
 check NoStaleDynamicWorkspace for 8
+check ScratchpadsCannotBecomeViews for 8
+check ScratchpadsRetainRestoreMembership for 8
+check ParentGraphIsAcyclic for 8

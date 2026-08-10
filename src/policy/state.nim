@@ -7,6 +7,8 @@ type PolicyStateError* = object of CatchableError
 
 proc setActiveOutput*(model: var PolicyModel, id: OutputId)
 proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId)
+proc adoptWindowOutput*(model: var PolicyModel, windowId: WindowId, outputId: OutputId)
+proc tagIdForSlot*(model: PolicyModel, slot: uint32): TagId
 proc wrappedIndex(current, delta, length: int): int
 
 proc fail(message: string) {.noreturn.} =
@@ -29,11 +31,20 @@ proc clone*(model: PolicyModel): PolicyModel =
   result.settings = model.settings
   result.activeOutput = model.activeOutput
   result.counters = model.counters
+  result.visibleScratchpad = model.visibleScratchpad
+  result.scratchpadTag = model.scratchpadTag
   for id in model.windowOrder:
     result.windowOrder.add(id)
     result.windows[id] = model.windows[id]
   for id in model.minimizedOrder:
     result.minimizedOrder.add(id)
+  for id in model.scratchpadOrder:
+    result.scratchpadOrder.add(id)
+  for id, restore in model.scratchpadRestore.pairs:
+    result.scratchpadRestore[id] = restore
+    result.scratchpadRestore[id].tags = @(restore.tags)
+  for slot, id in model.namedScratchpads.pairs:
+    result.namedScratchpads[slot] = id
   for id in model.columnOrder:
     var column = model.columns[id]
     column.windows = @[]
@@ -170,13 +181,26 @@ proc allocateViewId(model: var PolicyModel): ViewId =
   ViewId(nextRaw(model.counters.views, "view"))
 
 proc profileTag(model: var PolicyModel, slot: uint32): TagId =
-  if slot == 0 or slot > maxTagBits:
+  if slot == 0 or slot > maxWorkspaceTagSlot:
     fail("tag slot is outside Hagia's bounded range")
   for tagId, tag in model.tags.pairs:
     if tag.slot == slot:
       return tagId
   result = TagId(nextRaw(model.counters.tags, "tag"))
   model.tags[result] = TagData(id: result, slot: slot, kind: TagKind.profile)
+
+proc ensureScratchpadTag(model: var PolicyModel): TagId =
+  if model.scratchpadTag != nullTagId:
+    if model.scratchpadTag notin model.tags:
+      fail("private scratchpad tag is missing")
+    return model.scratchpadTag
+  let occupied = model.tagIdForSlot(scratchpadTagSlot)
+  if occupied != nullTagId:
+    fail("private scratchpad tag slot is already occupied")
+  result = TagId(nextRaw(model.counters.tags, "tag"))
+  model.tags[result] =
+    TagData(id: result, slot: scratchpadTagSlot, kind: TagKind.scratchpad)
+  model.scratchpadTag = result
 
 proc tagIdForSlot*(model: PolicyModel, slot: uint32): TagId =
   if slot == 0 or slot > maxTagBits:
@@ -189,7 +213,9 @@ proc tagIdForSlot*(model: PolicyModel, slot: uint32): TagId =
 proc tagIdsForMask(model: var PolicyModel, mask: TagMask): seq[TagId] =
   if mask == emptyTagMask:
     fail("tag membership must be nonempty")
-  for slot in 1'u32 .. maxTagBits:
+  if (uint64(mask) and uint64(tagForSlot(scratchpadTagSlot))) != 0:
+    fail("the private scratchpad tag cannot be selected by a mask")
+  for slot in 1'u32 .. maxWorkspaceTagSlot:
     if (uint64(mask) and uint64(tagForSlot(slot))) != 0:
       result.add(model.profileTag(slot))
 
@@ -223,7 +249,7 @@ proc addView*(
   if outputId notin model.outputs:
     fail("view output does not exist")
   for tagId in tags:
-    if tagId notin model.tags:
+    if tagId notin model.tags or model.tags[tagId].kind == TagKind.scratchpad:
       fail("view membership names an unknown tag")
   result = model.allocateViewId()
   model.views[result] = ViewData(id: result, preferredOutput: outputId)
@@ -236,17 +262,21 @@ proc workspaceOccupied*(model: PolicyModel, tagId: TagId): bool =
   for windowId in model.windowOrder:
     if tagId in model.windowTagIds(windowId):
       return true
+  for _, restore in model.scratchpadRestore.pairs:
+    if tagId in restore.tags:
+      return true
 
 proc setWorkspaceName*(model: var PolicyModel, tagId: TagId, name: string) =
-  if tagId notin model.tags or name.len > maxWorkspaceNameBytes or '\0' in name:
+  if tagId notin model.tags or model.tags[tagId].kind == TagKind.scratchpad or
+      name.len > maxWorkspaceNameBytes or '\0' in name:
     fail("workspace name is invalid")
   model.tags[tagId].name = name
 
 proc nextDynamicWorkspaceSlot*(model: PolicyModel): uint32 =
   let first = uint32(model.settings.viewCount + 1)
-  if first > maxTagBits:
+  if first > maxWorkspaceTagSlot:
     return 0
-  for slot in first .. maxTagBits:
+  for slot in first .. maxWorkspaceTagSlot:
     if model.tagIdForSlot(slot) == nullTagId:
       return slot
 
@@ -304,7 +334,7 @@ proc focusOccupiedWorkspaceRelative*(
   if outputId notin model.outputs:
     fail("occupied workspace output does not exist")
   var occupied: seq[TagId]
-  for slot in 1'u32 .. maxTagBits:
+  for slot in 1'u32 .. maxWorkspaceTagSlot:
     let tagId = model.tagIdForSlot(slot)
     if tagId != nullTagId and model.workspaceOccupied(tagId):
       occupied.add(tagId)
@@ -396,6 +426,19 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   if id notin model.windows:
     return
   let column = model.windows[id].column
+  model.scratchpadOrder.keepItIf(it != id)
+  model.scratchpadRestore.del(id)
+  if model.visibleScratchpad == id:
+    model.visibleScratchpad = nullWindowId
+  var removedSlots: seq[ScratchpadSlotId]
+  for slot, windowId in model.namedScratchpads.pairs:
+    if windowId == id:
+      removedSlots.add(slot)
+  for slot in removedSlots:
+    model.namedScratchpads.del(slot)
+  for windowId in model.windowOrder:
+    if windowId != id and model.windows[windowId].parent == id:
+      model.windows[windowId].parent = nullWindowId
   model.windows.del(id)
   model.windowTags.del(id)
   model.windowOrder.keepItIf(it != id)
@@ -424,6 +467,20 @@ proc updateWindowFacts*(
     fail("window does not exist")
   model.windows[id].capabilities = capabilities
   model.windows[id].constraints = constraints
+
+proc setWindowRelation*(
+    model: var PolicyModel, id: WindowId, kind: WindowKind, parent: WindowId
+) =
+  if id notin model.windows or parent == id or
+      (parent != nullWindowId and parent notin model.windows):
+    fail("window relation is invalid")
+  var ancestor = parent
+  while ancestor != nullWindowId:
+    if ancestor == id:
+      fail("window parent relation is cyclic")
+    ancestor = model.windows[ancestor].parent
+  model.windows[id].kind = kind
+  model.windows[id].parent = parent
 
 proc setWindowPresentation*(
     model: var PolicyModel, id: WindowId, fullscreen, maximized, minimized: bool
@@ -469,6 +526,54 @@ proc contains(bounds, geometry: Rect): bool =
     geometry.y >= bounds.y and
     int64(geometry.x) + int64(geometry.width) <= int64(bounds.x) + int64(bounds.width) and
     int64(geometry.y) + int64(geometry.height) <= int64(bounds.y) + int64(bounds.height)
+
+proc centeredGeometry(
+    bounds: Rect, constraints: SizeConstraints, desiredWidth, desiredHeight: int32
+): Rect =
+  var width = max(1'i32, min(bounds.width, desiredWidth))
+  var height = max(1'i32, min(bounds.height, desiredHeight))
+  if constraints.minWidth > 0:
+    width = max(width, constraints.minWidth)
+  if constraints.maxWidth > 0:
+    width = min(width, constraints.maxWidth)
+  if constraints.minHeight > 0:
+    height = max(height, constraints.minHeight)
+  if constraints.maxHeight > 0:
+    height = min(height, constraints.maxHeight)
+  width = min(width, bounds.width)
+  height = min(height, bounds.height)
+  Rect(
+    x: bounds.x + (bounds.width - width) div 2,
+    y: bounds.y + (bounds.height - height) div 2,
+    width: width,
+    height: height,
+  )
+
+proc placeTransient*(
+    model: var PolicyModel,
+    windowId, parentId: WindowId,
+    desiredWidth, desiredHeight: int32,
+    parentGeometry = Rect(),
+) =
+  if windowId notin model.windows or parentId notin model.windows or windowId == parentId:
+    fail("transient placement relation is invalid")
+  let outputId = model.windows[parentId].homeOutput
+  model.adoptWindowOutput(windowId, outputId)
+  model.windowTags[windowId] = model.windowTagIds(parentId)
+  model.windows[windowId].floating = true
+  var geometry = centeredGeometry(
+    model.outputs[outputId].bounds,
+    model.windows[windowId].constraints,
+    desiredWidth,
+    desiredHeight,
+  )
+  if parentGeometry.width > 0 and parentGeometry.height > 0:
+    let bounds = model.outputs[outputId].bounds
+    geometry.x = parentGeometry.x + (parentGeometry.width - geometry.width) div 2
+    geometry.y = parentGeometry.y + (parentGeometry.height - geometry.height) div 2
+    geometry.x = geometry.x.clamp(bounds.x, bounds.x + bounds.width - geometry.width)
+    geometry.y = geometry.y.clamp(bounds.y, bounds.y + bounds.height - geometry.height)
+  model.windows[windowId].floatingGeometry = geometry
 
 proc setFloatingGeometry*(
     model: var PolicyModel, outputId: OutputId, windowId: WindowId, geometry: Rect
@@ -533,6 +638,151 @@ proc adoptWindowOutput*(
   model.windowTags[windowId] =
     model.windowTagIds(windowId).unionTags(model.viewTagIds(activeView))
 
+proc moveWindowToScratchpad*(model: var PolicyModel, windowId: WindowId) =
+  if windowId notin model.windows:
+    fail("scratchpad window does not exist")
+  if windowId notin model.scratchpadRestore:
+    if model.scratchpadOrder.len >= maxScratchpads:
+      fail("scratchpad capacity is exhausted")
+    let window = model.windows[windowId]
+    model.scratchpadRestore[windowId] = ScratchpadRestoreData(
+      tags: model.windowTagIds(windowId),
+      output: window.homeOutput,
+      floating: window.floating,
+      floatingGeometry: window.floatingGeometry,
+      fullscreen: window.fullscreen,
+      maximized: window.maximized,
+      minimized: window.minimized,
+    )
+    model.scratchpadOrder.add(windowId)
+  let tagId = model.ensureScratchpadTag()
+  model.windowTags[windowId] = @[tagId]
+  model.minimizedOrder.keepItIf(it != windowId)
+  model.windows[windowId].fullscreen = false
+  model.windows[windowId].maximized = false
+  model.windows[windowId].minimized = false
+  model.windows[windowId].floating = true
+  let bounds = model.outputs[model.windows[windowId].homeOutput].bounds
+  model.windows[windowId].floatingGeometry = centeredGeometry(
+    bounds,
+    model.windows[windowId].constraints,
+    max(1'i32, int32(int64(bounds.width) * 7 div 10)),
+    max(1'i32, int32(int64(bounds.height) * 6 div 10)),
+  )
+  if model.visibleScratchpad == windowId:
+    model.visibleScratchpad = nullWindowId
+  for outputId in model.outputOrder:
+    if model.outputs[outputId].focusedWindow == windowId:
+      model.outputs[outputId].focusedWindow = nullWindowId
+
+proc moveFocusedToScratchpad*(model: var PolicyModel, outputId: OutputId) =
+  if outputId notin model.outputs:
+    fail("scratchpad output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId != nullWindowId:
+    model.moveWindowToScratchpad(windowId)
+
+proc hideScratchpad*(model: var PolicyModel) =
+  let windowId = model.visibleScratchpad
+  if windowId == nullWindowId:
+    return
+  model.visibleScratchpad = nullWindowId
+  model.scratchpadOrder.keepItIf(it != windowId)
+  model.scratchpadOrder.add(windowId)
+  for outputId in model.outputOrder:
+    if model.outputs[outputId].focusedWindow == windowId:
+      model.outputs[outputId].focusedWindow = nullWindowId
+
+proc showScratchpad*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
+  if outputId notin model.outputs or windowId notin model.scratchpadRestore or
+      windowId notin model.windows:
+    fail("scratchpad show target is invalid")
+  model.adoptWindowOutput(windowId, outputId)
+  model.windowTags[windowId] = @[model.ensureScratchpadTag()]
+  let bounds = model.outputs[outputId].bounds
+  model.windows[windowId].floating = true
+  model.windows[windowId].floatingGeometry = centeredGeometry(
+    bounds,
+    model.windows[windowId].constraints,
+    max(1'i32, int32(int64(bounds.width) * 7 div 10)),
+    max(1'i32, int32(int64(bounds.height) * 6 div 10)),
+  )
+  model.visibleScratchpad = windowId
+  if model.windows[windowId].capabilities.focusable:
+    model.setFocus(outputId, windowId)
+
+proc toggleScratchpad*(model: var PolicyModel, outputId: OutputId) =
+  if model.visibleScratchpad != nullWindowId:
+    model.hideScratchpad()
+    return
+  if model.scratchpadOrder.len > 0:
+    model.showScratchpad(outputId, model.scratchpadOrder[0])
+
+proc restoreScratchpad*(model: var PolicyModel, windowId: WindowId) =
+  if windowId notin model.scratchpadRestore or windowId notin model.windows:
+    return
+  let restore = model.scratchpadRestore[windowId]
+  let wasVisible = model.visibleScratchpad == windowId
+  model.scratchpadRestore.del(windowId)
+  model.scratchpadOrder.keepItIf(it != windowId)
+  if wasVisible:
+    model.visibleScratchpad = nullWindowId
+  var removedSlots: seq[ScratchpadSlotId]
+  for slot, id in model.namedScratchpads.pairs:
+    if id == windowId:
+      removedSlots.add(slot)
+  for slot in removedSlots:
+    model.namedScratchpads.del(slot)
+  let outputId =
+    if restore.output in model.outputs:
+      restore.output
+    else:
+      model.windows[windowId].homeOutput
+  model.adoptWindowOutput(windowId, outputId)
+  model.windowTags[windowId] = restore.tags
+  model.windows[windowId].floating = restore.floating
+  model.windows[windowId].floatingGeometry = restore.floatingGeometry
+  model.windows[windowId].fullscreen = restore.fullscreen
+  model.windows[windowId].maximized = restore.maximized
+  model.windows[windowId].minimized = restore.minimized
+  if restore.minimized:
+    model.minimizedOrder.keepItIf(it != windowId)
+    model.minimizedOrder.add(windowId)
+  elif wasVisible and model.windows[windowId].capabilities.focusable and
+      model.windowTagIds(windowId).intersects(
+        model.viewTagIds(model.outputs[outputId].activeView)
+      ):
+    model.setFocus(outputId, windowId)
+  discard model.pruneDynamicWorkspaces()
+
+proc restoreVisibleScratchpad*(model: var PolicyModel) =
+  let windowId =
+    if model.visibleScratchpad != nullWindowId:
+      model.visibleScratchpad
+    elif model.scratchpadOrder.len > 0:
+      model.scratchpadOrder[0]
+    else:
+      nullWindowId
+  model.restoreScratchpad(windowId)
+
+proc assignNamedScratchpad*(
+    model: var PolicyModel, slot: ScratchpadSlotId, windowId: WindowId
+) =
+  if slot == nullScratchpadSlotId or windowId notin model.scratchpadRestore:
+    fail("named scratchpad relation is invalid")
+  model.namedScratchpads[slot] = windowId
+
+proc toggleNamedScratchpad*(
+    model: var PolicyModel, outputId: OutputId, slot: ScratchpadSlotId
+) =
+  if slot notin model.namedScratchpads:
+    return
+  let windowId = model.namedScratchpads[slot]
+  if model.visibleScratchpad == windowId:
+    model.hideScratchpad()
+  else:
+    model.showScratchpad(outputId, windowId)
+
 proc setWindowTags*(model: var PolicyModel, id: WindowId, tags: TagMask) =
   if tags == emptyTagMask:
     fail("a window must retain at least one tag")
@@ -543,7 +793,8 @@ proc setWindowTags*(model: var PolicyModel, id: WindowId, tags: TagMask) =
     if model.outputs[outputId].focusedWindow != id:
       continue
     let activeView = model.outputs[outputId].activeView
-    if not model.windowTagIds(id).intersects(model.viewTagIds(activeView)):
+    if id != model.visibleScratchpad and
+        not model.windowTagIds(id).intersects(model.viewTagIds(activeView)):
       model.outputs[outputId].focusedWindow = nullWindowId
   discard model.pruneDynamicWorkspaces()
 
@@ -554,11 +805,13 @@ proc setWindowTagIds*(model: var PolicyModel, id: WindowId, tags: openArray[TagI
   for tagId in tags:
     if tagId notin model.tags:
       fail("window membership names an unknown tag")
+    if model.tags[tagId].kind == TagKind.scratchpad and id notin model.scratchpadRestore:
+      fail("private scratchpad membership lacks restore state")
     if tagId notin unique:
       unique.add(tagId)
   model.windowTags[id] = unique
   for outputId in model.outputOrder:
-    if model.outputs[outputId].focusedWindow == id and
+    if model.outputs[outputId].focusedWindow == id and id != model.visibleScratchpad and
         not unique.intersects(model.viewTagIds(model.outputs[outputId].activeView)):
       model.outputs[outputId].focusedWindow = nullWindowId
   discard model.pruneDynamicWorkspaces()
@@ -574,7 +827,7 @@ proc setViewTags*(
   if model.outputs[outputId].activeView != viewId:
     return
   let focus = model.outputs[outputId].focusedWindow
-  if focus != nullWindowId and
+  if focus != nullWindowId and focus != model.visibleScratchpad and
       not model.windowTagIds(focus).intersects(model.viewTagIds(viewId)):
     model.outputs[outputId].focusedWindow = nullWindowId
 
@@ -586,18 +839,19 @@ proc setViewTagIds*(
     fail("a view must retain at least one valid tag")
   var unique: seq[TagId]
   for tagId in tags:
-    if tagId notin model.tags:
+    if tagId notin model.tags or model.tags[tagId].kind == TagKind.scratchpad:
       fail("view membership names an unknown tag")
     if tagId notin unique:
       unique.add(tagId)
   model.viewTags[viewId] = unique
   if model.outputs[outputId].activeView == viewId:
     let focus = model.outputs[outputId].focusedWindow
-    if focus != nullWindowId and not model.windowTagIds(focus).intersects(unique):
+    if focus != nullWindowId and focus != model.visibleScratchpad and
+        not model.windowTagIds(focus).intersects(unique):
       model.outputs[outputId].focusedWindow = nullWindowId
 
 proc toggleViewTagSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
-  if outputId notin model.outputs or slot < 1 or slot > int(maxTagBits):
+  if outputId notin model.outputs or slot < 1 or slot > int(maxWorkspaceTagSlot):
     fail("view tag slot is outside the bounded range")
   let viewId = model.outputs[outputId].activeView
   let current = model.viewTagMask(viewId)
@@ -608,7 +862,7 @@ proc toggleViewTagSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
 proc toggleFocusedWindowTagSlot*(
     model: var PolicyModel, outputId: OutputId, slot: int
 ) =
-  if outputId notin model.outputs or slot < 1 or slot > int(maxTagBits):
+  if outputId notin model.outputs or slot < 1 or slot > int(maxWorkspaceTagSlot):
     fail("window tag slot is outside the bounded range")
   let windowId = model.outputs[outputId].focusedWindow
   if windowId == nullWindowId:
@@ -627,8 +881,11 @@ proc activateView*(model: var PolicyModel, outputId: OutputId, viewId: ViewId) =
   if focus != nullWindowId:
     let window = model.window(focus)
     let tags = model.viewTagIds(viewId)
-    if window.isNone or window.get().homeOutput != outputId or
-        not model.windowTagIds(focus).intersects(tags):
+    if window.isNone or window.get().homeOutput != outputId or (
+      focus != model.visibleScratchpad and not model.windowTagIds(focus).intersects(
+        tags
+      )
+    ):
       model.outputs[outputId].focusedWindow = nullWindowId
   discard model.pruneDynamicWorkspaces()
 
@@ -638,9 +895,10 @@ proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
   if output.isNone or window.isNone:
     fail("focus target does not exist")
   let view = model.view(output.get().activeView)
-  if view.isNone or window.get().homeOutput != outputId or
-      not model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id)) or
-      not window.get().capabilities.focusable or window.get().minimized:
+  if view.isNone or window.get().homeOutput != outputId or (
+    windowId != model.visibleScratchpad and
+    not model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id))
+  ) or not window.get().capabilities.focusable or window.get().minimized:
     fail("focus target is not visible and focusable")
   model.outputs[outputId].focusedWindow = windowId
   model.outputs[outputId].focusHistory.keepItIf(it != windowId)
@@ -782,8 +1040,10 @@ proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId] =
     fail("projection output has no active view")
   for windowId in model.windowOrder:
     let window = model.windows[windowId]
-    if window.homeOutput == outputId and
-        model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id)):
+    if window.kind != WindowKind.popup and window.homeOutput == outputId and (
+      windowId == model.visibleScratchpad or
+      model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id))
+    ):
       result.add(windowId)
 
 proc toggleFocusedFullscreen*(model: var PolicyModel) =
@@ -1030,7 +1290,8 @@ proc validate*(model: PolicyModel) =
         fail("policy view is invalid")
       var seenViewTags = initHashSet[TagId]()
       for tagId in model.viewTagIds(viewId):
-        if tagId notin model.tags or tagId in seenViewTags:
+        if tagId notin model.tags or tagId in seenViewTags or
+            model.tags[tagId].kind == TagKind.scratchpad:
           fail("policy view tag membership is invalid")
         seenViewTags.incl(tagId)
       seenViews.incl(viewId)
@@ -1038,10 +1299,10 @@ proc validate*(model: PolicyModel) =
       if output.focusedWindow notin model.windows:
         fail("policy output focus is invalid")
       let focus = model.windows[output.focusedWindow]
-      if focus.homeOutput != outputId or not focus.capabilities.focusable or
-          not model.windowTagIds(focus.id).intersects(
-            model.viewTagIds(output.activeView)
-          ) or focus.minimized:
+      if focus.homeOutput != outputId or not focus.capabilities.focusable or (
+        focus.id != model.visibleScratchpad and
+        not model.windowTagIds(focus.id).intersects(model.viewTagIds(output.activeView))
+      ) or focus.minimized:
         fail("policy output focus is invalid")
     if output.focusHistory.len > maxFocusHistory:
       fail("policy focus history is excessive")
@@ -1060,6 +1321,16 @@ proc validate*(model: PolicyModel) =
         model.windowTagIds(windowId).len == 0 or
         uint32(window.heightScale) < uint32(minimumScale):
       fail("policy window is invalid")
+    if window.parent == windowId or
+        (window.parent != nullWindowId and window.parent notin model.windows):
+      fail("policy window parent relation is invalid")
+    var ancestor = window.parent
+    var depth = 0
+    while ancestor != nullWindowId:
+      inc depth
+      if depth > model.windows.len or ancestor == windowId:
+        fail("policy window parent relation is cyclic")
+      ancestor = model.windows[ancestor].parent
     var seenWindowTags = initHashSet[TagId]()
     for tagId in model.windowTagIds(windowId):
       if tagId notin model.tags or tagId in seenWindowTags:
@@ -1107,6 +1378,9 @@ proc validate*(model: PolicyModel) =
         tag.name.len > maxWorkspaceNameBytes or '\0' in tag.name:
       fail("policy tag entity is invalid")
     seenSlots.incl(tag.slot)
+    if (tag.kind == TagKind.scratchpad) != (tagId == model.scratchpadTag) or
+        (tag.kind == TagKind.scratchpad) != (tag.slot == scratchpadTagSlot):
+      fail("private scratchpad tag identity is invalid")
     if tag.kind == TagKind.dynamic and not model.workspaceOccupied(tagId):
       var active = false
       for outputId in model.outputOrder:
@@ -1115,6 +1389,33 @@ proc validate*(model: PolicyModel) =
           break
       if not active:
         fail("policy retains an inactive empty dynamic workspace")
+  if model.scratchpadTag != nullTagId and model.scratchpadTag notin model.tags:
+    fail("private scratchpad tag is invalid")
+  if model.scratchpadOrder.len != model.scratchpadRestore.len or
+      model.scratchpadOrder.len > maxScratchpads:
+    fail("scratchpad relationship indexes diverged")
+  var seenScratchpads = initHashSet[WindowId]()
+  for windowId in model.scratchpadOrder:
+    if windowId notin model.windows or windowId in seenScratchpads or
+        windowId notin model.scratchpadRestore or model.scratchpadTag == nullTagId or
+        model.windowTagIds(windowId) != @[model.scratchpadTag]:
+      fail("scratchpad relationship is invalid")
+    let restore = model.scratchpadRestore[windowId]
+    if restore.tags.len == 0 or restore.output == nullOutputId:
+      fail("scratchpad restore relationship is invalid")
+    var seenRestoreTags = initHashSet[TagId]()
+    for tagId in restore.tags:
+      if tagId notin model.tags or tagId == model.scratchpadTag or
+          tagId in seenRestoreTags:
+        fail("scratchpad restore membership is invalid")
+      seenRestoreTags.incl(tagId)
+    seenScratchpads.incl(windowId)
+  if model.visibleScratchpad != nullWindowId and
+      model.visibleScratchpad notin seenScratchpads:
+    fail("visible scratchpad is invalid")
+  for slot, windowId in model.namedScratchpads.pairs:
+    if slot == nullScratchpadSlotId or windowId notin seenScratchpads:
+      fail("named scratchpad relationship is invalid")
   if model.minimizedOrder.len > maxMinimizedHistory:
     fail("minimized history is excessive")
   var seenMinimized = initHashSet[WindowId]()

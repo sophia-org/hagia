@@ -34,6 +34,14 @@ type
     generation: uint64
     logical: uint32
 
+  ScratchpadRestoreDto = object
+    window: uint32
+    restore: ScratchpadRestoreData
+
+  NamedScratchpadDto = object
+    slot: uint32
+    window: uint32
+
   CheckpointV2Dto = object
     schema: uint32
     counters: IdCounters
@@ -52,6 +60,11 @@ type
     minimizedOrder: seq[uint32]
     affinities: seq[OutputAffinity]
     affinityOrder: seq[uint32]
+    scratchpadOrder: seq[uint32]
+    scratchpadRestore: seq[ScratchpadRestoreDto]
+    namedScratchpads: seq[NamedScratchpadDto]
+    visibleScratchpad: uint32
+    scratchpadTag: uint32
     surfaces: seq[SurfaceDto]
     activeOutputs: seq[OutputDto]
     dormantOutputs: seq[OutputDto]
@@ -73,6 +86,21 @@ proc capabilities(bits: uint16): WindowCapabilities =
     closable: (bits and (1'u16 shl 3)) != 0,
     fullscreenable: (bits and (1'u16 shl 4)) != 0,
   )
+
+proc windowKind(raw: uint16): WindowKind =
+  case raw
+  of 1:
+    WindowKind.toplevel
+  of 2:
+    WindowKind.dialog
+  of 3:
+    WindowKind.utility
+  of 4:
+    WindowKind.popup
+  of 5, 0:
+    WindowKind.unknown
+  else:
+    fail("surface kind is invalid")
 
 proc applyPresentation(model: var PolicyModel, window: WindowId, bits: uint16) =
   model.setWindowPresentation(
@@ -216,6 +244,23 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV2Dto =
   for id in adapter.model.affinityOrder:
     result.affinities.add(adapter.model.affinities[id])
     result.affinityOrder.add(uint32(id))
+  for id in adapter.model.scratchpadOrder:
+    result.scratchpadOrder.add(uint32(id))
+    result.scratchpadRestore.add(
+      ScratchpadRestoreDto(
+        window: uint32(id), restore: adapter.model.scratchpadRestore[id]
+      )
+    )
+  for slot, window in adapter.model.namedScratchpads.pairs:
+    result.namedScratchpads.add(
+      NamedScratchpadDto(slot: uint32(slot), window: uint32(window))
+    )
+  result.namedScratchpads.sort(
+    proc(left, right: NamedScratchpadDto): int =
+      cmp(left.slot, right.slot)
+  )
+  result.visibleScratchpad = uint32(adapter.model.visibleScratchpad)
+  result.scratchpadTag = uint32(adapter.model.scratchpadTag)
   for key, window in adapter.surfaceToWindow.pairs:
     result.surfaces.add(
       SurfaceDto(key: key, window: uint32(window), facts: adapter.surfaceFacts[window])
@@ -290,6 +335,19 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       result.model.viewTags.mgetOrPut(owner, @[]).add(TagId(raw))
   for raw in dto.minimizedOrder:
     result.model.minimizedOrder.add(WindowId(raw))
+  if dto.scratchpadOrder.len != dto.scratchpadRestore.len:
+    fail("policy checkpoint scratchpad records diverged")
+  for index, raw in dto.scratchpadOrder:
+    let id = WindowId(raw)
+    if dto.scratchpadRestore[index].window != raw:
+      fail("policy checkpoint scratchpad order is invalid")
+    result.model.scratchpadOrder.add(id)
+    result.model.scratchpadRestore[id] = dto.scratchpadRestore[index].restore
+  for relation in dto.namedScratchpads:
+    result.model.namedScratchpads[ScratchpadSlotId(relation.slot)] =
+      WindowId(relation.window)
+  result.model.visibleScratchpad = WindowId(dto.visibleScratchpad)
+  result.model.scratchpadTag = TagId(dto.scratchpadTag)
   if dto.affinities.len != dto.affinityOrder.len:
     fail("policy checkpoint affinity records diverged")
   for index, raw in dto.affinityOrder:
@@ -523,6 +581,48 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     adapter.surfaceToWindow.del(key)
     adapter.windowToSurface.del(window)
     adapter.surfaceFacts.del(window)
+
+  # Resolve reduced transient ownership only after every live Sophia handle has
+  # a stable logical identity. No generational handle crosses this boundary.
+  for surface in snapshot.surfaces:
+    let window = adapter.surfaceToWindow[surface.surfaceKey()]
+    var parent = nullWindowId
+    if surface.transientGeneration != 0:
+      let parentKey = surfaceKey(surface.transientIndex, surface.transientGeneration)
+      if parentKey notin adapter.surfaceToWindow:
+        fail("surface transient owner has no logical identity")
+      parent = adapter.surfaceToWindow[parentKey]
+    let kind = surface.kind.windowKind()
+    let relationChanged =
+      adapter.model.windows[window].kind != kind or
+      adapter.model.windows[window].parent != parent
+    adapter.model.setWindowRelation(window, kind, parent)
+    let inheritanceChanged =
+      parent != nullWindowId and (
+        adapter.model.windows[window].homeOutput !=
+        adapter.model.windows[parent].homeOutput or
+        adapter.model.windowTagIds(window) != adapter.model.windowTagIds(parent)
+      )
+    if (relationChanged or inheritanceChanged) and parent != nullWindowId and
+        kind in {WindowKind.dialog, WindowKind.utility} and
+        window notin adapter.model.scratchpadRestore:
+      let parentOutput = adapter.model.windows[parent].homeOutput
+      let parentBounds = adapter.model.outputs[parentOutput].bounds
+      let parentFacts = adapter.surfaceFacts[parent]
+      adapter.model.placeTransient(
+        window,
+        parent,
+        (if surface.width > 0: surface.width
+        else: parentBounds.width div 2),
+        (if surface.height > 0: surface.height
+        else: parentBounds.height div 2),
+        Rect(
+          x: parentFacts.x,
+          y: parentFacts.y,
+          width: parentFacts.width,
+          height: parentFacts.height,
+        ),
+      )
 
   for output in snapshot.outputs:
     if output.focusGeneration == 0:
