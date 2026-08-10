@@ -70,7 +70,7 @@ least-authority shell endpoint and target-resolved input.
 | Launch, startup environment, configured processes, and shell supervision | Partial | Typed terminal/browser/startup/logout selectors resolve only against Sophia's registered applications, with CLI overrides superior, and lower to opaque slots; port the remaining retained launch environment and supervision behavior. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
 | Cursor theme, visibility, inactivity, and find feedback | Open | Engine owns the cursor; expose only bounded configuration and shell feedback. |
-| Configuration discovery, validation, activation, reload, and rollback | Open | Discovery, partitioning, staging, policy preparation, and typed shortcut preparation exist. The generation/digest barrier now retains a monotonic attempt counter and has executable TLA+ proofs for partial prepare, rollback, and stale completion; wire those typed effects across authorities without a partial commit. |
+| Configuration discovery, validation, activation, reload, and rollback | Open | Discovery, partitioning, staging, policy preparation, and typed shortcut preparation exist. The generation/digest barrier retains a monotonic attempt counter and has executable TLA+ proofs for partial prepare, rollback, and stale completion; Sophia now carries the matching pure reducer. Wire those typed effects across authorities without a partial commit. |
 
 ## Brokers And Portals
 

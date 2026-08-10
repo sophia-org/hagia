@@ -175,8 +175,11 @@ counter even when rejected, so an old generation never re-enters admission and
 delayed completions cannot alias a retry; counter exhaustion is terminal.
 The generation/digest lifecycle, partial barriers, rollback, and stale
 completions are exhaustively model checked by the repository's TLA+ gate.
-Watched live reload remains disabled until Sophia wires that barrier through
-dedicated authority protocols.
+Sophia now ports the same pure transition shape over its canonical authority,
+generation, and digest types, with mirrored tests for the rejected-generation
+reuse defect found during Hagia's formal-verification pass. Watched live reload
+remains disabled until Sophia wires those effects through dedicated authority
+protocols and executors.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

@@ -98,8 +98,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   last-known-good model on failure. A generation-aware TLA+ gate now exhausts
   partial preparation, activation, rollback, and stale-completion state spaces;
   its implementation-fidelity pass also closed rejected-generation reuse.
-  Live authority protocol wiring and watched activation remain deliberately
-  deferred.
+  Sophia now carries the matching pure seven-authority reducer over its
+  canonical identities. Live authority protocol/executor wiring and watched
+  activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
