@@ -166,6 +166,33 @@ suite "Hagia foundation":
     check first.candidates[ProfileAuthority.policy].values[0].provenance.path ==
       policyPath.expandFilename()
 
+  test "shortcut candidates require typed chords and explicit target authorities":
+    let directory = createTempDir("hagia-shortcut-profile-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(
+      path,
+      "schema 1\nshortcut { profile \"daily\"; " &
+        "bind \"Super+q\" \"session:close-window\"; " &
+        "bind \"Super+1\" \"policy:activate-view 1\"; " &
+        "pointer-bind \"Super+left\" \"policy:move\"; }\n",
+    )
+    path.ownerOnly()
+    let profile = loadDesktopProfile(path)
+    check profile.candidates[ProfileAuthority.shortcut].values.len == 4
+
+    for source in [
+      "schema 1\nshortcut { profile \"daily\"; bind \"Super+q\" \"close-window\"; }\n",
+      "schema 1\nshortcut { profile \"daily\"; bind \"Ctrl+Alt+Backspace\" \"session:logout\"; }\n",
+      "schema 1\nshortcut { profile \"daily\"; pointer-bind \"Super+left\" \"session:logout\"; }\n",
+      "schema 1\nshortcut { profile \"daily\"; bind \"Super+q\" \"policy:first\"; bind \"super+Q\" \"policy:second\"; }\n",
+    ]:
+      writeFile(path, source)
+      path.ownerOnly()
+      expect DesktopProfileError:
+        discard loadDesktopProfile(path)
+
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
     defer:

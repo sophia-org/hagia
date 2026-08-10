@@ -307,17 +307,29 @@ proc collectPhysicalBindings(
     item.authority = migration.authority
     item.disposition = migration.disposition
     item.result = migration.result
+    let reserved =
+      kind == MigrationBindingKind.key and item.trigger.isReservedDesktopShortcut()
+    let crossesPointerAuthority =
+      kind == MigrationBindingKind.pointer and migration.authority != "policy"
+    if reserved:
+      item.disposition = MigrationDisposition.excluded
+      item.result = migration.result & "; Sophia reserves this emergency chord"
+    elif crossesPointerAuthority:
+      item.disposition = MigrationDisposition.unsupported
+      item.result =
+        migration.result & "; pointer binding cannot cross into this authority"
     let settingName =
       case kind
       of MigrationBindingKind.key: "bind"
       of MigrationBindingKind.pointer: "pointer-bind"
       else: ""
     let identity = settingName & ":" & item.trigger
-    if migration.outputCommand.len > 0 and settingName.len > 0 and
-        item.context == "global" and identity notin emitted:
+    if migration.outputCommand.len > 0 and settingName.len > 0 and not reserved and
+        not crossesPointerAuthority and item.context == "global" and
+        identity notin emitted:
       shortcutSettings.add(
-        "  " & settingName & " " & node.args[0].pretty() & " \"" &
-          migration.outputCommand & "\""
+        "  " & settingName & " " & node.args[0].pretty() & " \"" & migration.authority &
+          ":" & migration.outputCommand & "\""
       )
       emitted.incl(identity)
     elif migration.outputCommand.len > 0 and item.context != "global":

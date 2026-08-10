@@ -173,6 +173,14 @@ any failure emits generation-wide idempotent rollback while preserving the
 last-known-good profile. Watched live reload remains disabled until Sophia wires
 that barrier through dedicated authority protocols.
 
+The shortcut fragment owns physical matching but not the invoked behavior.
+Bindings therefore carry explicit `policy:` or `session:` targets. Both
+independent profile implementations normalize chord identity, reject duplicate
+or reserved emergency chords, cap the candidate at 256 bindings, and prohibit
+pointer-to-session authority crossings before staging. The recorded Triad
+baseline currently reduces to 41 safely representable startup bindings; all
+137 source bindings remain present in the migration report.
+
 ## Observability
 
 Chronicles emits redacted operational events at the level selected by

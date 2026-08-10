@@ -64,13 +64,13 @@ least-authority shell endpoint and target-resolved input.
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
-| Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | Engine already owns physical input and opaque WM actions; migrate the retained bindings/configuration without sending raw input to Hagia. |
+| Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | The baseline inventory and typed key/pointer startup candidate are complete; wire its retained targets into Engine-owned matching without sending raw input to Hagia, then add axis, gesture, and switch candidates. |
 | Input-device and XKB configuration | Open | Use a dedicated validated configuration authority with device-scoped capabilities and rollback. |
 | Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | Engine owns topology and work areas; add candidate validation, atomic multi-output activation, rollback, and a separate power authority. |
 | Launch, startup environment, configured processes, and shell supervision | Partial | Existing opaque terminal/browser/logout slots are a bootstrap; port the retained launch profile through session-owned capabilities. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
 | Cursor theme, visibility, inactivity, and find feedback | Open | Engine owns the cursor; expose only bounded configuration and shell feedback. |
-| Configuration discovery, validation, activation, reload, and rollback | Open | Coordinate independently validated policy, shell, input, output, and session candidates without a cross-authority partial commit. |
+| Configuration discovery, validation, activation, reload, and rollback | Open | Discovery, partitioning, staging, policy preparation, and typed shortcut preparation exist; wire authority prepare/activate/rollback without a cross-authority partial commit. |
 
 ## Brokers And Portals
 

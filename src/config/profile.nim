@@ -52,6 +52,7 @@ const
   maxProfileDepth* = 10
   maxProfileFiles* = 64
   maxProfileBytes* = 1_048_576'i64
+  maxDesktopShortcutBindings* = 256
   compiledDesktopProfile* = """
 schema 1
 policy {
@@ -181,6 +182,96 @@ proc settingKey(authority: ProfileAuthority, node: KdlNode): string =
       fail(node.name & " requires a string identity")
     result.add("." & node.args[0].kString())
 
+proc isReservedDesktopShortcut*(source: string): bool =
+  let parts = source.split('+')
+  if parts.len == 0 or parts[^1].toLowerAscii() != "backspace":
+    return false
+  var control = false
+  var alt = false
+  for index in 0 ..< parts.high:
+    case parts[index].toLowerAscii()
+    of "ctrl", "control":
+      control = true
+    of "alt":
+      alt = true
+    else:
+      discard
+  result = control and alt
+
+proc shortcutTrigger(node: KdlNode): string =
+  let source = node.args[0].kString()
+  if source.len == 0 or source.len > 64:
+    fail("shortcut trigger length is invalid")
+  let parts = source.split('+')
+  if parts.len == 0 or parts[^1].len == 0:
+    fail("shortcut trigger is empty")
+  let trigger = parts[^1].toLowerAscii()
+  for value in trigger:
+    if value notin {'a' .. 'z', '0' .. '9', '_', '-', '=', '?', ',', '.', '[', ']'}:
+      fail("shortcut trigger contains unsupported characters")
+  var modifiers = 0'u8
+  for index in 0 ..< parts.high:
+    let bit =
+      case parts[index].toLowerAscii()
+      of "shift":
+        1'u8 shl 0
+      of "ctrl", "control":
+        1'u8 shl 1
+      of "alt":
+        1'u8 shl 2
+      of "super":
+        1'u8 shl 3
+      else:
+        fail("shortcut contains an unsupported modifier")
+    if (modifiers and bit) != 0:
+      fail("shortcut contains a duplicate modifier")
+    modifiers = modifiers or bit
+  if node.name == "pointer-bind" and trigger notin ["left", "middle", "right"]:
+    fail("pointer shortcut must name left, middle, or right")
+  if node.name == "bind" and source.isReservedDesktopShortcut():
+    fail("reserved emergency chord cannot be overridden")
+  $modifiers & ":" & trigger
+
+proc validateShortcutSetting(node: KdlNode) =
+  if node.name == "profile":
+    let profile = node.stringArg("shortcut profile")
+    if profile.len > 64 or profile.len == 0:
+      fail("shortcut profile identity is invalid")
+    for value in profile:
+      if value notin {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '-', '_'}:
+        fail("shortcut profile identity contains unsupported characters")
+    return
+  if node.args.len != 2 or node.args[0].kind != KString or node.args[1].kind != KString or
+      node.props.len != 0 or node.children.len != 0:
+    fail("shortcut binding requires trigger and target strings")
+  discard node.shortcutTrigger()
+  let target = node.args[1].kString()
+  if target.len == 0 or target.len > 128 or target.strip() != target:
+    fail("shortcut target length is invalid")
+  let separator = target.find(':')
+  if separator <= 0 or separator == target.high:
+    fail("shortcut target requires an explicit authority")
+  let authority = target[0 ..< separator]
+  let command = target[separator + 1 .. ^1]
+  case authority
+  of "policy":
+    for value in command:
+      if value notin {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '-', '_', ' ', '.'}:
+        fail("policy shortcut target contains unsupported characters")
+  of "session":
+    if node.name == "pointer-bind":
+      fail("pointer shortcut cannot invoke a session capability")
+    if command notin ["close-window", "logout", "spawn-terminal", "spawn-browser"]:
+      fail("shortcut names an unknown session capability")
+  else:
+    fail("shortcut target authority is unsupported")
+
+proc candidateSettingKey(authority: ProfileAuthority, node: KdlNode): string =
+  if authority == ProfileAuthority.shortcut and node.name in ["bind", "pointer-bind"]:
+    $authority & "." & node.name & "." & node.shortcutTrigger()
+  else:
+    authority.settingKey(node)
+
 proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
   if node.tag.isSome:
     fail("type annotations are unsupported in desktop profiles")
@@ -228,6 +319,8 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
           argument.kString() in layouts:
         fail("policy layout-cycle contains an invalid or duplicate layout")
       layouts.incl(argument.kString())
+  if authority == ProfileAuthority.shortcut:
+    node.validateShortcutSetting()
   if authority in {ProfileAuthority.shell, ProfileAuthority.broker} and
       node.name == "enabled":
     if node.args.len != 1 or node.args[0].kind != KBool or node.args[0].kBool():
@@ -241,6 +334,7 @@ proc partition(
       AuthorityCandidate(authority: authority, generation: generation, digest: digest)
   var schemaSeen = false
   var settings = initHashSet[string]()
+  var shortcutBindings = 0
   for expanded in nodes:
     let node = expanded.node
     if node.name == "schema":
@@ -260,7 +354,11 @@ proc partition(
       fail("authority section " & node.name & " has an ambiguous shape")
     for child in node.children:
       owner.validateSetting(child)
-      let key = owner.settingKey(child)
+      if owner == ProfileAuthority.shortcut and child.name in ["bind", "pointer-bind"]:
+        inc shortcutBindings
+        if shortcutBindings > maxDesktopShortcutBindings:
+          fail("desktop profile contains more than 256 shortcut bindings")
+      let key = owner.candidateSettingKey(child)
       if key in settings:
         fail("duplicate desktop profile setting " & key)
       settings.incl(key)
@@ -317,6 +415,7 @@ proc loadAuthorityCandidate*(
   var digestSeen = false
   var authoritySeen = false
   var settings = initHashSet[string]()
+  var shortcutBindings = 0
   for ordinal, node in document:
     case node.name
     of "schema":
@@ -359,7 +458,11 @@ proc loadAuthorityCandidate*(
       result.authority = owner
       for child in node.children:
         owner.validateSetting(child)
-        let key = owner.settingKey(child)
+        if owner == ProfileAuthority.shortcut and child.name in ["bind", "pointer-bind"]:
+          inc shortcutBindings
+          if shortcutBindings > maxDesktopShortcutBindings:
+            fail("authority candidate contains more than 256 shortcut bindings")
+        let key = owner.candidateSettingKey(child)
         if key in settings:
           fail("duplicate authority candidate setting " & key)
         settings.incl(key)
