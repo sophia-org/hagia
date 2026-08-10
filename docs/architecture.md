@@ -205,13 +205,25 @@ bounded advertised and selected timings, and VRR property status. This reuses
 the owned libdrm selection rather than creating a parallel discovery path.
 Coordinator translation and activation remain deferred.
 
+The semantic Triad migrator now lowers supported keyboard, XKB, mouse,
+workspace-count/default-layout, terminal/logout, and named-output values into
+those typed profile sections. Valueless flags become explicit booleans,
+`mouse` becomes the global pointer candidate, `disabled` becomes canonical
+enablement, and legacy adaptive-sync becomes typed VRR policy. Duplicate or
+out-of-range values are reported as unsupported instead of inheriting Triad's
+last-writer behavior. Physical output `layout` remains explicit in the report
+but is not guessed: automatic scale and transform require the trusted topology
+adapter before positions can be derived safely.
+
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
 independent profile implementations normalize chord identity, reject duplicate
 or reserved emergency chords, cap the candidate at 256 bindings, and prohibit
 pointer-to-session authority crossings before staging. The recorded Triad
 baseline currently reduces to 41 safely representable startup bindings; all
-137 source bindings remain present in the migration report.
+137 source bindings remain present in the migration report. A separate
+recorded daily-driver authority fixture proves the typed
+input/output/session/workspace transformations.
 
 ## Observability
 

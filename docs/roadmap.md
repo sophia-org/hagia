@@ -118,7 +118,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [ ] Close every retained row in `triad-port-ledger.md` across Hagia policy,
   Hagia Shell, Sophia services, and brokers/portals.
 - [ ] Validate migration of the retained Triad default configuration without
-  silent command or behavior loss.
+  silent command or behavior loss. Typed input, named-output,
+  initial-workspace, terminal, logout, and every recorded physical binding now
+  have deterministic migration results; deferred layout geometry, commands,
+  and feature families remain explicit unsupported/excluded rows.
 - [ ] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
 - [ ] Only then run the shared cross-client reconnect/restart corpus, archive a

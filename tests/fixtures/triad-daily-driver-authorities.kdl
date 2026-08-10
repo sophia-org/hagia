@@ -1,0 +1,51 @@
+// Authority-owned settings recorded from the Triad daily-driver profile.
+// Source implementation baseline: fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9.
+
+workspaces {
+  default-count 3
+  default-layout "scroller"
+}
+
+terminal { command "kitty"; }
+allow-exit-session #true
+
+input {
+  keyboard {
+    repeat-rate 40
+    repeat-delay 300
+    numlock
+    capslock #false
+    xkb {
+      rules "evdev"
+      model "pc105"
+      layout "us"
+      variant ""
+      options ""
+    }
+  }
+  mouse {
+    natural-scroll #false
+    accel-profile "flat"
+    accel-speed 0.0
+    left-handed #false
+    middle-emulation #false
+    scroll-factor 1.0
+  }
+}
+
+output {
+  layout "DP-1" "DP-2"
+  monitor "DP-1" {
+    mode "2560x1440@120"
+    scale "auto"
+    position 0 0
+    focus-at-startup
+    vrr 1
+  }
+  monitor "DP-2" {
+    mode "1920x1080@60"
+    scale "auto"
+    position "2560x0"
+    disabled #false
+  }
+}

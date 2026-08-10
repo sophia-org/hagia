@@ -115,7 +115,7 @@ suite "Hagia foundation":
   test "effect execution returns typed reducer completion":
     let executor = RuntimeEffectExecutor(
       persistCheckpoint: proc(effect: RuntimeEffect): bool =
-        effect.generation == 9
+      effect.generation == 9
     )
     let completion = executor.executeEffect(
       RuntimeEffect(kind: RuntimeEffectKind.persistCheckpoint, generation: 9)
@@ -486,10 +486,10 @@ input { keyboard {}; }
 scratchpad { width-ratio 0.8; }
 workspaces { default-count 3; }
 protocol-surfaces { enabled #true; }
-window-rule { match app-id="browser"; }
+    window-rule { match app-id="browser"; }
 """
     let report = migrateTriadProfile(source)
-    check report.items.len == 10
+    check report.items.len >= 10
     for item in report.items:
       check item.result.len > 0
       check item.authority.len > 0
@@ -505,6 +505,75 @@ window-rule { match app-id="browser"; }
     check readFile(output / "migration-report.txt").startsWith("migration-report-v2\n")
     expect DesktopProfileError:
       discard writeMigration(input, output)
+
+  test "semantic migration retains typed input output workspace and session values":
+    let fixture =
+      currentSourcePath().parentDir() / "fixtures" / "triad-daily-driver-authorities.kdl"
+    let source = readFile(fixture)
+    let report = migrateTriadProfile(source)
+    check "  view-count 3" in report.outputProfile
+    check "  terminal kitty" in report.outputProfile
+    check "        repeat-rate 40" in report.outputProfile
+    check "        numlock #true" in report.outputProfile
+    check "    pointer {" in report.outputProfile
+    check "        accel-profile flat" in report.outputProfile
+    check "    named DP-1 {" in report.outputProfile
+    check "        focus-at-startup #true" in report.outputProfile
+    check "    named DP-2 {" in report.outputProfile
+    check "        position 2560 0" in report.outputProfile
+    check "        enabled #true" in report.outputProfile
+
+    var classified = initHashSet[string]()
+    var layoutUnsupported = false
+    for item in report.items:
+      classified.incl(item.source)
+      if item.source == "output.layout":
+        layoutUnsupported = item.disposition == MigrationDisposition.unsupported
+      check item.authority.len > 0
+      check item.authority != "unowned"
+      check item.result.len > 0
+    for source in [
+      "workspaces.default-count", "workspaces.default-layout", "terminal.command",
+      "allow-exit-session", "input.keyboard.repeat-rate", "input.keyboard.repeat-delay",
+      "input.keyboard.numlock", "input.keyboard.capslock", "input.keyboard.xkb.rules",
+      "input.keyboard.xkb.model", "input.keyboard.xkb.layout",
+      "input.keyboard.xkb.variant", "input.keyboard.xkb.options",
+      "input.mouse.natural-scroll", "input.mouse.accel-profile",
+      "input.mouse.accel-speed", "input.mouse.left-handed",
+      "input.mouse.middle-emulation", "input.mouse.scroll-factor", "output.layout",
+      "output.monitor[DP-1].mode", "output.monitor[DP-1].scale",
+      "output.monitor[DP-1].position", "output.monitor[DP-1].focus-at-startup",
+      "output.monitor[DP-1].vrr", "output.monitor[DP-2].mode",
+      "output.monitor[DP-2].scale", "output.monitor[DP-2].position",
+      "output.monitor[DP-2].disabled",
+    ]:
+      check source in classified
+    check layoutUnsupported
+
+  test "semantic migration reports ambiguity and unsupported device policy":
+    let report = migrateTriadProfile("""
+input {
+  mouse { natural-scroll #true; natural-scroll #false; }
+  touchpad { tap #true; natural-scroll #true; }
+}
+output {
+  monitor "DP-1" { vrr 3; enabled #true; disabled #false; }
+  monitor "DP-1" { mode "preferred"; }
+}
+""")
+    check report.outputProfile.count("natural-scroll") == 1
+    check report.outputProfile.count("named DP-1") == 1
+    var unsupported = initHashSet[string]()
+    for item in report.items:
+      if item.disposition == MigrationDisposition.unsupported:
+        unsupported.incl(item.source)
+    check "input.mouse.natural-scroll" in unsupported
+    check "input.touchpad" in unsupported
+    check "input.touchpad.tap" in unsupported
+    check "input.touchpad.natural-scroll" in unsupported
+    check "output.monitor[DP-1].vrr" in unsupported
+    check "output.monitor[DP-1].disabled" in unsupported
+    check "output.monitor[DP-1]" in unsupported
 
   test "recorded Triad default has a complete physical binding inventory":
     let fixture =

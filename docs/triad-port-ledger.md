@@ -120,6 +120,13 @@ semantic migrator now classifies all 137 physical bindings and separately
 records shortcut-match ownership and target behavior authority. Unsupported
 rows remain explicit and cannot be mistaken for activated parity.
 
+The recorded daily-driver authority subset also migrates keyboard/XKB, mouse,
+initial view count and layout, terminal/logout, and named output mode, scale,
+position, focus, enablement, and VRR values. Duplicate values fail closed in
+the report. Triad's physical output layout is intentionally not converted into
+guessed positions while automatic scale is unresolved; it remains an explicit
+output-authority row pending trusted topology translation.
+
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
 reason revision 2 cannot freeze early. When every retained row is complete,
