@@ -196,6 +196,14 @@ reload cannot use that assumption and remains disabled until a separate global
 visibility and recovery protocol is proved and populated through dedicated
 authorities.
 
+Sophia's startup configuration now retains one canonical immutable typed
+candidate bundle after verifying every raw authority candidate against the
+profile's exact generation and digest. Input, output, session, and shortcut
+consumers use that bundle; public policy setup no longer reparses the shortcut
+section. Policy, shell, and broker payloads remain in the provenance-bearing
+profile for their owning handlers. This narrows candidate ownership and removes
+duplicate parsing without treating admission data as activated authority state.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.
