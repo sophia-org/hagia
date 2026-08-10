@@ -103,9 +103,12 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   startup-only driver. One shared pure participant model now defines monotonic
   admission, exact-key retries, prior-active restoration, and fail-closed
   identity matching for every authority. It remains disconnected from
-  production handlers. Startup will use the graphical launch gate for global
-  visibility; live authority protocols, recovery, and watched activation
-  remain deliberately deferred.
+  production handlers. Coordinator-to-participant refinement tests found and
+  closed skipped-participant generation reuse with an exact unseen-rollback
+  tombstone, then proved convergence and recovery across every authority
+  failure position. Startup will use the graphical launch gate for global
+  visibility; live authority protocols, recovery, and watched activation remain
+  deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

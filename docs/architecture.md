@@ -184,11 +184,17 @@ failure. Sophia also has one shared pure authority-participant transition model
 instead of seven bespoke implementations. It consumes generations
 monotonically, retains the last admitted full key, makes exact retries
 idempotent, restores the exact previous active key, treats only strictly older
-cleanup as stale, and rejects a same-generation digest mismatch. No production
-handler invokes that model yet. Startup may eventually hide partial local
-activation behind the graphical launch gate; watched live reload cannot use
-that assumption and remains disabled until a separate global visibility and
-recovery protocol is proved and populated through dedicated authorities.
+cleanup as stale, and rejects a same-generation digest mismatch. Because the
+startup driver stops preparation after the first rejection but rolls all seven
+authorities back, a skipped participant consumes the exact unseen rollback key
+as a no-state tombstone. A test-only refinement executor drives the real
+coordinator effects through seven independent participants and proves
+convergence or exact single-authority recovery divergence at every failure
+position. No production handler invokes that model yet. Startup may eventually
+hide partial local activation behind the graphical launch gate; watched live
+reload cannot use that assumption and remains disabled until a separate global
+visibility and recovery protocol is proved and populated through dedicated
+authorities.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
