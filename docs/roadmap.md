@@ -109,7 +109,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   failure position. Startup will use the graphical launch gate for global
   visibility. Sophia now also retains one canonical prepared candidate bundle
   after checking all seven raw candidate identities, removing a duplicate
-  shortcut parse and preserving one future handler input. Live authority
+  shortcut parse and preserving one future handler input. Its startup loader
+  now returns that bundle, raw provenance, and exact activation key in one pass
+  instead of immediately preparing a validated profile again. Live authority
   protocols, recovery, and watched activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.

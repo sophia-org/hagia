@@ -203,6 +203,10 @@ consumers use that bundle; public policy setup no longer reparses the shortcut
 section. Policy, shell, and broker payloads remain in the provenance-bearing
 profile for their owning handlers. This narrows candidate ownership and removes
 duplicate parsing without treating admission data as activated authority state.
+A prepared-profile aggregate now returns the raw provenance-bearing generation,
+its exact activation key, and the derived typed bundle from one load/prepare
+pass. The validated raw-profile API delegates to that path and discards only the
+derived bundle when a caller explicitly requests the raw view.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
