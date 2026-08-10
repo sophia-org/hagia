@@ -62,7 +62,13 @@ suite "Hagia foundation":
 
   test "Hagia accepts only its provenance-bearing policy candidate":
     var model = initPolicyModel()
-    let profile = loadDesktopProfile()
+    let directory = createTempDir("hagia-compiled-profile-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(path, compiledDesktopProfile)
+    path.ownerOnly()
+    let profile = loadDesktopProfile(path)
     model.applyPolicyCandidate(profile.candidates[ProfileAuthority.policy])
     check model.settings == defaultPolicySettings
     expect DesktopProfileError:
@@ -525,6 +531,9 @@ window-rule { match app-id="browser"; }
     check report.physicalBindingCount() == 137
     check keyBindings == 132
     check pointerBindings == 5
+    check report.outputProfile.count("\n  bind ") == 39
+    check report.outputProfile.count("\n  pointer-bind ") == 2
+    check "pointer-bind Super+middle" notin report.outputProfile
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":
     let directory = createTempDir("hagia-evidence-", "")

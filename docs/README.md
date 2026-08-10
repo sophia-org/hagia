@@ -14,7 +14,7 @@ porting useful Triad behavior.
   Sophia's split authorities.
 - [Triad port completion ledger](triad-port-ledger.md): retained behavior,
   ownership, evidence, and the completion gate before Sophia freezes
-  `sophia_wm_v1` revision 1.
+  `sophia_wm_v1` revision 2.
 - [Port provenance](provenance.md): reviewed Triad sources and baseline.
 - [Roadmap](roadmap.md): implemented and deferred work.
 

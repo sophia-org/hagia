@@ -108,6 +108,16 @@ proc classifyTriadCommand(command: string): CommandMigration =
       "session", MigrationDisposition.transformed, "opaque terminal capability",
       "spawn-terminal",
     )
+  of "spawn kitty":
+    commandMigration(
+      "session", MigrationDisposition.transformed, "declared terminal capability",
+      "spawn-terminal",
+    )
+  of "spawn helium":
+    commandMigration(
+      "session", MigrationDisposition.transformed, "declared browser capability",
+      "spawn-browser",
+    )
   of "lock-session", "toggle-keyboard-shortcuts-inhibit":
     commandMigration(
       "session", MigrationDisposition.unsupported,
@@ -311,6 +321,9 @@ proc collectPhysicalBindings(
       kind == MigrationBindingKind.key and item.trigger.isReservedDesktopShortcut()
     let crossesPointerAuthority =
       kind == MigrationBindingKind.pointer and migration.authority != "policy"
+    let unsupportedPointerAction =
+      kind == MigrationBindingKind.pointer and
+      migration.outputCommand notin ["move", "resize"]
     if reserved:
       item.disposition = MigrationDisposition.excluded
       item.result = migration.result & "; Sophia reserves this emergency chord"
@@ -318,6 +331,10 @@ proc collectPhysicalBindings(
       item.disposition = MigrationDisposition.unsupported
       item.result =
         migration.result & "; pointer binding cannot cross into this authority"
+    elif unsupportedPointerAction:
+      item.disposition = MigrationDisposition.unsupported
+      item.result =
+        migration.result & "; shortcut authority supports only move and resize gestures"
     let settingName =
       case kind
       of MigrationBindingKind.key: "bind"
@@ -325,8 +342,8 @@ proc collectPhysicalBindings(
       else: ""
     let identity = settingName & ":" & item.trigger
     if migration.outputCommand.len > 0 and settingName.len > 0 and not reserved and
-        not crossesPointerAuthority and item.context == "global" and
-        identity notin emitted:
+        not crossesPointerAuthority and not unsupportedPointerAction and
+        item.context == "global" and identity notin emitted:
       shortcutSettings.add(
         "  " & settingName & " " & node.args[0].pretty() & " \"" & migration.authority &
           ":" & migration.outputCommand & "\""

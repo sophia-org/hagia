@@ -101,7 +101,7 @@ and nine fixed views; dynamic workspace and scratchpad actions now have an
 unbound reducer lifecycle, while configured workspace names, additional
 layouts, shell behavior, metadata rules, and Janet remain reviewed but
 incomplete ports.
-They are tracked in `docs/triad-port-ledger.md` and block revision-1 stability
+They are tracked in `docs/triad-port-ledger.md` and block revision-2 stability
 unless explicitly excluded with an architectural or product rationale.
 
 The semantic migration command was exercised against the recorded baseline's

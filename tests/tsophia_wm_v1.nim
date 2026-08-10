@@ -123,11 +123,10 @@ proc checkRecords(path: string) =
       check bytes.decodeSnapshotOutput().output == 1
     of "snapshot_surface":
       check bytes.decodeSnapshotSurface().surfaceIndex == 3
-    of "snapshot_binding":
-      let binding = bytes.decodeSnapshotBinding()
-      check binding.action == 5
-      check binding.keycode == 33
-      check binding.modifierBits == 8
+    of "snapshot_action":
+      let action = bytes.decodeSnapshotAction()
+      check action.action == 5
+      check action.name.len == 10
     of "snapshot_session_operation":
       let operation = bytes.decodeSnapshotSessionOperation()
       check operation.operation == 11

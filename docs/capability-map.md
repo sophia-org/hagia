@@ -43,7 +43,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Status and diagnostics | Redacted shell/status and diagnostic interfaces | Deferred | Full initial state plus typed bounded updates |
 | KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Open and freeze-blocking | Candidate validation, atomic activation, bounded evaluation, deterministic fallback |
 
-The complete retained-behavior inventory and revision-1 gate are in
+The complete retained-behavior inventory and revision-2 gate are in
 [`triad-port-ledger.md`](triad-port-ledger.md). A feature assigned to a shell,
 session service, broker, or portal still counts toward the Hagia desktop port;
 it does not acquire WM authority merely to keep the old Triad process shape.

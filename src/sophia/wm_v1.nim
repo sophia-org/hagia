@@ -76,11 +76,10 @@ type
     exactWidth*: int32
     exactHeight*: int32
 
-  SnapshotBinding* = object
+  SnapshotAction* = object
     action*: uint64
-    keycode*: uint32
-    modifierBits*: uint32
     sessionOperationSlot*: uint16
+    name*: string
 
   SnapshotSessionOperation* = object
     operation*: uint64
@@ -134,9 +133,10 @@ const
   maxOutputs* = 16
   maxSurfaces* = 1024
   maxBindings* = 256
+  maxActionNameBytes* = 128
   snapshotOutputSize* = 56
   snapshotSurfaceSize* = 80
-  snapshotBindingSize* = 20
+  snapshotActionSize* = 140
   snapshotSessionOperationSize* = 12
   projectionOutputSize* = 24
   projectionPlacementSize* = 60
@@ -271,12 +271,11 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
   of MessageKind.policyConfiguration:
     if payload.len < 40:
       fail(PolicyProtocolErrorKind.truncated, "truncated policy configuration")
-    if payload.len > 5160:
-      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy bindings are excessive")
-    let bindingCount = int(payload.u16At(16))
-    if bindingCount > maxBindings or
-        payload.len != 40 + bindingCount * snapshotBindingSize:
-      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy binding count does not match")
+    if payload.len > 35880:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy actions are excessive")
+    let actionCount = int(payload.u16At(16))
+    if actionCount > maxBindings or payload.len != 40 + actionCount * snapshotActionSize:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action count does not match")
   of MessageKind.policyConfigurationOutcome, MessageKind.sessionOperationOutcome:
     payload.requireExact(20)
     payload.requireReserved(18, 2)
@@ -382,13 +381,27 @@ proc decodeSnapshotSurface*(bytes: openArray[byte]): SnapshotSurface =
   result.exactWidth = bytes.i32At(72)
   result.exactHeight = bytes.i32At(76)
 
-proc decodeSnapshotBinding*(bytes: openArray[byte]): SnapshotBinding =
-  bytes.requireExact(snapshotBindingSize)
+proc decodeSnapshotAction*(bytes: openArray[byte]): SnapshotAction =
+  bytes.requireExact(snapshotActionSize)
   result.action = bytes.u64At(0)
-  result.keycode = bytes.u32At(8)
-  result.modifierBits = bytes.u32At(12)
-  result.sessionOperationSlot = bytes.u16At(16)
-  bytes.requireReserved(18, 2)
+  result.sessionOperationSlot = bytes.u16At(8)
+  let nameLen = int(bytes.u16At(10))
+  if nameLen < 1 or nameLen > maxActionNameBytes:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action name length is invalid")
+  result.name = newString(nameLen)
+  for index in 0 ..< nameLen:
+    let value = bytes[12 + index]
+    if not (
+      value >= byte('a') and value <= byte('z') or
+      value >= byte('A') and value <= byte('Z') or
+      value >= byte('0') and value <= byte('9') or
+      value in [byte('-'), byte('_'), byte(' '), byte('.')]
+    ):
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action name is invalid")
+    result.name[index] = char(value)
+  for index in 12 + nameLen ..< snapshotActionSize:
+    if bytes[index] != 0:
+      fail(PolicyProtocolErrorKind.reservedNonzero, "policy action padding is nonzero")
 
 proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOperation =
   bytes.requireExact(snapshotSessionOperationSize)

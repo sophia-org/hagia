@@ -71,6 +71,87 @@ type PolicyAction* {.pure.} = enum
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
 
+proc profileName*(action: PolicyAction): string =
+  ## Stable semantic identity advertised to Sophia's shortcut authority.
+  ## The coordinator treats this as opaque text; Hagia alone owns meaning.
+  case action
+  of PolicyAction.focusNext:
+    "focus-next"
+  of PolicyAction.focusPrevious:
+    "focus-prev"
+  of PolicyAction.viewNext:
+    "focus-view-next"
+  of PolicyAction.viewPrevious:
+    "focus-view-prev"
+  of PolicyAction.moveToNextOutput:
+    "move-to-output-next"
+  of PolicyAction.moveToPreviousOutput:
+    "move-to-output-prev"
+  of PolicyAction.growColumn:
+    "resize-width 0.1"
+  of PolicyAction.shrinkColumn:
+    "resize-width -0.1"
+  of PolicyAction.growWindow:
+    "resize-height 0.1"
+  of PolicyAction.shrinkWindow:
+    "resize-height -0.1"
+  of PolicyAction.activateView1 .. PolicyAction.activateView9:
+    "focus-workspace " & $(ord(action) - ord(PolicyAction.activateView1) + 1)
+  of PolicyAction.moveToView1 .. PolicyAction.moveToView9:
+    "move-to-workspace " & $(ord(action) - ord(PolicyAction.moveToView1) + 1)
+  of PolicyAction.sessionTerminal:
+    "spawn-terminal"
+  of PolicyAction.sessionBrowser:
+    "spawn-browser"
+  of PolicyAction.sessionClose:
+    "close-window"
+  of PolicyAction.sessionLogout:
+    "logout"
+  of PolicyAction.focusNextOutput:
+    "focus-output-next"
+  of PolicyAction.focusPreviousOutput:
+    "focus-output-prev"
+  of PolicyAction.consumeNextColumn:
+    "consume-window"
+  of PolicyAction.expelFocusedWindow:
+    "expel-window"
+  of PolicyAction.toggleFullscreen:
+    "toggle-fullscreen"
+  of PolicyAction.toggleMaximized:
+    "toggle-maximized"
+  of PolicyAction.minimizeFocused:
+    "minimize"
+  of PolicyAction.restoreMinimized:
+    "restore-minimized"
+  of PolicyAction.toggleFloating:
+    "toggle-floating"
+  of PolicyAction.toggleViewTag1 .. PolicyAction.toggleViewTag9:
+    "toggle-view-tag " & $(ord(action) - ord(PolicyAction.toggleViewTag1) + 1)
+  of PolicyAction.toggleFocusedTag1 .. PolicyAction.toggleFocusedTag9:
+    "toggle-window-tag " & $(ord(action) - ord(PolicyAction.toggleFocusedTag1) + 1)
+  of PolicyAction.newWorkspace:
+    "new-workspace"
+  of PolicyAction.focusPreviousOccupiedWorkspace:
+    "focus-occupied-workspace-prev"
+  of PolicyAction.focusNextOccupiedWorkspace:
+    "focus-occupied-workspace-next"
+  of PolicyAction.moveToScratchpad:
+    "move-to-scratchpad"
+  of PolicyAction.toggleScratchpad:
+    "toggle-scratchpad"
+  of PolicyAction.restoreScratchpad:
+    "restore-scratchpad"
+  of PolicyAction.switchLayout:
+    "switch-layout"
+
+proc sessionOperationSlot*(action: PolicyAction): uint16 =
+  case action
+  of PolicyAction.sessionTerminal: 1
+  of PolicyAction.sessionBrowser: 2
+  of PolicyAction.sessionClose: 3
+  of PolicyAction.sessionLogout: 4
+  else: 0
+
 proc activateViewAction*(slot: int): PolicyAction =
   if slot notin 1 .. 9:
     raise newException(PolicyStateError, "view action slot is invalid")

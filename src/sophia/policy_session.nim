@@ -57,14 +57,14 @@ proc operationFor(
     return none(SessionOperationIntent)
   var operationSlot = 0'u16
   var actionKnown = false
-  for binding in snapshot.bindings:
-    if binding.action == request.cause.action:
+  for action in snapshot.actions:
+    if action.action == request.cause.action:
       if actionKnown:
         fail("session operation action is ambiguous")
       actionKnown = true
-      operationSlot = binding.sessionOperationSlot
+      operationSlot = action.sessionOperationSlot
   if not actionKnown:
-    # Semantic unit fixtures may omit the installed binding table for pure
+    # Semantic unit fixtures may omit the installed action catalog for pure
     # policy actions; live snapshots always carry it.
     if request.cause.action.isPolicyAction():
       return none(SessionOperationIntent)

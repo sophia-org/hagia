@@ -20,7 +20,7 @@ scrolling-column projection. Sophia's native public-policy owner now supervises
 this long-running client; the v7 xmonad bridge is retained compatibility
 evidence rather than the promotion path.
 
-The revision-1 boundary names the presented active output in both snapshot and
+The revision-2 boundary names the presented active output in both snapshot and
 proposal, carries the admitted private policy generation on every request, and
 maps a committed binding to an optional advertised session-operation slot.
 Hagia never infers operation authority from an action number. It validates the

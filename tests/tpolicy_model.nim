@@ -1,4 +1,4 @@
-import std/[net, options, os, posix, strutils, tables, tempfiles, unittest]
+import std/[net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
 import config/profile
 import policy/[actions, projection, state, types]
@@ -190,7 +190,7 @@ proc appendWireCycle(
 
 proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   var payload: seq[byte]
-  payload.addU16(1)
+  payload.addU16(2)
   payload.addU16(0)
   payload.addU64(7 or (1'u64 shl 8))
   payload.addU64(epoch)
@@ -261,6 +261,12 @@ proc projectionPlacementCounts(clientWire: seq[byte]): seq[uint32] =
 
 suite "Hagia private policy model":
   test "view action identities have one bounded symbolic mapping":
+    var names = initHashSet[string]()
+    for ordinal in ord(low(PolicyAction)) .. ord(high(PolicyAction)):
+      let action = PolicyAction(ordinal)
+      check action.profileName().len in 1 .. maxActionNameBytes
+      check action.profileName() notin names
+      names.incl(action.profileName())
     for slot in 1 .. 9:
       check slot.activateViewAction().raw() == uint64(10 + slot)
       check slot.moveToViewAction().raw() == uint64(19 + slot)
@@ -1025,7 +1031,7 @@ suite "Sophia policy session":
       focusGeneration: 1,
     )
     var scene = snapshot(1, @[output], @[surface(1, 10)])
-    scene.bindings = @[SnapshotBinding(action: 37)]
+    scene.actions = @[SnapshotAction(action: 37, name: "toggle-fullscreen")]
     let request = ProjectionRequest(
       connectionEpoch: 7,
       requestId: 1,
@@ -1141,7 +1147,8 @@ suite "Sophia policy session":
       height: 600,
     )
     var scene = snapshot(1, @[output], @[surface(1, 10)])
-    scene.bindings = @[SnapshotBinding(action: 31, sessionOperationSlot: 3)]
+    scene.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
     scene.sessionOperations =
       @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
     let request = ProjectionRequest(
@@ -1165,7 +1172,8 @@ suite "Sophia policy session":
   test "an unavailable session-operation slot fails closed":
     let output = SnapshotOutput(output: 10, generation: 1, width: 900, height: 600)
     var scene = snapshot(1, @[output], @[surface(1, 10)])
-    scene.bindings = @[SnapshotBinding(action: 29, sessionOperationSlot: 1)]
+    scene.actions =
+      @[SnapshotAction(action: 29, name: "spawn-terminal", sessionOperationSlot: 1)]
     let request = ProjectionRequest(
       connectionEpoch: 7,
       requestId: 1,

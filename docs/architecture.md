@@ -23,7 +23,7 @@ Sophia dependency or authority model.
 
 Port completion is defined by the
 [`triad-port-ledger.md`](triad-port-ledger.md). The initial fixed profile is an
-experimental boundary proof, not the revision-1 feature ceiling. Retained
+experimental boundary proof, not the revision-2 feature ceiling. Retained
 Triad behavior may expose missing WM facts or operations while it is ported, so
 `sophia_wm_v1` must remain revisable until that ledger closes.
 
@@ -115,7 +115,7 @@ the complete live output set. The request contains no placement or private
 identity. Sophia answers with an ordinary fresh snapshot/request cycle; normal
 action cycles do not create redundant refreshes.
 
-The revision-1 black-box proof keeps one authenticated connection and private
+The revision-2 black-box proof keeps one authenticated connection and private
 adapter across eleven Sophia-owned cycles: constrained single output,
 two-output partition, output loss with migration, the same raw output returning
 at a new generation, an ordered focus action, timeout discard, and successful

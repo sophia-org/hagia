@@ -94,10 +94,10 @@ proc connectWhenReady(path: string): Socket =
 proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   result = PolicyClient(socket: socket, nextTransaction: 1)
   var payload: seq[byte]
-  payload.addU16(1)
-  payload.addU16(1)
+  payload.addU16(2)
+  payload.addU16(2)
   # Request only behavior implemented by this client. The independent codec
-  # still checks every draft revision-1 message in the shared corpus.
+  # still checks every experimental revision-2 message in the shared corpus.
   let optional =
     if requestConfiguration:
       capabilityChrome or capabilityPolicyDirty or capabilityConfiguration or
@@ -110,7 +110,7 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
-  if welcome.payload.u16At(0) != 1:
+  if welcome.payload.u16At(0) != 2:
     fail("Sophia selected an unsupported policy revision")
   result.capabilities = welcome.payload.u64At(4)
   if (
@@ -211,12 +211,14 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
         operation.slot in operationSlots:
       fail("policy session operation is invalid")
     operationSlots.incl(operation.slot)
-  for binding in snapshot.bindings:
-    if binding.action == 0 or binding.action in actions or
-        binding.sessionOperationSlot != 0 and
-        binding.sessionOperationSlot notin operationSlots:
-      fail("policy binding is invalid")
-    actions.incl(binding.action)
+  var actionNames = initHashSet[string]()
+  for action in snapshot.actions:
+    if action.action == 0 or action.action in actions or action.name in actionNames or
+        action.sessionOperationSlot != 0 and
+        action.sessionOperationSlot notin operationSlots:
+      fail("policy action is invalid")
+    actions.incl(action.action)
+    actionNames.incl(action.name)
 
 ## Assemble into local scratch state; callers see a snapshot only after every
 ## identity, ordinal, record total, and terminal frame agrees.
@@ -228,16 +230,16 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   let chunkCount = int(begin.payload.u16At(24))
   let declaredOutputs = int(begin.payload.u16At(26))
   let declaredSurfaces = int(begin.payload.u32At(28))
-  let declaredBindings = int(begin.payload.u16At(32))
+  let declaredActions = int(begin.payload.u16At(32))
   let declaredSessionOperations = int(begin.payload.u16At(34))
   if connectionEpoch != client.connectionEpoch or generation == 0 or chunkCount == 0 or
       activeOutput == 0 or declaredOutputs == 0 or declaredOutputs > maxOutputs or
-      declaredSurfaces > maxSurfaces or declaredBindings > maxBindings or
+      declaredSurfaces > maxSurfaces or declaredActions > maxBindings or
       declaredSessionOperations > maxBindings:
     fail("policy snapshot header is invalid")
   var outputs: seq[SnapshotOutput]
   var surfaces: seq[SnapshotSurface]
-  var bindings: seq[SnapshotBinding]
+  var actions: seq[SnapshotAction]
   var sessionOperations: seq[SnapshotSessionOperation]
   for ordinal in 0 ..< chunkCount:
     let chunk = client.receiveFrame(MessageKind.snapshotChunk)
@@ -267,12 +269,12 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
           chunk.payload.recordBytes(index, snapshotSurfaceSize).decodeSnapshotSurface()
         )
     of 3:
-      if chunk.payload.len != 16 + itemCount * snapshotBindingSize or
-          bindings.len + itemCount > declaredBindings:
-        fail("policy binding chunk count is invalid")
+      if chunk.payload.len != 16 + itemCount * snapshotActionSize or
+          actions.len + itemCount > declaredActions:
+        fail("policy action chunk count is invalid")
       for index in 0 ..< itemCount:
-        bindings.add(
-          chunk.payload.recordBytes(index, snapshotBindingSize).decodeSnapshotBinding()
+        actions.add(
+          chunk.payload.recordBytes(index, snapshotActionSize).decodeSnapshotAction()
         )
     of 4:
       if chunk.payload.len != 16 + itemCount * snapshotSessionOperationSize or
@@ -291,7 +293,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
       finish.payload.u64At(0) != client.connectionEpoch or
       finish.payload.u64At(8) != generation or
       finish.payload.u16At(16) != uint16(chunkCount) or outputs.len != declaredOutputs or
-      surfaces.len != declaredSurfaces or bindings.len != declaredBindings or
+      surfaces.len != declaredSurfaces or actions.len != declaredActions or
       sessionOperations.len != declaredSessionOperations:
     fail("policy snapshot did not settle exactly")
   result = PolicySnapshot(
@@ -299,7 +301,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
     activeOutput: activeOutput,
     outputs: outputs,
     surfaces: surfaces,
-    bindings: bindings,
+    actions: actions,
     sessionOperations: sessionOperations,
   )
   result.validateSnapshot()
@@ -344,61 +346,31 @@ proc allocateTransaction(client: PolicyClient): uint64 =
   if result == 0 or client.nextTransaction == 0:
     fail("policy transaction identity space is exhausted")
 
-proc addBinding(
-    payload: var seq[byte],
-    action: uint64,
-    keycode, modifiers: uint32,
-    sessionOperationSlot: uint16 = 0,
-) =
-  payload.addU64(action)
-  payload.addU32(keycode)
-  payload.addU32(modifiers)
-  payload.addU16(sessionOperationSlot)
-  payload.addU16(0)
+proc addAction(payload: var seq[byte], action: PolicyAction) =
+  let name = action.profileName()
+  if name.len < 1 or name.len > maxActionNameBytes:
+    fail("policy action name is invalid")
+  payload.addU64(action.raw())
+  payload.addU16(action.sessionOperationSlot())
+  payload.addU16(uint16(name.len))
+  for value in name:
+    payload.add(byte(value))
+  for _ in name.len ..< maxActionNameBytes:
+    payload.add(0)
 
 proc installConfiguration(client: PolicyClient) =
-  const
-    super = 1'u32 shl 3
-    shift = 1'u32 shl 0
-  let bindings = @[
-    (PolicyAction.focusNext.raw(), 36'u32, super, 0'u16),
-    (PolicyAction.focusPrevious.raw(), 37'u32, super, 0'u16),
-    (PolicyAction.moveToNextOutput.raw(), 106'u32, super or shift, 0'u16),
-    (PolicyAction.moveToPreviousOutput.raw(), 105'u32, super or shift, 0'u16),
-    (PolicyAction.growColumn.raw(), 38'u32, super, 0'u16),
-    (PolicyAction.shrinkColumn.raw(), 35'u32, super, 0'u16),
-    (PolicyAction.growWindow.raw(), 38'u32, super or shift, 0'u16),
-    (PolicyAction.shrinkWindow.raw(), 35'u32, super or shift, 0'u16),
-    (PolicyAction.sessionTerminal.raw(), 28'u32, super, 1'u16),
-    (PolicyAction.sessionBrowser.raw(), 33'u32, super, 2'u16),
-    (PolicyAction.sessionClose.raw(), 46'u32, super or shift, 3'u16),
-    (PolicyAction.sessionLogout.raw(), 16'u32, super or shift, 4'u16),
-    (PolicyAction.focusNextOutput.raw(), 105'u32, super, 0'u16),
-    (PolicyAction.focusPreviousOutput.raw(), 106'u32, super, 0'u16),
-    (PolicyAction.consumeNextColumn.raw(), 26'u32, super, 0'u16),
-    (PolicyAction.expelFocusedWindow.raw(), 27'u32, super, 0'u16),
-    (PolicyAction.toggleFullscreen.raw(), 21'u32, super, 0'u16),
-    (PolicyAction.toggleMaximized.raw(), 50'u32, super, 0'u16),
-    (PolicyAction.minimizeFocused.raw(), 23'u32, super, 0'u16),
-    (PolicyAction.restoreMinimized.raw(), 19'u32, super, 0'u16),
-    (PolicyAction.toggleFloating.raw(), 20'u32, super, 0'u16),
-    (PolicyAction.switchLayout.raw(), 49'u32, super, 0'u16),
-  ]
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)
   payload.addU64(1)
-  payload.addU16(uint16(bindings.len + 18))
+  payload.addU16(uint16(ord(high(PolicyAction))))
   payload.addU16(2) # Engine-owned frame; no focus ring.
   payload.addU32(0)
   payload.addU32(0xffffb6b0'u32)
   payload.addU32(1)
   payload.addU32(0xffffb6b0'u32)
   payload.addU32(0xff7c7c7c'u32)
-  for binding in bindings:
-    payload.addBinding(binding[0], binding[1], binding[2], binding[3])
-  for slot in 1 .. 9:
-    payload.addBinding(slot.activateViewAction().raw(), uint32(slot + 1), super)
-    payload.addBinding(slot.moveToViewAction().raw(), uint32(slot + 1), super or shift)
+  for ordinal in ord(low(PolicyAction)) .. ord(high(PolicyAction)):
+    payload.addAction(PolicyAction(ordinal))
   let transaction = client.allocateTransaction()
   client.sendFrame(
     Frame(
@@ -606,7 +578,7 @@ proc requestFreshCycle(
   )
 
 ## Exercise a bounded sequence of complete public-policy cycles without Triad
-## machinery. The shared revision-1 corpus uses one connection so output loss
+## machinery. The shared revision-2 corpus uses one connection so output loss
 ## and generational return exercise the client's retained private identity.
 proc runPolicyCycles*(path: string, cycleCount: int) =
   if cycleCount < 1 or cycleCount > 16:

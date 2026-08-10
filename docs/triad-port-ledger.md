@@ -1,7 +1,7 @@
 # Triad Port Completion Ledger
 
 This ledger defines what “Triad is ported to Hagia” means before Sophia may
-freeze revision 1 of `sophia_wm_v1`. The unit of parity is retained behavior,
+freeze revision 2 of `sophia_wm_v1`. The unit of parity is retained behavior,
 not source files, process shape, River protocols, or command spelling.
 
 The reviewed source baseline is
@@ -106,7 +106,8 @@ Each later command family ports or reimplements the relevant Triad tests before
 live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
-bootstrap profile consumes 39 of revision 1's 64 binding slots, while Triad's
+compiled profile contains 50 Sophia-owned chords resolved against Hagia's
+66-entry action catalog, while Triad's
 baseline default configuration contains 132 key bindings and 137 total
 physical bindings. Those counts cross multiple future authorities, so they do
 not mechanically choose a new WM bound. The new multi-tag transitions therefore
@@ -120,6 +121,6 @@ unsupported rows remain explicit and cannot be mistaken for activated parity.
 
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
-reason revision 1 cannot freeze early. When every retained row is complete,
+reason revision 2 cannot freeze early. When every retained row is complete,
 the cross-client reconnect/restart corpus and archived compatibility client are
 the final freeze checks, not substitutes for the port.

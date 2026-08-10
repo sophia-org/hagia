@@ -23,4 +23,4 @@ cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- 
     "$build_dir/hagia-policy-proof" "$build_dir/session" all
 
 printf '%s\n' \
-    'hagia_policy_behavior_corpus schema=3 status=complete revision=1 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true'
+    'hagia_policy_behavior_corpus schema=3 status=complete revision=2 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true'

@@ -35,7 +35,7 @@ nonempty multi-tag view/window mutation, completed reduced pointer move/resize,
 and a checked-in native action and chrome profile. The retained bootstrap
 profile has one scrolling layout and
 nine fixed views. It proves the boundary but does not complete the Triad port,
-and Sophia revision 1 remains experimental until the retained behavior in
+and Sophia revision 2 remains experimental until the retained behavior in
 `docs/triad-port-ledger.md` is implemented across its assigned authorities. The
 `hagia` executable is a long-running client of the session-owned
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent

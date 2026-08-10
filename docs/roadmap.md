@@ -15,14 +15,14 @@ output affinity, hidden-surface admission, deterministic fixed-point scrolling
 columns, and registered focus, view, movement, and size actions. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
 transport. The installed physical checkpoint/restart workload has passed. This
-promotes the bootstrap path for daily use; it does not freeze revision 1.
+promotes the bootstrap path for daily use; it does not freeze revision 2.
 Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 
 ## Milestone 1: Geometry And Reconciliation
 
 - [x] Implement the independent fixed wire and malformed-frame checks.
 - [x] Complete one authenticated policy cycle without a Sophia library.
-- [x] Complete the sequential revision-1 behavior corpus while retaining the
+- [x] Complete the sequential revision-2 behavior corpus while retaining the
   private adapter across output loss and generational return.
 - [x] Add private tag/view state with stable logical identities.
 - [x] Reconcile complete Sophia snapshots without leaking opaque IDs into the
@@ -37,11 +37,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 
 - [x] Port Triad's scrolling-column mathematics as a pure Hagia projection.
 - [x] Update the independent codec and conformance corpus for Sophia's draft
-  the draft revision-1 output, surface-state, cause, configuration,
+  the draft revision-2 output, surface-state, cause, configuration,
   interaction, and session-operation records.
 - [x] Accept one complete reduced cause per policy request and retain ordered
   non-idempotent action activations without exposing raw input.
-- [x] Project private per-output views into the revision-1 indicator descriptor
+- [x] Project private per-output views into the revision-2 indicator descriptor
   and emit exact indicator/status transfer counts without exposing tag masks.
 - [x] Resolve terminal, browser, close, and logout actions through advertised
   profile-local session-operation slots; keep their tokens opaque and send an
@@ -113,4 +113,4 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [ ] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
 - [ ] Only then run the shared cross-client reconnect/restart corpus, archive a
-  revision-1 compatibility client, and evaluate `sophia_wm_v1` for stability.
+  revision-2 compatibility client, and evaluate `sophia_wm_v1` for stability.

@@ -13,7 +13,7 @@ type
     activeOutput*: uint64
     outputs*: seq[SnapshotOutput]
     surfaces*: seq[SnapshotSurface]
-    bindings*: seq[SnapshotBinding]
+    actions*: seq[SnapshotAction]
     sessionOperations*: seq[SnapshotSessionOperation]
 
   ProjectionCauseKind* {.pure.} = enum
