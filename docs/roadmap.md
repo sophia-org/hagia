@@ -108,8 +108,8 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   and pointer startup candidates now activate through Sophia with strict
   libinput failure. Typed output candidates are validated and staged without
   touching hardware, then reconcile purely against immutable capability data;
-  capture, locking, broader launch environment, trusted topology snapshot
-  translation (the atomic owner now exposes read-only libdrm capabilities),
+  capture, locking, broader launch environment, live topology-owner wiring
+  (the read-only libdrm-to-configuration projection is now pure and tested),
   output activation, device-scoped reload/rollback, and remaining dedicated
   configuration services remain.
 

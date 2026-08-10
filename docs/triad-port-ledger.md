@@ -66,7 +66,7 @@ least-authority shell endpoint and target-resolved input.
 | --- | --- | --- |
 | Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | Typed key/pointer startup candidates now resolve Hagia's semantic action catalog into Engine-owned matching without sending raw input to Hagia; add the retained axis, gesture, and switch candidates. |
 | Input-device and XKB configuration | Partial | Typed startup candidates now activate RMLVO, repeat timing, initial lock state, natural scrolling, acceleration, handedness, middle emulation, and wheel scaling through Sophia. Add device-scoped capabilities plus cross-authority live prepare/activate/rollback. |
-| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | Typed candidates reconcile purely against immutable capabilities, and the existing atomic owner now exposes a read-only libdrm capability projection. Wire coordinator translation, atomic multi-output activation, rollback, reservations, and a separate power authority. |
+| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | Typed candidates reconcile purely against immutable capabilities; the existing atomic owner exposes read-only libdrm facts, and a pure coordinator adapter joins them to Engine outputs without overclaiming scale/transform/VRR support. Wire live-owner admission, atomic multi-output activation, rollback, reservations, and a separate power authority. |
 | Launch, startup environment, configured processes, and shell supervision | Partial | Typed terminal/browser/startup/logout selectors resolve only against Sophia's registered applications, with CLI overrides superior, and lower to opaque slots; port the remaining retained launch environment and supervision behavior. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
 | Cursor theme, visibility, inactivity, and find feedback | Open | Engine owns the cursor; expose only bounded configuration and shell feedback. |
@@ -125,7 +125,7 @@ initial view count and layout, terminal/logout, and named output mode, scale,
 position, focus, enablement, and VRR values. Duplicate values fail closed in
 the report. Triad's physical output layout is intentionally not converted into
 guessed positions while automatic scale is unresolved; it remains an explicit
-output-authority row pending trusted topology translation.
+output-authority row pending capability-backed physical-layout resolution.
 
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the

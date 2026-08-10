@@ -203,7 +203,12 @@ Sophia's existing atomic scanout owner now provides the read-only side of that
 trusted snapshot: Engine output identity, exact kernel connector identity,
 bounded advertised and selected timings, and VRR property status. This reuses
 the owned libdrm selection rather than creating a parallel discovery path.
-Coordinator translation and activation remain deferred.
+A pure coordinator adapter joins those facts to Engine outputs by stable
+identity and constructs the immutable configuration topology. It preserves
+Engine semantic order, derives checked current positions, and rejects missing
+or duplicate identities and selected-mode/pixel-size disagreement. It exposes
+only the current backend's integer scale, normal transform, and completely
+discovered VRR capability. Live owner wiring and activation remain deferred.
 
 The semantic Triad migrator now lowers supported keyboard, XKB, mouse,
 workspace-count/default-layout, terminal/logout, and named-output values into
