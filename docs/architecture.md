@@ -208,6 +208,15 @@ its exact activation key, and the derived typed bundle from one load/prepare
 pass. The validated raw-profile API delegates to that path and discards only the
 derived bundle when a caller explicitly requests the raw view.
 
+Sophia now has an authority-local staged-fragment admission function matching
+this repository's independent policy-reader constraints. It reuses Sophia's
+bounded owner-safe file checks, rejects symlinks and cross-authority sections,
+requires the exact coordinator generation/digest, validates settings and
+duplicates, and reconstructs the existing provenance-bearing raw candidate
+DTO. Round-trip tests cover fragments for all seven authorities. The Nim reader
+remains independent conformance evidence rather than a shared runtime
+dependency.
+
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
 trusted application registry. Explicit CLI/session mappings remain superior.
