@@ -1,7 +1,7 @@
 # Triad Port Completion Ledger
 
 This ledger defines what “Triad is ported to Hagia” means before Sophia may
-freeze revision 2 of `sophia_wm_v1`. The unit of parity is retained behavior,
+freeze revision 3 of `sophia_wm_v1`. The unit of parity is retained behavior,
 not source files, process shape, River protocols, or command spelling.
 
 The reviewed source baseline is
@@ -129,6 +129,6 @@ output-authority row pending capability-backed physical-layout resolution.
 
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
-reason revision 2 cannot freeze early. When every retained row is complete,
+reason revision 3 cannot freeze early. When every retained row is complete,
 the cross-client reconnect/restart corpus and archived compatibility client are
 the final freeze checks, not substitutes for the port.

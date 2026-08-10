@@ -94,10 +94,10 @@ proc connectWhenReady(path: string): Socket =
 proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   result = PolicyClient(socket: socket, nextTransaction: 1)
   var payload: seq[byte]
-  payload.addU16(2)
-  payload.addU16(2)
+  payload.addU16(3)
+  payload.addU16(3)
   # Request only behavior implemented by this client. The independent codec
-  # still checks every experimental revision-2 message in the shared corpus.
+  # still checks every experimental revision-3 message in the shared corpus.
   let optional =
     if requestConfiguration:
       capabilityChrome or capabilityPolicyDirty or capabilityConfiguration or
@@ -110,7 +110,7 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
-  if welcome.payload.u16At(0) != 2:
+  if welcome.payload.u16At(0) != 3:
     fail("Sophia selected an unsupported policy revision")
   result.capabilities = welcome.payload.u64At(4)
   if (
@@ -578,7 +578,7 @@ proc requestFreshCycle(
   )
 
 ## Exercise a bounded sequence of complete public-policy cycles without Triad
-## machinery. The shared revision-2 corpus uses one connection so output loss
+## machinery. The shared revision-3 corpus uses one connection so output loss
 ## and generational return exercise the client's retained private identity.
 proc runPolicyCycles*(path: string, cycleCount: int) =
   if cycleCount < 1 or cycleCount > 16:

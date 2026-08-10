@@ -2,6 +2,7 @@ const
   ## Fixed octet run shared by indicator labels and layout names. Declared
   ## ahead of the type section because it bounds an array field.
   indicatorLabelLen* = 32
+  profileDigestLen* = 32
 
 type
   PolicyProtocolErrorKind* {.pure.} = enum
@@ -34,11 +35,36 @@ type
     policyDirty = 44
     sessionOperationRequest = 45
     sessionOperationOutcome = 46
+    profilePrepare = 47
+    profilePrepared = 48
+    profileActivate = 49
+    profileActive = 50
+    profileRollback = 51
+    profileRolledBack = 52
 
   Frame* = object
     kind*: MessageKind
     transaction*: uint64
     payload*: seq[byte]
+
+  ProfileIdentity* = object
+    connectionEpoch*: uint64
+    profileGeneration*: uint64
+    profileDigest*: array[profileDigestLen, byte]
+
+  ProfileOutcomeKind* {.pure.} = enum
+    accepted = 1
+    rejectedIdentity = 2
+    rejectedState = 3
+
+  ProfileCommand* = object
+    transaction*: uint64
+    identity*: ProfileIdentity
+
+  ProfileCompletion* = object
+    transaction*: uint64
+    identity*: ProfileIdentity
+    outcome*: ProfileOutcomeKind
 
   SnapshotOutput* = object
     output*: uint64
@@ -214,6 +240,18 @@ proc messageKind(raw: uint16): MessageKind =
     MessageKind.sessionOperationRequest
   of 46:
     MessageKind.sessionOperationOutcome
+  of 47:
+    MessageKind.profilePrepare
+  of 48:
+    MessageKind.profilePrepared
+  of 49:
+    MessageKind.profileActivate
+  of 50:
+    MessageKind.profileActive
+  of 51:
+    MessageKind.profileRollback
+  of 52:
+    MessageKind.profileRolledBack
   else:
     fail(PolicyProtocolErrorKind.wrongMessageKind, "unknown message kind")
 
@@ -228,6 +266,15 @@ proc requireReserved(payload: openArray[byte], offset, length: int) =
   for index in offset ..< offset + length:
     if payload[index] != 0:
       fail(PolicyProtocolErrorKind.reservedNonzero, "reserved field is nonzero")
+
+proc validateProfileIdentity(payload: openArray[byte]) =
+  if payload.u64At(0) == 0 or payload.u64At(8) == 0:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "profile identity is null")
+  var digestNonzero = false
+  for index in 16 ..< 48:
+    digestNonzero = digestNonzero or payload[index] != 0
+  if not digestNonzero:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "profile digest is null")
 
 proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
   case kind
@@ -290,6 +337,18 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
       fail(PolicyProtocolErrorKind.fieldTooLarge, "dirty output count does not match")
   of MessageKind.sessionOperationRequest:
     payload.requireExact(32)
+  of MessageKind.profilePrepare, MessageKind.profileActivate,
+      MessageKind.profileRollback:
+    payload.requireExact(48)
+    payload.validateProfileIdentity()
+  of MessageKind.profilePrepared, MessageKind.profileActive,
+      MessageKind.profileRolledBack:
+    payload.requireExact(52)
+    payload.validateProfileIdentity()
+    let outcome = payload.u16At(48)
+    if outcome < 1 or outcome > 3:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "profile outcome is invalid")
+    payload.requireReserved(50, 2)
 
 proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
   if bytes.len < frameHeaderLen:
@@ -342,6 +401,77 @@ proc encodeFrame*(frame: Frame): seq[byte] =
   result.addU32(uint32(frame.payload.len))
   result.addU32(0)
   result.add(frame.payload)
+
+proc addProfileIdentity(payload: var seq[byte], identity: ProfileIdentity) =
+  payload.addU64(identity.connectionEpoch)
+  payload.addU64(identity.profileGeneration)
+  for value in identity.profileDigest:
+    payload.add(value)
+
+proc decodeProfileIdentity(payload: openArray[byte]): ProfileIdentity =
+  payload.validateProfileIdentity()
+  result.connectionEpoch = payload.u64At(0)
+  result.profileGeneration = payload.u64At(8)
+  for index in 0 ..< profileDigestLen:
+    result.profileDigest[index] = payload[16 + index]
+
+proc profileCommandFrame*(
+    kind: MessageKind, transaction: uint64, identity: ProfileIdentity
+): Frame =
+  if kind notin {
+    MessageKind.profilePrepare, MessageKind.profileActivate, MessageKind.profileRollback
+  }:
+    fail(PolicyProtocolErrorKind.wrongMessageKind, "message is not a profile command")
+  result.kind = kind
+  result.transaction = transaction
+  result.payload.addProfileIdentity(identity)
+  kind.validatePayload(result.payload)
+
+proc decodeProfileCommand*(frame: Frame): ProfileCommand =
+  if frame.kind notin {
+    MessageKind.profilePrepare, MessageKind.profileActivate, MessageKind.profileRollback
+  }:
+    fail(PolicyProtocolErrorKind.wrongMessageKind, "message is not a profile command")
+  if frame.transaction == 0:
+    fail(PolicyProtocolErrorKind.invalidTransaction, "profile transaction is null")
+  frame.kind.validatePayload(frame.payload)
+  result.transaction = frame.transaction
+  result.identity = frame.payload.decodeProfileIdentity()
+
+proc profileCompletionFrame*(
+    kind: MessageKind,
+    transaction: uint64,
+    identity: ProfileIdentity,
+    outcome: ProfileOutcomeKind,
+): Frame =
+  if kind notin {
+    MessageKind.profilePrepared, MessageKind.profileActive,
+    MessageKind.profileRolledBack,
+  }:
+    fail(
+      PolicyProtocolErrorKind.wrongMessageKind, "message is not a profile completion"
+    )
+  result.kind = kind
+  result.transaction = transaction
+  result.payload.addProfileIdentity(identity)
+  result.payload.addU16(uint16(ord(outcome)))
+  result.payload.addU16(0)
+  kind.validatePayload(result.payload)
+
+proc decodeProfileCompletion*(frame: Frame): ProfileCompletion =
+  if frame.kind notin {
+    MessageKind.profilePrepared, MessageKind.profileActive,
+    MessageKind.profileRolledBack,
+  }:
+    fail(
+      PolicyProtocolErrorKind.wrongMessageKind, "message is not a profile completion"
+    )
+  if frame.transaction == 0:
+    fail(PolicyProtocolErrorKind.invalidTransaction, "profile transaction is null")
+  frame.kind.validatePayload(frame.payload)
+  result.transaction = frame.transaction
+  result.identity = frame.payload.decodeProfileIdentity()
+  result.outcome = ProfileOutcomeKind(frame.payload.u16At(48))
 
 proc decodeSnapshotOutput*(bytes: openArray[byte]): SnapshotOutput =
   bytes.requireExact(snapshotOutputSize)

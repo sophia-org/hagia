@@ -20,9 +20,13 @@ scrolling-column projection. Sophia's native public-policy owner now supervises
 this long-running client; the v7 xmonad bridge is retained compatibility
 evidence rather than the promotion path.
 
-The revision-2 boundary names the presented active output in both snapshot and
+The revision-3 boundary names the presented active output in both snapshot and
 proposal, carries the admitted private policy generation on every request, and
 maps a committed binding to an optional advertised session-operation slot.
+It also reserves a distinct capability and exact generation/digest control
+records for transactional desktop-profile prepare, activation, and rollback.
+Those controls remain inactive until Sophia's pre-graphical coordinator is
+wired; ordinary policy configuration retains its independent generation.
 Hagia never infers operation authority from an action number. It validates the
 opaque operation token and its target permission separately, then waits for the
 projection commit before requesting the operation.

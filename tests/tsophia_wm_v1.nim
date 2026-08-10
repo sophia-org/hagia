@@ -54,6 +54,18 @@ proc kindFor(name: string): MessageKind =
     MessageKind.sessionOperationRequest
   of "session_operation_outcome":
     MessageKind.sessionOperationOutcome
+  of "profile_prepare":
+    MessageKind.profilePrepare
+  of "profile_prepared":
+    MessageKind.profilePrepared
+  of "profile_activate":
+    MessageKind.profileActivate
+  of "profile_active":
+    MessageKind.profileActive
+  of "profile_rollback":
+    MessageKind.profileRollback
+  of "profile_rolled_back":
+    MessageKind.profileRolledBack
   else:
     raise newException(ValueError, "unknown corpus message")
 
@@ -88,7 +100,7 @@ proc corpusLines(path: string): seq[string] =
 
 proc checkValidFrames(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 15
+  check lines.len == 21
   for line in lines:
     let fields = line.split('|')
     check fields.len == 3
@@ -162,3 +174,48 @@ suite "independent Sophia WM v1 wire":
     checkValidFrames(sophiaRoot / "protocol/golden/sophia-wm-v1.frames")
     checkMalformedFrames(sophiaRoot / "protocol/golden/sophia-wm-v1-malformed.frames")
     checkRecords(sophiaRoot / "protocol/golden/sophia-wm-v1.records")
+
+  test "typed profile controls retain exact identity and closed outcomes":
+    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
+    for index in 0 ..< profileDigestLen:
+      identity.profileDigest[index] = byte(index + 1)
+
+    for kind in {
+      MessageKind.profilePrepare, MessageKind.profileActivate,
+      MessageKind.profileRollback,
+    }:
+      let command =
+        kind.profileCommandFrame(11, identity).encodeFrame().decodeFrame(kind)
+      check command.decodeProfileCommand() ==
+        ProfileCommand(transaction: 11, identity: identity)
+
+    for kind in {
+      MessageKind.profilePrepared, MessageKind.profileActive,
+      MessageKind.profileRolledBack,
+    }:
+      let completion =
+        kind.profileCompletionFrame(11, identity, ProfileOutcomeKind.accepted)
+      check completion.encodeFrame().decodeFrame(kind).decodeProfileCompletion() ==
+        ProfileCompletion(
+          transaction: 11, identity: identity, outcome: ProfileOutcomeKind.accepted
+        )
+
+  test "typed profile controls reject every null identity field":
+    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
+    identity.profileDigest[0] = 1
+
+    for invalid in [
+      ProfileIdentity(
+        connectionEpoch: 0,
+        profileGeneration: identity.profileGeneration,
+        profileDigest: identity.profileDigest,
+      ),
+      ProfileIdentity(
+        connectionEpoch: identity.connectionEpoch,
+        profileGeneration: 0,
+        profileDigest: identity.profileDigest,
+      ),
+      ProfileIdentity(connectionEpoch: 9, profileGeneration: 7),
+    ]:
+      expect PolicyProtocolError:
+        discard MessageKind.profilePrepare.profileCommandFrame(11, invalid)

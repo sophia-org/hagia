@@ -15,7 +15,7 @@ output affinity, hidden-surface admission, deterministic fixed-point scrolling
 columns, and registered focus, view, movement, and size actions. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
 transport. The installed physical checkpoint/restart workload has passed. This
-promotes the bootstrap path for daily use; it does not freeze revision 2.
+promotes the bootstrap path for daily use; it does not freeze revision 3.
 Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 
 ## Milestone 1: Geometry And Reconciliation
@@ -144,6 +144,12 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   owners before graphical setup, including generation-wide rollback tests at
   every failure position. Activation, recovery, and watched reload remain
   deliberately deferred.
+- [x] Extend the shared `sophia_wm_v1` schema to revision 3 with bounded,
+  typed prepare, activate, and rollback records for the external policy
+  authority. Hagia validates exact epoch, generation, digest, outcome, and
+  reserved fields against the generated Sophia corpus. The capability is not
+  requested or active in production until the authority-local state machine
+  and pre-graphics acknowledgement barrier are connected.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
@@ -174,4 +180,4 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [ ] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
 - [ ] Only then run the shared cross-client reconnect/restart corpus, archive a
-  revision-2 compatibility client, and evaluate `sophia_wm_v1` for stability.
+  revision-3 compatibility client, and evaluate `sophia_wm_v1` for stability.

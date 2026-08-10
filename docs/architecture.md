@@ -23,7 +23,7 @@ Sophia dependency or authority model.
 
 Port completion is defined by the
 [`triad-port-ledger.md`](triad-port-ledger.md). The initial fixed profile is an
-experimental boundary proof, not the revision-2 feature ceiling. Retained
+experimental boundary proof, not the revision-3 feature ceiling. Retained
 Triad behavior may expose missing WM facts or operations while it is ported, so
 `sophia_wm_v1` must remain revisable until that ledger closes.
 
@@ -115,7 +115,7 @@ the complete live output set. The request contains no placement or private
 identity. Sophia answers with an ordinary fresh snapshot/request cycle; normal
 action cycles do not create redundant refreshes.
 
-The revision-2 black-box proof keeps one authenticated connection and private
+The revision-3 black-box proof keeps one authenticated connection and private
 adapter across eleven Sophia-owned cycles: constrained single output,
 two-output partition, output loss with migration, the same raw output returning
 at a new generation, an ordered focus action, timeout discard, and successful
@@ -281,6 +281,13 @@ through a transient fixed-field dispatcher. It runs before display, device, or
 process setup; success retains the coordinator and every participant at the
 same `Prepared` key, while failure at any position rolls all seven owners back
 and aborts. The dispatcher fails closed on activation requests.
+
+Wire revision 3 reserves fixed-size profile prepare, activate, and rollback
+commands and their typed completions for the external Hagia policy authority.
+The independent Hagia decoder rejects null identity components, malformed
+digests, unknown outcomes, and nonzero reserved fields and is checked against
+Sophia's generated golden corpus. Production does not request the capability
+yet; wire availability is not authority activation.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

@@ -190,7 +190,7 @@ proc appendWireCycle(
 
 proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   var payload: seq[byte]
-  payload.addU16(2)
+  payload.addU16(3)
   payload.addU16(0)
   payload.addU64(7 or (1'u64 shl 8))
   payload.addU64(epoch)
