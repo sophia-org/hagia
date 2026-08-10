@@ -382,12 +382,71 @@ proc cycleLayout*(model: var PolicyModel, outputId: OutputId, delta = 1) =
       wrappedIndex(current, delta, model.settings.layoutCycle.len)
   model.views[viewId].layout = model.settings.layoutCycle[index]
 
+proc profileViewForSlot(model: PolicyModel, outputId: OutputId, slot: uint32): ViewId =
+  for viewId in model.outputs[outputId].views:
+    let tags = model.viewTagIds(viewId)
+    if tags.len == 1 and model.tags[tags[0]].kind == TagKind.profile and
+        model.tags[tags[0]].slot == slot:
+      return viewId
+  nullViewId
+
+proc removeView(model: var PolicyModel, viewId: ViewId) =
+  if viewId notin model.views:
+    return
+  for outputId in model.outputOrder:
+    if model.outputs[outputId].activeView == viewId:
+      fail("active configured view must be replaced before removal")
+    model.outputs[outputId].views.keepItIf(it != viewId)
+  for outputId in model.affinityOrder:
+    model.affinities[outputId].views.keepItIf(it != viewId)
+    if model.affinities[outputId].activeView == viewId:
+      if model.affinities[outputId].views.len == 0:
+        fail("configured view removal detached an output affinity")
+      model.affinities[outputId].activeView = model.affinities[outputId].views[0]
+  model.viewTags.del(viewId)
+  model.views.del(viewId)
+
+proc reconcilePolicySettings*(model: var PolicyModel) =
+  ## Prepare a configuration candidate against stable logical state. Existing
+  ## native layout selections survive when the new cycle still admits them;
+  ## removed fixed profile views never recycle identity or discard window tags.
+  if model.settings.viewCount < 1 or model.settings.viewCount > 9 or
+      model.settings.layoutCycle.len == 0:
+    fail("policy settings candidate is invalid")
+  for viewId in model.views.ids:
+    if model.views[viewId].layout notin model.settings.layoutCycle:
+      model.views[viewId].layout = model.settings.layoutCycle[0]
+  let outputs = model.outputOrder
+  for outputId in outputs:
+    for slot in 1'u32 .. uint32(model.settings.viewCount):
+      if model.profileViewForSlot(outputId, slot) == nullViewId:
+        discard model.addView(outputId, [model.profileTag(slot)])
+    var removed: seq[ViewId]
+    for viewId in model.outputs[outputId].views:
+      let tags = model.viewTagIds(viewId)
+      if tags.len == 1 and model.tags[tags[0]].kind == TagKind.profile and
+          model.tags[tags[0]].slot > uint32(model.settings.viewCount):
+        removed.add(viewId)
+    if model.outputs[outputId].activeView in removed:
+      model.activateView(outputId, model.profileViewForSlot(outputId, 1))
+    for viewId in removed:
+      model.removeView(viewId)
+    var ordered: seq[ViewId]
+    for slot in 1'u32 .. uint32(model.settings.viewCount):
+      let viewId = model.profileViewForSlot(outputId, slot)
+      if viewId != nullViewId:
+        ordered.add(viewId)
+    for viewId in model.outputs[outputId].views:
+      if viewId notin ordered:
+        ordered.add(viewId)
+    model.outputs[outputId].views = ordered
+
 proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
   if outputId notin model.outputs or count < 1 or count > 9:
     fail("view profile is outside Hagia's bounded range")
-  while model.outputs[outputId].views.len < count:
-    let slot = uint32(model.outputs[outputId].views.len + 1)
-    discard model.addView(outputId, [model.profileTag(slot)])
+  for slot in 1'u32 .. uint32(count):
+    if model.profileViewForSlot(outputId, slot) == nullViewId:
+      discard model.addView(outputId, [model.profileTag(slot)])
 
 proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
   if bounds.width <= 0 or bounds.height <= 0:

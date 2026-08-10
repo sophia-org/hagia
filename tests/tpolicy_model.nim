@@ -1,5 +1,6 @@
-import std/[net, options, os, posix, tables, tempfiles, unittest]
+import std/[net, options, os, posix, strutils, tables, tempfiles, unittest]
 
+import config/profile
 import policy/[actions, projection, state, types]
 import
   sophia/[
@@ -669,6 +670,37 @@ suite "Hagia private policy model":
     model.validate()
 
 suite "Sophia snapshot adapter":
+  test "policy candidates reconcile atomically against live logical state":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[]))
+    let originalCounter = adapter.model().counters.views
+    let candidate = AuthorityCandidate(
+      authority: ProfileAuthority.policy,
+      generation: 2,
+      digest: repeat('a', 64),
+      values: @[
+        ProfileValue(key: "policy.layout", encoded: "layout \"grid\""),
+        ProfileValue(key: "policy.layout-cycle", encoded: "layout-cycle \"grid\""),
+        ProfileValue(key: "policy.view-count", encoded: "view-count 3"),
+      ],
+    )
+    adapter.applyPolicyCandidate(candidate)
+    let logicalOutput = adapter.logicalOutput(10).get()
+    check adapter.model().outputs[logicalOutput].views.len == 3
+    check adapter.model().counters.views == originalCounter
+    for viewId in adapter.model().outputs[logicalOutput].views:
+      check adapter.model().views[viewId].layout == LayoutMode.grid
+    let preparedPayload = adapter.checkpointPayload()
+
+    var rejected = candidate
+    rejected.generation = 3
+    rejected.values[2].encoded = "view-count 0"
+    expect DesktopProfileError:
+      adapter.applyPolicyCandidate(rejected)
+    check adapter.checkpointPayload() == preparedPayload
+    adapter.model().validate()
+
   test "projection uses the Engine work rectangle":
     let output = SnapshotOutput(
       output: 10,

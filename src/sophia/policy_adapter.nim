@@ -145,15 +145,21 @@ proc constrainedExtent(extent, minimum, maximum, exact: int32): int32 =
   if maximum > 0:
     result = min(result, maximum)
 
+proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate)
+
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
 
 proc initPolicyAdapter*(candidate: AuthorityCandidate): PolicyAdapter =
   result = initPolicyAdapter()
-  result.model.applyPolicyCandidate(candidate)
+  result.applyPolicyCandidate(candidate)
 
 proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate) =
-  adapter.model.applyPolicyCandidate(candidate)
+  var prepared = adapter.model.clone()
+  prepared.applyPolicyCandidate(candidate)
+  prepared.reconcilePolicySettings()
+  prepared.validate()
+  adapter.model = prepared
 
 proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   result.model = adapter.model.clone()
@@ -307,6 +313,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   if dto.schema != 2:
     fail("policy checkpoint schema is invalid")
   result.model.counters = dto.counters
+  if dto.settings.layoutCycle.len == 0:
+    dto.settings.layoutCycle = defaultLayoutCycle
   result.model.settings = dto.settings
   result.model.activeOutput = OutputId(dto.activeOutput)
   for window in dto.windows:

@@ -1,4 +1,4 @@
-import std/sequtils
+import std/[sequtils, strutils]
 
 import kdl
 
@@ -54,7 +54,8 @@ proc layoutCycleValue(value: ProfileValue): seq[LayoutMode] =
     result.add(layout)
 
 proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate) =
-  if candidate.authority != ProfileAuthority.policy:
+  if candidate.authority != ProfileAuthority.policy or candidate.generation == 0 or
+      candidate.digest.len != 64 or not candidate.digest.allCharsInSet(HexDigits):
     raise newException(DesktopProfileError, "Hagia received a non-policy candidate")
   var settings = defaultPolicySettings
   var defaultLayout = LayoutMode.scroller

@@ -130,9 +130,10 @@ proc reduceRuntime*(model: RuntimeModel, message: RuntimeMsg): RuntimeUpdate =
   of RuntimeMsgKind.effectCompleted:
     if message.success and message.completedEffect == RuntimeEffectKind.persistCheckpoint:
       result.model.checkpointDirty = false
-    if message.success and message.completedEffect == RuntimeEffectKind.prepareProfile and
+    if message.completedEffect == RuntimeEffectKind.prepareProfile and
         message.digest.len > 0 and message.digest == model.candidateProfileDigest:
-      result.model.activeProfileDigest = message.digest
+      if message.success:
+        result.model.activeProfileDigest = message.digest
+        result.model.profileGeneration = message.generation
       result.model.candidateProfileDigest.setLen(0)
-      result.model.profileGeneration = message.generation
       result.model.phase = RuntimePhase.idle

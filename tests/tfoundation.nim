@@ -87,6 +87,25 @@ suite "Hagia foundation":
     check runtime.candidateProfileDigest.len == 0
     check runtime.profileGeneration == 2
 
+    runtime = runtime.reduceRuntime(
+      RuntimeMsg(
+        kind: RuntimeMsgKind.configurationPrepared, generation: 4, digest: "candidate-2"
+      )
+    ).model
+    runtime = runtime.reduceRuntime(
+      RuntimeMsg(
+        kind: RuntimeMsgKind.effectCompleted,
+        generation: 4,
+        digest: "candidate-2",
+        completedEffect: RuntimeEffectKind.prepareProfile,
+        success: false,
+      )
+    ).model
+    check runtime.phase == RuntimePhase.idle
+    check runtime.activeProfileDigest == "old"
+    check runtime.candidateProfileDigest.len == 0
+    check runtime.profileGeneration == 2
+
   test "effect execution returns typed reducer completion":
     let executor = RuntimeEffectExecutor(
       persistCheckpoint: proc(effect: RuntimeEffect): bool =

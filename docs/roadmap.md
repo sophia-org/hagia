@@ -90,8 +90,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   authority candidates, compiled fallback, offline CLI, and semantic Triad
   migration. Trusted Sophia startup now validates and stages all authority
   fragments while Hagia receives only its policy candidate. The executable
-  prepare/activate/rollback barrier is modeled and tested; live authority
-  protocol wiring and watched activation remain deliberately deferred.
+  prepare/activate/rollback barrier is modeled and tested. Policy candidates
+  reconcile atomically against live/checkpoint logical state and retain the
+  last-known-good model on failure; live authority protocol wiring and watched
+  activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
