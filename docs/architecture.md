@@ -249,6 +249,11 @@ Trusted startup now retains the canonical typed session payload in a real
 session-owned generic slot and derives the effective application configuration
 from that slot's candidate. Tests require exact bundle/key parity and
 `Prepared` phase; configuration assembly cannot promote the slot.
+The generic slot now has one shared prepared-candidate constructor, avoiding
+repeated initialization sequencing. Sophia's public shortcut owner uses it to
+retain its own typed candidate and resolves registrations only from the slot
+payload. Session and shortcut state remain with separate owners rather than a
+coordinator-owned slot collection, and neither slot is promoted yet.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
