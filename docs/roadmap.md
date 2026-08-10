@@ -121,7 +121,9 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   silent command or behavior loss. Typed input, named-output,
   initial-workspace, terminal, logout, and every recorded physical binding now
   have deterministic migration results; deferred layout geometry, commands,
-  and feature families remain explicit unsupported/excluded rows.
+  and feature families remain explicit unsupported/excluded rows. The current
+  generated profile passes both Hagia's structural check and Sophia's complete
+  typed authority-candidate check with the same digest.
 - [ ] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
 - [ ] Only then run the shared cross-client reconnect/restart corpus, archive a

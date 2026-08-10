@@ -116,9 +116,11 @@ so ordinary Hagia tests do not acquire a Triad checkout dependency.
 The command was also exercised read-only against the current daily-driver
 profile. It produced 368 explicit report rows, including all 174 physical
 bindings, with every row assigned to an authority and result. The generated
-Hagia profile passed `config check`; migration wrote only to its explicit
-temporary output directory and did not read or overwrite active Hagia
-configuration.
+Hagia profile passed Hagia's structural `config check` and Sophia's complete
+typed candidate check with digest
+`82c476d0b3727683fb2c7efe914a74c6792b5eb12fdfb133697b4954cea5ec0d`;
+migration wrote only to its explicit temporary output directory and did not
+read or overwrite active Hagia configuration.
 
 No River/Wayland adapter, generated protocol module, shell implementation,
 metadata rule, or Triad project history is imported. Hagia reuses the shared

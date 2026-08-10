@@ -214,6 +214,10 @@ out-of-range values are reported as unsupported instead of inheriting Triad's
 last-writer behavior. Physical output `layout` remains explicit in the report
 but is not guessed: automatic scale and transform require the trusted topology
 adapter before positions can be derived safely.
+Sophia exposes the same complete typed preparation path through
+`sophia config check --desktop-profile=/absolute/path`, allowing generated
+profiles to fail before graphical startup without device discovery or
+activation.
 
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
