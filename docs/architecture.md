@@ -180,8 +180,15 @@ generation, and digest types, with mirrored tests for the rejected-generation
 reuse defect found during Hagia's formal-verification pass. Its startup-only
 driver now completes both barriers or cancels the failing phase and attempts
 generation-wide rollback, including every participant after a rollback
-failure. Watched live reload remains disabled until Sophia populates those
-handlers through dedicated authority protocols.
+failure. Sophia also has one shared pure authority-participant transition model
+instead of seven bespoke implementations. It consumes generations
+monotonically, retains the last admitted full key, makes exact retries
+idempotent, restores the exact previous active key, treats only strictly older
+cleanup as stale, and rejects a same-generation digest mismatch. No production
+handler invokes that model yet. Startup may eventually hide partial local
+activation behind the graphical launch gate; watched live reload cannot use
+that assumption and remains disabled until a separate global visibility and
+recovery protocol is proved and populated through dedicated authorities.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
