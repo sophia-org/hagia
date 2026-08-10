@@ -132,8 +132,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   reads that prepared payload, but startup assembly cannot activate it. A
   shared constructor now prepares the public shortcut owner's separate slot;
   registration resolution reads only that retained payload. No centralized
-  slot collection was introduced. Live authority protocols, recovery, and
-  watched activation remain deliberately deferred.
+  slot collection was introduced. The transient typed bundle is now partitioned
+  once into separate session, input, output, and shortcut ownership; current
+  input overlays and output reconciliation read those prepared payloads. Live
+  authority protocols, recovery, and watched activation remain deliberately
+  deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

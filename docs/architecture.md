@@ -254,6 +254,12 @@ repeated initialization sequencing. Sophia's public shortcut owner uses it to
 retain its own typed candidate and resolves registrations only from the slot
 payload. Session and shortcut state remain with separate owners rather than a
 coordinator-owned slot collection, and neither slot is promoted yet.
+The startup typed bundle is now transient and partitioned exactly once. Session,
+input, and output enter cohesive owner records backed by their separate
+prepared slots; shortcut remains only as the transfer payload until its public
+owner constructs the fourth slot. Keyboard/pointer overlay and output
+reconciliation consume their owner payloads, leaving no long-lived centralized
+bundle and changing no hardware state.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
