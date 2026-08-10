@@ -67,7 +67,20 @@ proc run(arguments: seq[string]) =
   )
   if socketPath.len == 0:
     raise newException(ValueError, "hagia: SOPHIA_WM_SOCKET or --socket is required")
-  runPolicySession(socketPath, candidate)
+  case getEnv("HAGIA_POLICY_PROFILE_ACTIVATION")
+  of "":
+    runPolicySession(socketPath, candidate)
+  of "required":
+    if candidatePath.len == 0:
+      raise newException(
+        ValueError,
+        "hagia: profile activation requires Sophia's staged policy candidate",
+      )
+    runProfileActivatedPolicySession(socketPath, candidate)
+  else:
+    raise newException(
+      ValueError, "hagia: HAGIA_POLICY_PROFILE_ACTIVATION must be empty or required"
+    )
 
 try:
   run(commandLineParams())

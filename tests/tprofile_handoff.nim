@@ -200,6 +200,41 @@ suite "Hagia profile authority handoff":
     joinThread(thread)
     check disposition == StartupProfileHandoffDisposition.activated
 
+  test "stale connection epoch cannot cross the activation barrier":
+    var descriptors: array[0 .. 1, cint]
+    require posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, descriptors) == 0
+    let server = newSocket(
+      SocketHandle(descriptors[0]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    defer:
+      server.close()
+    var disposition = StartupProfileHandoffDisposition.activated
+    var thread: Thread[ClientThreadArgs]
+    createThread(
+      thread,
+      runClient,
+      ClientThreadArgs(
+        fd: SocketHandle(descriptors[1]),
+        candidate: candidate(7, "5a"),
+        disposition: addr disposition,
+      ),
+    )
+
+    discard server.receiveTestFrame()
+    server.sendTestFrame(welcome(9))
+    server.sendTestFrame(
+      MessageKind.profilePrepare.profileCommandFrame(1, identity(8, 7, 0x5a))
+    )
+    let rejected = server.receiveTestFrame().decodeProfileCompletion()
+    check rejected.outcome == ProfileOutcomeKind.rejectedIdentity
+    discard posix.shutdown(SocketHandle(descriptors[0]), posix.SHUT_WR)
+    joinThread(thread)
+    check disposition == StartupProfileHandoffDisposition.rejected
+
   test "normal configuration follows Active on the same connection":
     var descriptors: array[0 .. 1, cint]
     require posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, descriptors) == 0
