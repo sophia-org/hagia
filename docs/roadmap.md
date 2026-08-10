@@ -119,8 +119,11 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   payloads; typed and admitted-fragment preparation shares this path, semantic
   retries ignore only provenance paths, and every rejected transition leaves
   identity and payload unchanged. The slot is not a coordinator-owned state
-  collection and has no production effect handler. Live authority protocols,
-  recovery, and watched activation remain deliberately deferred.
+  collection and has no production effect handler. Sophia's offline refinement
+  executor now runs the full prepare, activate, rollback, and recovery failure
+  matrix through seven such slots, proving payload promotion and
+  last-known-good restoration as well as identity convergence. Live authority
+  protocols, recovery, and watched activation remain deliberately deferred.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
