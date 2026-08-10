@@ -154,6 +154,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   exact epoch/transaction/generation/digest settlement, inert stale replies,
   deterministic retry, explicit rollback after rejection, and candidate-state
   discard. Production capability negotiation remains disabled.
+- [x] Add opt-in typed socket plumbing and isolated Unix-socket tests for the
+  startup handoff. Hagia's participant receive path is bounded and rejects
+  normal policy traffic before activation. The installed connection path still
+  omits the capability and has no behavioral change.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

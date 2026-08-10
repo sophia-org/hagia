@@ -293,6 +293,11 @@ candidate to that identity, accepts only exact phase transitions, makes exact
 retries idempotent, and discards prepared or active candidate state on
 rollback. It remains outside the socket loop until the pre-graphics process
 owner can complete the full prepare/activate/rollback barrier.
+The policy client now contains a bounded startup-only socket loop that requests
+the capability explicitly, reduces commands through that participant, and
+sends the matching typed completion before accepting another phase. Its
+socketpair test proves negotiation and exact prepare/activate ordering. Normal
+policy connections do not call this loop and still omit the capability.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

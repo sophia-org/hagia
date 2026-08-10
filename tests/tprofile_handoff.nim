@@ -1,7 +1,61 @@
-import std/[strutils, unittest]
+import std/[net, posix, strutils, unittest]
 
 import config/profile
+import sophia/policy_client
 import sophia/[profile_handoff, wm_v1]
+
+type ClientThreadArgs = object
+  fd: SocketHandle
+  candidate: AuthorityCandidate
+  disposition: ptr StartupProfileHandoffDisposition
+
+proc runClient(args: ClientThreadArgs) {.thread.} =
+  let socket =
+    newSocket(args.fd, Domain.AF_UNIX, SockType.SOCK_STREAM, Protocol.IPPROTO_IP, false)
+  try:
+    args.disposition[] = socket.runStartupProfileHandoff(args.candidate)
+  except CatchableError:
+    args.disposition[] = StartupProfileHandoffDisposition.rejected
+  finally:
+    socket.close()
+
+proc receiveTestFrame(socket: Socket): Frame =
+  proc exact(length: int): string =
+    while result.len < length:
+      let part = socket.recv(length - result.len, 1_000)
+      if part.len == 0:
+        raise newException(IOError, "test frame is truncated")
+      result.add(part)
+
+  var bytes: seq[byte]
+  let header = exact(frameHeaderLen)
+  for value in header:
+    bytes.add(byte(value))
+  let payloadLen = int(bytes.u32At(16))
+  let payload = exact(payloadLen)
+  for value in payload:
+    bytes.add(byte(value))
+  bytes.decodeFrame()
+
+proc sendTestFrame(socket: Socket, frame: Frame) =
+  let bytes = frame.encodeFrame()
+  var data = newString(bytes.len)
+  for index, value in bytes:
+    data[index] = char(value)
+  socket.send(data)
+
+proc welcome(epoch: uint64): Frame =
+  result.kind = MessageKind.serverWelcome
+  result.payload.addU16(3)
+  result.payload.addU16(0)
+  result.payload.addU64(
+    (1'u64 shl 0) or (1'u64 shl 1) or (1'u64 shl 2) or (1'u64 shl 8) or (1'u64 shl 9)
+  )
+  result.payload.addU64(epoch)
+  result.payload.addU16(uint16(maxOutputs))
+  result.payload.addU16(uint16(maxBindings))
+  result.payload.addU32(uint32(maxSurfaces))
+  result.payload.addU32(uint32(maxPayloadLen))
 
 proc candidate(generation: uint64, digestByte: string): AuthorityCandidate =
   AuthorityCandidate(
@@ -32,7 +86,7 @@ proc reduce(
 suite "Hagia profile authority handoff":
   test "exact prepare and activate promote only the loaded candidate":
     let identity = identity(9, 7, 0x5a)
-    let loaded = candidate(7, "5a").initProfileHandoff()
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
     check loaded.phase == ProfileHandoffPhase.loaded
 
     let prepared = loaded.reduce(ProfileHandoffMsgKind.prepare, 1, identity)
@@ -46,15 +100,15 @@ suite "Hagia profile authority handoff":
     check active.model.activeIdentity == identity
 
   test "file and wire identity mismatch is rejected without mutation":
-    let loaded = candidate(7, "5a").initProfileHandoff()
-    for wrong in [identity(9, 8, 0x5a), identity(9, 7, 0xa5)]:
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
+    for wrong in [identity(8, 7, 0x5a), identity(9, 8, 0x5a), identity(9, 7, 0xa5)]:
       let update = loaded.reduce(ProfileHandoffMsgKind.prepare, 1, wrong)
       check update.model == loaded
       check update.completion.outcome == ProfileOutcomeKind.rejectedIdentity
 
   test "phase and epoch mismatches fail closed":
     let exact = identity(9, 7, 0x5a)
-    let loaded = candidate(7, "5a").initProfileHandoff()
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
     let premature = loaded.reduce(ProfileHandoffMsgKind.activate, 1, exact)
     check premature.model == loaded
     check premature.completion.outcome == ProfileOutcomeKind.rejectedState
@@ -67,7 +121,7 @@ suite "Hagia profile authority handoff":
 
   test "exact retries are idempotent and preserve the latest transaction":
     let exact = identity(9, 7, 0x5a)
-    let loaded = candidate(7, "5a").initProfileHandoff()
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
     let prepared = loaded.reduce(ProfileHandoffMsgKind.prepare, 1, exact).model
     let retried = prepared.reduce(ProfileHandoffMsgKind.prepare, 2, exact)
     check retried.model == prepared
@@ -76,7 +130,7 @@ suite "Hagia profile authority handoff":
 
   test "rollback discards prepared or active candidate state":
     let exact = identity(9, 7, 0x5a)
-    let loaded = candidate(7, "5a").initProfileHandoff()
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
     let prepared = loaded.reduce(ProfileHandoffMsgKind.prepare, 1, exact).model
     let rolledBack = prepared.reduce(ProfileHandoffMsgKind.rollback, 2, exact)
     check rolledBack.model.phase == ProfileHandoffPhase.rolledBack
@@ -93,7 +147,52 @@ suite "Hagia profile authority handoff":
         authority: ProfileAuthority.session,
         generation: 1,
         digest: repeat("11", profileDigestLen),
-      ).initProfileHandoff()
-    let loaded = candidate(7, "5a").initProfileHandoff()
+      ).initProfileHandoff(9)
+    expect ProfileHandoffError:
+      discard candidate(1, "11").initProfileHandoff(0)
+    let loaded = candidate(7, "5a").initProfileHandoff(9)
     expect ProfileHandoffError:
       discard loaded.reduce(ProfileHandoffMsgKind.prepare, 0, identity(9, 7, 0x5a))
+
+  test "private socket handshake activates only after exact acknowledgements":
+    var descriptors: array[0 .. 1, cint]
+    require posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, descriptors) == 0
+    let server = newSocket(
+      SocketHandle(descriptors[0]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    defer:
+      server.close()
+    var disposition = StartupProfileHandoffDisposition.rejected
+    var thread: Thread[ClientThreadArgs]
+    createThread(
+      thread,
+      runClient,
+      ClientThreadArgs(
+        fd: SocketHandle(descriptors[1]),
+        candidate: candidate(7, "5a"),
+        disposition: addr disposition,
+      ),
+    )
+
+    let hello = server.receiveTestFrame()
+    check hello.kind == MessageKind.clientHello
+    check (hello.payload.u64At(4) and (1'u64 shl 9)) != 0
+    server.sendTestFrame(welcome(9))
+    let exact = identity(9, 7, 0x5a)
+    server.sendTestFrame(MessageKind.profilePrepare.profileCommandFrame(1, exact))
+    let prepared = server.receiveTestFrame().decodeProfileCompletion()
+    check prepared.transaction == 1
+    check prepared.identity == exact
+    check prepared.outcome == ProfileOutcomeKind.accepted
+
+    server.sendTestFrame(MessageKind.profileActivate.profileCommandFrame(2, exact))
+    let active = server.receiveTestFrame().decodeProfileCompletion()
+    check active.transaction == 2
+    check active.identity == exact
+    check active.outcome == ProfileOutcomeKind.accepted
+    joinThread(thread)
+    check disposition == StartupProfileHandoffDisposition.activated

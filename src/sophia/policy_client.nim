@@ -3,16 +3,26 @@ import std/[net, options, os, sets, strutils]
 import ../config/profile
 import ../observability
 import ../policy/actions
-import ./[policy_adapter, policy_checkpoint, policy_session, session_types, wm_v1]
+import
+  ./[
+    policy_adapter, policy_checkpoint, policy_session, profile_handoff, session_types,
+    wm_v1,
+  ]
 
 type
   PolicyClientError* = object of CatchableError
+
+  StartupProfileHandoffDisposition* {.pure.} = enum
+    activated
+    rolledBack
+    rejected
 
   PolicyClient = ref object
     socket: Socket
     connectionEpoch: uint64
     capabilities: uint64
     nextTransaction: uint64
+    readTimeoutMsec: int
 
 var configuredFaultOccurrences {.threadvar.}: int
 
@@ -25,6 +35,7 @@ const
   capabilityConfiguration = 1'u64 shl 6
   capabilitySessionOperations = 1'u64 shl 7
   capabilityIndicators = 1'u64 shl 8
+  capabilityProfileActivation = 1'u64 shl 9
   surfaceFocusable = 1'u16 shl 2
 
 proc fail(message: string) {.noreturn.} =
@@ -59,23 +70,33 @@ proc toBinaryString(data: openArray[byte]): string =
   for index, value in data:
     result[index] = char(value)
 
-proc receiveExact(socket: Socket, length: int): seq[byte] =
+proc receiveExact(socket: Socket, length: int, timeoutMsec = -1): seq[byte] =
   result = newSeqOfCap[byte](length)
   while result.len < length:
-    let part = socket.recv(length - result.len)
+    let part = socket.recv(length - result.len, timeoutMsec)
     if part.len == 0:
       fail("policy socket closed during a frame")
     result.add(part.toBytes())
 
 proc receiveFrame(client: PolicyClient, kind: MessageKind): Frame =
-  let header = client.socket.receiveExact(frameHeaderLen)
+  let header = client.socket.receiveExact(frameHeaderLen, client.readTimeoutMsec)
   let payloadLen = int(header.u32At(16))
   if payloadLen > maxPayloadLen:
     fail("policy frame payload is excessive")
-  let payload = client.socket.receiveExact(payloadLen)
+  let payload = client.socket.receiveExact(payloadLen, client.readTimeoutMsec)
   var bytes = header
   bytes.add(payload)
   bytes.decodeFrame(kind)
+
+proc receiveFrame(client: PolicyClient): Frame =
+  let header = client.socket.receiveExact(frameHeaderLen, client.readTimeoutMsec)
+  let payloadLen = int(header.u32At(16))
+  if payloadLen > maxPayloadLen:
+    fail("policy frame payload is excessive")
+  let payload = client.socket.receiveExact(payloadLen, client.readTimeoutMsec)
+  var bytes = header
+  bytes.add(payload)
+  bytes.decodeFrame()
 
 proc sendFrame(client: PolicyClient, frame: Frame) =
   client.socket.send(frame.encodeFrame().toBinaryString())
@@ -91,19 +112,27 @@ proc connectWhenReady(path: string): Socket =
       sleep(10)
   fail("Sophia policy socket did not become ready")
 
-proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
-  result = PolicyClient(socket: socket, nextTransaction: 1)
+proc negotiatePolicy(
+    socket: Socket, requestConfiguration: bool, requestProfileActivation = false
+): PolicyClient =
+  result = PolicyClient(
+    socket: socket,
+    nextTransaction: 1,
+    readTimeoutMsec: (if requestProfileActivation: 4_000 else: -1),
+  )
   var payload: seq[byte]
   payload.addU16(3)
   payload.addU16(3)
   # Request only behavior implemented by this client. The independent codec
   # still checks every experimental revision-3 message in the shared corpus.
-  let optional =
+  var optional =
     if requestConfiguration:
       capabilityChrome or capabilityPolicyDirty or capabilityConfiguration or
         capabilitySessionOperations
     else:
       0'u64
+  if requestProfileActivation:
+    optional = optional or capabilityProfileActivation
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityIndicators or optional
@@ -125,6 +154,9 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
     fail("Sophia omitted a required policy capability")
   if requestConfiguration and (result.capabilities and optional) != optional:
     fail("Sophia omitted native policy configuration")
+  if requestProfileActivation and
+      (result.capabilities and capabilityProfileActivation) == 0:
+    fail("Sophia omitted desktop profile activation")
   result.connectionEpoch = welcome.payload.u64At(12)
   if result.connectionEpoch == 0 or welcome.payload.u16At(20) == 0 or
       welcome.payload.u16At(20) > uint16(maxOutputs) or welcome.payload.u32At(24) == 0 or
@@ -136,6 +168,67 @@ proc negotiatePolicy(socket: Socket, requestConfiguration: bool): PolicyClient =
 
 proc connectPolicy(path: string, requestConfiguration: bool): PolicyClient =
   path.connectWhenReady().negotiatePolicy(requestConfiguration)
+
+proc settleProfileCommand(
+    client: PolicyClient,
+    model: var ProfileHandoffModel,
+    kind: ProfileHandoffMsgKind,
+    frame: Frame,
+): ProfileOutcomeKind =
+  let expected =
+    case kind
+    of ProfileHandoffMsgKind.prepare: MessageKind.profilePrepare
+    of ProfileHandoffMsgKind.activate: MessageKind.profileActivate
+    of ProfileHandoffMsgKind.rollback: MessageKind.profileRollback
+  if frame.kind != expected:
+    fail("desktop profile command is out of phase")
+  let update = model.reduceProfileHandoff(
+    ProfileHandoffMsg(kind: kind, command: frame.decodeProfileCommand())
+  )
+  model = update.model
+  let response =
+    case kind
+    of ProfileHandoffMsgKind.prepare: MessageKind.profilePrepared
+    of ProfileHandoffMsgKind.activate: MessageKind.profileActive
+    of ProfileHandoffMsgKind.rollback: MessageKind.profileRolledBack
+  client.sendFrame(
+    response.profileCompletionFrame(
+      update.completion.transaction, update.completion.identity,
+      update.completion.outcome,
+    )
+  )
+  update.completion.outcome
+
+proc runStartupProfileHandoff*(
+    socket: Socket, candidate: AuthorityCandidate
+): StartupProfileHandoffDisposition =
+  ## Bounded startup-only participant loop. It cannot enter the normal policy
+  ## cycle and returns only after exact activation or rollback settlement.
+  let client = socket.negotiatePolicy(false, true)
+  var model = candidate.initProfileHandoff(client.connectionEpoch)
+  let prepared = client.settleProfileCommand(
+    model, ProfileHandoffMsgKind.prepare, client.receiveFrame()
+  )
+  if prepared != ProfileOutcomeKind.accepted:
+    operationalLog(OperationalLevel.failure, "profile_prepare", "rejected_identity")
+
+  for _ in 0 ..< 2:
+    let frame = client.receiveFrame()
+    case frame.kind
+    of MessageKind.profileActivate:
+      let outcome =
+        client.settleProfileCommand(model, ProfileHandoffMsgKind.activate, frame)
+      if outcome == ProfileOutcomeKind.accepted:
+        return StartupProfileHandoffDisposition.activated
+    of MessageKind.profileRollback:
+      let outcome =
+        client.settleProfileCommand(model, ProfileHandoffMsgKind.rollback, frame)
+      if outcome == ProfileOutcomeKind.accepted:
+        return StartupProfileHandoffDisposition.rolledBack
+      return StartupProfileHandoffDisposition.rejected
+    else:
+      fail("normal policy traffic preceded desktop profile activation")
+  StartupProfileHandoffDisposition.rejected
 
 proc recordBytes(payload: openArray[byte], index, size: int): seq[byte] =
   let first = 16 + index * size

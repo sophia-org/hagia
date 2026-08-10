@@ -17,6 +17,7 @@ type
 
   ProfileHandoffModel* = object
     phase*: ProfileHandoffPhase
+    connectionEpoch*: uint64
     candidateGeneration*: uint64
     candidateDigest*: array[profileDigestLen, byte]
     preparedIdentity*: ProfileIdentity
@@ -52,15 +53,20 @@ proc decodeProfileDigest(value: string): array[profileDigestLen, byte] =
     result[index] =
       (value[index * 2].hexNibble() shl 4) or value[index * 2 + 1].hexNibble()
 
-proc initProfileHandoff*(candidate: AuthorityCandidate): ProfileHandoffModel =
-  if candidate.authority != ProfileAuthority.policy or candidate.generation == 0:
+proc initProfileHandoff*(
+    candidate: AuthorityCandidate, connectionEpoch: uint64
+): ProfileHandoffModel =
+  if candidate.authority != ProfileAuthority.policy or candidate.generation == 0 or
+      connectionEpoch == 0:
     fail("profile handoff requires a nonzero policy candidate")
   result.phase = ProfileHandoffPhase.loaded
+  result.connectionEpoch = connectionEpoch
   result.candidateGeneration = candidate.generation
   result.candidateDigest = candidate.digest.decodeProfileDigest()
 
 proc candidateMatches(model: ProfileHandoffModel, identity: ProfileIdentity): bool =
-  identity.profileGeneration == model.candidateGeneration and
+  identity.connectionEpoch == model.connectionEpoch and
+    identity.profileGeneration == model.candidateGeneration and
     identity.profileDigest == model.candidateDigest
 
 proc isNull(identity: ProfileIdentity): bool =

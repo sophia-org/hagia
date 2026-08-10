@@ -350,7 +350,7 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
       fail(PolicyProtocolErrorKind.fieldTooLarge, "profile outcome is invalid")
     payload.requireReserved(50, 2)
 
-proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
+proc decodeFrame*(bytes: openArray[byte]): Frame =
   if bytes.len < frameHeaderLen:
     fail(PolicyProtocolErrorKind.truncated, "truncated frame header")
   if bytes[0] != byte('S') or bytes[1] != byte('O') or bytes[2] != byte('P') or
@@ -359,8 +359,6 @@ proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
   if bytes.u16At(4) != 1:
     fail(PolicyProtocolErrorKind.unsupportedFrameVersion, "unsupported frame version")
   let kind = messageKind(bytes.u16At(6))
-  if kind != expected:
-    fail(PolicyProtocolErrorKind.wrongMessageKind, "unexpected message kind")
   let transaction = bytes.u64At(8)
   let payloadLen = int(bytes.u32At(16))
   if payloadLen > maxPayloadLen:
@@ -382,6 +380,11 @@ proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
   result.transaction = transaction
   result.payload = @bytes[frameHeaderLen ..< bytes.len]
   result.kind.validatePayload(result.payload)
+
+proc decodeFrame*(bytes: openArray[byte], expected: MessageKind): Frame =
+  result = bytes.decodeFrame()
+  if result.kind != expected:
+    fail(PolicyProtocolErrorKind.wrongMessageKind, "unexpected message kind")
 
 proc encodeFrame*(frame: Frame): seq[byte] =
   if frame.payload.len > maxPayloadLen:
