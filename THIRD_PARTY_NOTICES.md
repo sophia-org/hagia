@@ -1,8 +1,10 @@
 # Third-Party Notices
 
-Hagia's dense entity-store deletion and monotonic logical-ID allocation are
-adapted from Triad revision `fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9`,
-specifically `src/state/entity_manager.nim` and `src/state/id_gen.nim`.
+Hagia's dense entity-store deletion, monotonic logical-ID allocation, and
+recorded default physical-binding inventory are adapted from Triad revision
+`fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9`, specifically
+`src/state/entity_manager.nim`, `src/state/id_gen.nim`, and
+`config.default.kdl`.
 Triad is distributed under the following license:
 
 ```text

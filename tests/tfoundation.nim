@@ -469,8 +469,35 @@ window-rule { match app-id="browser"; }
     discard writeMigration(input, output)
     check fileExists(output / "config.kdl")
     check fileExists(output / "migration-report.txt")
+    check readFile(output / "migration-report.txt").startsWith("migration-report-v2\n")
     expect DesktopProfileError:
       discard writeMigration(input, output)
+
+  test "recorded Triad default has a complete physical binding inventory":
+    let fixture =
+      currentSourcePath().parentDir() / "fixtures" / "triad-default-bindings.kdl"
+    let report = readFile(fixture).migrateTriadProfile()
+    var keyBindings = 0
+    var pointerBindings = 0
+    for item in report.items:
+      if item.kind != MigrationItemKind.physicalBinding:
+        continue
+      check item.settingAuthority == "shortcut"
+      check item.authority.len > 0
+      check item.authority != "unowned"
+      check item.result.len > 0
+      check item.trigger.len > 0
+      check item.command.len > 0
+      case item.bindingKind
+      of MigrationBindingKind.key:
+        inc keyBindings
+      of MigrationBindingKind.pointer:
+        inc pointerBindings
+      else:
+        check false
+    check report.physicalBindingCount() == 137
+    check keyBindings == 132
+    check pointerBindings == 5
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":
     let directory = createTempDir("hagia-evidence-", "")

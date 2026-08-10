@@ -26,7 +26,8 @@ proc run(arguments: seq[string]) =
       let outputDirectory = arguments.option("output-dir")
       let report = writeMigration(inputPath, outputDirectory)
       stdout.writeLine(
-        "migrated settings=" & $report.items.len & " output=" & outputDirectory
+        "migrated settings=" & $report.items.len & " physical-bindings=" &
+          $report.physicalBindingCount() & " output=" & outputDirectory
       )
     else:
       raise newException(

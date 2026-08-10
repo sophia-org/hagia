@@ -105,10 +105,14 @@ They are tracked in `docs/triad-port-ledger.md` and block revision-1 stability
 unless explicitly excluded with an architectural or product rationale.
 
 The semantic migration command was exercised against the recorded baseline's
-`config.kdl`: all 34 classified settings received a report row (2 retained, 14
-transformed, 13 unsupported, and 5 authority-excluded), an explicit target
-authority, and a nonempty result. The generated Hagia profile passed
-`config check`. No active configuration was read or overwritten.
+`config.default.kdl`, whose blob is unchanged at the recorded revision. Its
+170 report rows comprise 33 settings and all 137 explicit physical bindings
+(132 key and 5 pointer bindings). Every physical binding records the shortcut
+authority that owns matching, the distinct authority that owns the resulting
+behavior, its context, disposition, and a nonempty semantic result; none are
+unowned. The generated Hagia profile passed `config check`. A compact fixture
+retains that exact physical inventory so ordinary Hagia tests do not acquire a
+Triad checkout dependency. No active configuration was read or overwritten.
 
 No River/Wayland adapter, generated protocol module, shell implementation,
 metadata rule, or Triad project history is imported. Hagia reuses the shared

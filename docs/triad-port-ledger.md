@@ -100,10 +100,10 @@ rejected before the port gate closes.
 
 ## Port Order
 
-The first blocking tranche continues with the remaining pure layouts now that
-dynamic workspaces, scratchpads, and reduced transient defaults are present,
-followed by candidate-validated configuration. Each tranche
-ports or reimplements the relevant Triad tests before live integration.
+The first blocking tranche now continues from the complete baseline binding
+inventory into shortcut candidate validation and cross-authority activation.
+Each later command family ports or reimplements the relevant Triad tests before
+live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
 bootstrap profile consumes 39 of revision 1's 64 binding slots, while Triad's
@@ -112,7 +112,11 @@ physical bindings. Those counts cross multiple future authorities, so they do
 not mechanically choose a new WM bound. The new multi-tag transitions therefore
 remain unbound private reducer capabilities until configuration migration
 selects retained commands and their correct owners. The inventory does prove
-that 64 cannot be frozen without first classifying and migrating that set.
+that 64 cannot be frozen without first classifying and migrating that set. The
+semantic migrator now classifies all 137 physical bindings and separately
+records shortcut-match ownership and target behavior authority. The next gate
+must convert the retained subset into validated authority-local candidates;
+unsupported rows remain explicit and cannot be mistaken for activated parity.
 
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
