@@ -173,6 +173,13 @@ any failure emits generation-wide idempotent rollback while preserving the
 last-known-good profile. Watched live reload remains disabled until Sophia wires
 that barrier through dedicated authority protocols.
 
+At startup, Sophia prepares the session fragment into bounded terminal,
+browser, startup, and logout selectors and resolves them only against its
+trusted application registry. Explicit CLI/session mappings remain superior.
+For a normal native-policy session, any shortcut that names an unavailable
+session capability rejects the profile before graphical startup; no executable
+path or argument crosses into Hagia.
+
 The shortcut fragment owns physical matching but not the invoked behavior.
 Bindings therefore carry explicit `policy:` or `session:` targets. Both
 independent profile implementations normalize chord identity, reject duplicate

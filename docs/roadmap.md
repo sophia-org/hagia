@@ -102,7 +102,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
-  opaque session capabilities or dedicated authorities.
+  opaque session capabilities or dedicated authorities. Terminal, browser,
+  startup, and logout selectors are now prepared by Sophia against its trusted
+  application registry and lowered to opaque operation slots; capture, locking,
+  broader launch environment, and dedicated configuration services remain.
 
 ## Milestone 5: Port Completion And Revision-1 Evaluation
 

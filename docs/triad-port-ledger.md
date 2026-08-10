@@ -64,10 +64,10 @@ least-authority shell endpoint and target-resolved input.
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
-| Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | The baseline inventory and typed key/pointer startup candidate are complete; wire its retained targets into Engine-owned matching without sending raw input to Hagia, then add axis, gesture, and switch candidates. |
+| Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | Typed key/pointer startup candidates now resolve Hagia's semantic action catalog into Engine-owned matching without sending raw input to Hagia; add the retained axis, gesture, and switch candidates. |
 | Input-device and XKB configuration | Open | Use a dedicated validated configuration authority with device-scoped capabilities and rollback. |
 | Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | Engine owns topology and work areas; add candidate validation, atomic multi-output activation, rollback, and a separate power authority. |
-| Launch, startup environment, configured processes, and shell supervision | Partial | Existing opaque terminal/browser/logout slots are a bootstrap; port the retained launch profile through session-owned capabilities. |
+| Launch, startup environment, configured processes, and shell supervision | Partial | Typed terminal/browser/startup/logout selectors resolve only against Sophia's registered applications, with CLI overrides superior, and lower to opaque slots; port the remaining retained launch environment and supervision behavior. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
 | Cursor theme, visibility, inactivity, and find feedback | Open | Engine owns the cursor; expose only bounded configuration and shell feedback. |
 | Configuration discovery, validation, activation, reload, and rollback | Open | Discovery, partitioning, staging, policy preparation, and typed shortcut preparation exist; wire authority prepare/activate/rollback without a cross-authority partial commit. |
@@ -100,8 +100,10 @@ rejected before the port gate closes.
 
 ## Port Order
 
-The first blocking tranche now continues from the complete baseline binding
-inventory into shortcut candidate validation and cross-authority activation.
+The first blocking tranche has converted the retained key/pointer subset and
+session launch selectors into validated authority-local startup candidates.
+It now continues into typed input/output preparation and cross-authority
+activation without introducing a policy-only reload path.
 Each later command family ports or reimplements the relevant Triad tests before
 live integration.
 
@@ -115,9 +117,8 @@ remain unbound private reducer capabilities until configuration migration
 selects retained commands and their correct owners. The inventory does prove
 that 64 cannot be frozen without first classifying and migrating that set. The
 semantic migrator now classifies all 137 physical bindings and separately
-records shortcut-match ownership and target behavior authority. The next gate
-must convert the retained subset into validated authority-local candidates;
-unsupported rows remain explicit and cannot be mistaken for activated parity.
+records shortcut-match ownership and target behavior authority. Unsupported
+rows remain explicit and cannot be mistaken for activated parity.
 
 Shell, session, broker, and portal work then proceeds against separate
 interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
