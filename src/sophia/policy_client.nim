@@ -166,8 +166,12 @@ proc negotiatePolicy(
     fail("Sophia advertised invalid policy limits")
   injectConfiguredFault("negotiated")
 
-proc connectPolicy(path: string, requestConfiguration: bool): PolicyClient =
-  path.connectWhenReady().negotiatePolicy(requestConfiguration)
+proc connectPolicy(
+    path: string, requestConfiguration: bool, requestProfileActivation = false
+): PolicyClient =
+  path.connectWhenReady().negotiatePolicy(
+    requestConfiguration, requestProfileActivation
+  )
 
 proc settleProfileCommand(
     client: PolicyClient,
@@ -199,12 +203,11 @@ proc settleProfileCommand(
   )
   update.completion.outcome
 
-proc runStartupProfileHandoff*(
-    socket: Socket, candidate: AuthorityCandidate
+proc activateProfileCandidate(
+    client: PolicyClient, candidate: AuthorityCandidate
 ): StartupProfileHandoffDisposition =
-  ## Bounded startup-only participant loop. It cannot enter the normal policy
-  ## cycle and returns only after exact activation or rollback settlement.
-  let client = socket.negotiatePolicy(false, true)
+  ## Bounded participant barrier shared by startup and exact-key reattachment.
+  ## The caller decides whether an accepted client enters the normal cycle.
   var model = candidate.initProfileHandoff(client.connectionEpoch)
   let prepared = client.settleProfileCommand(
     model, ProfileHandoffMsgKind.prepare, client.receiveFrame()
@@ -229,6 +232,12 @@ proc runStartupProfileHandoff*(
     else:
       fail("normal policy traffic preceded desktop profile activation")
   StartupProfileHandoffDisposition.rejected
+
+proc runStartupProfileHandoff*(
+    socket: Socket, candidate: AuthorityCandidate
+): StartupProfileHandoffDisposition =
+  ## Startup-only proof entry point. It never enters the normal policy cycle.
+  socket.negotiatePolicy(false, true).activateProfileCandidate(candidate)
 
 proc recordBytes(payload: openArray[byte], index, size: int): seq[byte] =
   let first = 16 + index * size
@@ -806,5 +815,24 @@ proc runPolicySession*(path: string) =
 proc runPolicySession*(path: string, candidate: AuthorityCandidate) =
   path.connectPolicy(true).runPolicySession(true, some(candidate))
 
+proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidate) =
+  if client.activateProfileCandidate(candidate) !=
+      StartupProfileHandoffDisposition.activated:
+    client.socket.close()
+    fail("desktop profile activation did not admit normal policy traffic")
+  client.readTimeoutMsec = -1
+  client.runPolicySession(true, some(candidate))
+
+proc runProfileActivatedPolicySession*(path: string, candidate: AuthorityCandidate) =
+  ## Reuses the authenticated connection only after exact Active settlement.
+  path.connectPolicy(true, true).runActivatedPolicyClient(candidate)
+
 proc runPolicySessionOnSocket*(socket: Socket) =
   socket.negotiatePolicy(false).runPolicySession(false)
+
+proc runProfileActivatedPolicySessionOnSocket*(
+    socket: Socket, candidate: AuthorityCandidate
+) =
+  ## Socket-injected conformance entry point with production-equivalent
+  ## activation and configuration ordering.
+  socket.negotiatePolicy(true, true).runActivatedPolicyClient(candidate)

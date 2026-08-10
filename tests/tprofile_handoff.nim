@@ -44,13 +44,16 @@ proc sendTestFrame(socket: Socket, frame: Frame) =
     data[index] = char(value)
   socket.send(data)
 
-proc welcome(epoch: uint64): Frame =
+proc welcome(epoch: uint64, configuration = false): Frame =
   result.kind = MessageKind.serverWelcome
   result.payload.addU16(3)
   result.payload.addU16(0)
-  result.payload.addU64(
+  var capabilities =
     (1'u64 shl 0) or (1'u64 shl 1) or (1'u64 shl 2) or (1'u64 shl 8) or (1'u64 shl 9)
-  )
+  if configuration:
+    capabilities =
+      capabilities or (1'u64 shl 4) or (1'u64 shl 5) or (1'u64 shl 6) or (1'u64 shl 7)
+  result.payload.addU64(capabilities)
   result.payload.addU64(epoch)
   result.payload.addU16(uint16(maxOutputs))
   result.payload.addU16(uint16(maxBindings))
@@ -196,3 +199,41 @@ suite "Hagia profile authority handoff":
     check active.outcome == ProfileOutcomeKind.accepted
     joinThread(thread)
     check disposition == StartupProfileHandoffDisposition.activated
+
+  test "normal configuration follows Active on the same connection":
+    var descriptors: array[0 .. 1, cint]
+    require posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, descriptors) == 0
+    let client = newSocket(
+      SocketHandle(descriptors[0]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    let server = newSocket(
+      SocketHandle(descriptors[1]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    defer:
+      server.close()
+    server.sendTestFrame(welcome(9, true))
+    let exact = identity(9, 7, 0x5a)
+    server.sendTestFrame(MessageKind.profilePrepare.profileCommandFrame(1, exact))
+    server.sendTestFrame(MessageKind.profileActivate.profileCommandFrame(2, exact))
+    discard posix.shutdown(SocketHandle(descriptors[1]), posix.SHUT_WR)
+    expect PolicyClientError:
+      client.runProfileActivatedPolicySessionOnSocket(candidate(7, "5a"))
+
+    let hello = server.receiveTestFrame()
+    check hello.kind == MessageKind.clientHello
+    check server.receiveTestFrame().decodeProfileCompletion().outcome ==
+      ProfileOutcomeKind.accepted
+    check server.receiveTestFrame().decodeProfileCompletion().outcome ==
+      ProfileOutcomeKind.accepted
+    let configuration = server.receiveTestFrame()
+    check configuration.kind == MessageKind.policyConfiguration
+    check configuration.transaction == 1
+    check configuration.payload.u64At(0) == 9
