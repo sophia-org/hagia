@@ -177,9 +177,11 @@ The generation/digest lifecycle, partial barriers, rollback, and stale
 completions are exhaustively model checked by the repository's TLA+ gate.
 Sophia now ports the same pure transition shape over its canonical authority,
 generation, and digest types, with mirrored tests for the rejected-generation
-reuse defect found during Hagia's formal-verification pass. Watched live reload
-remains disabled until Sophia wires those effects through dedicated authority
-protocols and executors.
+reuse defect found during Hagia's formal-verification pass. Its startup-only
+driver now completes both barriers or cancels the failing phase and attempts
+generation-wide rollback, including every participant after a rollback
+failure. Watched live reload remains disabled until Sophia populates those
+handlers through dedicated authority protocols.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its
