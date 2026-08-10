@@ -150,6 +150,10 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   reserved fields against the generated Sophia corpus. The capability is not
   requested or active in production until the authority-local state machine
   and pre-graphics acknowledgement barrier are connected.
+- [x] Add independent Sophia- and Hagia-side pure handoff reducers. They prove
+  exact epoch/transaction/generation/digest settlement, inert stale replies,
+  deterministic retry, explicit rollback after rejection, and candidate-state
+  discard. Production capability negotiation remains disabled.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.

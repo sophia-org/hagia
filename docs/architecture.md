@@ -288,6 +288,11 @@ The independent Hagia decoder rejects null identity components, malformed
 digests, unknown outcomes, and nonzero reserved fields and is checked against
 Sophia's generated golden corpus. Production does not request the capability
 yet; wire availability is not authority activation.
+Hagia's independent pure participant reducer now binds the loaded policy
+candidate to that identity, accepts only exact phase transitions, makes exact
+retries idempotent, and discards prepared or active candidate state on
+rollback. It remains outside the socket loop until the pre-graphics process
+owner can complete the full prepare/activate/rollback barrier.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

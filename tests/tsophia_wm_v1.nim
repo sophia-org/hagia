@@ -219,3 +219,15 @@ suite "independent Sophia WM v1 wire":
     ]:
       expect PolicyProtocolError:
         discard MessageKind.profilePrepare.profileCommandFrame(11, invalid)
+
+  test "typed profile controls reject null transactions":
+    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
+    identity.profileDigest[0] = 1
+    let command = MessageKind.profilePrepare.profileCommandFrame(11, identity)
+    expect PolicyProtocolError:
+      discard Frame(kind: command.kind, transaction: 0, payload: command.payload).decodeProfileCommand()
+    let completion = MessageKind.profilePrepared.profileCompletionFrame(
+      11, identity, ProfileOutcomeKind.accepted
+    )
+    expect PolicyProtocolError:
+      discard Frame(kind: completion.kind, transaction: 0, payload: completion.payload).decodeProfileCompletion()
