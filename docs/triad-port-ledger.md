@@ -44,7 +44,7 @@ separately and does not move this recorded baseline.
 | Declarative policy configuration | Complete | Provenance-bearing startup candidates reconcile configured views and native layouts on a clone, validate the full logical model, and preserve last-known-good state on failure. Watched reload remains deferred to the cross-authority protocol. |
 | Janet commands and layouts | Open | Bound execution and memory, validate candidates, make output deterministic, and prove native fallback before activation. |
 | Placement, sticky behavior, swallowing, size policy, and window rules | Open | Hagia consumes only opaque broker-issued classifications and reduced parent/state facts. It never receives title, app ID, PID, path, or regex input. |
-| Completed and continuous pointer policy interactions | Partial | One completed move/resize is implemented; remaining interactions require bounded target-resolved phases and ordered completion/cancellation. |
+| Completed and continuous pointer policy interactions | Partial | Engine-captured move/resize now cross as ordered Begin/Update/End values with latest queued Update replacement; topology, VT, seat, and policy-restart revocation clear capture and prioritize Cancel, which Hagia applies as a spatial no-op. Drag/scroll producers remain open. |
 | Checkpoint, crash, reconnect, and last-layout preservation | Partial | Checkpoint restart passed physically; shared reconnect/restart, configuration recovery, and full retained-state parity remain open. |
 
 ## Visible Desktop — Hagia Shell

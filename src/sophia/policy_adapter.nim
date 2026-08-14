@@ -450,8 +450,6 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       focusWindow: window,
     )
   of ProjectionCauseKind.interaction:
-    if request.cause.interactionPhase != InteractionPhase.finish:
-      fail("only one reduced completed interaction is accepted")
     let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
     if key notin adapter.surfaceToWindow:
       fail("policy interaction cause names an unknown surface")
@@ -463,6 +461,19 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       width: request.cause.width,
       height: request.cause.height,
     )
+    if request.cause.interactionPhase == InteractionPhase.cancel:
+      message = PolicyMsg(kind: PolicyMsgKind.sceneChanged, output: interactionOutput)
+      adapter.model = adapter.model.reducePolicy(message).candidate
+      recordEvidence(
+        EvidenceEvent(
+          kind: EvidenceKind.reducer,
+          epoch: request.connectionEpoch,
+          generation: request.policyGeneration,
+          requestId: request.requestId,
+          status: $request.cause.interactionPhase,
+        )
+      )
+      return
     case request.cause.interactionKind
     of InteractionKind.move:
       message = PolicyMsg(
@@ -480,7 +491,15 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
         interactionKind: PolicyInteractionKind.resize,
         geometry: geometry,
       )
-    of InteractionKind.drag, InteractionKind.scroll:
+    of InteractionKind.drag:
+      message = PolicyMsg(
+        kind: PolicyMsgKind.interaction,
+        output: interactionOutput,
+        interactionWindow: window,
+        interactionKind: PolicyInteractionKind.move,
+        geometry: geometry,
+      )
+    of InteractionKind.scroll:
       fail("policy interaction kind is not implemented")
     else:
       fail("policy interaction kind is invalid")

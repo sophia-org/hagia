@@ -1179,6 +1179,69 @@ suite "Sophia policy session":
       (40'i32, 30'i32, 500'i32, 400'i32)
     check projected.outputs[0].output.focusIndex == 1
 
+  test "continuous geometry phases apply while cancellation is a no-op":
+    let output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      focusIndex: 1,
+      focusGeneration: 1,
+      width: 900,
+      height: 600,
+    )
+    let scene = snapshot(1, @[output], @[surface(1, 10)])
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(scene)
+    for (phase, x) in [
+      (InteractionPhase.begin, 30'i32),
+      (InteractionPhase.update, 60'i32),
+      (InteractionPhase.finish, 90'i32),
+    ]:
+      adapter.applyCause(
+        ProjectionRequest(
+          connectionEpoch: 7,
+          requestId: uint64(x),
+          sceneGeneration: 1,
+          policyGeneration: uint64(x),
+          affectedOutputs: @[10'u64],
+          cause: ProjectionCause(
+            kind: ProjectionCauseKind.interaction,
+            interactionPhase: phase,
+            interactionKind: InteractionKind.move,
+            targetIndex: 1,
+            targetGeneration: 1,
+            x: x,
+            y: 20,
+            width: 500,
+            height: 400,
+          ),
+        )
+      )
+      check adapter.model().windows[adapter.logicalWindow(1, 1).get()].floatingGeometry.x ==
+        x
+
+    let beforeCancel = adapter.checkpointPayload()
+    adapter.applyCause(
+      ProjectionRequest(
+        connectionEpoch: 7,
+        requestId: 120,
+        sceneGeneration: 1,
+        policyGeneration: 120,
+        affectedOutputs: @[10'u64],
+        cause: ProjectionCause(
+          kind: ProjectionCauseKind.interaction,
+          interactionPhase: InteractionPhase.cancel,
+          interactionKind: InteractionKind.move,
+          targetIndex: 1,
+          targetGeneration: 1,
+          x: 120,
+          y: 20,
+          width: 500,
+          height: 400,
+        ),
+      )
+    )
+    check adapter.checkpointPayload() == beforeCancel
+
   test "repeated action tokens retain distinct committed activations":
     var output = SnapshotOutput(
       output: 10,
