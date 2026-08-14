@@ -33,11 +33,19 @@ type
     none = 0
     move = 1
     resize = 2
+    drag = 3
+    scroll = 4
+
+  InteractionAxis* {.pure.} = enum
+    none = 0
+    horizontal = 1
+    vertical = 2
 
   ProjectionCause* = object
     kind*: ProjectionCauseKind
     interactionPhase*: InteractionPhase
     interactionKind*: InteractionKind
+    interactionAxis*: InteractionAxis
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32

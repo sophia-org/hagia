@@ -480,6 +480,8 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
         interactionKind: PolicyInteractionKind.resize,
         geometry: geometry,
       )
+    of InteractionKind.drag, InteractionKind.scroll:
+      fail("policy interaction kind is not implemented")
     else:
       fail("policy interaction kind is invalid")
   adapter.model = adapter.model.reducePolicy(message).candidate

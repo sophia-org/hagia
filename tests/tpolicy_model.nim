@@ -46,6 +46,34 @@ proc binaryString(bytes: openArray[byte]): string =
 proc appendFrame(bytes: var seq[byte], frame: Frame) =
   bytes.add(frame.encodeFrame())
 
+proc projectionRequestFrame(
+    phase: InteractionPhase,
+    kind: InteractionKind,
+    axis: InteractionAxis,
+    x, y, width, height: int32,
+): Frame =
+  var payload: seq[byte]
+  payload.addU64(7)
+  payload.addU64(1)
+  payload.addU64(1)
+  payload.addU64(1)
+  payload.addU16(uint16(ord(ProjectionCauseKind.interaction)))
+  payload.addU16(uint16(ord(phase)))
+  payload.addU16(uint16(ord(kind)))
+  payload.addU16(uint16(ord(axis)))
+  payload.addU64(0)
+  payload.addU64(0)
+  payload.addU32(1)
+  payload.addU32(1)
+  payload.addU32(cast[uint32](x))
+  payload.addU32(cast[uint32](y))
+  payload.addU32(cast[uint32](width))
+  payload.addU32(cast[uint32](height))
+  payload.addU16(1)
+  payload.addU16(0)
+  payload.addU64(10)
+  Frame(kind: MessageKind.projectionRequest, transaction: 1, payload: payload)
+
 proc appendWireCycle(
     bytes: var seq[byte],
     epoch, generation, requestId, snapshotTransaction, requestTransaction,
@@ -260,6 +288,70 @@ proc projectionPlacementCounts(clientWire: seq[byte]): seq[uint32] =
     offset += frameLen
 
 suite "Hagia private policy model":
+  test "revision three interaction vocabulary has one exact wire contract":
+    for kind in [InteractionKind.move, InteractionKind.resize, InteractionKind.drag]:
+      let frame = projectionRequestFrame(
+        InteractionPhase.update, kind, InteractionAxis.none, 20, 30, 800, 600
+      )
+      let decoded = frame.encodeFrame().decodeFrame().decodeProjectionRequest(7)
+      check decoded.cause.interactionKind == kind
+      check decoded.cause.interactionAxis == InteractionAxis.none
+      check decoded.cause.width == 800
+      check decoded.cause.height == 600
+
+    for (phase, delta) in [
+      (InteractionPhase.begin, -120'i32),
+      (InteractionPhase.update, -60'i32),
+      (InteractionPhase.finish, -30'i32),
+      (InteractionPhase.cancel, 0'i32),
+    ]:
+      let decoded = projectionRequestFrame(
+          phase, InteractionKind.scroll, InteractionAxis.vertical, 0, delta, 0, 0
+        )
+        .decodeProjectionRequest(7)
+      check decoded.cause.interactionPhase == phase
+      check decoded.cause.interactionKind == InteractionKind.scroll
+      check decoded.cause.interactionAxis == InteractionAxis.vertical
+      check decoded.cause.y == delta
+
+  test "revision three interaction payload rejects ambiguous encodings":
+    for frame in [
+      projectionRequestFrame(
+        InteractionPhase.update, InteractionKind.scroll, InteractionAxis.none, 0, -60,
+        0, 0,
+      ),
+      projectionRequestFrame(
+        InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0,
+        -60, 1, 0,
+      ),
+      projectionRequestFrame(
+        InteractionPhase.update, InteractionKind.move, InteractionAxis.horizontal, 20,
+        30, 800, 600,
+      ),
+      projectionRequestFrame(
+        InteractionPhase.finish, InteractionKind.scroll, InteractionAxis.horizontal, 0,
+        0, 0, 0,
+      ),
+    ]:
+      expect PolicyClientError:
+        discard frame.decodeProjectionRequest(7)
+
+    var unknownAxis = projectionRequestFrame(
+      InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0, -60,
+      0, 0,
+    )
+    unknownAxis.payload[38] = 3
+    expect PolicyClientError:
+      discard unknownAxis.decodeProjectionRequest(7)
+
+    var unknownKind = projectionRequestFrame(
+      InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0, -60,
+      0, 0,
+    )
+    unknownKind.payload[36] = 5
+    expect PolicyClientError:
+      discard unknownKind.decodeProjectionRequest(7)
+
   test "view action identities have one bounded symbolic mapping":
     var names = initHashSet[string]()
     for ordinal in ord(low(PolicyAction)) .. ord(high(PolicyAction)):

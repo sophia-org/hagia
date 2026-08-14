@@ -296,7 +296,6 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
       fail(PolicyProtocolErrorKind.truncated, "truncated projection request")
     if payload.len > 212:
       fail(PolicyProtocolErrorKind.fieldTooLarge, "affected output bytes are excessive")
-    payload.requireReserved(38, 2)
     payload.requireReserved(82, 2)
     let outputCount = int(payload.u16At(80))
     if outputCount < 1 or outputCount > maxOutputs or payload.len != 84 + outputCount * 8:

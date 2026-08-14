@@ -408,8 +408,11 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   )
   result.validateSnapshot()
 
-proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
-  let frame = client.receiveFrame(MessageKind.projectionRequest)
+proc decodeProjectionRequest*(
+    frame: Frame, expectedConnectionEpoch: uint64
+): ProjectionRequest =
+  if frame.kind != MessageKind.projectionRequest:
+    fail("policy projection request has the wrong message kind")
   result.connectionEpoch = frame.payload.u64At(0)
   result.requestId = frame.payload.u64At(8)
   result.sceneGeneration = frame.payload.u64At(16)
@@ -426,6 +429,10 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   if rawInteraction > uint16(ord(high(InteractionKind))):
     fail("policy interaction kind is invalid")
   result.cause.interactionKind = InteractionKind(rawInteraction)
+  let rawAxis = frame.payload.u16At(38)
+  if rawAxis > uint16(ord(high(InteractionAxis))):
+    fail("policy interaction axis is invalid")
+  result.cause.interactionAxis = InteractionAxis(rawAxis)
   result.cause.activationSerial = frame.payload.u64At(40)
   result.cause.action = frame.payload.u64At(48)
   result.cause.targetIndex = frame.payload.u32At(56)
@@ -435,12 +442,65 @@ proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   result.cause.width = frame.payload.i32At(72)
   result.cause.height = frame.payload.i32At(76)
   let outputCount = int(frame.payload.u16At(80))
-  if result.connectionEpoch != client.connectionEpoch or result.requestId == 0 or
+  if result.connectionEpoch != expectedConnectionEpoch or result.requestId == 0 or
       result.sceneGeneration == 0 or result.policyGeneration == 0 or outputCount == 0 or
       outputCount > maxOutputs:
     fail("policy projection request is invalid")
+  case result.cause.kind
+  of ProjectionCauseKind.sceneChanged:
+    if result.cause.interactionPhase != InteractionPhase.none or
+        result.cause.interactionKind != InteractionKind.none or
+        result.cause.interactionAxis != InteractionAxis.none or
+        result.cause.activationSerial != 0 or result.cause.action != 0 or
+        result.cause.targetIndex != 0 or result.cause.targetGeneration != 0 or
+        result.cause.x != 0 or result.cause.y != 0 or result.cause.width != 0 or
+        result.cause.height != 0:
+      fail("policy scene-change cause is ambiguous")
+  of ProjectionCauseKind.action:
+    if result.cause.interactionPhase != InteractionPhase.none or
+        result.cause.interactionKind != InteractionKind.none or
+        result.cause.interactionAxis != InteractionAxis.none or
+        result.cause.activationSerial == 0 or result.cause.action == 0 or
+        result.cause.targetIndex != 0 or result.cause.targetGeneration != 0 or
+        result.cause.x != 0 or result.cause.y != 0 or result.cause.width != 0 or
+        result.cause.height != 0:
+      fail("policy action cause is invalid")
+  of ProjectionCauseKind.focus:
+    if result.cause.interactionPhase != InteractionPhase.none or
+        result.cause.interactionKind != InteractionKind.none or
+        result.cause.interactionAxis != InteractionAxis.none or
+        result.cause.activationSerial != 0 or result.cause.action != 0 or
+        result.cause.targetIndex == 0 or result.cause.targetGeneration == 0 or
+        result.cause.x != 0 or result.cause.y != 0 or result.cause.width != 0 or
+        result.cause.height != 0:
+      fail("policy focus cause is invalid")
+  of ProjectionCauseKind.interaction:
+    if result.cause.interactionPhase == InteractionPhase.none or
+        result.cause.interactionKind == InteractionKind.none or
+        result.cause.activationSerial != 0 or result.cause.action != 0 or
+        result.cause.targetIndex == 0 or result.cause.targetGeneration == 0:
+      fail("policy interaction cause is invalid")
+    case result.cause.interactionKind
+    of InteractionKind.move, InteractionKind.resize, InteractionKind.drag:
+      if result.cause.interactionAxis != InteractionAxis.none or result.cause.width <= 0 or
+          result.cause.height <= 0:
+        fail("policy geometry interaction payload is invalid")
+    of InteractionKind.scroll:
+      if result.cause.interactionAxis == InteractionAxis.none or result.cause.width != 0 or
+          result.cause.height != 0 or (
+        result.cause.interactionPhase != InteractionPhase.cancel and result.cause.x == 0 and
+        result.cause.y == 0
+      ):
+        fail("policy scroll interaction payload is invalid")
+    else:
+      fail("policy interaction kind is invalid")
   for index in 0 ..< outputCount:
     result.affectedOutputs.add(frame.payload.u64At(84 + index * 8))
+
+proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
+  client.receiveFrame(MessageKind.projectionRequest).decodeProjectionRequest(
+    client.connectionEpoch
+  )
 
 proc allocateTransaction(client: PolicyClient): uint64 =
   result = client.nextTransaction
