@@ -16,7 +16,9 @@ columns, and registered focus, view, movement, and size actions. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
 transport. The installed physical checkpoint/restart workload has passed. This
 promotes the bootstrap path for daily use; it does not freeze revision 3.
-Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
+Signed Sophia physical archive `0005` also promotes Hagia's Tier-0 per-head
+indicator and captured-action path. Freeze still waits for the retained-behavior
+gate in `triad-port-ledger.md`.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -163,12 +165,12 @@ Freeze waits for the retained-behavior gate in `triad-port-ledger.md`.
   the real Hagia executable through Sophia's opt-in pre-graphics admission and
   proves all-owner activation and teardown. Restart uses the same activated key
   with a fresh connection epoch. The installed default still omits the option.
-- [ ] Promote the Tier-0 indicator path with Sophia's signed physical Hagia
+- [x] Promote the Tier-0 indicator path with Sophia's signed physical Hagia
   gate. Hagia already emits nine output-local opaque view actions plus layout
   status; Sophia now renders them independently per head, reserves their work
-  area, and routes clicks from the last-presented target. Deterministic and
-  verifier-fixture coverage passes. The tty4 run must still confirm the strip
-  above fullscreen and commit pointer activations for views 2 and 1.
+  area, and routes clicks from the last-presented target. Archive `0005` proves
+  the strip above fullscreen, the causal restart, pointer activations for views
+  2 and 1, nonzero presentation on both outputs, and clean teardown.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
 - [ ] Design a separate Hagia shell against a future Sophia shell interface.
