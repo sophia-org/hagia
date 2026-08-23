@@ -269,7 +269,7 @@ proc decodeSnapshot*(frame: ShellFrame): ShellSnapshot =
   var offset = 52
   var slots = initHashSet[uint16]()
   for _ in 0 ..< count:
-    payload.require(offset, 60)
+    payload.require(offset, 57)
     var descriptor: ShellDescriptor
     descriptor.slot = payload.u16At(offset)
     descriptor.trust = uint8(payload[offset + 2])
@@ -277,26 +277,31 @@ proc decodeSnapshot*(frame: ShellFrame): ShellSnapshot =
     descriptor.generation = payload.u64At(offset + 4)
     descriptor.action = payload.decodeAction(offset + 12)
     let present = payload[offset + 56]
-    let labelLength = int(payload.u16At(offset + 57))
-    offset += 59
-    if present > 1 or labelLength > shellMaxLabelBytes or
-        (present == 0 and labelLength != 0):
+    offset += 57
+    if present > 1:
       fail("invalid shell descriptor label")
-    payload.require(offset, labelLength + 1)
+    var labelLength = 0
     if present == 1:
+      payload.require(offset, 2)
+      labelLength = int(payload.u16At(offset))
+      offset += 2
+      if labelLength > shellMaxLabelBytes:
+        fail("invalid shell descriptor label")
       if labelLength == 0:
         fail("empty shell descriptor label")
+      payload.require(offset, labelLength)
       var label = newString(labelLength)
       for index in 0 ..< labelLength:
         if payload[offset + index] < 0x20 or payload[offset + index] == 0x7f:
           fail("control byte in shell descriptor label")
         label[index] = char(payload[offset + index])
       descriptor.label = some(label)
-    descriptor.labelRedacted = payload[offset + labelLength] == 1
-    if payload[offset + labelLength] > 1 or
-        (descriptor.label.isNone and descriptor.labelRedacted):
+      offset += labelLength
+    payload.require(offset, 1)
+    descriptor.labelRedacted = payload[offset] == 1
+    if payload[offset] > 1 or (descriptor.label.isNone and descriptor.labelRedacted):
       fail("invalid shell descriptor redaction")
-    offset += labelLength + 1
+    inc offset
     if descriptor.slot == 0 or descriptor.generation == 0 or descriptor.slot in slots or
         descriptor.trust > 3 or descriptor.attention > 2 or
         descriptor.action.issuerEpoch != result.brokerEpoch or

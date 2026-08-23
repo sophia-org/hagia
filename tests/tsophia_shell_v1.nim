@@ -43,7 +43,7 @@ suite "independent Sophia Shell v1 wire and reducer":
     let malformed = sophiaRoot / "protocol/golden/sophia-shell-v1-malformed.frames"
     let validLines = valid.corpusLines()
     let malformedLines = malformed.corpusLines()
-    check validLines.len == 7
+    check validLines.len == 8
     check malformedLines.len == 12
     for line in validLines:
       let fields = line.split('|')
@@ -55,6 +55,15 @@ suite "independent Sophia Shell v1 wire and reducer":
       check fields.len == 4
       expect ShellProtocolError:
         discard fields[3].decodeHex().decodeShellFrame()
+
+  test "unlabeled descriptor consumes only its presence and redaction bytes":
+    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    require sophiaRoot.len > 0
+    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
+    let snapshot = valid.frameNamed("descriptor_snapshot_unlabeled").decodeSnapshot()
+    check snapshot.descriptors.len == 1
+    check snapshot.descriptors[0].label.isNone
+    check not snapshot.descriptors[0].labelRedacted
 
   test "presented activation is exact and consumed at most once":
     let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
