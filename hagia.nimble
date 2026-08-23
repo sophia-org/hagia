@@ -3,7 +3,7 @@ author = "Mason Austin Green"
 description = "Standalone spatial-policy client for the Sophia display server"
 license = "BSD-3-Clause"
 srcDir = "src"
-bin = @["hagia", "hagia_policy_proof"]
+bin = @["hagia", "hagia_policy_proof", "hagia_shell"]
 
 requires "nim >= 2.2.4"
 requires "chronicles >= 0.10.3"

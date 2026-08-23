@@ -185,7 +185,11 @@ separately protected `hagia-shell` client over the modeled shell lifecycle.
   Sophia's offline descriptor reference; keep ordering and selection here and
   rendering, hit-testing, and presentation in Engine. Defer previews, icons,
   generic textures, and broader shell furniture until that first transport and
-  reconnect path is exact.
+  reconnect path is exact. The standalone `hagia-shell` now implements the
+  revision-1 codec and deterministic reducer, validates Sophia's shared golden
+  and malformed corpora, and completes presentation, exact activation, and
+  withdrawal in a separate protected process. Live launch, shortcut admission,
+  action dispatch, and reconnect remain open.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities. Terminal, browser,

@@ -13,6 +13,8 @@ cd "$root"
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tsophia-wm-v1" tests/tsophia_wm_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tsophia-shell-v1" tests/tsophia_shell_v1.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tpolicy-model" tests/tpolicy_model.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tfoundation" tests/tfoundation.nim
@@ -22,9 +24,13 @@ nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-hagia" \
     -o:"$build_dir/hagia" src/hagia.nim
+nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-shell" \
+    -o:"$build_dir/hagia-shell" src/hagia_shell.nim
 cd "$SOPHIA_STACK_ROOT"
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
     "$build_dir/hagia-policy-proof" "$build_dir/session" all
+cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
+    "$build_dir/hagia-shell"
 SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     cargo test --offline -q -p sophia-cli --features atomic-scanout-live \
     hagia_pregraphics_profile_admission_activates_every_owner
