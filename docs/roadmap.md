@@ -26,9 +26,10 @@ descriptors and opaque actions, and admits `Super+P` through the session-owned
 shortcut path when a shell profile enables it. Engine renders and captures the
 exact presented list; the broker checks the issuer before Hagia policy receives
 an ordinary focus request. Disconnect revokes interaction and reconnects at a
-fresh epoch. The compiled profile stays disabled until explicit X pointer grabs
-join Engine's application lease arbitration. A signed installed presentation,
-activation, crash, reconnect, and withdrawal archive follows that repair.
+fresh epoch. Core and admitted XI explicit pointer grabs now join Engine's
+application lease arbitration, and the compiled profile enables `Super+P`. A
+signed installed presentation, activation, crash, reconnect, and withdrawal
+archive remains open.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -183,8 +184,7 @@ activation, crash, reconnect, and withdrawal archive follows that repair.
   2 and 1, nonzero presentation on both outputs, and clean teardown.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
-- [ ] Finish explicit X-grab arbitration, then prove the separate protected
-  Hagia Shell in an installed physical run.
+- [ ] Prove the separate protected Hagia Shell in an installed physical run.
   The source implementation now runs against Sophia's modeled shell lifecycle.
   Start with the bounded title-only switcher proven by
   Sophia's offline descriptor reference; keep ordering and selection here and
@@ -194,9 +194,9 @@ activation, crash, reconnect, and withdrawal archive follows that repair.
   revision-1 codec and deterministic reducer, validates Sophia's shared golden
   and malformed corpora, and now completes live launch, shortcut admission,
   presentation, exact activation, broker-checked dispatch, withdrawal, and
-  fresh-epoch reconnect in a separate protected process. Signed physical
-  evidence remains open, and the compiled profile remains disabled until
-  Engine can make shell capture yield to core and admitted XI pointer grabs.
+  fresh-epoch reconnect in a separate protected process. Sophia's core/XI
+  explicit pointer-grab arbitration and compiled-profile enablement are now
+  complete. Signed physical evidence remains open.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities. Terminal, browser,

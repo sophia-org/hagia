@@ -57,7 +57,7 @@ least-authority shell endpoint and target-resolved input.
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Overview and workspace previews | Open | Port navigation, preview geometry, hot corners, scroller overflow hints, and hold/cycle behavior without granting WM metadata or raw input. |
-| Recent-window switcher | Partial | The live protected Hagia Shell covers bounded brokered descriptors, shell-supplied order/selection, shell-enabled `Super+P` admission, per-head rendering, exact presented opaque activation, broker-checked dispatch, withdrawal, cancellation, and fresh-epoch reconnect. Explicit X-grab arbitration, recency policy, scope, filtering, debounce, previews, compiled-profile enablement, and installed evidence remain open. |
+| Recent-window switcher | Partial | The live protected Hagia Shell covers bounded brokered descriptors, shell-supplied order/selection, compiled `Super+P` admission, per-head rendering, exact presented opaque activation, broker-checked dispatch, withdrawal, cancellation, fresh-epoch reconnect, and arbitration against core/XI explicit pointer grabs. Recency policy, scope, filtering, debounce, previews, and installed evidence remain open. |
 | Frame tabs, tab bars, BSP preselection, and drop previews | Open | Render shell-owned display lists tied to opaque policy entities and presented target snapshots. |
 | Hotkey overlay, layout toast, notifications, and confirmation dialogs | Open | Keep visual state in the shell and privileged effects in session/portal services. |
 | Panels, status, shell profiles, and shell state streams | Partial | Hagia's bounded view and layout descriptors feed Sophia's Tier-0 per-head indicator chrome and opaque captured actions; signed physical archive `0005` proves fullscreen coexistence, restart, view-2/view-1 pointer activation, both outputs, and clean teardown. Rich panels, shell profiles, output/session health, and Tier-1 state streams remain separate shell work. |
@@ -110,7 +110,7 @@ Each later command family ports or reimplements the relevant Triad tests before
 live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
-compiled profile contains 50 Sophia-owned chords resolved against Hagia's
+compiled profile contains 51 Sophia-owned chords resolved against Hagia's
 66-entry action catalog, while Triad's
 baseline default configuration contains 132 key bindings and 137 total
 physical bindings. Those counts cross multiple future authorities, so they do
