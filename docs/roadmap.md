@@ -20,12 +20,15 @@ Signed Sophia physical archive `0005` also promotes Hagia's Tier-0 per-head
 indicator and captured-action path. Freeze still waits for the retained-behavior
 gate in `triad-port-ledger.md`.
 
-Sophia's offline descriptor reference now establishes the first Hagia Shell
-vocabulary: a bounded title-only list, shell-supplied order and selection,
-per-head cached text, and exact opaque activation targets. That moves the
-recent-window and shell-facing window-list ledger rows to Partial. Hagia has no
-shell executable or shell-role wire yet; the next integration tranche is a
-separately protected `hagia-shell` client over the modeled shell lifecycle.
+The first Hagia Shell slice is live in source. Sophia launches the standalone
+`hagia-shell` in a separate protected domain, sends only bounded sanitized
+descriptors and opaque actions, and admits `Super+P` through the session-owned
+shortcut path when a shell profile enables it. Engine renders and captures the
+exact presented list; the broker checks the issuer before Hagia policy receives
+an ordinary focus request. Disconnect revokes interaction and reconnects at a
+fresh epoch. The compiled profile stays disabled until explicit X pointer grabs
+join Engine's application lease arbitration. A signed installed presentation,
+activation, crash, reconnect, and withdrawal archive follows that repair.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -180,16 +183,20 @@ separately protected `hagia-shell` client over the modeled shell lifecycle.
   2 and 1, nonzero presentation on both outputs, and clean teardown.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
-- [ ] Design and build a separate protected Hagia Shell against Sophia's
-  modeled shell lifecycle. Start with the bounded title-only switcher proven by
+- [ ] Finish explicit X-grab arbitration, then prove the separate protected
+  Hagia Shell in an installed physical run.
+  The source implementation now runs against Sophia's modeled shell lifecycle.
+  Start with the bounded title-only switcher proven by
   Sophia's offline descriptor reference; keep ordering and selection here and
   rendering, hit-testing, and presentation in Engine. Defer previews, icons,
-  generic textures, and broader shell furniture until that first transport and
-  reconnect path is exact. The standalone `hagia-shell` now implements the
+  generic textures, and broader shell furniture until that first installed
+  reconnect path is exact. The standalone `hagia-shell` implements the
   revision-1 codec and deterministic reducer, validates Sophia's shared golden
-  and malformed corpora, and completes presentation, exact activation, and
-  withdrawal in a separate protected process. Live launch, shortcut admission,
-  action dispatch, and reconnect remain open.
+  and malformed corpora, and now completes live launch, shortcut admission,
+  presentation, exact activation, broker-checked dispatch, withdrawal, and
+  fresh-epoch reconnect in a separate protected process. Signed physical
+  evidence remains open, and the compiled profile remains disabled until
+  Engine can make shell capture yield to core and admitted XI pointer grabs.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities. Terminal, browser,

@@ -47,9 +47,12 @@ recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
 owner-only, atomic replacement; restored state is revalidated and reconciled
 against a complete snapshot before use. Checkpoint v2 is an explicit,
 stable-ID-ordered logical DTO; v1 is rejected and rebuilt from a complete
-snapshot. The physical checkpoint/restart and
-presentation-state workload has passed; broader parity, continuous pointer
-interaction, and shell work remain open. Sophia owns scene truth, input
+snapshot. The physical checkpoint/restart and presentation-state workload has
+passed. The separate `hagia-shell` executable now drives Sophia's protected,
+title-only live switcher when a shell profile enables it. Explicit X-grab
+arbitration, compiled-profile enablement, signed installed evidence, and broader
+shell work remain open. Broader parity and continuous pointer interaction also
+remain open. Sophia owns scene truth, input
 authority, validation, atomic
 commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,

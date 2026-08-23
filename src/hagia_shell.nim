@@ -2,6 +2,8 @@ import std/[net, os]
 
 import sophia/shell_v1
 
+type ShellSocketClosedError = object of CatchableError
+
 proc fail(message: string) {.noreturn.} =
   raise newException(ValueError, message)
 
@@ -19,7 +21,7 @@ proc receiveExact(socket: Socket, length: int): seq[byte] =
   while result.len < length:
     let part = socket.recv(length - result.len)
     if part.len == 0:
-      fail("shell socket closed during a frame")
+      raise newException(ShellSocketClosedError, "shell socket closed during a frame")
     result.add(part.toBytes())
 
 proc receiveFrame(socket: Socket): ShellFrame =
@@ -90,16 +92,76 @@ proc runProof(socketPath: string) =
       " activations=1 withdrawn=true"
   )
 
+proc runServer(socketPath: string) =
+  let socket = socketPath.connect()
+  defer:
+    socket.close()
+  socket.sendFrame(clientHelloFrame())
+  let connectionEpoch = socket.receiveFrame().validateWelcome()
+  var model = ShellModel(connectionEpoch: connectionEpoch)
+  var candidateGeneration = 1'u64
+  var showNext = true
+  stdout.writeLine(
+    "hagia_shell schema=1 status=ready connection_epoch=" & $connectionEpoch
+  )
+  while true:
+    let snapshotFrame = socket.receiveFrame()
+    let snapshot = snapshotFrame.decodeSnapshot()
+    model.reconcile(snapshot)
+    let candidate = model.candidate(candidateGeneration, showNext)
+    socket.sendFrame(candidate.candidateFrame(snapshotFrame.transaction))
+    let prepared = socket.receiveFrame().decodeOutcome()
+    if prepared.connectionEpoch != connectionEpoch or
+        prepared.candidateGeneration != candidateGeneration or
+        prepared.kind != ShellCandidateOutcomeKind.prepared:
+      fail("Sophia did not prepare the live shell candidate")
+    let presented = socket.receiveFrame().decodeOutcome()
+    if presented.candidateGeneration != candidateGeneration:
+      fail("Sophia presented another live shell candidate")
+    if presented.kind in
+        {ShellCandidateOutcomeKind.rejected, ShellCandidateOutcomeKind.superseded}:
+      if candidateGeneration == high(uint64):
+        fail("live shell candidate generation exhausted")
+      inc candidateGeneration
+      continue
+    model.rememberPresented(presented)
+    if candidate.visible:
+      let activationFrame = socket.receiveFrame()
+      let activation = activationFrame.decodeActivation()
+      let disposition = model.accept(activation)
+      socket.sendFrame(
+        activationAckFrame(
+          connectionEpoch, activation.activation, activationFrame.transaction,
+          disposition,
+        )
+      )
+      if disposition != ShellActivationDisposition.consumed:
+        fail("Sophia delivered a stale live shell activation")
+      showNext = false
+    else:
+      showNext = true
+    if candidateGeneration == high(uint64):
+      fail("live shell candidate generation exhausted")
+    inc candidateGeneration
+
 proc run(arguments: seq[string]) =
-  if arguments != @["--proof"]:
-    fail("hagia-shell: only the offline --proof lifecycle is published")
   let socketPath = getEnv("SOPHIA_SHELL_SOCKET")
   if socketPath.len == 0:
     fail("hagia-shell: SOPHIA_SHELL_SOCKET is required")
-  socketPath.runProof()
+  if arguments == @["--proof"]:
+    socketPath.runProof()
+  elif arguments == @["--serve"]:
+    socketPath.runServer()
+  else:
+    fail("hagia-shell: expected --proof or --serve")
 
 try:
   run(commandLineParams())
+except ShellSocketClosedError as error:
+  if commandLineParams() == @["--serve"]:
+    quit(0)
+  stderr.writeLine("hagia-shell: " & error.msg)
+  quit(1)
 except CatchableError as error:
   stderr.writeLine("hagia-shell: " & error.msg)
   quit(1)

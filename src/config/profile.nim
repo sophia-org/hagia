@@ -313,7 +313,8 @@ proc validateShortcutSetting(node: KdlNode) =
   of "session":
     if node.name == "pointer-bind":
       fail("pointer shortcut cannot invoke a session capability")
-    if command notin ["close-window", "logout", "spawn-terminal", "spawn-browser"]:
+    if command notin
+        ["close-window", "logout", "spawn-terminal", "spawn-browser", "window-switcher"]:
       fail("shortcut names an unknown session capability")
   else:
     fail("shortcut target authority is unsupported")
@@ -373,8 +374,10 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
       layouts.incl(argument.kString())
   if authority == ProfileAuthority.shortcut:
     node.validateShortcutSetting()
-  if authority in {ProfileAuthority.shell, ProfileAuthority.broker} and
-      node.name == "enabled":
+  if authority == ProfileAuthority.shell and node.name == "enabled":
+    if node.args.len != 1 or node.args[0].kind != KBool:
+      fail("shell enabled requires one boolean argument")
+  if authority == ProfileAuthority.broker and node.name == "enabled":
     if node.args.len != 1 or node.args[0].kind != KBool or node.args[0].kBool():
       fail("unavailable authority capability cannot be enabled")
 
