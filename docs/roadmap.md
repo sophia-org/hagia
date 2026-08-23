@@ -20,6 +20,13 @@ Signed Sophia physical archive `0005` also promotes Hagia's Tier-0 per-head
 indicator and captured-action path. Freeze still waits for the retained-behavior
 gate in `triad-port-ledger.md`.
 
+Sophia's offline descriptor reference now establishes the first Hagia Shell
+vocabulary: a bounded title-only list, shell-supplied order and selection,
+per-head cached text, and exact opaque activation targets. That moves the
+recent-window and shell-facing window-list ledger rows to Partial. Hagia has no
+shell executable or shell-role wire yet; the next integration tranche is a
+separately protected `hagia-shell` client over the modeled shell lifecycle.
+
 ## Milestone 1: Geometry And Reconciliation
 
 - [x] Implement the independent fixed wire and malformed-frame checks.
@@ -173,7 +180,12 @@ gate in `triad-port-ledger.md`.
   2 and 1, nonzero presentation on both outputs, and clean teardown.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
   fallback semantics are modeled and tested.
-- [ ] Design a separate Hagia shell against a future Sophia shell interface.
+- [ ] Design and build a separate protected Hagia Shell against Sophia's
+  modeled shell lifecycle. Start with the bounded title-only switcher proven by
+  Sophia's offline descriptor reference; keep ordering and selection here and
+  rendering, hit-testing, and presentation in Engine. Defer previews, icons,
+  generic textures, and broader shell furniture until that first transport and
+  reconnect path is exact.
 - [ ] Add metadata rules only through a trusted classification broker.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities. Terminal, browser,

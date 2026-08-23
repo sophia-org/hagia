@@ -30,6 +30,8 @@ An exclusion requires a written architectural or product rationale. “Not yet
 implemented” is not an exclusion. A later Triad change is considered
 separately and does not move this recorded baseline.
 
+The current 28-row classification is 3 complete, 14 partial, and 11 open.
+
 ## Spatial Policy — Hagia
 
 | Behavior family | State | Port requirement |
@@ -55,7 +57,7 @@ least-authority shell endpoint and target-resolved input.
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Overview and workspace previews | Open | Port navigation, preview geometry, hot corners, scroller overflow hints, and hold/cycle behavior without granting WM metadata or raw input. |
-| Recent-window switcher | Open | Use brokered display descriptors and opaque activation targets; prove debounce, scope, filtering, preview, and cancellation. |
+| Recent-window switcher | Partial | Sophia's offline title-only reference proves bounded brokered descriptors, shell-supplied order/selection, per-head rendering, exact presented opaque activation, and cancellation. A protected Hagia Shell client, recency policy, scope, filtering, debounce, previews, dispatch, and live evidence remain open. |
 | Frame tabs, tab bars, BSP preselection, and drop previews | Open | Render shell-owned display lists tied to opaque policy entities and presented target snapshots. |
 | Hotkey overlay, layout toast, notifications, and confirmation dialogs | Open | Keep visual state in the shell and privileged effects in session/portal services. |
 | Panels, status, shell profiles, and shell state streams | Partial | Hagia's bounded view and layout descriptors feed Sophia's Tier-0 per-head indicator chrome and opaque captured actions; signed physical archive `0005` proves fullscreen coexistence, restart, view-2/view-1 pointer activation, both outputs, and clean teardown. Rich panels, shell profiles, output/session health, and Tier-1 state streams remain separate shell work. |
@@ -77,7 +79,7 @@ least-authority shell endpoint and target-resolved input.
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Application classification and launch placement | Open | A trusted broker maps sensitive metadata to opaque, expiring placement grants. |
-| Window lists and shell-facing descriptors | Open | Reveal only policy-approved display data to an admitted shell; keep it out of WM input and policy hot paths. |
+| Window lists and shell-facing descriptors | Partial | The protected broker emits sanitized exact-generation descriptors, and Sophia's offline reference renders their labels while preserving but not rendering icon tokens. Add the protected shell-role transport, admitted client lifecycle, revocation/dispatch path, and live proof; keep all metadata out of WM input and policy hot paths. |
 | Screenshots and capture sessions | Open | Require explicit portal grants, visible indicators, bounded lifetime, and revocation. |
 | Clipboard, drag-and-drop, files, and notifications | Open | Use dedicated portals with typed payload limits and authority-local disclosure. |
 
