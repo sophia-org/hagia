@@ -58,7 +58,7 @@ least-authority shell endpoint and target-resolved input.
 | Recent-window switcher | Open | Use brokered display descriptors and opaque activation targets; prove debounce, scope, filtering, preview, and cancellation. |
 | Frame tabs, tab bars, BSP preselection, and drop previews | Open | Render shell-owned display lists tied to opaque policy entities and presented target snapshots. |
 | Hotkey overlay, layout toast, notifications, and confirmation dialogs | Open | Keep visual state in the shell and privileged effects in session/portal services. |
-| Panels, status, shell profiles, and shell state streams | Open | Consume bounded typed projections; do not widen WM IPC into Triad's general state socket. |
+| Panels, status, shell profiles, and shell state streams | Partial | Hagia's bounded view and layout descriptors now feed Sophia's Tier-0 per-head indicator chrome and opaque captured actions; deterministic coverage passes, while the signed physical gate remains pending. Rich panels, shell profiles, output/session health, and Tier-1 state streams remain separate shell work. |
 
 ## Session And Dedicated Sophia Authorities
 
