@@ -49,7 +49,8 @@ proc welcome(epoch: uint64, configuration = false): Frame =
   result.payload.addU16(3)
   result.payload.addU16(0)
   var capabilities =
-    (1'u64 shl 0) or (1'u64 shl 1) or (1'u64 shl 2) or (1'u64 shl 8) or (1'u64 shl 9)
+    (1'u64 shl 0) or (1'u64 shl 1) or (1'u64 shl 2) or (1'u64 shl 8) or (1'u64 shl 9) or
+    (1'u64 shl 10)
   if configuration:
     capabilities =
       capabilities or (1'u64 shl 4) or (1'u64 shl 5) or (1'u64 shl 6) or (1'u64 shl 7)

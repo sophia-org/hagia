@@ -51,9 +51,10 @@ snapshot. The physical checkpoint/restart and presentation-state workload has
 passed. The separate `hagia-shell` executable now drives Sophia's protected,
 title-only live switcher from the enabled compiled profile. Sophia's core/XI
 explicit pointer grabs share Engine arbitration with shell capture. Signed
-installed evidence and broader shell work remain open. Broader parity and
-continuous pointer interaction also
-remain open. Sophia owns scene truth, input
+archive `0006` proves the retained generic switcher lifecycle; MRU behavior,
+previews, icons, and persistent panels remain post-freeze shell work. The
+retained continuous move/resize interaction is complete; broader policy parity
+remains open. Sophia owns scene truth, input
 authority, validation, atomic
 commit, rendering, supervision, and scanout. See
 `docs/architecture.md`,

@@ -29,6 +29,8 @@ nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-shell" \
 cd "$SOPHIA_STACK_ROOT"
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
     "$build_dir/hagia-policy-proof" "$build_dir/session" all
+cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
+    "$build_dir/hagia-policy-proof" "$build_dir/session-restart" restart
 cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
     "$build_dir/hagia-shell"
 SOPHIA_HAGIA_BIN="$build_dir/hagia" \
@@ -36,4 +38,4 @@ SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     hagia_pregraphics_profile_admission_activates_every_owner
 
 printf '%s\n' \
-    'hagia_policy_behavior_corpus schema=3 status=complete revision=3 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true'
+    'hagia_policy_behavior_corpus schema=4 status=complete revision=3 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true reconnect_restart=true preserved_commit=true'

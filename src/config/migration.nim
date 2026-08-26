@@ -69,29 +69,34 @@ proc classifyTriadCommand(command: string): CommandMigration =
     )
   of "lock-session", "toggle-keyboard-shortcuts-inhibit":
     commandMigration(
-      "session", MigrationDisposition.unsupported,
-      "requires a dedicated security transition capability",
+      "session", MigrationDisposition.excluded,
+      "excluded from the WM freeze profile; requires a dedicated security transition capability",
     )
   of "triad-reload":
     commandMigration(
-      "session", MigrationDisposition.unsupported,
-      "requires the cross-authority configuration coordinator",
+      "session", MigrationDisposition.excluded,
+      "excluded from the WM freeze profile; watched reload requires a cross-authority recovery protocol",
     )
-  of "toggle-hotkey-overlay", "toggle-overview", "select-window", "focus-shell-ui",
-      "close-overview", "recent-window-next", "recent-window-prev",
-      "recent-window-next --filter app-id", "recent-window-prev --filter app-id",
-      "focus-window-or-workspace-down", "focus-window-or-workspace-up":
+  of "select-window":
     commandMigration(
-      "shell", MigrationDisposition.unsupported,
-      "requires a bounded Hagia shell projection and opaque activation target",
+      "session", MigrationDisposition.transformed, "bounded generic window switcher",
+      "window-switcher",
+    )
+  of "toggle-hotkey-overlay", "toggle-overview", "focus-shell-ui", "close-overview",
+      "recent-window-next", "recent-window-prev", "recent-window-next --filter app-id",
+      "recent-window-prev --filter app-id", "focus-window-or-workspace-down",
+      "focus-window-or-workspace-up":
+    commandMigration(
+      "shell", MigrationDisposition.excluded,
+      "excluded from the WM freeze profile; requires broader shell state or MRU semantics",
     )
   of "screenshot", "screenshot-screen", "screenshot-window",
       "screenshot --clipboard-only", "screenshot --show-pointer",
       "screenshot --no-clipboard --hide-pointer",
       "screenshot --clipboard-only --hide-pointer":
     commandMigration(
-      "portal", MigrationDisposition.unsupported,
-      "requires an explicit capture portal grant",
+      "portal", MigrationDisposition.excluded,
+      "excluded from the WM freeze profile; requires an explicit capture portal grant",
     )
   of "toggle-fullscreen", "fullscreen-window":
     commandMigration(
@@ -197,13 +202,13 @@ proc classifyTriadCommand(command: string): CommandMigration =
       )
     if command.startsWith("spawn "):
       return commandMigration(
-        "session", MigrationDisposition.unsupported,
-        "requires a declared opaque application capability",
+        "session", MigrationDisposition.excluded,
+        "excluded from the WM freeze profile; arbitrary launch requires a declared application capability",
       )
     if command.startsWith("switch-shell ") or command == "cycle-shell":
       return commandMigration(
-        "shell", MigrationDisposition.unsupported,
-        "requires a bounded Hagia shell selection capability",
+        "shell", MigrationDisposition.excluded,
+        "excluded from the WM freeze profile; requires a bounded shell selection capability",
       )
     let parts = command.splitWhitespace()
     if parts.len == 0:
@@ -213,8 +218,8 @@ proc classifyTriadCommand(command: string): CommandMigration =
     let name = parts[0]
     if name.startsWith("split-tree-") or name.startsWith("frame-"):
       return commandMigration(
-        "policy", MigrationDisposition.unsupported,
-        "structural layout command has no complete Hagia action parity",
+        "policy", MigrationDisposition.excluded,
+        "excluded from the WM freeze profile; structural layout command belongs to a later policy and shell tranche",
       )
     if name in [
       "adjust-gaps", "adjust-master-count", "adjust-master-ratio", "center-tile",
@@ -234,8 +239,8 @@ proc classifyTriadCommand(command: string): CommandMigration =
       "vertical-grid", "zoom",
     ]:
       return commandMigration(
-        "policy", MigrationDisposition.unsupported,
-        "retained spatial command has no complete Hagia action parity",
+        "policy", MigrationDisposition.excluded,
+        "historical spatial command is not selected by the checked-in freeze profile",
       )
     commandMigration(
       "unowned", MigrationDisposition.unsupported,
@@ -299,13 +304,15 @@ proc collectPhysicalBindings(
       item.disposition = MigrationDisposition.excluded
       item.result = migration.result & "; Sophia reserves this emergency chord"
     elif crossesPointerAuthority:
-      item.disposition = MigrationDisposition.unsupported
+      item.disposition = MigrationDisposition.excluded
       item.result =
-        migration.result & "; pointer binding cannot cross into this authority"
+        migration.result &
+        "; excluded because a pointer binding cannot cross into this authority"
     elif unsupportedPointerAction:
-      item.disposition = MigrationDisposition.unsupported
+      item.disposition = MigrationDisposition.excluded
       item.result =
-        migration.result & "; shortcut authority supports only move and resize gestures"
+        migration.result &
+        "; the freeze profile retains only move and resize pointer actions"
     let settingName =
       case kind
       of MigrationBindingKind.key: "bind"
@@ -321,12 +328,15 @@ proc collectPhysicalBindings(
       )
       emitted.incl(identity)
     elif migration.outputCommand.len > 0 and item.context != "global":
-      item.disposition = MigrationDisposition.unsupported
+      item.disposition = MigrationDisposition.excluded
       item.result =
-        migration.result & "; contextual shortcut activation is not yet representable"
+        migration.result &
+        "; contextual shell modes are excluded from the freeze profile"
     elif migration.outputCommand.len > 0 and identity in emitted:
-      item.disposition = MigrationDisposition.unsupported
-      item.result = migration.result & "; duplicate shortcut identity is ambiguous"
+      item.disposition = MigrationDisposition.excluded
+      item.result =
+        migration.result &
+        "; the freeze profile excludes this later duplicate shortcut identity"
     report.items.add(item)
     return
 

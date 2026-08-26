@@ -112,6 +112,11 @@ type
     slot*: uint16
     targetBits*: uint16
 
+  SnapshotSurfaceClassification* = object
+    surfaceIndex*: uint32
+    surfaceGeneration*: uint32
+    classification*: uint64
+
   ProjectionOutput* = object
     output*: uint64
     placementCount*: uint32
@@ -163,6 +168,7 @@ const
   snapshotOutputSize* = 56
   snapshotSurfaceSize* = 80
   snapshotActionSize* = 140
+  snapshotSurfaceClassificationSize* = 16
   snapshotSessionOperationSize* = 12
   projectionOutputSize* = 24
   projectionPlacementSize* = 60
@@ -540,6 +546,14 @@ proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOpe
   result.operation = bytes.u64At(0)
   result.slot = bytes.u16At(8)
   result.targetBits = bytes.u16At(10)
+
+proc decodeSnapshotSurfaceClassification*(
+    bytes: openArray[byte]
+): SnapshotSurfaceClassification =
+  bytes.requireExact(snapshotSurfaceClassificationSize)
+  result.surfaceIndex = bytes.u32At(0)
+  result.surfaceGeneration = bytes.u32At(4)
+  result.classification = bytes.u64At(8)
 
 proc decodeProjectionOutput*(bytes: openArray[byte]): ProjectionOutput =
   bytes.requireExact(projectionOutputSize)

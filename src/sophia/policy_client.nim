@@ -36,6 +36,8 @@ const
   capabilitySessionOperations = 1'u64 shl 7
   capabilityIndicators = 1'u64 shl 8
   capabilityProfileActivation = 1'u64 shl 9
+  capabilityLaunchPlacement = 1'u64 shl 10
+  snapshotSurfaceClassificationRecordKind = 0xFF00'u16
   surfaceFocusable = 1'u16 shl 2
 
 proc fail(message: string) {.noreturn.} =
@@ -135,7 +137,7 @@ proc negotiatePolicy(
     optional = optional or capabilityProfileActivation
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
-      capabilityIndicators or optional
+      capabilityIndicators or capabilityLaunchPlacement or optional
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -145,11 +147,11 @@ proc negotiatePolicy(
   if (
     result.capabilities and (
       capabilityBindings or capabilityActions or capabilityMultiOutput or
-      capabilityIndicators
+      capabilityIndicators or capabilityLaunchPlacement
     )
   ) != (
     capabilityBindings or capabilityActions or capabilityMultiOutput or
-    capabilityIndicators
+    capabilityIndicators or capabilityLaunchPlacement
   ):
     fail("Sophia omitted a required policy capability")
   if requestConfiguration and (result.capabilities and optional) != optional:
@@ -306,6 +308,13 @@ proc validateSnapshot(snapshot: PolicySnapshot) =
           break
       if not validFocus:
         fail("policy output focus is invalid")
+  var classifiedSurfaces = initHashSet[(uint32, uint32)]()
+  for classification in snapshot.classifications:
+    let identity = (classification.surfaceIndex, classification.surfaceGeneration)
+    if classification.classification == 0 or identity notin surfaces or
+        identity in classifiedSurfaces:
+      fail("policy surface classification is invalid")
+    classifiedSurfaces.incl(identity)
   var actions = initHashSet[uint64]()
   var operationSlots = initHashSet[uint16]()
   for operation in snapshot.sessionOperations:
@@ -343,6 +352,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   var surfaces: seq[SnapshotSurface]
   var actions: seq[SnapshotAction]
   var sessionOperations: seq[SnapshotSessionOperation]
+  var classifications: seq[SnapshotSurfaceClassification]
   for ordinal in 0 ..< chunkCount:
     let chunk = client.receiveFrame(MessageKind.snapshotChunk)
     if chunk.transaction != begin.transaction or
@@ -390,7 +400,33 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
         )
     else:
       fail("unknown policy snapshot record kind")
-  let finish = client.receiveFrame(MessageKind.snapshotEnd)
+  # Frozen begin/end counts cover only ordinary chunks. A negotiated extension
+  # is appended after that prefix with dense ordinals, then SnapshotEnd closes
+  # the transfer without changing either frozen message layout.
+  var nextOrdinal = chunkCount
+  var finish = client.receiveFrame()
+  while finish.kind == MessageKind.snapshotChunk:
+    if (client.capabilities and capabilityLaunchPlacement) == 0 or
+        finish.transaction != begin.transaction or
+        finish.payload.u64At(0) != client.connectionEpoch or
+        int(finish.payload.u16At(8)) != nextOrdinal or
+        finish.payload.u16At(10) != snapshotSurfaceClassificationRecordKind:
+      fail("policy snapshot extension identity is invalid")
+    let itemCount = int(finish.payload.u32At(12))
+    if itemCount == 0 or
+        finish.payload.len != 16 + itemCount * snapshotSurfaceClassificationSize or
+        classifications.len + itemCount > maxSurfaces:
+      fail("policy surface-classification chunk count is invalid")
+    for index in 0 ..< itemCount:
+      classifications.add(
+        finish.payload
+          .recordBytes(index, snapshotSurfaceClassificationSize)
+          .decodeSnapshotSurfaceClassification()
+      )
+    inc nextOrdinal
+    finish = client.receiveFrame()
+  if finish.kind != MessageKind.snapshotEnd:
+    fail("policy snapshot extension was not followed by its end")
   if finish.transaction != begin.transaction or
       finish.payload.u64At(0) != client.connectionEpoch or
       finish.payload.u64At(8) != generation or
@@ -405,6 +441,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
     surfaces: surfaces,
     actions: actions,
     sessionOperations: sessionOperations,
+    classifications: classifications,
   )
   result.validateSnapshot()
 

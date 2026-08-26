@@ -15,6 +15,7 @@ type
     surfaces*: seq[SnapshotSurface]
     actions*: seq[SnapshotAction]
     sessionOperations*: seq[SnapshotSessionOperation]
+    classifications*: seq[SnapshotSurfaceClassification]
 
   ProjectionCauseKind* {.pure.} = enum
     sceneChanged = 0

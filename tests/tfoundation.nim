@@ -199,6 +199,35 @@ suite "Hagia foundation":
       expect DesktopProfileError:
         discard loadDesktopProfile(path)
 
+  test "the compiled freeze profile names only implemented policy actions":
+    let directory = createTempDir("hagia-compiled-shortcuts-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(path, compiledDesktopProfile)
+    path.ownerOnly()
+    let profile = loadDesktopProfile(path)
+    let shortcuts = profile.candidates[ProfileAuthority.shortcut]
+    var policyBindings = 0
+    for value in shortcuts.values:
+      if not value.encoded.contains("policy:"):
+        continue
+      var implemented =
+        value.encoded.contains("pointer-bind") and (
+          value.encoded.contains("policy:move") or
+          value.encoded.contains("policy:resize")
+        )
+      for ordinal in ord(low(PolicyAction)) .. ord(high(PolicyAction)):
+        let action = PolicyAction(ordinal)
+        if action.raw().isPolicyAction() and
+            value.encoded.contains("policy:" & action.profileName()):
+          implemented = true
+          break
+      check implemented
+      inc policyBindings
+    check shortcuts.values.len == 52
+    check policyBindings == 46
+
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
     defer:
@@ -652,6 +681,8 @@ output {
     let report = readFile(fixture).migrateTriadProfile()
     var keyBindings = 0
     var pointerBindings = 0
+    var unsupportedBindings = 0
+    var excludedBindings = 0
     for item in report.items:
       if item.kind != MigrationItemKind.physicalBinding:
         continue
@@ -668,11 +699,21 @@ output {
         inc pointerBindings
       else:
         check false
+      case item.disposition
+      of MigrationDisposition.unsupported:
+        inc unsupportedBindings
+      of MigrationDisposition.excluded:
+        inc excludedBindings
+      else:
+        discard
     check report.physicalBindingCount() == 137
     check keyBindings == 132
     check pointerBindings == 5
-    check report.outputProfile.count("\n  bind ") == 39
+    check unsupportedBindings == 0
+    check excludedBindings > 0
+    check report.outputProfile.count("\n  bind ") == 40
     check report.outputProfile.count("\n  pointer-bind ") == 2
+    check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":

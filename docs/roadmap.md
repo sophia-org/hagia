@@ -5,14 +5,17 @@
 Hagia independently implements the draft `sophia_wm_v1` wire in Nim and passes
 Sophia's shared valid, malformed, and record corpus. Its proof client completes
 the shared eleven-cycle behavior corpus through Sophia's canonical reducer on
-one authenticated connection, retaining private state across two-output
+one authenticated connection and across two supervised processes with fresh
+epochs, retaining private state across two-output
 admission, loss, migration, generational return, an ordered action, timeout,
 stale/invalid rejection, and recovery after every noncommitted outcome.
 
-The first Triad-policy slice now includes stable Hagia IDs, a shared nine-slot
+The retained freeze-profile policy now includes stable Hagia IDs, a shared nine-slot
 tag profile on every output, commit-aware multi-cycle reconciliation, bounded
 output affinity, hidden-surface admission, deterministic fixed-point scrolling
-columns, and registered focus, view, movement, and size actions. The
+columns, and the complete checked-in focus, view, movement, state, layout, and
+size action surface. An executable profile gate requires every `policy:` target
+to resolve to Hagia's action catalog or the two Engine-owned pointer modes. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
 transport. The installed physical checkpoint/restart workload has passed. This
 promotes the bootstrap path for daily use; it does not freeze revision 3.
@@ -20,16 +23,20 @@ Signed Sophia physical archive `0005` also promotes Hagia's Tier-0 per-head
 indicator and captured-action path. Freeze still waits for the retained-behavior
 gate in `triad-port-ledger.md`.
 
-The first Hagia Shell slice is live in source. Sophia launches the standalone
+The first Hagia Shell slice is live and physically proven. Sophia launches the standalone
 `hagia-shell` in a separate protected domain, sends only bounded sanitized
 descriptors and opaque actions, and admits `Super+P` through the session-owned
 shortcut path when a shell profile enables it. Engine renders and captures the
 exact presented list; the broker checks the issuer before Hagia policy receives
 an ordinary focus request. Disconnect revokes interaction and reconnects at a
 fresh epoch. Core and admitted XI explicit pointer grabs now join Engine's
-application lease arbitration, and the compiled profile enables `Super+P`. A
-signed installed presentation, activation, crash, reconnect, and withdrawal
-archive remains open.
+application lease arbitration, and the compiled profile enables `Super+P`.
+Signed archive `0006` proves presentation, activation, crash, reconnect,
+withdrawal, and clean teardown. The freeze profile retains this generic
+switcher; MRU policy, filtering, previews, icons, and persistent panels remain
+post-freeze shell work. Trusted launch placement and shared reconnect/restart
+are complete. One retained row remains partial: the explicitly authorized
+physical frame-fed output apply/rollback archive.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -183,8 +190,9 @@ archive remains open.
   the strip above fullscreen, the causal restart, pointer activations for views
   2 and 1, nonzero presentation on both outputs, and clean teardown.
 - [ ] Add bounded Janet policy and layouts only after failure and deterministic
-  fallback semantics are modeled and tested.
-- [ ] Prove the separate protected Hagia Shell in an installed physical run.
+  fallback semantics are modeled and tested. Janet is explicitly outside the
+  WM freeze profile.
+- [x] Prove the separate protected Hagia Shell in an installed physical run.
   The source implementation now runs against Sophia's modeled shell lifecycle.
   Start with the bounded title-only switcher proven by
   Sophia's offline descriptor reference; keep ordering and selection here and
@@ -196,8 +204,13 @@ archive remains open.
   presentation, exact activation, broker-checked dispatch, withdrawal, and
   fresh-epoch reconnect in a separate protected process. Sophia's core/XI
   explicit pointer-grab arbitration and compiled-profile enablement are now
-  complete. Signed physical evidence remains open.
-- [ ] Add metadata rules only through a trusted classification broker.
+  complete. Signed archive `0006` supplies the retained physical evidence.
+- [x] Add only trusted one-shot launch placement before the freeze. Session
+  provenance issues one opaque class for the first surface of a trusted
+  registered launch. The capability-gated uncounted snapshot extension survives
+  retry/reconnect until commit, and Hagia maps retained classes to view slots
+  without changing the active view. General metadata-matched rules, sticky
+  behavior, and swallowing remain post-freeze.
 - [ ] Request launch, logout, capture, locking, and configuration through
   opaque session capabilities or dedicated authorities. Terminal, browser,
   startup, and logout selectors are now prepared by Sophia against its trusted
@@ -210,12 +223,13 @@ archive remains open.
   clients launch), device-scoped reload/rollback, and remaining dedicated
   configuration services remain.
 
-## Milestone 5: Port Completion And Revision-1 Evaluation
+## Milestone 5: Freeze-Profile Completion And Revision-3 Evaluation
 
-- [ ] Close every retained row in `triad-port-ledger.md` across Hagia policy,
-  Hagia Shell, Sophia services, and brokers/portals.
+- [ ] Close every non-excluded row in `triad-port-ledger.md` across Hagia
+  policy, Hagia Shell, Sophia services, and brokers/portals.
 - [ ] Validate migration of the retained Triad default configuration without
-  silent command or behavior loss. Typed input, named-output,
+  silent command or behavior loss. Every source binding must have a retained
+  or excluded disposition. Typed input, named-output,
   initial-workspace, terminal, logout, and every recorded physical binding now
   have deterministic migration results; deferred layout geometry, commands,
   and feature families remain explicit unsupported/excluded rows. The current
@@ -223,5 +237,7 @@ archive remains open.
   typed authority-candidate check with the same digest.
 - [ ] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
-- [ ] Only then run the shared cross-client reconnect/restart corpus, archive a
-  revision-3 compatibility client, and evaluate `sophia_wm_v1` for stability.
+- [x] Run the shared cross-client reconnect/restart corpus, migrate the xmonad
+  recovery profile to the public projection transport, and pin a digest-checked
+  revision-3 compatibility-client candidate. Stability evaluation remains
+  gated by the separate physical output row.

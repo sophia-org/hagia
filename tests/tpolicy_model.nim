@@ -81,6 +81,7 @@ proc appendWireCycle(
     outcome: ProjectionOutcomeKind,
     policyGeneration = 1'u64,
     action = 0'u64,
+    launchClassification = 0'u64,
 ) =
   var beginPayload: seq[byte]
   beginPayload.addU64(epoch)
@@ -161,6 +162,25 @@ proc appendWireCycle(
     )
   )
 
+  if launchClassification != 0:
+    var classificationRecord: seq[byte]
+    classificationRecord.addU32(1)
+    classificationRecord.addU32(1)
+    classificationRecord.addU64(launchClassification)
+    var classificationPayload: seq[byte]
+    classificationPayload.addU64(epoch)
+    classificationPayload.addU16(2)
+    classificationPayload.addU16(0xFF00)
+    classificationPayload.addU32(1)
+    classificationPayload.add(classificationRecord)
+    bytes.appendFrame(
+      Frame(
+        kind: MessageKind.snapshotChunk,
+        transaction: snapshotTransaction,
+        payload: classificationPayload,
+      )
+    )
+
   var endPayload: seq[byte]
   endPayload.addU64(epoch)
   endPayload.addU64(generation)
@@ -220,7 +240,7 @@ proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   var payload: seq[byte]
   payload.addU16(3)
   payload.addU16(0)
-  payload.addU64(7 or (1'u64 shl 8))
+  payload.addU64(7 or (1'u64 shl 8) or (1'u64 shl 10))
   payload.addU64(epoch)
   payload.addU16(16)
   payload.addU16(256)
@@ -768,6 +788,30 @@ suite "Hagia private policy model":
     model.validate()
 
 suite "Sophia snapshot adapter":
+  test "trusted launch classification places only the first surface admission":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
+    var launched = surface(1, 0)
+    var scene = snapshot(1, @[output], @[launched])
+    scene.classifications = @[
+      SnapshotSurfaceClassification(
+        surfaceIndex: 1, surfaceGeneration: 1, classification: 2
+      )
+    ]
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(scene)
+    let logicalOutput = adapter.logicalOutput(10).get()
+    let window = adapter.logicalWindow(1, 1).get()
+    let views = adapter.model().outputs[logicalOutput].views
+    check adapter.model().outputs[logicalOutput].activeView == views[0]
+    check adapter.model().windowTagIds(window) == adapter.model().viewTagIds(views[1])
+
+    launched.stateGeneration = 2
+    scene.generation = 2
+    scene.surfaces = @[launched]
+    scene.classifications[0].classification = 3
+    adapter.reconcile(scene)
+    check adapter.model().windowTagIds(window) == adapter.model().viewTagIds(views[1])
+
   test "policy candidates reconcile atomically against live logical state":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
     var adapter = initPolicyAdapter()
@@ -1346,7 +1390,9 @@ suite "Sophia policy session":
   test "a socket session settles several outcomes with monotonic transactions":
     var serverBytes: seq[byte]
     serverBytes.appendWelcome(9)
-    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
+    serverBytes.appendWireCycle(
+      9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed, launchClassification = 2
+    )
     serverBytes.appendWireCycle(
       9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.rejectedStale
     )

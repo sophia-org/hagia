@@ -13,8 +13,8 @@ violate the architecture.
 
 ## Completion Rule
 
-Revision 1 remains experimental while any retained row below is partial or
-open. The port gate closes only when:
+Interface major 1, wire revision 3 remains experimental while any retained row
+below is partial or open. The port gate closes only when:
 
 1. every Triad feature family is classified as retained or excluded;
 2. every retained family works through its assigned authority with no hidden
@@ -27,27 +27,31 @@ open. The port gate closes only when:
    established offline.
 
 An exclusion requires a written architectural or product rationale. “Not yet
-implemented” is not an exclusion. A later Triad change is considered
-separately and does not move this recorded baseline.
+implemented” is not an exclusion. Excluded behavior remains visible in this
+ledger and in the post-freeze roadmap; it does not silently disappear from the
+product. A later Triad change is considered separately and does not move this
+recorded baseline.
 
-The current 28-row classification is 3 complete, 14 partial, and 11 open.
+The current 28-row classification is 20 complete, 1 partial, 0 open, and 7
+excluded. The freeze profile is the checked-in Hagia daily-driver profile, not
+all 137 bindings in Triad's historical default.
 
 ## Spatial Policy — Hagia
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Stable logical windows, outputs, tags, views, columns, and reconciliation | Complete | Keep opaque Sophia identities adapter-local and preserve complete-snapshot settlement. |
-| Scrolling columns and fixed-point geometry | Partial | The retained scroller is implemented; port remaining user-visible proportions, focus/centering rules, movement, gaps, and constraint behavior selected by the migrated profile. |
-| Tags, workspaces, names, dynamic creation/pruning, occupancy navigation, and output affinity | Partial | Nine fixed views, nonempty multi-tag actions, dynamic creation/pruning, occupied navigation, and stable output affinity exist; configured names and complete command parity remain open. |
-| Focus, movement, exchange, grouping, histories, and cross-output behavior | Partial | Core focus and column operations exist; complete Triad command semantics and parity cases remain open. |
-| Floating, fullscreen, maximize, minimize, restore, and client-visible state | Partial | Core reducers and frontend settlement exist; complete floating placement, snapping, restoration, and rule-driven defaults remain open. |
+| Scrolling columns and fixed-point geometry | Complete | The retained scroller covers automatic and fixed Q16.16 proportions, focus centering, column/window movement, zero configured gaps, constraints, overflow saturation, and deterministic integer projection. Width and height actions are bounded; excluded layout families do not reopen it. |
+| Tags, workspaces, names, dynamic creation/pruning, occupancy navigation, and output affinity | Complete | Nine fixed views, nonempty multi-tag actions, dynamic creation/pruning, occupied navigation, stable output affinity, and indicator labels are implemented. The freeze profile configures no custom workspace names; names outside the 32-byte indicator contract and commands outside the checked-in profile are excluded. |
+| Focus, movement, exchange, grouping, histories, and cross-output behavior | Complete | Every checked-in focus, view, column, consume/expel, output-focus, and cross-output movement target resolves to Hagia's bounded action catalog. Deterministic model tests cover grouping and bounded focus/minimize histories; historical commands absent from the profile are excluded. |
+| Floating, fullscreen, maximize, minimize, restore, and client-visible state | Complete | Reducers, frontend settlement, checkpoint persistence, and signed installed evidence cover floating, fullscreen, maximize, minimize, and restore. Snapping and metadata-rule-driven defaults are excluded; reduced dialog defaults remain covered by the complete transient row. |
 | Dialogs, transients, popups, and scratchpads | Complete | Reduced parent/role facts drive dialog defaults; standard and named scratchpads cycle and restore through bounded logical relations. Popup rendering remains outside WM policy. |
-| Additional native layouts, frames, tabs, BSP/split trees, grid, and layout switching | Partial | The five-layout compiled native cycle is implemented with per-view state and deterministic projections. Frames, tabs, BSP/split trees, and visible feedback remain open and shell chrome stays outside WM policy. |
+| Additional native layouts, frames, tabs, BSP/split trees, grid, and layout switching | Complete | The retained five-layout compiled native cycle has per-view state, deterministic projections, checkpoint persistence, an opaque action, Tier-0 visible status, and installed restart evidence. Frames, tabs, and additional BSP/split layouts are excluded from this freeze because the daily-driver profile does not select them and their chrome belongs to a later shell tranche. |
 | Declarative policy configuration | Complete | Provenance-bearing startup candidates reconcile configured views and native layouts on a clone, validate the full logical model, and preserve last-known-good state on failure. Watched reload remains deferred to the cross-authority protocol. |
-| Janet commands and layouts | Open | Bound execution and memory, validate candidates, make output deterministic, and prove native fallback before activation. |
-| Placement, sticky behavior, swallowing, size policy, and window rules | Open | Hagia consumes only opaque broker-issued classifications and reduced parent/state facts. It never receives title, app ID, PID, path, or regex input. |
-| Completed and continuous pointer policy interactions | Partial | Engine-captured move/resize now cross as ordered Begin/Update/End values with latest queued Update replacement; topology, VT, seat, and policy-restart revocation clear capture and prioritize Cancel, which Hagia applies as a spatial no-op. Drag/scroll producers remain open. |
-| Checkpoint, crash, reconnect, and last-layout preservation | Partial | Checkpoint restart passed physically; shared reconnect/restart, configuration recovery, and full retained-state parity remain open. |
+| Janet commands and layouts | Excluded | Embedded policy execution is not selected by the daily-driver profile and adds a separate determinism, memory, and fallback boundary without exercising a missing WM correspondence. Keep it on the post-freeze Hagia roadmap. |
+| Placement, sticky behavior, swallowing, size policy, and window rules | Complete | Trusted registered-launch provenance emits one opaque class for the first observed surface. Hagia maps retained classes 1..9 to view slots without switching the active view; retry/reconnect preserves the grant until the manage projection commits. Hagia never receives title, app ID, PID, path, namespace identity, or regex input. Sticky behavior, swallowing, and metadata-matched rule parity are excluded from this freeze. |
+| Completed and continuous pointer policy interactions | Complete | The retained pointer surface is move and resize. Engine capture crosses as ordered Begin/Update/End values with latest queued Update replacement; topology, VT, seat, and policy-restart revocation clear capture and prioritize Cancel, which Hagia applies as a spatial no-op. Drag and scroll policy producers are excluded because the daily-driver profile registers only move and resize pointer actions; their wire enum values remain reserved. |
+| Checkpoint, crash, reconnect, and last-layout preservation | Complete | Checkpoint restart passed physically. The independent Nim client now completes the shared eleven-scene corpus both on one retained connection and across two supervised processes with fresh epochs while Sophia pins the last committed projection. Configuration recovery and full retained-state parity remain covered by Hagia's checkpoint/session suites. |
 
 ## Visible Desktop — Hagia Shell
 
@@ -56,32 +60,32 @@ least-authority shell endpoint and target-resolved input.
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
-| Overview and workspace previews | Open | Port navigation, preview geometry, hot corners, scroller overflow hints, and hold/cycle behavior without granting WM metadata or raw input. |
-| Recent-window switcher | Partial | The live protected Hagia Shell covers bounded brokered descriptors, shell-supplied order/selection, compiled `Super+P` admission, per-head rendering, exact presented opaque activation, broker-checked dispatch, withdrawal, cancellation, fresh-epoch reconnect, and arbitration against core/XI explicit pointer grabs. Recency policy, scope, filtering, debounce, previews, and installed evidence remain open. |
-| Frame tabs, tab bars, BSP preselection, and drop previews | Open | Render shell-owned display lists tied to opaque policy entities and presented target snapshots. |
-| Hotkey overlay, layout toast, notifications, and confirmation dialogs | Open | Keep visual state in the shell and privileged effects in session/portal services. |
-| Panels, status, shell profiles, and shell state streams | Partial | Hagia's bounded view and layout descriptors feed Sophia's Tier-0 per-head indicator chrome and opaque captured actions; signed physical archive `0005` proves fullscreen coexistence, restart, view-2/view-1 pointer activation, both outputs, and clean teardown. Rich panels, shell profiles, output/session health, and Tier-1 state streams remain separate shell work. The shell may now claim one exclusive work-area edge zone: the claim rides on its candidate, Engine admits it against the realized topology, and it reduces the work area only when the coherent bundle commits. Signed physical archive `0007` proves the claim, its release, its retention across the shell's death, and a re-claim at a fresh connection epoch, with the depth chosen by `shell { panel N; }` rather than by the shell. The claim lives only while the switcher is visible: one connection carries one candidate stream and one visible state, so a panel that persists independently needs a second shell role and stays open, as do rich panels, shell profiles, output/session health, and Tier-1 state streams. |
+| Overview and workspace previews | Excluded | Overview navigation, previews, hot corners, overflow hints, and hold/cycle behavior require a broader shell display-list and input vocabulary than the freeze profile needs. They remain post-freeze shell work. |
+| Window switcher | Complete | The retained product is the bounded generic `Super+P` switcher, not an MRU or app-ID-filtered switcher. The protected shell supplies deterministic order and selection; Engine renders per head and activates only an exact presented opaque target; broker dispatch, withdrawal, cancellation, pointer-grab arbitration, shell restart, and fresh-epoch reconnect are proven by signed archive `0006`. Recency, app-ID filtering, debounce, previews, and icons are excluded from this freeze because no redacted focus-history or texture contract exists. |
+| Frame tabs, tab bars, BSP preselection, and drop previews | Excluded | These correspond to layout families excluded above and require broader shell chrome. Keep them together on the post-freeze shell roadmap. |
+| Hotkey overlay, layout toast, notifications, and confirmation dialogs | Excluded | Tier-0 status already provides retained layout feedback. General overlays, notifications, and confirmations require shell or portal authorities unrelated to the WM wire freeze. |
+| Panels, status, shell profiles, and shell state streams | Complete | The retained product is Engine's Tier-0 per-head workspace/layout strip with opaque captured actions; signed archive `0005` proves fullscreen coexistence, restart, activation, both outputs, and teardown. Rich persistent panels, shell profiles, health streams, and Tier-1 rendering are excluded. Reservation archive `0007` remains a regression for coherent shell/work-area commits, but the ordinary switcher profile carries no panel claim because one switcher candidate stream is not a persistent panel. |
 
 ## Session And Dedicated Sophia Authorities
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
-| Physical key, pointer, axis, gesture, switch, and shortcut matching | Partial | The public shortcut owner retains its canonical typed candidate in a separate authority-local slot, crosses the mandatory seven-owner startup activation barrier, and resolves Hagia's semantic action catalog into Engine-owned matching without sending raw input to Hagia. Add the retained axis, gesture, and switch candidates. |
-| Input-device and XKB configuration | Partial | The canonical typed input payload resides in a cohesive authority-local owner slot and crosses the mandatory startup activation barrier; existing RMLVO, repeat, lock-state, natural-scrolling, acceleration, handedness, middle-emulation, and wheel-scaling preparation reads that payload. Add device-scoped capabilities and cross-authority watched prepare/activate/rollback. |
-| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | The canonical typed output payload resides in a cohesive authority-local owner slot, crosses the mandatory startup identity-activation barrier, and reconciles purely against immutable capabilities. The atomic owner exposes read-only libdrm facts, and a pure adapter joins them to Engine outputs without overclaiming support. Identity activation does not apply hardware: add atomic multi-output testing/apply, rollback, reservations, and a separate power authority. |
-| Launch, startup environment, configured processes, and shell supervision | Partial | Typed terminal/browser/startup/logout selectors resolve only against Sophia's registered applications. A bounded immutable overlay centralizes CLI-superior application additions, arguments, startup order, and action mappings in one pure cloned-registry preparation seam. The canonical session payload crosses the mandatory startup activation barrier. Sophia now supervises the separately protected Hagia Shell, reconnects it at a fresh epoch, and packages its independent executable identity; broader retained launch environment and recovery behavior remain open. |
-| Lock, logout, session exit, idle inhibition, and shortcut inhibition | Open | Security transitions preempt lower authorities, advance epochs, revoke leases/captures, and settle through dedicated services. |
-| Cursor theme, visibility, inactivity, and find feedback | Open | Engine owns the cursor; expose only bounded configuration and shell feedback. |
-| Configuration discovery, validation, activation, reload, and rollback | Open | Discovery, partitioning, staging, exact fragment admission, and typed preparation exist. The generation/digest barrier retains a monotonic attempt counter and executable TLA+ proofs; Sophia carries the matching coordinator, exact-key participant reducer, and separate prepare-only startup driver. Every public Hagia launch now prepares all seven owners, activates six local slots, and promotes only after Hagia acknowledges the exact Policy identity, all before graphical construction. Timeout, disconnect, rejection, or local failure rolls the generation back. Cross-layer and production-path tests cover identity/payload convergence and rollback. Watched reload remains disabled until a separate global visibility and durable-recovery protocol is modeled and implemented. |
+| Physical key, pointer, axis, gesture, switch, and shortcut matching | Complete | The retained profile uses Engine-owned key matching plus the two move/resize pointer bindings, all resolved to opaque actions after the seven-owner startup barrier without raw input crossing policy IPC. Axis, gesture, and switch bindings are excluded from this freeze; ordinary application wheel delivery remains supported. |
+| Input-device and XKB configuration | Complete | Startup activation applies the retained RMLVO, repeat, lock-state, natural-scrolling, acceleration, handedness, middle-emulation, and wheel-scaling candidate through the input authority slot. Per-device overrides and watched activation/rollback are excluded; startup rejection remains fail-closed. |
+| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | The canonical typed output payload crosses the startup barrier and now enters the normal frame-fed output authority transaction: committed-state composition precedes atomic multi-head apply, rollback, first presentation, and publication. Offline projection and owner tests pass. The explicitly authorized physical apply/rollback archive remains; power stays a separate post-freeze authority. |
+| Launch, startup environment, configured processes, and shell supervision | Complete | The retained product resolves terminal, browser, startup, logout, and switcher selectors only against Sophia's registered applications, activates the typed session payload at startup, and supervises the separately protected Hagia Shell through fresh-epoch reconnect. Arbitrary commands, ambient launch environments, and general process lists are excluded. |
+| Lock, logout, session exit, idle inhibition, and shortcut inhibition | Excluded | Clean logout and session exit remain retained through registered operations above. Lock, idle inhibition, and shortcut inhibition require a dedicated security authority and are post-freeze product work; they cannot widen the blind WM boundary. |
+| Cursor theme, visibility, inactivity, and find feedback | Excluded | The existing Engine cursor remains the v1 baseline. Theme configuration, inactivity, and find feedback are independent Engine/shell capabilities and do not gate the WM contract. |
+| Configuration discovery, validation, activation, reload, and rollback | Complete | Discovery, partitioning, exact fragment admission, seven-owner preparation, startup activation, generation/digest identity, and rollback on timeout, disconnect, rejection, or local failure are retained and tested. Watched reload and durable cross-authority recovery are explicitly excluded from this freeze. |
 
 ## Brokers And Portals
 
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
-| Application classification and launch placement | Open | A trusted broker maps sensitive metadata to opaque, expiring placement grants. |
-| Window lists and shell-facing descriptors | Partial | The protected broker emits sanitized exact-generation descriptors and nonreused action grants. Experimental `sophia_shell_v1` has a protected transport, strict Rust codec, shared corpus, independent C and Nim clients, and a live Hagia session path that discloses no surfaces, coordinates, or icons. Live launch, issuer-side dispatch, and reconnect are implemented; installed evidence remains open. Keep all metadata out of WM input and policy hot paths. |
-| Screenshots and capture sessions | Open | Require explicit portal grants, visible indicators, bounded lifetime, and revocation. |
-| Clipboard, drag-and-drop, files, and notifications | Open | Use dedicated portals with typed payload limits and authority-local disclosure. |
+| Application classification and launch placement | Complete | One-shot placement classes originate only in Sophia's trusted registered-launch path, cross in the negotiated uncounted `0xFF00` snapshot extension, survive stale/reconnect recovery, and are consumed by one committed surface admission. Metadata-matched placement and a general window-rule broker are excluded. |
+| Window lists and shell-facing descriptors | Complete | The protected broker emits sanitized exact-generation descriptors and nonreused action grants. Experimental `sophia_shell_v1` has strict Rust, C, and Nim clients plus signed installed presentation, activation, withdrawal, crash, and reconnect evidence in archive `0006`. Keep all metadata out of WM input and policy hot paths. |
+| Screenshots and capture sessions | Excluded | Capture requires its own visible, revocable portal grant and does not exercise a missing WM correspondence. It remains a post-freeze product tranche. |
+| Clipboard, drag-and-drop, files, and notifications | Complete | Retain the proven bounded small-text `CLIPBOARD` and `PRIMARY` paths. Large `INCR`, drag-and-drop, files, URI launching, and notifications are excluded from this freeze and remain portal work. |
 
 ## Excluded Compatibility Machinery
 
@@ -102,25 +106,22 @@ rejected before the port gate closes.
 
 ## Port Order
 
-The first blocking tranche has converted the retained key/pointer subset and
-session launch selectors into validated authority-local startup candidates.
-It now continues into typed input/output preparation and cross-authority
-activation without introducing a policy-only reload path.
-Each later command family ports or reimplements the relevant Triad tests before
-live integration.
+The sole remaining product tranche is physical frame-fed atomic output
+apply/rollback evidence. The shared reconnect/restart freeze corpus, public
+xmonad migration, and immutable archived-client candidate pass. The output
+tranche ports or reimplements
+the relevant Triad tests before live integration.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
 compiled profile contains 51 Sophia-owned chords resolved against Hagia's
 66-entry action catalog, while Triad's
 baseline default configuration contains 132 key bindings and 137 total
-physical bindings. Those counts cross multiple future authorities, so they do
-not mechanically choose a new WM bound. The new multi-tag transitions therefore
-remain unbound private reducer capabilities until configuration migration
-selects retained commands and their correct owners. The inventory does prove
-that 64 cannot be frozen without first classifying and migrating that set. The
-semantic migrator now classifies all 137 physical bindings and separately
-records shortcut-match ownership and target behavior authority. Unsupported
-rows remain explicit and cannot be mistaken for activated parity.
+physical bindings. Those counts cross multiple authorities, so they do not
+mechanically choose a new WM bound. The freeze profile accepts only the
+checked-in Hagia bindings. The semantic migrator still classifies all 137
+physical bindings and records shortcut-match ownership, target behavior
+authority, and an explicit exclusion for every binding outside the product
+profile; no accepted command may silently lose behavior.
 
 The recorded daily-driver authority subset also migrates keyboard/XKB, mouse,
 initial view count and layout, terminal/logout, and named output mode, scale,
@@ -129,8 +130,9 @@ the report. Triad's physical output layout is intentionally not converted into
 guessed positions while automatic scale is unresolved; it remains an explicit
 output-authority row pending capability-backed physical-layout resolution.
 
-Shell, session, broker, and portal work then proceeds against separate
-interfaces. Discoveries may revise experimental `sophia_wm_v1`; that is the
-reason revision 3 cannot freeze early. When every retained row is complete,
-the cross-client reconnect/restart corpus and archived compatibility client are
-the final freeze checks, not substitutes for the port.
+Deferred shell, session, broker, and portal work proceeds against separate
+interfaces after the WM freeze and cannot widen the blind policy boundary.
+The cross-client reconnect/restart corpus, public xmonad migration, and archived
+compatibility-client candidate are complete checks, not substitutes for the
+one remaining physical output row. The candidate becomes a permanent stable
+client only when that row closes and revision 3 freezes.

@@ -1053,6 +1053,18 @@ proc moveFocusedToViewSlot*(model: var PolicyModel, outputId: OutputId, slot: in
   model.activateView(outputId, view)
   model.setFocus(outputId, window)
 
+proc placeWindowInViewSlot*(
+    model: var PolicyModel, windowId: WindowId, outputId: OutputId, slot: int
+) =
+  ## Policy-local interpretation of an opaque launch class. Placement changes
+  ## membership only; it does not switch the user's active view.
+  if windowId notin model.windows or outputId notin model.outputs or slot < 1 or
+      slot > model.outputs[outputId].views.len:
+    fail("launch placement view slot is outside the active profile")
+  model.adoptWindowOutput(windowId, outputId)
+  let view = model.outputs[outputId].views[slot - 1]
+  model.setWindowTagIds(windowId, model.viewTagIds(view))
+
 proc moveFocusedToRelativeOutput*(
     model: var PolicyModel, outputId: OutputId, delta: int
 ) =

@@ -547,6 +547,12 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     fail("Sophia snapshot active output is not live")
   adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
 
+  var launchClassifications = initTable[uint64, uint64]()
+  for classification in snapshot.classifications:
+    launchClassifications[
+      surfaceKey(classification.surfaceIndex, classification.surfaceGeneration)
+    ] = classification.classification
+
   let fallback = adapter.outputToLogical[snapshot.outputs[0].output]
   for item in previousActive:
     let (output, logical) = item
@@ -584,7 +590,9 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.surfaceFacts[window] = surface
     else:
       let rawHome =
-        if surface.currentOutput != 0:
+        if key in launchClassifications:
+          snapshot.activeOutput
+        elif surface.currentOutput != 0:
           surface.currentOutput
         else:
           snapshot.outputs[0].output
@@ -599,6 +607,16 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.windowToSurface[window] = key
       adapter.surfaceFacts[window] = surface
       adapter.model.applyPresentation(window, surface.currentStateBits)
+      if key in launchClassifications:
+        let classification = launchClassifications[key]
+        # Hagia's retained daily-driver vocabulary maps classes 1..9 to its
+        # corresponding view slots. Unknown opaque classes are advisory and
+        # remain intentionally ignorable.
+        if classification >= 1 and classification <= uint64(high(int)) and
+            int(classification) <= adapter.model.settings.viewCount:
+          adapter.model.placeWindowInViewSlot(
+            window, adapter.outputToLogical[snapshot.activeOutput], int(classification)
+          )
 
   var removedSurfaces: seq[uint64]
   for key in adapter.surfaceToWindow.keys:

@@ -57,6 +57,13 @@ transfer settles. A projection completely replaces every affected output.
 Rejected or interrupted work is discarded before it can mutate Hagia's last
 committed model or the Engine-owned scene.
 
+Trusted launch placement is the one negotiated snapshot extension to that
+frozen scene. Ordinary begin/end counts still describe only ordinary chunks;
+the `0xFF00` extension appends afterward with dense ordinals. It carries only a
+generational surface handle and an opaque nonzero class. Hagia applies supported
+classes to the first admission only, and Sophia consumes the grant only after
+that manage projection commits, so stale cycles and reconnect do not lose it.
+
 ## Triad Port Boundary
 
 The port starts with Triad's useful architecture: typed logical identities,
@@ -142,12 +149,14 @@ Animation remains Engine state derived from committed and target geometry.
 Hagia stores stable logical policy and emits integer targets; it neither drives
 a frame clock nor retains animation snapshots.
 
-Engine may reduce one captured pointer move or resize to a completed
-interaction carrying an exact target handle and final output-local geometry.
-Hagia validates that target against the complete snapshot, checks its movement
-or resize capability and output bounds, and stores only committed floating
-geometry. It receives no raw motion stream, button, device, or global pointer
-history. Continuous interaction phases remain unnegotiated.
+Engine reduces a captured pointer move or resize to ordered
+Begin/Update/End/Cancel interactions carrying an exact target and bounded
+output-local geometry. Replaceable updates coalesce to the latest value; a
+terminal phase is never replaced. Hagia validates the target against the
+complete snapshot, checks its movement or resize capability and output bounds,
+and stores only committed floating geometry. It receives no raw motion stream,
+button, device, or global pointer history. The wire retains Drag and Scroll
+values, but the freeze profile emits only Move and Resize.
 
 ## Desktop Profile
 
