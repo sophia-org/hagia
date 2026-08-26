@@ -13,8 +13,8 @@ porting useful Triad behavior.
 - [Capability map](capability-map.md): where Triad features belong under
   Sophia's split authorities.
 - [Triad port completion ledger](triad-port-ledger.md): retained behavior,
-  ownership, evidence, and the completion gate before Sophia freezes
-  `sophia_wm_v1` revision 3.
+  ownership, evidence, and the completed record that froze `sophia_wm_v1`
+  revision 3.
 - [Port provenance](provenance.md): reviewed Triad sources and baseline.
 - [Roadmap](roadmap.md): implemented and deferred work.
 

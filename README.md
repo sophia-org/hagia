@@ -36,12 +36,12 @@ reconciliation, bounded output reconnect affinity, deterministic fixed-point
 scrolling columns, atomic cross-output movement, output focus, column
 consume/expel, bounded focus/minimize histories, presentation-state reduction,
 nonempty multi-tag view/window mutation, completed reduced pointer move/resize,
-and a checked-in native action and chrome profile. The retained bootstrap
-profile has one scrolling layout and
-nine fixed views. It proves the boundary but does not complete the Triad port,
-and Sophia revision 3 remains experimental until the retained behavior in
-`docs/triad-port-ledger.md` is implemented across its assigned authorities. The
-`hagia` executable is a long-running client of the session-owned
+and a checked-in native action and chrome profile. The retained freeze profile
+has one scrolling layout and nine fixed views. It is complete, and Sophia
+interface major 1, wire revision 3 is stable. The 28-row record closes at 21
+complete, 0 partial, 0 open, and 7 excluded; signed Sophia physical archive
+`0001` supplies the final frame-fed apply/rollback evidence. The `hagia`
+executable is a long-running client of the session-owned
 `SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
 recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
 owner-only, atomic replacement; restored state is revalidated and reconciled

@@ -17,11 +17,11 @@ columns, and the complete checked-in focus, view, movement, state, layout, and
 size action surface. An executable profile gate requires every `policy:` target
 to resolve to Hagia's action catalog or the two Engine-owned pointer modes. The
 long-running `hagia` client uses Sophia's session-hosted frontend-settled public
-transport. The installed physical checkpoint/restart workload has passed. This
-promotes the bootstrap path for daily use; it does not freeze revision 3.
+transport. The installed physical checkpoint/restart workload has passed.
 Signed Sophia physical archive `0005` also promotes Hagia's Tier-0 per-head
-indicator and captured-action path. Freeze still waits for the retained-behavior
-gate in `triad-port-ledger.md`.
+indicator and captured-action path. Signed physical archive `0001` closes the
+last retained output-authority row, and the completed ledger records interface
+major 1, wire revision 3 as stable.
 
 The first Hagia Shell slice is live and physically proven. Sophia launches the standalone
 `hagia-shell` in a separate protected domain, sends only bounded sanitized
@@ -35,8 +35,9 @@ Signed archive `0006` proves presentation, activation, crash, reconnect,
 withdrawal, and clean teardown. The freeze profile retains this generic
 switcher; MRU policy, filtering, previews, icons, and persistent panels remain
 post-freeze shell work. Trusted launch placement and shared reconnect/restart
-are complete. One retained row remains partial: the explicitly authorized
-physical frame-fed output apply/rollback archive.
+are complete. Physical archive `0001` proves frame-fed apply, first
+presentation, frontend publication, forced rollback after final KMS acceptance,
+physical input, and clean teardown.
 
 ## Milestone 1: Geometry And Reconciliation
 
@@ -216,18 +217,17 @@ physical frame-fed output apply/rollback archive.
   startup, and logout selectors are now prepared by Sophia against its trusted
   application registry and lowered to opaque operation slots. Typed keyboard
   and pointer startup candidates now activate through Sophia with strict
-  libinput failure. Typed output candidates are validated and staged without
-  touching hardware, then reconcile purely against immutable capability data;
-  capture, locking, broader launch environment, atomic output testing/apply
-  (native startup now admits the read-only libdrm projection before graphical
-  clients launch), device-scoped reload/rollback, and remaining dedicated
-  configuration services remain.
+  libinput failure. Typed output candidates activate through the frame-fed
+  authority transaction; signed archive `0001` proves atomic apply and rollback
+  on physical hardware. Capture, locking, broader launch environment,
+  device-scoped reload/rollback, and remaining dedicated configuration services
+  remain.
 
 ## Milestone 5: Freeze-Profile Completion And Revision-3 Evaluation
 
-- [ ] Close every non-excluded row in `triad-port-ledger.md` across Hagia
+- [x] Close every non-excluded row in `triad-port-ledger.md` across Hagia
   policy, Hagia Shell, Sophia services, and brokers/portals.
-- [ ] Validate migration of the retained Triad default configuration without
+- [x] Validate migration of the retained Triad default configuration without
   silent command or behavior loss. Every source binding must have a retained
   or excluded disposition. Typed input, named-output,
   initial-workspace, terminal, logout, and every recorded physical binding now
@@ -235,9 +235,9 @@ physical frame-fed output apply/rollback archive.
   and feature families remain explicit unsupported/excluded rows. The current
   generated profile passes both Hagia's structural check and Sophia's complete
   typed authority-candidate check with the same digest.
-- [ ] Pass deterministic parity, authority-loss, restart, and installed
+- [x] Pass deterministic parity, authority-loss, restart, and installed
   physical scenarios for the completed desktop.
 - [x] Run the shared cross-client reconnect/restart corpus, migrate the xmonad
   recovery profile to the public projection transport, and pin a digest-checked
-  revision-3 compatibility-client candidate. Stability evaluation remains
-  gated by the separate physical output row.
+  revision-3 compatibility client. Physical archive `0001` closes the last
+  physical row and makes the archived client permanent.

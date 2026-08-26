@@ -41,9 +41,9 @@ None of these repositories is a Hagia runtime or build dependency.
 | Launch, logout, lock, output power, and configuration | Sophia session or dedicated authority | Terminal, browser, close, and logout slot requests implemented; other services deferred | Advertised opaque operations or role-specific interfaces |
 | Screenshot, capture, clipboard, drag-and-drop, files, and notifications | Sophia portals | Deferred | Explicit grants and bounded payload handoff |
 | Status and diagnostics | Redacted shell/status and diagnostic interfaces | Deferred | Full initial state plus typed bounded updates |
-| KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Open and freeze-blocking | Candidate validation, atomic activation, bounded evaluation, deterministic fallback |
+| KDL configuration and Janet policy/layouts | Hagia, within bounded policy authority | Retained declarative KDL path complete; Janet excluded from the revision-3 freeze profile | Keep candidate validation and atomic activation stable; model bounded evaluation and deterministic fallback before any post-freeze Janet addition |
 
-The complete retained-behavior inventory and revision-3 gate are in
+The complete retained-behavior inventory and closed revision-3 gate are in
 [`triad-port-ledger.md`](triad-port-ledger.md). A feature assigned to a shell,
 session service, broker, or portal still counts toward the Hagia desktop port;
 it does not acquire WM authority merely to keep the old Triad process shape.

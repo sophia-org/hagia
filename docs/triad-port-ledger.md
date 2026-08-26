@@ -1,7 +1,7 @@
 # Triad Port Completion Ledger
 
-This ledger defines what “Triad is ported to Hagia” means before Sophia may
-freeze revision 3 of `sophia_wm_v1`. The unit of parity is retained behavior,
+This ledger records what “Triad is ported to Hagia” meant when Sophia froze
+revision 3 of `sophia_wm_v1`. The unit of parity is retained behavior,
 not source files, process shape, River protocols, or command spelling.
 
 The reviewed source baseline is
@@ -13,8 +13,9 @@ violate the architecture.
 
 ## Completion Rule
 
-Interface major 1, wire revision 3 remains experimental while any retained row
-below is partial or open. The port gate closes only when:
+Interface major 1, wire revision 3 is stable. The port gate closed on
+2026-08-26 when the last retained row moved from Partial to Complete. Closure
+required:
 
 1. every Triad feature family is classified as retained or excluded;
 2. every retained family works through its assigned authority with no hidden
@@ -32,7 +33,7 @@ ledger and in the post-freeze roadmap; it does not silently disappear from the
 product. A later Triad change is considered separately and does not move this
 recorded baseline.
 
-The current 28-row classification is 20 complete, 1 partial, 0 open, and 7
+The frozen 28-row classification is 21 complete, 0 partial, 0 open, and 7
 excluded. The freeze profile is the checked-in Hagia daily-driver profile, not
 all 137 bindings in Triad's historical default.
 
@@ -72,7 +73,7 @@ least-authority shell endpoint and target-resolved input.
 | --- | --- | --- |
 | Physical key, pointer, axis, gesture, switch, and shortcut matching | Complete | The retained profile uses Engine-owned key matching plus the two move/resize pointer bindings, all resolved to opaque actions after the seven-owner startup barrier without raw input crossing policy IPC. Axis, gesture, and switch bindings are excluded from this freeze; ordinary application wheel delivery remains supported. |
 | Input-device and XKB configuration | Complete | Startup activation applies the retained RMLVO, repeat, lock-state, natural-scrolling, acceleration, handedness, middle-emulation, and wheel-scaling candidate through the input authority slot. Per-device overrides and watched activation/rollback are excluded; startup rejection remains fail-closed. |
-| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Partial | The canonical typed output payload crosses the startup barrier and now enters the normal frame-fed output authority transaction: committed-state composition precedes atomic multi-head apply, rollback, first presentation, and publication. Offline projection and owner tests pass. The explicitly authorized physical apply/rollback archive remains; power stays a separate post-freeze authority. |
+| Output mode, scale, position, transform, VRR, enablement, power, and reservations | Complete | Signed Sophia physical archive `0001` binds Sophia `870ba46ae231081220b982ecc3a5a95517df7a90` and Hagia `a83c8fa022a4ceff5d8b96a01c46052bbd8ba64a`. It proves atomic multi-head apply, first presentation, frontend publication, a forced rollback after final KMS acceptance but before installation/publication, physical input, and clean teardown. Output power stays a separate post-freeze authority. |
 | Launch, startup environment, configured processes, and shell supervision | Complete | The retained product resolves terminal, browser, startup, logout, and switcher selectors only against Sophia's registered applications, activates the typed session payload at startup, and supervises the separately protected Hagia Shell through fresh-epoch reconnect. Arbitrary commands, ambient launch environments, and general process lists are excluded. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Excluded | Clean logout and session exit remain retained through registered operations above. Lock, idle inhibition, and shortcut inhibition require a dedicated security authority and are post-freeze product work; they cannot widen the blind WM boundary. |
 | Cursor theme, visibility, inactivity, and find feedback | Excluded | The existing Engine cursor remains the v1 baseline. Theme configuration, inactivity, and find feedback are independent Engine/shell capabilities and do not gate the WM contract. |
@@ -100,17 +101,15 @@ desktop behavior:
 - the Triad mirror executable and compositor-specific diagnostic paths; and
 - unrestricted command execution or a general metadata-rich Triad IPC socket.
 
-Native output mirroring is not silently excluded: it remains an output-service
-product decision and must be either implemented with evidence or explicitly
-rejected before the port gate closes.
+Native output mirroring is implemented and physically proven separately.
+Equal-mode scanout cloning remains a post-freeze output-service optimization.
 
-## Port Order
+## Freeze Result And Post-Freeze Order
 
-The sole remaining product tranche is physical frame-fed atomic output
-apply/rollback evidence. The shared reconnect/restart freeze corpus, public
-xmonad migration, and immutable archived-client candidate pass. The output
-tranche ports or reimplements
-the relevant Triad tests before live integration.
+Signed physical archive `0001` closes the frame-fed atomic output row. The
+shared reconnect/restart corpus, public xmonad migration, and immutable archived
+client also pass, so revision 3 is frozen. Later work is additive and cannot
+silently widen the blind policy boundary.
 
 The binding inventory also exposes a public-boundary pressure. Hagia's
 compiled profile contains 51 Sophia-owned chords resolved against Hagia's
@@ -127,12 +126,12 @@ The recorded daily-driver authority subset also migrates keyboard/XKB, mouse,
 initial view count and layout, terminal/logout, and named output mode, scale,
 position, focus, enablement, and VRR values. Duplicate values fail closed in
 the report. Triad's physical output layout is intentionally not converted into
-guessed positions while automatic scale is unresolved; it remains an explicit
-output-authority row pending capability-backed physical-layout resolution.
+guessed positions while automatic scale is unresolved. Capability-backed
+automatic layout conversion is post-freeze work and does not reopen the
+retained named-output profile.
 
 Deferred shell, session, broker, and portal work proceeds against separate
 interfaces after the WM freeze and cannot widen the blind policy boundary.
 The cross-client reconnect/restart corpus, public xmonad migration, and archived
-compatibility-client candidate are complete checks, not substitutes for the
-one remaining physical output row. The candidate becomes a permanent stable
-client only when that row closes and revision 3 freezes.
+compatibility client are permanent stable revision-3 evidence alongside the
+physical output archive.
