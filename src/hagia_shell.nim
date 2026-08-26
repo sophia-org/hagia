@@ -1,4 +1,4 @@
-import std/[net, os]
+import std/[net, options, os, strutils]
 
 import sophia/shell_v1
 
@@ -92,6 +92,72 @@ proc runProof(socketPath: string) =
       " activations=1 withdrawn=true"
   )
 
+## The bar strip is a bounded status zone the shell claims work area for.
+## Its thickness comes from the session so the operator, not the shell, decides
+## how much of the desktop a panel may take; an unset or zero value means this
+## shell reserves nothing and behaves exactly as the switcher-only shell did.
+proc barReservation(): Option[ShellReservation] =
+  let configured = getEnv("SOPHIA_SHELL_BAR_THICKNESS")
+  if configured.len == 0:
+    return none(ShellReservation)
+  var thickness: int
+  try:
+    thickness = parseInt(configured)
+  except ValueError:
+    fail("hagia-shell: SOPHIA_SHELL_BAR_THICKNESS is not a number")
+  if thickness <= 0:
+    return none(ShellReservation)
+  if thickness > int(shellMaxReservationThickness):
+    fail("hagia-shell: SOPHIA_SHELL_BAR_THICKNESS exceeds the protocol maximum")
+  some(
+    ShellReservation(
+      edge: ShellReservationEdge.bottom, thicknessPx: uint16(thickness)
+    )
+  )
+
+## Reserve, withdraw, and reconnect at a fresh epoch.
+##
+## The withdrawal carries no reservation, which is how the protocol expresses
+## releasing a claim: Engine's coordinator commits the absence through the same
+## bundle path that committed the claim, so there is no separate release
+## message that could be lost on its own.
+proc runBarProof(socketPath: string) =
+  let socket = socketPath.connect()
+  socket.sendFrame(clientHelloFrame())
+  let connectionEpoch = socket.receiveFrame().validateWelcome()
+  var model = ShellModel(connectionEpoch: connectionEpoch)
+  let reservation = barReservation()
+  if reservation.isNone:
+    fail("hagia-shell: the bar proof requires SOPHIA_SHELL_BAR_THICKNESS")
+
+  let firstFrame = socket.receiveFrame()
+  let first = firstFrame.decodeSnapshot()
+  model.reconcile(first)
+  socket.sendFrame(
+    model.candidate(1, true, reservation).candidateFrame(firstFrame.transaction)
+  )
+  if socket.receiveFrame().decodeOutcome().kind !=
+      ShellCandidateOutcomeKind.prepared:
+    fail("Sophia did not prepare the reserving bar candidate")
+  let presented = socket.receiveFrame().decodeOutcome()
+  if presented.kind != ShellCandidateOutcomeKind.presented:
+    fail("Sophia did not present the reserving bar candidate")
+  model.rememberPresented(presented)
+
+  let withdrawalFrame = socket.receiveFrame()
+  model.reconcile(withdrawalFrame.decodeSnapshot())
+  socket.sendFrame(model.candidate(2, false).candidateFrame(withdrawalFrame.transaction))
+  if socket.receiveFrame().decodeOutcome().kind !=
+      ShellCandidateOutcomeKind.prepared:
+    fail("Sophia did not prepare the bar withdrawal")
+  if socket.receiveFrame().decodeOutcome().kind !=
+      ShellCandidateOutcomeKind.presented:
+    fail("Sophia did not present the bar withdrawal")
+  stdout.writeLine(
+    "hagia_shell_bar_proof schema=1 status=complete edge=bottom thickness=" &
+      $reservation.get().thicknessPx & " withdrawn=true"
+  )
+
 proc runServer(socketPath: string) =
   let socket = socketPath.connect()
   defer:
@@ -101,6 +167,12 @@ proc runServer(socketPath: string) =
   var model = ShellModel(connectionEpoch: connectionEpoch)
   var candidateGeneration = 1'u64
   var showNext = true
+  let reservation = barReservation()
+  if reservation.isSome:
+    stdout.writeLine(
+      "hagia_shell schema=1 status=bar_configured edge=bottom thickness=" &
+        $reservation.get().thicknessPx
+    )
   stdout.writeLine(
     "hagia_shell schema=1 status=ready connection_epoch=" & $connectionEpoch
   )
@@ -108,7 +180,7 @@ proc runServer(socketPath: string) =
     let snapshotFrame = socket.receiveFrame()
     let snapshot = snapshotFrame.decodeSnapshot()
     model.reconcile(snapshot)
-    let candidate = model.candidate(candidateGeneration, showNext)
+    let candidate = model.candidate(candidateGeneration, showNext, reservation)
     socket.sendFrame(candidate.candidateFrame(snapshotFrame.transaction))
     let prepared = socket.receiveFrame().decodeOutcome()
     if prepared.connectionEpoch != connectionEpoch or
@@ -150,10 +222,12 @@ proc run(arguments: seq[string]) =
     fail("hagia-shell: SOPHIA_SHELL_SOCKET is required")
   if arguments == @["--proof"]:
     socketPath.runProof()
+  elif arguments == @["--bar-proof"]:
+    socketPath.runBarProof()
   elif arguments == @["--serve"]:
     socketPath.runServer()
   else:
-    fail("hagia-shell: expected --proof or --serve")
+    fail("hagia-shell: expected --proof, --bar-proof, or --serve")
 
 try:
   run(commandLineParams())

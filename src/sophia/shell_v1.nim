@@ -6,6 +6,8 @@ const
   shellMaxDescriptors* = 16
   shellMaxLabelBytes* = 128
   shellDescriptorCapability* = 1'u64
+  shellReservationCapability* = 2'u64
+  shellMaxReservationThickness* = 512'u16
 
 type
   ShellProtocolError* = object of CatchableError
@@ -54,6 +56,16 @@ type
     slot*: uint16
     generation*: uint64
 
+  ShellReservationEdge* {.pure.} = enum
+    top = 1
+    bottom = 2
+    left = 3
+    right = 4
+
+  ShellReservation* = object
+    edge*: ShellReservationEdge
+    thicknessPx*: uint16
+
   ShellCandidate* = object
     connectionEpoch*: uint64
     snapshotGeneration*: uint64
@@ -61,6 +73,7 @@ type
     output*: uint64
     visible*: bool
     selected*: Option[uint16]
+    reservation*: Option[ShellReservation]
     entries*: seq[ShellDescriptorKey]
 
   ShellCandidateOutcomeKind* {.pure.} = enum
@@ -163,8 +176,11 @@ proc validatePayload(kind: ShellMessageKind, payload: openArray[byte]) =
     if payload.len < 52 or payload.u16At(50) != 0:
       fail("invalid shell snapshot prefix")
   of ShellMessageKind.candidate:
-    if payload.len < 40 or payload[33] != 0 or payload.u16At(38) != 0:
-      fail("invalid shell candidate prefix")
+    if payload.len < 40 or payload[33] > 4 or
+        (payload[33] == 0) != (payload.u16At(38) == 0) or
+        payload.u16At(38) > shellMaxReservationThickness or
+        (payload[32] == 0 and payload[33] != 0):
+      fail("invalid shell candidate reservation")
   of ShellMessageKind.candidateOutcome:
     if payload.len != 28 or payload.u16At(26) != 0:
       fail("invalid shell outcome")
@@ -344,7 +360,12 @@ proc reconcile*(model: var ShellModel, snapshot: ShellSnapshot) =
       else:
         some(model.order[0].slot)
 
-proc candidate*(model: ShellModel, generation: uint64, visible: bool): ShellCandidate =
+proc candidate*(
+    model: ShellModel,
+    generation: uint64,
+    visible: bool,
+    reservation = none(ShellReservation),
+): ShellCandidate =
   result.connectionEpoch = model.connectionEpoch
   result.snapshotGeneration = model.snapshotGeneration
   result.generation = generation
@@ -353,6 +374,7 @@ proc candidate*(model: ShellModel, generation: uint64, visible: bool): ShellCand
   if result.visible:
     result.selected = model.selected
     result.entries = model.order
+    result.reservation = reservation
 
 proc candidateFrame*(candidate: ShellCandidate, transaction: uint64): ShellFrame =
   if candidate.connectionEpoch == 0 or candidate.snapshotGeneration == 0 or
@@ -360,6 +382,12 @@ proc candidateFrame*(candidate: ShellCandidate, transaction: uint64): ShellFrame
       candidate.visible != (candidate.entries.len > 0) or
       candidate.visible != candidate.selected.isSome:
     fail("invalid shell candidate")
+  if candidate.reservation.isSome:
+    if not candidate.visible:
+      fail("hidden shell candidate cannot reserve")
+    let thickness = candidate.reservation.get().thicknessPx
+    if thickness == 0 or thickness > shellMaxReservationThickness:
+      fail("invalid shell reservation thickness")
   result.kind = ShellMessageKind.candidate
   result.transaction = transaction
   result.payload.addU64(candidate.connectionEpoch)
@@ -367,7 +395,12 @@ proc candidateFrame*(candidate: ShellCandidate, transaction: uint64): ShellFrame
   result.payload.addU64(candidate.generation)
   result.payload.addU64(candidate.output)
   result.payload.addU8(uint8(candidate.visible))
-  result.payload.addU8(0)
+  result.payload.addU8(
+    if candidate.reservation.isSome:
+      uint8(ord(candidate.reservation.get().edge))
+    else:
+      0
+  )
   result.payload.addU16(
     if candidate.selected.isSome:
       candidate.selected.get()
@@ -375,7 +408,12 @@ proc candidateFrame*(candidate: ShellCandidate, transaction: uint64): ShellFrame
       0
   )
   result.payload.addU16(uint16(candidate.entries.len))
-  result.payload.addU16(0)
+  result.payload.addU16(
+    if candidate.reservation.isSome:
+      candidate.reservation.get().thicknessPx
+    else:
+      0
+  )
   for entry in candidate.entries:
     result.payload.addU16(entry.slot)
     result.payload.addU16(0)

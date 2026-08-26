@@ -43,8 +43,8 @@ suite "independent Sophia Shell v1 wire and reducer":
     let malformed = sophiaRoot / "protocol/golden/sophia-shell-v1-malformed.frames"
     let validLines = valid.corpusLines()
     let malformedLines = malformed.corpusLines()
-    check validLines.len == 8
-    check malformedLines.len == 12
+    check validLines.len == 10
+    check malformedLines.len == 16
     for line in validLines:
       let fields = line.split('|')
       check fields.len == 3
@@ -84,6 +84,29 @@ suite "independent Sophia Shell v1 wire and reducer":
     stale.activation += 1
     stale.presentationEpoch += 1
     check model.accept(stale) == ShellActivationDisposition.rejectedStale
+
+  test "a reserving candidate encodes exactly the shared golden frame":
+    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    require sophiaRoot.len > 0
+    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
+    var golden: string
+    for line in valid.corpusLines():
+      let fields = line.split('|')
+      if fields[0] == "candidate_reserved":
+        golden = fields[2]
+    require golden.len > 0
+    let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
+    var model = ShellModel(connectionEpoch: snapshot.connectionEpoch)
+    model.reconcile(snapshot)
+    let reserving = model.candidate(
+      2,
+      true,
+      some(ShellReservation(edge: ShellReservationEdge.bottom, thicknessPx: 28)),
+    )
+    check reserving.reservation.isSome
+    let transaction = 0x0102030405060708'u64
+    check reserving.candidateFrame(transaction).encodeShellFrame() ==
+      golden.decodeHex()
 
   test "complete snapshot withdrawal clears visible shell state":
     let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
