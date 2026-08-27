@@ -7,6 +7,8 @@ import runtime/reducer as runtimeReducer
 import runtime/effect_executor
 import sophia/policy_adapter
 
+const trackedDefaultDesktopProfile = staticRead("../examples/config/default.kdl")
+
 proc focusable(): WindowCapabilities =
   WindowCapabilities(movable: true, resizable: true, focusable: true)
 
@@ -200,6 +202,13 @@ suite "Hagia foundation":
         discard loadDesktopProfile(path)
 
   test "the compiled freeze profile names only implemented policy actions":
+    check compiledDesktopProfile == trackedDefaultDesktopProfile
+    check compiledDesktopProfile.contains("profile \"default\"")
+    check compiledDesktopProfile.contains("panel 28")
+    check compiledDesktopProfile.contains(
+      "session {\n  terminal \"terminal\"\n  browser \"browser\"\n}"
+    )
+    check not compiledDesktopProfile.contains("named \"")
     let directory = createTempDir("hagia-compiled-shortcuts-", "")
     defer:
       removeDir(directory)

@@ -167,6 +167,11 @@ depth-first and bounded to depth 10, 64 owner-safe regular files, and one MiB
 in aggregate. Cycles, duplicate settings, unknown ownership, and hard-control
 overrides fail closed.
 
+`examples/config/default.kdl` owns the generic project default and is embedded
+at compile time. It contains no host topology, local application path, or
+personal shortcut policy. A user profile may replace it through normal
+discovery without becoming product source.
+
 Expansion produces one SHA-256-identified `DesktopProfileGeneration` and seven
 provenance-bearing authority candidates. Hagia consumes only the policy
 candidate. Hagia prepares that candidate on a clone, reconciles configured

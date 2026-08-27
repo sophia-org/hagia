@@ -72,6 +72,10 @@ hagia config print-effective [--config=/absolute/path]
 hagia config migrate-triad --input=/path/config.kdl --output-dir=/new/directory
 ```
 
+`examples/config/default.kdl` is the generic copyable default and the exact
+compiled fallback. Personal profiles remain user-owned configuration; release
+and conformance work must not copy them into Hagia source.
+
 The profile uses explicit authority sections and bounded owner-safe includes.
 Migration never overwrites output files and reports every retained,
 transformed, unsupported, or authority-excluded Triad setting.

@@ -33,8 +33,10 @@ fresh epoch. Core and admitted XI explicit pointer grabs now join Engine's
 application lease arbitration, and the compiled profile enables `Super+P`.
 Signed archive `0006` proves presentation, activation, crash, reconnect,
 withdrawal, and clean teardown. The freeze profile retains this generic
-switcher; MRU policy, filtering, previews, icons, and persistent panels remain
-post-freeze shell work. Trusted launch placement and shared reconnect/restart
+switcher and its bounded visible work-area claim; MRU policy, filtering,
+previews, icons, and persistent panels remain post-freeze shell work. The
+copyable tracked default is also the exact compiled fallback, while personal
+profiles remain outside project source. Trusted launch placement and shared reconnect/restart
 are complete. Physical archive `0001` proves frame-fed apply, first
 presentation, frontend publication, forced rollback after final KMS acceptance,
 physical input, and clean teardown.
