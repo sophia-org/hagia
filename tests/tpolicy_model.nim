@@ -1,7 +1,8 @@
 import std/[net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
 import config/profile
-import policy/[actions, projection, state, types]
+import policy/[actions, entity_store, projection, state]
+import types/[core, model]
 import
   sophia/[
     policy_adapter, policy_checkpoint, policy_client, policy_session, session_types,

@@ -1,4 +1,5 @@
-import ./[state, types]
+import ../types/[core, model]
+import ./state
 
 type PolicyAction* {.pure.} = enum
   focusNext = 1

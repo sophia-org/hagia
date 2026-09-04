@@ -1,19 +1,12 @@
-import std/[hashes, tables]
+import std/tables
 
-import ./entity_store
+import ./core
 
-export entity_store
+## Passive records for the private policy model. No logic lives here; state
+## transitions belong to `src/policy/state.nim` and geometry to
+## `src/policy/projection.nim`.
 
 type
-  WindowId* = distinct uint32
-  ViewId* = distinct uint32
-  OutputId* = distinct uint32
-  ColumnId* = distinct uint32
-  TagId* = distinct uint32
-  ScratchpadSlotId* = distinct uint32
-  TagMask* = distinct uint64
-  Scale* = distinct uint32
-
   TagKind* {.pure.} = enum
     profile
     dynamic
@@ -32,13 +25,6 @@ type
     grid
     monocle
     verticalScroller
-
-  Rect* = object
-    x*, y*, width*, height*: int32
-
-  SizeConstraints* = object
-    minWidth*, minHeight*: int32
-    maxWidth*, maxHeight*: int32
 
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool
@@ -84,10 +70,6 @@ type
   ViewTagMembership* = object
     view*: ViewId
     tag*: TagId
-
-  IdCounters* = object
-    windows*, columns*, views*, outputs*, tags*: uint32
-    disconnects*: uint64
 
   PolicySettings* = object
     viewCount*: int
@@ -142,19 +124,6 @@ type
     counters*: IdCounters
 
 const
-  nullWindowId* = WindowId(0)
-  nullViewId* = ViewId(0)
-  nullOutputId* = OutputId(0)
-  nullColumnId* = ColumnId(0)
-  nullTagId* = TagId(0)
-  nullScratchpadSlotId* = ScratchpadSlotId(0)
-  emptyTagMask* = TagMask(0)
-  autoScale* = Scale(0)
-  scaleOne* = Scale(1'u32 shl 16)
-  minimumScale* = Scale(3277)
-  maxTagBits* = 64'u32
-  maxWorkspaceTagSlot* = 63'u32
-  scratchpadTagSlot* = 64'u32
   maxOutputAffinities* = 16
   maxFocusHistory* = 32
   maxMinimizedHistory* = 64
@@ -165,40 +134,3 @@ const
     LayoutMode.verticalScroller,
   ]
   defaultPolicySettings* = PolicySettings(viewCount: 9, layoutCycle: defaultLayoutCycle)
-
-proc `==`*(left, right: WindowId): bool {.borrow.}
-proc `==`*(left, right: ViewId): bool {.borrow.}
-proc `==`*(left, right: OutputId): bool {.borrow.}
-proc `==`*(left, right: ColumnId): bool {.borrow.}
-proc `==`*(left, right: TagId): bool {.borrow.}
-proc `==`*(left, right: ScratchpadSlotId): bool {.borrow.}
-proc `==`*(left, right: TagMask): bool {.borrow.}
-proc `==`*(left, right: Scale): bool {.borrow.}
-
-proc `$`*(id: WindowId): string {.borrow.}
-proc `$`*(id: ViewId): string {.borrow.}
-proc `$`*(id: OutputId): string {.borrow.}
-proc `$`*(id: ColumnId): string {.borrow.}
-proc `$`*(id: TagId): string {.borrow.}
-proc `$`*(id: ScratchpadSlotId): string {.borrow.}
-
-proc hash*(id: WindowId): Hash =
-  hash(uint32(id))
-
-proc hash*(id: ViewId): Hash =
-  hash(uint32(id))
-
-proc hash*(id: OutputId): Hash =
-  hash(uint32(id))
-
-proc hash*(id: ColumnId): Hash =
-  hash(uint32(id))
-
-proc hash*(id: TagId): Hash =
-  hash(uint32(id))
-
-proc hash*(id: ScratchpadSlotId): Hash =
-  hash(uint32(id))
-
-proc hash*(mask: TagMask): Hash =
-  hash(uint64(mask))

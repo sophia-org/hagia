@@ -2,7 +2,8 @@ import std/[algorithm, json, jsonutils, options, sets, strutils, tables]
 
 import ../config/[policy_candidate, profile]
 import ../observability
-import ../policy/[actions, projection, reducer, state, types]
+import ../types/[core, model]
+import ../policy/[actions, entity_store, projection, reducer, state]
 import ./[session_types, wm_v1]
 
 type

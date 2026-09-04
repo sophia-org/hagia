@@ -1,15 +1,10 @@
 import std/[options, tables]
 
-## Adapted from Triad's dense EntityManager at baseline
-## fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9. See THIRD_PARTY_NOTICES.md and
-## docs/provenance.md. Hagia stores IDs beside payloads so T need not embed id.
+import ../types/core
 
-type EntityStore*[Id, T] = object
-  ## Dense entity storage. Logical identity and semantic order live outside the
-  ## dense slot so swap-and-pop removal cannot change policy behavior.
-  entities*: seq[T]
-  ids*: seq[Id]
-  index*: Table[Id, int]
+## Storage-only operations over the dense `EntityStore` record defined in
+## `src/types/core.nim`. This module owns no focus, layout, membership, or
+## ordering semantics.
 
 proc len*[Id, T](store: EntityStore[Id, T]): int =
   store.entities.len

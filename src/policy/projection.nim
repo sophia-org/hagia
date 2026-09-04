@@ -1,6 +1,7 @@
 import std/[math, options, sequtils]
 
-import ./[state, types]
+import ../types/[core, model]
+import ./[entity_store, state]
 
 type
   LogicalPlacement* = object

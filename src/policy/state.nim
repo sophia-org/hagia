@@ -1,7 +1,7 @@
 import std/[options, sequtils, sets, tables]
 
+import ../types/[core, model]
 import ./entity_store
-import ./types
 
 type PolicyStateError* = object of CatchableError
 

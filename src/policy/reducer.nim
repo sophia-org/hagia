@@ -1,6 +1,7 @@
 import std/options
 
-import ./[actions, state, types]
+import ../types/[core, model]
+import ./[actions, entity_store, state]
 
 type
   PolicyMsgKind* {.pure.} = enum
