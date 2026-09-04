@@ -312,8 +312,8 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 52
-    check policyBindings == 46
+    check shortcuts.values.len == 57
+    check policyBindings == 51
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")

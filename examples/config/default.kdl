@@ -9,6 +9,9 @@ policy {
   view-count 9
   outer-gap 0
   inner-gap 0
+  // Horizontal scroller viewport bias in pixels; 0 keeps the focused column
+  // centering rule untouched.
+  viewport-offset 0
 }
 
 shell {
@@ -33,7 +36,10 @@ shortcut {
   bind "Super+Shift+Left" "policy:move-to-output-prev"
   bind "Super+Shift+Right" "policy:move-to-output-next"
   bind "Super+u" "policy:focus-occupied-workspace-next"
+  bind "Super+i" "policy:focus-occupied-workspace-prev"
   bind "Super+Shift+u" "policy:focus-view-next"
+  bind "Super+Shift+i" "policy:focus-view-prev"
+  bind "Super+Shift+n" "policy:new-workspace"
   bind "Super+1" "policy:focus-workspace 1"
   bind "Super+2" "policy:focus-workspace 2"
   bind "Super+3" "policy:focus-workspace 3"
@@ -67,6 +73,29 @@ shortcut {
   bind "Super+Ctrl+z" "policy:expel-window"
   bind "Super+-" "policy:resize-width -0.1"
   bind "Super+=" "policy:resize-width 0.1"
+  bind "Super+Shift+-" "policy:resize-height -0.1"
+  bind "Super+Shift+=" "policy:resize-height 0.1"
+
+  // Tag-mask toggles: multi-tag membership beyond the workspace model.
+  // Uncomment the slots you use; the actions are always registered.
+  // bind "Super+Alt+1" "policy:toggle-view-tag 1"
+  // bind "Super+Alt+2" "policy:toggle-view-tag 2"
+  // bind "Super+Alt+3" "policy:toggle-view-tag 3"
+  // bind "Super+Alt+4" "policy:toggle-view-tag 4"
+  // bind "Super+Alt+5" "policy:toggle-view-tag 5"
+  // bind "Super+Alt+6" "policy:toggle-view-tag 6"
+  // bind "Super+Alt+7" "policy:toggle-view-tag 7"
+  // bind "Super+Alt+8" "policy:toggle-view-tag 8"
+  // bind "Super+Alt+9" "policy:toggle-view-tag 9"
+  // bind "Super+Ctrl+Shift+1" "policy:toggle-window-tag 1"
+  // bind "Super+Ctrl+Shift+2" "policy:toggle-window-tag 2"
+  // bind "Super+Ctrl+Shift+3" "policy:toggle-window-tag 3"
+  // bind "Super+Ctrl+Shift+4" "policy:toggle-window-tag 4"
+  // bind "Super+Ctrl+Shift+5" "policy:toggle-window-tag 5"
+  // bind "Super+Ctrl+Shift+6" "policy:toggle-window-tag 6"
+  // bind "Super+Ctrl+Shift+7" "policy:toggle-window-tag 7"
+  // bind "Super+Ctrl+Shift+8" "policy:toggle-window-tag 8"
+  // bind "Super+Ctrl+Shift+9" "policy:toggle-window-tag 9"
   pointer-bind "Super+left" "policy:move"
   pointer-bind "Super+right" "policy:resize"
 }
