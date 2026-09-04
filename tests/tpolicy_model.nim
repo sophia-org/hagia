@@ -1,4 +1,4 @@
-import std/[net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
+import std/[json, net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
 import config/profile
 import types/config_values
@@ -1147,9 +1147,20 @@ suite "Sophia snapshot adapter":
     require loaded.isSome
     check loaded.get().logicalWindow(1, 1) == logicalWindow
 
+    # `hagia dump-checkpoint` prints this. It has to be the same bytes the
+    # restore path accepts, otherwise the dump describes something the running
+    # session would never load.
+    let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
+    check parseJson(printed)["schema"].getInt() == 2
+    let reparsed =
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-2\n" & $parseJson(printed))
+    check reparsed.logicalWindow(1, 1) == logicalWindow
+
     writeFile(path, "not a checkpoint")
     expect PolicyCheckpointError:
       discard loadPolicyCheckpoint(path)
+    expect PolicyCheckpointError:
+      discard "no banner here".dumpCheckpointJson()
 
 suite "Sophia policy session":
   test "fullscreen uses output bounds while ordinary scroller geometry uses work area":

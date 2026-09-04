@@ -1,6 +1,8 @@
-import std/[options, os, posix, tempfiles]
+import std/[json, options, os, posix, tempfiles]
 
 import ./policy_adapter
+
+export checkpointPayload
 
 type PolicyCheckpointError* = object of CatchableError
 
@@ -62,3 +64,11 @@ proc savePolicyCheckpoint*(path: string, adapter: PolicyAdapter) =
       PolicyCheckpointError,
       "private policy checkpoint replacement failed: " & error.msg,
     )
+
+proc dumpCheckpointJson*(payload: string): string =
+  ## Pretty-print a checkpoint payload. The first line is the schema banner the
+  ## restore path checks; everything after it is the DTO.
+  let split = payload.find('\n')
+  if split < 0:
+    raise newException(PolicyCheckpointError, "checkpoint payload has no banner")
+  pretty(parseJson(payload[split + 1 .. ^1]))

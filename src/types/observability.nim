@@ -3,7 +3,7 @@
 ## happened and never carries authority to change policy.
 
 const
-  evidenceSchema* = 1
+  evidenceSchema* = 2
   maxEvidenceBytes* = 1_048_576'i64
   maxEvidenceFiles* = 4
 
@@ -22,7 +22,14 @@ type
     connection
 
   EvidenceEvent* = object
+    ## `kind` classifies; `event` names. Schema 1 carried only the class, so a
+    ## reader of the structured stream could not tell a checkpoint save from a
+    ## checkpoint discard without the unstructured Chronicles line beside it,
+    ## which in a supervised session belongs to Sophia's capture rather than to
+    ## Hagia. `sequence` orders records within a second, which the one-second
+    ## timestamp cannot.
     kind*: EvidenceKind
+    event*: string
     epoch*, generation*, requestId*, transaction*: uint64
     status*: string
     digest*: string

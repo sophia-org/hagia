@@ -1,10 +1,10 @@
-import std/[os, strutils]
+import std/[options, os, strutils]
 
 import config/[migration, profile]
 import types/config_values
 import types/observability
 import observability
-import sophia/policy_client
+import sophia/[policy_checkpoint, policy_client]
 
 proc option(arguments: openArray[string], name: string): string =
   let prefix = "--" & name & "="
@@ -39,6 +39,19 @@ proc run(arguments: seq[string]) =
       )
     return
 
+  if arguments.len >= 1 and arguments[0] == "dump-checkpoint":
+    # The checkpoint is a private, stable-ID-ordered DTO, not a portable
+    # configuration format. Printing it is the only way to see what a running
+    # or restored Hagia actually believes without writing Nim against the
+    # loader.
+    if arguments.len != 2:
+      raise newException(ValueError, "usage: hagia dump-checkpoint PATH")
+    let dumped = loadPolicyCheckpoint(arguments[1])
+    if dumped.isNone:
+      raise newException(ValueError, "no checkpoint at " & arguments[1])
+    stdout.writeLine(dumped.get().checkpointPayload().dumpCheckpointJson())
+    return
+
   var socketPath = getEnv("SOPHIA_WM_SOCKET")
   let explicitConfig = arguments.option("config")
   for argument in arguments:
@@ -62,6 +75,7 @@ proc run(arguments: seq[string]) =
   recordEvidence(
     EvidenceEvent(
       kind: EvidenceKind.configuration,
+      event: "desktop_profile",
       generation: candidate.generation,
       status: "validated",
       digest: candidate.digest,

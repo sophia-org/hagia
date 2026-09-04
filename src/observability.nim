@@ -43,6 +43,8 @@ proc rotateEvidence(path: string, incomingBytes: int) =
       moveFile(source, path & "." & $(index + 1))
   moveFile(path, path & ".1")
 
+var evidenceSequence {.threadvar.}: int
+
 proc recordEvidence*(event: EvidenceEvent) =
   let path = getEnv("HAGIA_EVIDENCE_NDJSON")
   if path.len == 0:
@@ -52,10 +54,13 @@ proc recordEvidence*(event: EvidenceEvent) =
   let parent = path.parentDir()
   if parent.len > 0:
     createDir(parent)
+  inc evidenceSequence
   let record = %*{
     "schema": evidenceSchema,
     "time": getTime().toUnix(),
+    "sequence": evidenceSequence,
     "kind": $event.kind,
+    "event": event.event,
     "epoch": event.epoch,
     "generation": event.generation,
     "request": event.requestId,

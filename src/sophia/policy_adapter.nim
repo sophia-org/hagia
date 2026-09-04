@@ -394,6 +394,7 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       recordEvidence(
         EvidenceEvent(
           kind: EvidenceKind.reducer,
+          event: "interaction",
           epoch: request.connectionEpoch,
           generation: request.policyGeneration,
           requestId: request.requestId,
@@ -434,6 +435,7 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   recordEvidence(
     EvidenceEvent(
       kind: EvidenceKind.reducer,
+      event: "cause_applied",
       epoch: request.connectionEpoch,
       generation: request.policyGeneration,
       requestId: request.requestId,

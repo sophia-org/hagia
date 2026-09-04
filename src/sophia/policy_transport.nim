@@ -30,7 +30,9 @@ proc injectConfiguredFault*(phase: string) =
     sleep(delayMsec)
   writeFile(marker, phase & "\n")
   operationalLog(OperationalLevel.failure, "fault_injected", phase)
-  recordEvidence(EvidenceEvent(kind: EvidenceKind.connection, status: phase))
+  recordEvidence(
+    EvidenceEvent(kind: EvidenceKind.connection, event: "fault_injected", status: phase)
+  )
   quit(70)
 
 proc toBytes*(data: string): seq[byte] =

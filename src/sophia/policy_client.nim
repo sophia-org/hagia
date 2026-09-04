@@ -1,4 +1,4 @@
-import std/[net, options, sets]
+import std/[net, options, os, sets]
 
 import ../types/[actions, config_values, handoff, session, wm_v1]
 import ../types/observability
@@ -501,6 +501,7 @@ proc requestFreshCycle(
   recordEvidence(
     EvidenceEvent(
       kind: EvidenceKind.reducer,
+      event: "policy_refresh",
       epoch: client.connectionEpoch,
       generation: policyGeneration + 1,
       status: "refresh_requested",
@@ -560,12 +561,20 @@ proc runPolicySession(
           "loaded",
           "candidate_nonempty=" & $candidate.hasWindows(),
         )
-        recordEvidence(EvidenceEvent(kind: EvidenceKind.checkpoint, status: "loaded"))
+        recordEvidence(
+          EvidenceEvent(
+            kind: EvidenceKind.checkpoint, event: "checkpoint", status: "loaded"
+          )
+        )
         session = initPolicySession(candidate)
         restoredCheckpoint = true
     except PolicyCheckpointError as error:
       operationalLog(OperationalLevel.warning, "checkpoint", "discarded", error.msg)
-      recordEvidence(EvidenceEvent(kind: EvidenceKind.checkpoint, status: "discarded"))
+      recordEvidence(
+        EvidenceEvent(
+          kind: EvidenceKind.checkpoint, event: "checkpoint", status: "discarded"
+        )
+      )
   try:
     if configure:
       client.installConfiguration()
@@ -586,6 +595,7 @@ proc runPolicySession(
       recordEvidence(
         EvidenceEvent(
           kind: EvidenceKind.settlement,
+          event: "projection",
           epoch: request.connectionEpoch,
           generation: outcome.sceneGeneration,
           requestId: request.requestId,
@@ -593,6 +603,29 @@ proc runPolicySession(
           status: $outcome.kind,
         )
       )
+      if takeDumpRequest():
+        # Read-only: the dump reuses the checkpoint DTO, so it says exactly what
+        # a restored generation would see, and writing it changes nothing.
+        let dumpPath = getEnv("HAGIA_POLICY_DUMP")
+        if dumpPath.len == 0:
+          operationalLog(
+            OperationalLevel.warning, "dump", "refused", "HAGIA_POLICY_DUMP is unset"
+          )
+        else:
+          try:
+            dumpPath.savePolicyCheckpoint(session.committedAdapter())
+            operationalLog(OperationalLevel.info, "dump", "written", dumpPath)
+            recordEvidence(
+              EvidenceEvent(
+                kind: EvidenceKind.checkpoint,
+                event: "dump",
+                epoch: request.connectionEpoch,
+                generation: outcome.sceneGeneration,
+                status: "written",
+              )
+            )
+          except PolicyCheckpointError as error:
+            operationalLog(OperationalLevel.warning, "dump", "failed", error.msg)
       if not checkpointEnabled and takeReloadRequest():
         # Without a checkpoint an exit would drop the session rather than
         # reload it, so the request is refused rather than half-honoured.
@@ -613,6 +646,7 @@ proc runPolicySession(
           recordEvidence(
             EvidenceEvent(
               kind: EvidenceKind.checkpoint,
+              event: "checkpoint",
               epoch: request.connectionEpoch,
               generation: outcome.sceneGeneration,
               status: "saved",
@@ -628,6 +662,7 @@ proc runPolicySession(
             recordEvidence(
               EvidenceEvent(
                 kind: EvidenceKind.connection,
+                event: "reload",
                 epoch: request.connectionEpoch,
                 generation: outcome.sceneGeneration,
                 status: "reload_requested",
@@ -645,7 +680,9 @@ proc runPolicySession(
           checkpointEnabled = false
           operationalLog(OperationalLevel.warning, "checkpoint", "disabled", error.msg)
           recordEvidence(
-            EvidenceEvent(kind: EvidenceKind.checkpoint, status: "disabled")
+            EvidenceEvent(
+              kind: EvidenceKind.checkpoint, event: "checkpoint", status: "disabled"
+            )
           )
       if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
         let operationOutcome = client.sendSessionOperation(operation.get())

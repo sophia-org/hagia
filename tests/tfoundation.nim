@@ -757,6 +757,7 @@ output {
     recordEvidence(
       EvidenceEvent(
         kind: EvidenceKind.settlement,
+        event: "projection",
         epoch: 2,
         generation: 3,
         requestId: 4,
@@ -767,6 +768,19 @@ output {
     let node = parseJson(readFile(path).strip())
     check node["schema"].getInt() == evidenceSchema
     check node["kind"].getStr() == "settlement"
+    # Schema 2 names the event and orders records within a second. Without both,
+    # the structured stream cannot say what happened or in what order, and the
+    # only stream that can is Chronicles stdout, which a supervised session
+    # hands to Sophia rather than to Hagia.
+    check node["event"].getStr() == "projection"
+    let firstSequence = node["sequence"].getInt()
+    recordEvidence(
+      EvidenceEvent(
+        kind: EvidenceKind.settlement, event: "projection", status: "second"
+      )
+    )
+    let records = readFile(path).strip().splitLines()
+    check parseJson(records[^1])["sequence"].getInt() == firstSequence + 1
     check not node.hasKey("application")
     check not node.hasKey("sophia_handle")
     check getFilePermissions(path) == {fpUserRead, fpUserWrite}
