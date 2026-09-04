@@ -33,6 +33,15 @@ frozen. The full row-by-row record lives in
 [the port ledger](docs/triad-port-ledger.md); signed physical archives back
 the claims that need hardware to prove.
 
+The product goal is a complete, niri-class daily driver. What a window
+manager can't own — clipboard, screenshots, capture, notifications — arrives
+through Sophia's portals and session, triggered from Hagia keybindings as
+opaque session-operation slots: Hagia asks for slot N, the session decides
+what slot N does, and a portal decision sits behind anything that moves data.
+Terminal, browser, close, and logout already work this way; lock, screenshot,
+wallpaper, and audio are queued to ride the same pattern. The desktop gets
+fuller without Hagia's authority growing.
+
 Sessions survive restarts. An optional `HAGIA_POLICY_CHECKPOINT` file is
 written atomically after every committed cycle, and a restarted Hagia
 revalidates it against a complete snapshot before trusting it. `SIGHUP` asks a
