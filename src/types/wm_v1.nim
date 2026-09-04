@@ -149,6 +149,11 @@ type
     presentationBits*: uint16
 
 const
+  ## Snapshot record discriminator and the capability bit the codec reads to
+  ## decide whether a surface may take focus.
+  snapshotSurfaceClassificationRecordKind* = 0xFF00'u16
+  surfaceFocusable* = 1'u16 shl 2
+
   frameHeaderLen* = 24
   maxPayloadLen* = 65536
   maxOutputs* = 16
