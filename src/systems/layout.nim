@@ -17,6 +17,13 @@ proc cycleLayout*(model: var PolicyModel, outputId: OutputId, delta = 1) =
       wrappedIndex(current, delta, model.settings.layoutCycle.len)
   model.views[viewId].layout = model.settings.layoutCycle[index]
 
+proc setLayout*(model: var PolicyModel, outputId: OutputId, layout: LayoutMode) =
+  ## Select a layout outright. Cycling reaches every mode eventually; a direct
+  ## binding reaches one now, which is what a user with a key per layout wants.
+  if outputId notin model.outputs:
+    fail("layout target output does not exist")
+  model.views[model.outputs[outputId].activeView].layout = layout
+
 proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:
     fail("column output does not exist")

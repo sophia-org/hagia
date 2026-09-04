@@ -110,3 +110,17 @@ proc toggleNamedScratchpad*(
     model.hideScratchpad()
   else:
     model.showScratchpad(outputId, windowId)
+
+proc moveFocusedToNamedScratchpad*(
+    model: var PolicyModel, outputId: OutputId, slot: ScratchpadSlotId
+) =
+  ## Send the focused window to a named slot. A slot holds one window, so
+  ## naming an occupied slot replaces what was there; the displaced window
+  ## stays a scratchpad and remains reachable through the unnamed rotation.
+  if outputId notin model.outputs:
+    fail("scratchpad output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  model.moveWindowToScratchpad(windowId)
+  model.assignNamedScratchpad(slot, windowId)

@@ -4,10 +4,15 @@
 
 type
   MigrationDisposition* {.pure.} = enum
+    ## `excluded` means another authority owns the command or Hagia has queued
+    ## it; `deferred` means Hagia has settled its design and is waiting on a
+    ## named dependency. The distinction matters to a reader deciding whether
+    ## a missing command is a decision or a schedule.
     retained
     transformed
     unsupported
     excluded
+    deferred
 
   MigrationItemKind* {.pure.} = enum
     setting

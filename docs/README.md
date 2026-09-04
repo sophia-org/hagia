@@ -17,6 +17,9 @@ porting useful Triad behavior.
   revision 3.
 - [Port provenance](provenance.md): reviewed Triad sources and baseline.
 - [Roadmap](roadmap.md): implemented and deferred work.
+- [Action vocabulary](action-vocabulary.md): how the policy action catalog
+  grows, why the frozen wire never blocks it, and the rules every new action
+  follows.
 
 ## Reference
 

@@ -818,6 +818,105 @@ suite "Hagia private policy model":
     check model.visibleScratchpad == second
     model.validate()
 
+  test "spatial focus moves by column and within a column":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    # Two columns of two: windows 0 and 1 on the left, 2 and 3 on the right.
+    model.moveWindowToColumn(windows[1], model.window(windows[0]).get().column)
+    model.moveWindowToColumn(windows[3], model.window(windows[2]).get().column)
+    model.setFocus(output, windows[0])
+
+    model.applyAction(output, PolicyAction.focusWindowBelow)
+    check model.outputs[output].focusedWindow == windows[1]
+    model.applyAction(output, PolicyAction.focusColumnNext)
+    check model.outputs[output].focusedWindow == windows[3]
+    model.applyAction(output, PolicyAction.focusWindowAbove)
+    check model.outputs[output].focusedWindow == windows[2]
+    # Both axes wrap, and the column move keeps the row it started on.
+    model.applyAction(output, PolicyAction.focusColumnPrevious)
+    check model.outputs[output].focusedWindow == windows[0]
+    model.applyAction(output, PolicyAction.focusWindowAbove)
+    check model.outputs[output].focusedWindow == windows[1]
+    model.validate()
+
+  test "column focus lands on the nearest row of a shorter column":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    let tall = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let deep = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let lone = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.moveWindowToColumn(deep, model.window(tall).get().column)
+    model.setFocus(output, deep)
+
+    model.applyAction(output, PolicyAction.focusColumnNext)
+    check model.outputs[output].focusedWindow == lone
+    model.validate()
+
+  test "focus-last returns to the previously focused window":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let second = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let third = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    model.setFocus(output, second)
+    model.setFocus(output, third)
+
+    model.applyAction(output, PolicyAction.focusLast)
+    check model.outputs[output].focusedWindow == second
+    model.applyAction(output, PolicyAction.focusLast)
+    check model.outputs[output].focusedWindow == third
+
+    # A window that leaves is skipped rather than resurrected.
+    model.setFocus(output, second)
+    model.removeWindow(third)
+    model.applyAction(output, PolicyAction.focusLast)
+    check model.outputs[output].focusedWindow == first
+    model.validate()
+
+  test "layout actions select one mode outright":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    let view = model.outputs[output].activeView
+    for (action, layout) in [
+      (PolicyAction.selectTileLayout, LayoutMode.tile),
+      (PolicyAction.selectGridLayout, LayoutMode.grid),
+      (PolicyAction.selectMonocleLayout, LayoutMode.monocle),
+      (PolicyAction.selectVerticalScrollerLayout, LayoutMode.verticalScroller),
+      (PolicyAction.selectScrollerLayout, LayoutMode.scroller),
+    ]:
+      model.applyAction(output, action)
+      check model.views[view].layout == layout
+    model.validate()
+
+  test "named scratchpad slots toggle independently of the unnamed rotation":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 600))
+    let terminal = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let audio = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, terminal)
+    model.applyAction(output, PolicyAction.moveToNamedScratchpad1)
+    model.setFocus(output, audio)
+    model.applyAction(output, PolicyAction.moveToNamedScratchpad2)
+    check model.namedScratchpads[ScratchpadSlotId(1)] == terminal
+    check model.namedScratchpads[ScratchpadSlotId(2)] == audio
+    check model.visibleScratchpad == nullWindowId
+
+    model.applyAction(output, PolicyAction.toggleNamedScratchpad2)
+    check model.visibleScratchpad == audio
+    # Naming a second slot while one is shown swaps to it rather than stacking.
+    model.applyAction(output, PolicyAction.toggleNamedScratchpad1)
+    check model.visibleScratchpad == terminal
+    model.applyAction(output, PolicyAction.toggleNamedScratchpad1)
+    check model.visibleScratchpad == nullWindowId
+    # An empty slot is a no-op, not a failure.
+    model.applyAction(output, PolicyAction.toggleNamedScratchpad4)
+    check model.visibleScratchpad == nullWindowId
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)

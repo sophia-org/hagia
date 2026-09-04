@@ -30,6 +30,7 @@ proc collectPhysicalBindings*(
     path, inheritedContext: string,
     ordinal: var int,
     emitted: var HashSet[string],
+    scratchpadNames: var seq[string],
     shortcutSettings: var seq[string],
     report: var MigrationReport,
 ) =
@@ -52,7 +53,7 @@ proc collectPhysicalBindings*(
       return
     item.trigger = node.args[0].kString()
     item.command = node.args[1].kString()
-    let migration = item.command.classifyTriadCommand()
+    let migration = item.command.classifyTriadCommand(scratchpadNames)
     item.authority = migration.authority
     item.disposition = migration.disposition
     item.result = migration.result
@@ -113,7 +114,8 @@ proc collectPhysicalBindings*(
       path & "." & node.name
   for child in node.children:
     child.collectPhysicalBindings(
-      childPath, childContext, ordinal, emitted, shortcutSettings, report
+      childPath, childContext, ordinal, emitted, scratchpadNames, shortcutSettings,
+      report,
     )
 
 proc physicalBindingCount*(report: MigrationReport): int =

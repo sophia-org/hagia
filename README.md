@@ -33,6 +33,12 @@ nine views — is complete, and wire revision 3 is frozen. The full row-by-row r
 [the port ledger](docs/triad-port-ledger.md); signed physical archives back
 the claims that need hardware to prove.
 
+The freeze locked the transport, not the vocabulary. Actions travel as opaque
+tokens Sophia never interprets, so Hagia keeps adding spatial commands without
+touching the wire — the goal being every Triad command whose authority is
+spatial policy. [The action vocabulary](docs/action-vocabulary.md) states the
+rules; `hagia config migrate-triad` is the scoreboard.
+
 The product goal is a complete, niri-class daily driver. What a window
 manager can't own — clipboard, screenshots, capture, notifications — arrives
 through Sophia's portals and session, triggered from Hagia keybindings as

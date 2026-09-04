@@ -312,8 +312,8 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 57
-    check policyBindings == 51
+    check shortcuts.values.len == 62
+    check policyBindings == 56
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
@@ -770,6 +770,7 @@ output {
     var pointerBindings = 0
     var unsupportedBindings = 0
     var excludedBindings = 0
+    var deferredBindings = 0
     for item in report.items:
       if item.kind != MigrationItemKind.physicalBinding:
         continue
@@ -791,6 +792,10 @@ output {
         inc unsupportedBindings
       of MigrationDisposition.excluded:
         inc excludedBindings
+      of MigrationDisposition.deferred:
+        inc deferredBindings
+        check item.authority == "policy"
+        check "tab bar" in item.result
       else:
         discard
     check report.physicalBindingCount() == 137
@@ -798,10 +803,22 @@ output {
     check pointerBindings == 5
     check unsupportedBindings == 0
     check excludedBindings > 0
-    check report.outputProfile.count("\n  bind ") == 40
+    check deferredBindings == 12
+    check report.outputProfile.count("\n  bind ") == 55
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
+    for carried in [
+      "bind Super+h \"policy:focus-column-prev\"",
+      "bind Super+l \"policy:focus-column-next\"",
+      "bind Super+k \"policy:focus-window-above\"",
+      "bind Super+j \"policy:focus-window-below\"",
+      "bind Super+Tab \"policy:focus-last\"", "bind Super+d \"policy:layout-tile\"",
+      "bind Super+Ctrl+x \"policy:layout-monocle\"",
+      "bind Super+Ctrl+e \"policy:toggle-named-scratchpad 1\"",
+      "bind Super+Shift+a \"policy:move-to-named-scratchpad 2\"",
+    ]:
+      check carried in report.outputProfile
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":
     let directory = createTempDir("hagia-evidence-", "")

@@ -58,3 +58,76 @@ proc moveFocusedToRelativeOutput*(
     model.outputOrder[wrappedIndex(sourceIndex, delta, model.outputOrder.len)]
   model.adoptWindowOutput(window, target)
   model.setFocus(target, window)
+
+proc focusLast*(model: var PolicyModel, outputId: OutputId) =
+  ## Return to the window focused before this one. The history an output keeps
+  ## is bounded and may name windows that have since closed or moved away, so
+  ## walk back until one is still a candidate here.
+  if outputId notin model.outputs:
+    fail("focus output does not exist")
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  if eligible.len == 0:
+    return
+  let current = model.outputs[outputId].focusedWindow
+  var index = model.outputs[outputId].focusHistory.high
+  while index >= 0:
+    let remembered = model.outputs[outputId].focusHistory[index]
+    if remembered != current and remembered in eligible:
+      model.setFocus(outputId, remembered)
+      return
+    dec index
+
+proc visibleColumns(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]] =
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  for columnId in model.tiledColumnIds(outputId):
+    let windows = model.columnWindows(columnId, eligible)
+    if windows.len > 0:
+      result.add(windows)
+
+proc focusedPosition(
+    columns: openArray[seq[WindowId]], windowId: WindowId
+): (int, int) =
+  for columnIndex, windows in columns:
+    let row = windows.find(windowId)
+    if row >= 0:
+      return (columnIndex, row)
+  (-1, -1)
+
+proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  ## Move focus to the column beside this one. Columns are what the user sees
+  ## as left and right, so this is the spatial counterpart to `focusRelative`,
+  ## which walks every window in order regardless of where it sits.
+  if outputId notin model.outputs:
+    fail("focus output does not exist")
+  let columns = model.visibleColumns(outputId)
+  if columns.len == 0:
+    return
+  let (columnIndex, row) =
+    columns.focusedPosition(model.outputs[outputId].focusedWindow)
+  if columnIndex < 0:
+    model.focusRelative(outputId, delta)
+    return
+  let target = columns[wrappedIndex(columnIndex, delta, columns.len)]
+  model.setFocus(outputId, target[min(row, target.high)])
+
+proc focusWithinColumnRelative*(
+    model: var PolicyModel, outputId: OutputId, delta: int
+) =
+  ## Move focus up or down inside the focused column. A column of one window
+  ## has nowhere to go, and staying put is the honest answer.
+  if outputId notin model.outputs:
+    fail("focus output does not exist")
+  let columns = model.visibleColumns(outputId)
+  if columns.len == 0:
+    return
+  let (columnIndex, row) =
+    columns.focusedPosition(model.outputs[outputId].focusedWindow)
+  if columnIndex < 0:
+    model.focusRelative(outputId, delta)
+    return
+  let windows = columns[columnIndex]
+  if windows.len < 2:
+    return
+  model.setFocus(outputId, windows[wrappedIndex(row, delta, windows.len)])

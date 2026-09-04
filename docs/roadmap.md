@@ -249,26 +249,34 @@ physical input, and clean teardown.
 The Triad-to-Hagia gap analysis (2026-09-04) classified every Triad feature
 Hagia lacks. The ledger's exclusions stand; this queue records what could come
 next, ordered by the two product lenses — daily-driver muscle memory first,
-layout power second — and annotated by cost. A row here is a candidate, not a
-commitment; promoting one is a deliberate act.
+layout power second — and annotated by cost.
+
+The queue is now being worked toward a stated goal: **every Triad command whose
+authority is spatial policy becomes a Hagia action.** The rules for growing the
+catalog, and why the frozen wire never blocks it, are in
+[the action vocabulary](action-vocabulary.md). Progress is measured by
+`hagia config migrate-triad` over Triad's recorded default, pinned in
+`tests/tfoundation.nim`: 55 of its bindings now carry over, up from 40 at the
+freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
 
-- [ ] Named-scratchpad actions. `toggleNamedScratchpad` and
-  `assignNamedScratchpad` are implemented and checkpointed but no PolicyAction
-  or config key reaches them; migration classifies `toggle-named-scratchpad`
-  as an excluded historical command while the model sits ready. Needs action
-  ordinals, a reducer arm, and a config spelling for slot naming.
+- [x] Named-scratchpad actions. Four bounded slots, with `toggle-named-scratchpad N`
+  and `move-to-named-scratchpad N` actions over the model that was already
+  implemented and checkpointed. Migration numbers Triad's scratchpad names in
+  first-seen order, so the same profile always migrates the same way.
 - [ ] Workspace naming. `TagData.name` and `setWorkspaceName` exist with zero
   callers, and indicator labels are hardcoded to the numeric index. Freeze
   Decision 1 already reserved the 32-byte indicator label as the carrier, and
   "a name is not an identity" is the standing rule. Needs a config key or
   action plus label plumb-through.
-- [ ] `focus-last` (MRU toggle). Per-output focus history already exists
-  (bounded 32); the toggle is a small systems addition.
-- [ ] Spatial focus (`focus-left/right/up/down`). No geometry search needed in
-  the shipped layouts: left/right map to column order and up/down to
-  within-column order per layout. An order-based mapping keeps it cheap.
+- [x] `focus-last`. Walks the bounded per-output focus history back to the most
+  recent window that is still a candidate, so a closed or moved window is
+  skipped rather than resurrected.
+- [x] Spatial focus (`focus-left/right/up/down`). Order-based, not geometric:
+  `focus-column-prev/next` step across columns keeping the row where possible,
+  and `focus-window-above/below` step inside the focused column. Direct layout
+  selection (`layout-scroller` and its four siblings) landed alongside them.
 
 ### Tier 2 — muscle memory, new model work
 
@@ -290,9 +298,13 @@ commitment; promoting one is a deliberate act.
 
 ### Tier 4 — layout power, large and coupled
 
-- [ ] Structural layout substrates: frame-tree (Notion), split-tree (i3),
-  BSP/dwindle. The ledger routes their chrome (tabs, preselect, drop
-  previews) to a later shell tranche, so these land with or after shell r2.
+- [ ] Geometric substrates: BSP, dwindle, and spiral. Pure split-tree geometry
+  with no chrome to draw, so nothing blocks them but the work itself.
+- [ ] Tabbed substrates: frame-tree (Notion), split-tree (i3). Their model is
+  settled and written down in [the action vocabulary](action-vocabulary.md);
+  what is missing is the tab bar, which only a shell surface can draw. Migration
+  reports these as `deferred` rather than `excluded` — a schedule, not a
+  decision — and they land with shell r2.
 - [ ] Janet policy and layouts, gated as Milestone 4 records: model
   determinism, fuel, and fallback semantics first.
 

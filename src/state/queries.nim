@@ -118,3 +118,19 @@ proc eligibleWindows*(model: PolicyModel, outputId: OutputId): seq[WindowId] =
       model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id))
     ):
       result.add(windowId)
+
+proc tiledColumnIds*(model: PolicyModel, outputId: OutputId): seq[ColumnId] =
+  ## Columns homed to an output, in the order a scroller lays them left to
+  ## right. Emptiness is not judged here; ask `columnWindows` for that.
+  for columnId in model.columnOrder:
+    if model.columns[columnId].homeOutput == outputId:
+      result.add(columnId)
+
+proc columnWindows*(
+    model: PolicyModel, columnId: ColumnId, eligible: openArray[WindowId]
+): seq[WindowId] =
+  ## The windows a projection stacks in one column, top to bottom: those the
+  ## caller found eligible, minus the floating ones a layout never positions.
+  for windowId in model.columns[columnId].windows:
+    if windowId in eligible and not model.windows[windowId].floating:
+      result.add(windowId)

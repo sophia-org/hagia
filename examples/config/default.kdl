@@ -26,10 +26,11 @@ shortcut {
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"
   bind "Super+q" "session:close-window"
-  bind "Super+h" "policy:focus-prev"
-  bind "Super+j" "policy:focus-next"
-  bind "Super+k" "policy:focus-prev"
-  bind "Super+l" "policy:focus-next"
+  bind "Super+h" "policy:focus-column-prev"
+  bind "Super+j" "policy:focus-window-below"
+  bind "Super+k" "policy:focus-window-above"
+  bind "Super+l" "policy:focus-column-next"
+  bind "Super+Tab" "policy:focus-last"
   bind "Super+Shift+Tab" "policy:focus-prev"
   bind "Super+Left" "policy:focus-output-next"
   bind "Super+Right" "policy:focus-output-prev"
@@ -69,12 +70,29 @@ shortcut {
   bind "Super+Alt+s" "policy:toggle-scratchpad"
   bind "Super+Shift+s" "policy:restore-scratchpad"
   bind "Super+n" "policy:switch-layout"
+  bind "Super+Ctrl+e" "policy:toggle-named-scratchpad 1"
+  bind "Super+Ctrl+Shift+e" "policy:move-to-named-scratchpad 1"
+  bind "Super+a" "policy:toggle-named-scratchpad 2"
+  bind "Super+Shift+a" "policy:move-to-named-scratchpad 2"
   bind "Super+Shift+z" "policy:consume-window"
   bind "Super+Ctrl+z" "policy:expel-window"
   bind "Super+-" "policy:resize-width -0.1"
   bind "Super+=" "policy:resize-width 0.1"
   bind "Super+Shift+-" "policy:resize-height -0.1"
   bind "Super+Shift+=" "policy:resize-height 0.1"
+
+  // Direct layout selection. The cycle key above reaches every mode; these
+  // reach one mode each. The remaining named scratchpad slots follow the same
+  // pattern as the two bound above.
+  // bind "Super+Ctrl+Alt+1" "policy:layout-scroller"
+  // bind "Super+Ctrl+Alt+2" "policy:layout-tile"
+  // bind "Super+Ctrl+Alt+3" "policy:layout-grid"
+  // bind "Super+Ctrl+Alt+4" "policy:layout-monocle"
+  // bind "Super+Ctrl+Alt+5" "policy:layout-vertical-scroller"
+  // bind "Super+Ctrl+r" "policy:toggle-named-scratchpad 3"
+  // bind "Super+Ctrl+Shift+r" "policy:move-to-named-scratchpad 3"
+  // bind "Super+Ctrl+d" "policy:toggle-named-scratchpad 4"
+  // bind "Super+Ctrl+Shift+d" "policy:move-to-named-scratchpad 4"
 
   // Tag-mask toggles: multi-tag membership beyond the workspace model.
   // Uncomment the slots you use; the actions are always registered.

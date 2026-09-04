@@ -37,6 +37,7 @@ proc migrateTriadProfile*(source: string): MigrationReport =
   var outputSettings = @["  inherit-sophia #true"]
   var bindingOrdinal = 0
   var emittedBindings = initHashSet[string]()
+  var scratchpadNames: seq[string]
   var workspaceSettings = initHashSet[string]()
   var sessionSettingsSeen = initHashSet[string]()
   var inputSeen = false
@@ -44,7 +45,8 @@ proc migrateTriadProfile*(source: string): MigrationReport =
   for node in document:
     let rootContext = if node.name == "bindings": "global" else: node.name
     node.collectPhysicalBindings(
-      "", rootContext, bindingOrdinal, emittedBindings, shortcutSettings, result
+      "", rootContext, bindingOrdinal, emittedBindings, scratchpadNames,
+      shortcutSettings, result,
     )
     case node.name
     of "layout":

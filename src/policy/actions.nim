@@ -76,6 +76,32 @@ proc profileName*(action: PolicyAction): string =
     "restore-scratchpad"
   of PolicyAction.switchLayout:
     "switch-layout"
+  of PolicyAction.toggleNamedScratchpad1 .. PolicyAction.toggleNamedScratchpad4:
+    "toggle-named-scratchpad " &
+      $(ord(action) - ord(PolicyAction.toggleNamedScratchpad1) + 1)
+  of PolicyAction.moveToNamedScratchpad1 .. PolicyAction.moveToNamedScratchpad4:
+    "move-to-named-scratchpad " &
+      $(ord(action) - ord(PolicyAction.moveToNamedScratchpad1) + 1)
+  of PolicyAction.focusLast:
+    "focus-last"
+  of PolicyAction.selectScrollerLayout:
+    "layout-scroller"
+  of PolicyAction.selectTileLayout:
+    "layout-tile"
+  of PolicyAction.selectGridLayout:
+    "layout-grid"
+  of PolicyAction.selectMonocleLayout:
+    "layout-monocle"
+  of PolicyAction.selectVerticalScrollerLayout:
+    "layout-vertical-scroller"
+  of PolicyAction.focusColumnNext:
+    "focus-column-next"
+  of PolicyAction.focusColumnPrevious:
+    "focus-column-prev"
+  of PolicyAction.focusWindowBelow:
+    "focus-window-below"
+  of PolicyAction.focusWindowAbove:
+    "focus-window-above"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -105,11 +131,21 @@ proc toggleFocusedTagAction*(slot: int): PolicyAction =
     raise newException(PolicyStateError, "window-tag action slot is invalid")
   PolicyAction(ord(PolicyAction.toggleFocusedTag1) + slot - 1)
 
+proc toggleNamedScratchpadAction*(slot: int): PolicyAction =
+  if slot notin 1 .. maxNamedScratchpadSlots:
+    raise newException(PolicyStateError, "named scratchpad action slot is invalid")
+  PolicyAction(ord(PolicyAction.toggleNamedScratchpad1) + slot - 1)
+
+proc moveToNamedScratchpadAction*(slot: int): PolicyAction =
+  if slot notin 1 .. maxNamedScratchpadSlots:
+    raise newException(PolicyStateError, "named scratchpad action slot is invalid")
+  PolicyAction(ord(PolicyAction.moveToNamedScratchpad1) + slot - 1)
+
 proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
     raw in
     PolicyAction.focusNextOutput.raw() .. PolicyAction.focusNextOccupiedWorkspace.raw() or
-    raw in PolicyAction.moveToScratchpad.raw() .. PolicyAction.switchLayout.raw()
+    raw in PolicyAction.moveToScratchpad.raw() .. high(PolicyAction).raw()
 
 proc policyAction*(raw: uint64): PolicyAction =
   if not raw.isPolicyAction():
@@ -184,3 +220,33 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.restoreVisibleScratchpad()
   of PolicyAction.switchLayout:
     model.cycleLayout(output)
+  of PolicyAction.toggleNamedScratchpad1 .. PolicyAction.toggleNamedScratchpad4:
+    model.toggleNamedScratchpad(
+      output,
+      ScratchpadSlotId(ord(action) - ord(PolicyAction.toggleNamedScratchpad1) + 1),
+    )
+  of PolicyAction.moveToNamedScratchpad1 .. PolicyAction.moveToNamedScratchpad4:
+    model.moveFocusedToNamedScratchpad(
+      output,
+      ScratchpadSlotId(ord(action) - ord(PolicyAction.moveToNamedScratchpad1) + 1),
+    )
+  of PolicyAction.focusLast:
+    model.focusLast(output)
+  of PolicyAction.selectScrollerLayout:
+    model.setLayout(output, LayoutMode.scroller)
+  of PolicyAction.selectTileLayout:
+    model.setLayout(output, LayoutMode.tile)
+  of PolicyAction.selectGridLayout:
+    model.setLayout(output, LayoutMode.grid)
+  of PolicyAction.selectMonocleLayout:
+    model.setLayout(output, LayoutMode.monocle)
+  of PolicyAction.selectVerticalScrollerLayout:
+    model.setLayout(output, LayoutMode.verticalScroller)
+  of PolicyAction.focusColumnNext:
+    model.focusColumnRelative(output, 1)
+  of PolicyAction.focusColumnPrevious:
+    model.focusColumnRelative(output, -1)
+  of PolicyAction.focusWindowBelow:
+    model.focusWithinColumnRelative(output, 1)
+  of PolicyAction.focusWindowAbove:
+    model.focusWithinColumnRelative(output, -1)

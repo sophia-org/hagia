@@ -1,6 +1,6 @@
 import std/strutils
 
-import ../types/migration
+import ../types/[migration, model]
 
 ## Triad command classification. Each retained command maps to one Hagia action
 ## or one recorded exclusion with a written reason; nothing is silently dropped.
@@ -148,6 +148,54 @@ proc classifyTriadCommand*(command: string): CommandMigration =
     commandMigration(
       "policy", MigrationDisposition.retained, "switchLayout policy action", command
     )
+  of "focus-last":
+    commandMigration(
+      "policy", MigrationDisposition.retained, "focusLast policy action", command
+    )
+  of "focus-left":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "focusColumnPrevious policy action; Hagia names the axis it moves along",
+      "focus-column-prev",
+    )
+  of "focus-right":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "focusColumnNext policy action; Hagia names the axis it moves along",
+      "focus-column-next",
+    )
+  of "focus-up":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "focusWindowAbove policy action; movement stays inside the focused column",
+      "focus-window-above",
+    )
+  of "focus-down":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "focusWindowBelow policy action; movement stays inside the focused column",
+      "focus-window-below",
+    )
+  of "scroller":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectScrollerLayout policy action",
+      "layout-scroller",
+    )
+  of "tile":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectTileLayout policy action",
+      "layout-tile",
+    )
+  of "grid":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectGridLayout policy action",
+      "layout-grid",
+    )
+  of "monocle":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectMonocleLayout policy action",
+      "layout-monocle",
+    )
   of "new-workspace":
     commandMigration(
       "policy", MigrationDisposition.retained, "newWorkspace policy action", command
@@ -209,33 +257,68 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "unowned", MigrationDisposition.unsupported, "command must not be empty"
       )
     let name = parts[0]
-    if name.startsWith("split-tree-") or name.startsWith("frame-"):
+    if name.startsWith("split-tree-") or name.startsWith("frame-") or
+        name in ["frame-tree", "bsp-tree", "i3", "notion"]:
       return commandMigration(
-        "policy", MigrationDisposition.excluded,
-        "excluded from the WM freeze profile; structural layout command belongs to a later policy and shell tranche",
+        "policy", MigrationDisposition.deferred,
+        "tabbed substrate deferred until a shell surface can draw the tab bar; see docs/action-vocabulary.md",
       )
     if name in [
       "adjust-gaps", "adjust-master-count", "adjust-master-ratio", "center-tile",
       "deck", "dwindle", "dwindle-split-down", "dwindle-split-left",
       "dwindle-split-right", "dwindle-split-up", "focus-column-first",
-      "focus-column-last", "focus-down", "focus-last", "focus-left",
-      "focus-next-in-group", "focus-right", "focus-up", "frame-split-horizontal",
-      "frame-split-vertical", "frame-tab-next", "frame-tab-prev", "frame-unsplit",
-      "grid", "group-windows", "i3", "monocle", "move-column-left", "move-column-right",
-      "move-column-to-first", "move-column-to-last", "move-to-named-scratchpad",
+      "focus-column-last", "focus-next-in-group", "group-windows", "move-column-left",
+      "move-column-right", "move-column-to-first", "move-column-to-last",
       "move-to-tag-left", "move-to-tag-right", "move-window-down", "move-window-left",
-      "move-window-right", "move-window-up", "move-workspace-to-output", "notion",
-      "right-tile", "scroller", "spiral", "split-tree-layout-stacking",
-      "split-tree-layout-tabbed", "split-tree-layout-toggle-split",
-      "split-tree-split-horizontal", "split-tree-split-vertical", "swap-to-tag",
-      "tgmix", "tile", "toggle-gaps", "toggle-named-scratchpad", "ungroup-window",
+      "move-window-right", "move-window-up", "move-workspace-to-output", "right-tile",
+      "spiral", "swap-to-tag", "tgmix", "toggle-gaps", "ungroup-window",
       "vertical-grid", "zoom",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,
-        "historical spatial command is not selected by the checked-in freeze profile",
+        "spatial command is queued behind a later Hagia policy tranche; see docs/roadmap.md",
       )
     commandMigration(
       "unowned", MigrationDisposition.unsupported,
       "command has no classified retained authority",
     )
+
+proc namedScratchpadSlot(names: var seq[string], name: string): int =
+  ## Triad addresses a scratchpad by name; Hagia addresses one of four slots.
+  ## Slots are handed out in the order the migration first meets each name, so
+  ## the same input profile always produces the same output profile.
+  result = names.find(name) + 1
+  if result == 0 and names.len < maxNamedScratchpadSlots:
+    names.add(name)
+    result = names.len
+
+proc classifyTriadCommand*(
+    command: string, scratchpadNames: var seq[string]
+): CommandMigration =
+  ## Classification for the commands that carry a name Hagia must number.
+  ## Everything else is stateless and answers from the command alone.
+  for prefix in ["toggle-named-scratchpad", "move-to-named-scratchpad"]:
+    let argument = command.commandArgument(prefix & " ")
+    if argument.len == 0:
+      continue
+    let slot = scratchpadNames.namedScratchpadSlot(argument)
+    if slot == 0:
+      return commandMigration(
+        "policy",
+        MigrationDisposition.excluded,
+        "Hagia bounds named scratchpads to " & $maxNamedScratchpadSlots &
+          " slots and this profile names more",
+      )
+    let action =
+      if prefix == "toggle-named-scratchpad":
+        "toggleNamedScratchpad"
+      else:
+        "moveToNamedScratchpad"
+    return commandMigration(
+      "policy",
+      MigrationDisposition.transformed,
+      action & $slot & " policy action; slot " & $slot & " carries Triad's \"" & argument &
+        "\"",
+      prefix & " " & $slot,
+    )
+  command.classifyTriadCommand()

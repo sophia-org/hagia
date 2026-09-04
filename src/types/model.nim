@@ -129,6 +129,7 @@ const
   maxMinimizedHistory* = 64
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64
+  maxNamedScratchpadSlots* = 4
   defaultLayoutCycle* = @[
     LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
     LayoutMode.verticalScroller,

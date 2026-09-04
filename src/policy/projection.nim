@@ -84,16 +84,10 @@ proc projectScroller*(
     let eligible =
       model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
     var columns: seq[(ColumnData, seq[WindowId])]
-    for columnId in model.columnOrder:
-      let column = model.columns[columnId]
-      if column.homeOutput != outputId:
-        continue
-      var windows: seq[WindowId]
-      for windowId in column.windows:
-        if windowId in eligible and not model.windows[windowId].floating:
-          windows.add(windowId)
+    for columnId in model.tiledColumnIds(outputId):
+      let windows = model.columnWindows(columnId, eligible)
       if windows.len > 0:
-        columns.add((column, windows))
+        columns.add((model.columns[columnId], windows))
 
     var projection = LogicalOutputProjection(output: outputId)
     if columns.len == 0:
