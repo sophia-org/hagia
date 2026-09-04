@@ -27,7 +27,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Triad capability | Sophia owner | Hagia status | Required interface or evidence |
 | --- | --- | --- | --- |
 | Stable tags, views, columns, and logical IDs | Hagia | Implemented | Pure model and reconciliation tests |
-| Scrolling and additional retained layouts | Hagia policy; visible tabs and feedback in Hagia Shell | Native scroller, tile, grid, monocle, and vertical-scroller cycle implemented; structural and Janet layouts remain open | Deterministic geometry, constraint, transition, and shell correspondence tests |
+| Scrolling and additional retained layouts | Hagia policy; visible tabs and feedback in Narthex | Native scroller, tile, grid, monocle, and vertical-scroller cycle implemented; structural and Janet layouts remain open | Deterministic geometry, constraint, transition, and shell correspondence tests |
 | Focus, movement, grouping, and layout actions | Hagia, triggered by Engine-owned opaque actions | Focus, view, output focus/move, consume/expel, size, and layout-cycle actions implemented | `sophia_wm_v1` action causes and ordered action tests |
 | Output-local views and reconnect affinity | Hagia over Engine output facts | Nine-view actions and affinity implemented | Work rectangles, multi-output proposals, loss/return tests |
 | Floating, fullscreen, maximize, minimize, and scratchpads | Hagia policy; Engine validates and presents | Floating, presentation, and bounded standard/named scratchpad reducers implemented; frontend X state signaling remains open | Reduced kinds/state, presentation decisions, restore tests, frontend state evidence |
@@ -37,7 +37,7 @@ None of these repositories is a Hagia runtime or build dependency.
 | Keyboard matching and physical gestures | Engine | Outside Hagia | Registered opaque actions; no raw input crosses the wire |
 | Client state, pixels, configure delivery, and presentation | Engine and frontend authority | Outside Hagia | Settled snapshot generations and last-good preservation |
 | Application placement rules | Trusted classification and launch-provenance broker | Deferred | Opaque placement grants; no title, class, PID, or path |
-| Overview, switcher, panels, tabs, toast, and visible chrome | A separately admitted shell client and Engine rendering | Deferred | Future `sophia_shell_v1`; not WM IPC |
+| Overview, switcher, panels, tabs, toast, and visible chrome | Narthex, a separately admitted shell client, with Engine rendering | Switcher and work-area reservation implemented in Narthex; overview, panels, tabs, and toast deferred | `sophia_shell_v1`; not WM IPC |
 | Launch, logout, lock, output power, and configuration | Sophia session or dedicated authority | Terminal, browser, close, and logout slot requests implemented; other services deferred | Advertised opaque operations or role-specific interfaces |
 | Screenshot, capture, clipboard, drag-and-drop, files, and notifications | Sophia portals | Deferred | Explicit grants and bounded payload handoff |
 | Status and diagnostics | Redacted shell/status and diagnostic interfaces | Deferred | Full initial state plus typed bounded updates |

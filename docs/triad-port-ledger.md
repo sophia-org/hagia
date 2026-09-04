@@ -59,6 +59,13 @@ all 137 bindings in Triad's historical default.
 These behaviors cannot be moved into `sophia_wm_v1`. They require a separate,
 least-authority shell endpoint and target-resolved input.
 
+This table records the state at the 2026-08-26 freeze, when the shell client
+lived in this repository as `hagia-shell`. On 2026-09-04 that code moved to
+[Narthex](https://github.com/sophia-org/narthex), a separate client with a
+strictly smaller capability, and Hagia became a window manager only. The rows
+and counts below are not restated: the work happened here at freeze time and
+the signed archives bind these commits. New shell work belongs to Narthex.
+
 | Behavior family | State | Port requirement |
 | --- | --- | --- |
 | Overview and workspace previews | Excluded | Overview navigation, previews, hot corners, overflow hints, and hold/cycle behavior require a broader shell display-list and input vocabulary than the freeze profile needs. They remain post-freeze shell work. |
