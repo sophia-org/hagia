@@ -21,7 +21,8 @@ porting useful Triad behavior.
 ## Engineering
 
 - [Style guide](style-guide.md): Nim conventions and boundary-code rules.
-- [Data-oriented design](data-oriented-design.md): canonical state, indexes,
-  mutations, and pure projections.
+- [Data-oriented design](data-oriented-design.md): the types layer, canonical
+  state, indexes, mutations, and pure projections. Enforced by
+  `tools/check_data_oriented_layout.sh` via `nimble layout`.
 - [DRY principles](dry-principles.md): semantic ownership, justified
   duplication, and abstraction rules.

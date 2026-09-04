@@ -17,17 +17,83 @@ intent, and deterministic geometry.
 
 ## Territories
 
-Hagia keeps four explicit territories:
+Data is passive. Logic is active. They do not share a module. This is the
+foundational rule of this document, and every other rule here depends on it.
 
-1. `src/policy/types.nim` defines passive IDs, masks, and records.
-2. `src/policy/state.nim` owns ID generation, indexed mutation, and invariants.
-3. `src/policy/projection.nim` reads a valid model and computes geometry without
-   mutation or I/O.
-4. `src/sophia` assembles complete wire values, reconciles opaque identities,
+Hagia keeps five explicit territories:
+
+1. `src/types` defines passive data and nothing else. Every record, enum,
+   distinct ID, mask, wire layout, and bound lives here.
+2. `src/policy` owns ID generation, indexed mutation, invariants, the reducer
+   transition, and pure geometry projection.
+3. `src/config` owns profile parsing, digesting, activation, and migration.
+4. `src/runtime` owns the connection lifecycle transition and effect execution.
+5. `src/sophia` assembles complete wire values, reconciles opaque identities,
    stages candidates, and lowers committed policy back to Sophia records.
 
 The adapter is not a second policy model. It owns only the mapping necessary to
 reconcile current generational handles with stable Hagia IDs.
+
+## The Types Layer
+
+A module under `src/types` declares data. No logic lives there.
+
+The one admitted exception is the interop Nim requires to use a distinct type
+at all: `==`, `$`, and `hash` in `types/core.nim`. Nothing else. A helper that
+computes, decides, validates, or transforms is logic and belongs with the
+procedures that own the behavior.
+
+A types module is a leaf. It may import the standard library and its siblings
+under `src/types`. It may not import a logic module, so data can never depend on
+behavior. When a logic module needs a record, it imports the types module by
+name; it does not reach the record through some other logic module that happens
+to re-export it. Re-exporting data from a logic module recreates exactly the
+coupling this layer removes — it is how a codec ends up as a mandatory
+dependency of every module that only wanted a record.
+
+The modules are:
+
+| Module | Owns |
+| --- | --- |
+| `types/core.nim` | logical IDs, tag masks, scale, geometry primitives, dense `EntityStore`, ID counters |
+| `types/model.nim` | window, column, view, tag, output, scratchpad records and `PolicyModel` |
+| `types/actions.nim` | the `PolicyAction` vocabulary and its stable ordinals |
+| `types/policy_messages.nim` | policy reducer messages, intents, and updates |
+| `types/projection.nim` | logical placements and per-output projections |
+| `types/runtime.nim` | runtime phase, model, messages, and effects |
+| `types/config_values.nim` | profile authorities, values, generations, and the activation vocabulary |
+| `types/migration.nim` | migration items and reports |
+| `types/session.nim` | snapshot, cause, request, projection, and outcome records |
+| `types/handoff.nim` | startup profile handoff phase, model, and disposition |
+| `types/wm_v1.nim` | `sophia_wm_v1` message kinds, records, offsets, and bounds |
+| `types/shell_v1.nim` | shell descriptor records, bounds, and reducer model |
+| `types/observability.nim` | evidence records and rotation bounds |
+
+Three kinds of declaration stay outside this layer, each for a stated reason:
+
+- an error type and the enum that classifies it belong to the module that
+  raises them;
+- a closure vtable such as `RuntimeEffectExecutor` is injected behavior, not
+  passive data; and
+- an encapsulated state machine whose fields are private on purpose, such as
+  `PolicyAdapter` and `PolicySession`, stays private. Exporting its fields to
+  satisfy a file-location rule would trade a real authority boundary for a
+  cosmetic one.
+
+These are the only exceptions, and each is named in the enforcing gate.
+
+## Enforcement
+
+`tools/check_data_oriented_layout.sh` fails the build when a routine appears in
+`src/types`, when a types module imports a logic module, or when a public record
+is declared outside the layer. It runs in `nimble test` and `nimble verify`, and
+`nimble layout` runs it alone.
+
+The gate exists because this separation was declared once and then eroded until
+twenty of twenty-six modules mixed records with the procedures that consumed
+them. A rule with no gate decays. Adding a name to the gate's allowlist must be
+a deliberate act with a reason recorded beside it, never a way to make the check
+quiet.
 
 ## Canonical State And Derived Indexes
 

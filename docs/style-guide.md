@@ -21,10 +21,28 @@ Follow NEP-1 and let `nph` decide formatting:
 Run `nph` on every touched Nim-family file. `nimble verify` checks formatting
 without rewriting files.
 
-## Data And Dot Syntax
+## Data And Code Are Separate Modules
 
-Data stays passive and logic stays in procedures. Put the primary state or
-value first and call procedures with UFCS:
+Data stays passive and logic stays in procedures, and the two do not share a
+module. Every record, enum, distinct ID, mask, wire layout, and bound belongs
+in `src/types`; the procedures that read and change it belong in the domain
+module that owns the behavior.
+
+This is not a filing preference. A record declared beside its consumer makes
+that consumer a mandatory dependency of everyone who only wanted the record,
+and the coupling is invisible until you try to remove it. Hagia had four Sophia
+modules importing a KDL profile loader, and four more importing a wire codec,
+purely to reach data.
+
+When you add a type, ask where the data goes first, then write the procedure.
+Do not import data through a logic module that re-exports it; name the types
+module directly. `docs/data-oriented-design.md` lists the layer, the three
+admitted exceptions, and the gate that enforces them. Run `nimble layout` to
+check a change before you commit it.
+
+## Dot Syntax
+
+Put the primary state or value first and call procedures with UFCS:
 
 ```nim
 let window = model.window(windowId)
@@ -37,6 +55,19 @@ hide mutation, I/O, capability checks, or a Sophia round trip.
 ## One Lookup Per Decision
 
 Do not probe an entity table and then repeat the same lookup for the decision.
+That is two hash lookups to answer one question:
+
+```nim
+# BAD: probes the table, then hits it again to read the same row.
+if windowId in model.windows:
+  let window = model.windows[windowId]
+
+# GOOD: one lookup, one Option, one decision.
+let windowOpt = model.window(windowId)
+if windowOpt.isSome():
+  let window = windowOpt.get()
+```
+
 Use the typed `Option` accessor once and retain the result. Mutation procedures
 may validate an ID before taking a `var` table reference, but the validation
 and mutation must stay inside the state layer rather than being repeated by

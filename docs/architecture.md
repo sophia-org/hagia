@@ -33,7 +33,9 @@ and [DRY principles](dry-principles.md).
 
 ## Layers
 
-- `src/policy/types.nim` contains passive logical IDs and policy records.
+- `src/types` contains every passive record: logical IDs, policy records, the
+  action vocabulary, reducer messages, wire layouts, and bounds. It holds no
+  logic and imports no logic module.
 - `src/policy/state.nim` owns indexed mutations and invariants.
 - `src/policy/reducer.nim` maps typed messages to pure candidate updates and intents.
 - `src/policy/projection.nim` computes output projections without mutation.
