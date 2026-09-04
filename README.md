@@ -48,11 +48,12 @@ owner-only, atomic replacement; restored state is revalidated and reconciled
 against a complete snapshot before use. Checkpoint v2 is an explicit,
 stable-ID-ordered logical DTO; v1 is rejected and rebuilt from a complete
 snapshot. The physical checkpoint/restart and presentation-state workload has
-passed. The separate `hagia-shell` executable now drives Sophia's protected,
-title-only live switcher from the enabled compiled profile. Sophia's core/XI
-explicit pointer grabs share Engine arbitration with shell capture. Signed
-archive `0006` proves the retained generic switcher lifecycle; MRU behavior,
-previews, icons, and persistent panels remain post-freeze shell work. The
+passed. Shell surface policy now lives in
+[Narthex](https://github.com/sophia-org/narthex), a separate client with a
+strictly smaller capability. Hagia is a window manager only: it owns tags,
+views, layouts, and focus, and it does not grow panels, launchers, trays, or
+notifications. Signed archive `0006` proves the retained generic switcher
+lifecycle under the previous in-tree `hagia-shell` name. The
 retained continuous move/resize interaction is complete; broader policy parity
 remains open. Sophia owns scene truth, input
 authority, validation, atomic

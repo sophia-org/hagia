@@ -23,8 +23,8 @@ indicator and captured-action path. Signed physical archive `0001` closes the
 last retained output-authority row, and the completed ledger records interface
 major 1, wire revision 3 as stable.
 
-The first Hagia Shell slice is live and physically proven. Sophia launches the standalone
-`hagia-shell` in a separate protected domain, sends only bounded sanitized
+The first shell slice is live and physically proven. Sophia launches the standalone
+Narthex in a separate protected domain, sends only bounded sanitized
 descriptors and opaque actions, and admits `Super+P` through the session-owned
 shortcut path when a shell profile enables it. Engine renders and captures the
 exact presented list; the broker checks the issuer before Hagia policy receives
@@ -201,7 +201,7 @@ physical input, and clean teardown.
   Sophia's offline descriptor reference; keep ordering and selection here and
   rendering, hit-testing, and presentation in Engine. Defer previews, icons,
   generic textures, and broader shell furniture until that first installed
-  reconnect path is exact. The standalone `hagia-shell` implements the
+  reconnect path is exact. The standalone Narthex client implements the
   revision-1 codec and deterministic reducer, validates Sophia's shared golden
   and malformed corpora, and now completes live launch, shortcut admission,
   presentation, exact activation, broker-checked dispatch, withdrawal, and

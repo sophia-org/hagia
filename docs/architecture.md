@@ -46,6 +46,9 @@ and [DRY principles](dry-principles.md).
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
+- Shell surface policy is not in this repository. It belongs to Narthex, a
+  separate client that receives sanitized descriptors and never learns surface
+  identifiers, coordinates, or icons.
 - `src/sophia/policy_adapter.nim` reconciles complete Sophia snapshots and
   lowers logical projections back to current opaque identities.
 - `src/sophia/policy_session.nim` stages private candidates and promotes only
