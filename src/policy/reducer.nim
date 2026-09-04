@@ -1,45 +1,7 @@
 import std/options
 
-import ../types/[core, model]
+import ../types/[core, model, policy_messages]
 import ./[actions, entity_store, state]
-
-type
-  PolicyMsgKind* {.pure.} = enum
-    sceneChanged
-    action
-    focus
-    interaction
-
-  PolicyInteractionKind* {.pure.} = enum
-    move
-    resize
-
-  PolicyMsg* = object
-    output*: OutputId
-    case kind*: PolicyMsgKind
-    of PolicyMsgKind.sceneChanged:
-      discard
-    of PolicyMsgKind.action:
-      action*: PolicyAction
-    of PolicyMsgKind.focus:
-      focusWindow*: WindowId
-    of PolicyMsgKind.interaction:
-      interactionWindow*: WindowId
-      interactionKind*: PolicyInteractionKind
-      geometry*: Rect
-
-  PolicyIntentKind* {.pure.} = enum
-    project
-
-  PolicyIntent* = object
-    kind*: PolicyIntentKind
-    outputs*: seq[OutputId]
-
-  PolicyUpdate* = object
-    candidate*: PolicyModel
-    affectedViews*: seq[ViewId]
-    affectedOutputs*: seq[OutputId]
-    intents*: seq[PolicyIntent]
 
 proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
   ## The reducer has no transport or filesystem authority. A caller promotes

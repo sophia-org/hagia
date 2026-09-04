@@ -1,19 +1,7 @@
 import std/[math, options, sequtils]
 
-import ../types/[core, model]
+import ../types/[core, model, projection]
 import ./[entity_store, state]
-
-type
-  LogicalPlacement* = object
-    window*: WindowId
-    geometry*: Rect
-    requestedWidth*, requestedHeight*: int32
-
-  LogicalOutputProjection* = object
-    output*: OutputId
-    placements*: seq[LogicalPlacement]
-    focus*: WindowId
-    viewportOffset*: int32
 
 proc clamp(value, minimum, maximum: int32): int32 =
   result = value

@@ -3,7 +3,7 @@ import std/[json, options, os, sets, strutils, tables, tempfiles, unittest]
 import config/[coordinator, migration, policy_candidate, profile]
 import observability
 import policy/[actions, entity_store, reducer, state]
-import types/[core, model]
+import types/[actions, core, model, policy_messages]
 import runtime/reducer as runtimeReducer
 import runtime/effect_executor
 import sophia/policy_adapter

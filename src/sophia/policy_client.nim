@@ -2,6 +2,7 @@ import std/[net, options, os, sets, strutils]
 
 import ../config/profile
 import ../observability
+import ../types/actions
 import ../policy/actions
 import
   ./[
