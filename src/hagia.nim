@@ -13,7 +13,38 @@ proc option(arguments: openArray[string], name: string): string =
     if argument.startsWith(prefix):
       return argument[prefix.len .. ^1]
 
+const usage = """hagia — reference window manager for the Sophia display server
+
+usage:
+  hagia [--socket=PATH] [--config=PATH]   run the policy session
+  hagia config check [--config=PATH]      validate a desktop profile
+  hagia config print-effective [--config=PATH]
+                                          print the fully expanded profile
+  hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH
+                                          translate a Triad configuration
+  hagia dump-checkpoint PATH              print a checkpoint or state dump
+  hagia replay TRACE [--checkpoint=PATH]  re-run a recorded session offline
+  hagia --help                            this text
+
+signals:
+  SIGHUP   checkpoint and hand over to a rebuilt binary
+  SIGUSR1  write the committed model to $HAGIA_POLICY_DUMP
+
+common environment:
+  SOPHIA_WM_SOCKET          session-owned policy socket (Sophia sets this)
+  HAGIA_POLICY_CHECKPOINT   private checkpoint path (Sophia sets this)
+  HAGIA_LOG_LEVEL           debug | info | warn | error, default info
+  HAGIA_EVIDENCE_NDJSON     absolute path for the evidence stream
+  HAGIA_POLICY_DUMP         where SIGUSR1 writes state
+  HAGIA_POLICY_TRACE        record a replayable session trace
+
+docs/environment.md documents every variable, including fault injection."""
+
 proc run(arguments: seq[string]) =
+  if arguments.len >= 1 and arguments[0] in ["--help", "-h", "help"]:
+    stdout.write(usage & "\n")
+    return
+
   if arguments.len >= 2 and arguments[0] == "config":
     let configPath = arguments.option("config")
     case arguments[1]
@@ -94,7 +125,8 @@ proc run(arguments: seq[string]) =
     if argument.startsWith("--socket="):
       socketPath = argument[9 .. ^1]
     elif not argument.startsWith("--config="):
-      raise newException(ValueError, "usage: hagia [--socket=PATH] [--config=PATH]")
+      raise
+        newException(ValueError, "unknown option " & argument & "; try hagia --help")
   let candidatePath = getEnv("HAGIA_POLICY_CANDIDATE")
   if candidatePath.len > 0 and explicitConfig.len > 0:
     raise newException(

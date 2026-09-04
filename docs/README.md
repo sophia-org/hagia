@@ -18,6 +18,12 @@ porting useful Triad behavior.
 - [Port provenance](provenance.md): reviewed Triad sources and baseline.
 - [Roadmap](roadmap.md): implemented and deferred work.
 
+## Reference
+
+- [Environment](environment.md): every environment variable Hagia reads, what
+  it does, and who sets it, plus the signal surface. `hagia --help` prints the
+  common subset.
+
 ## Engineering
 
 - [Style guide](style-guide.md): Nim conventions and boundary-code rules.
