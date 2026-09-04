@@ -126,7 +126,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 8
+  check lines.len == 9
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -145,6 +145,13 @@ proc checkRecords(path: string) =
       check operation.operation == 11
       check operation.slot == 1
       check operation.targetBits == 1
+    of "snapshot_surface_classification":
+      # The capability-gated extension record, proven from the same corpus the
+      # generated codecs parse now that the schema declares it.
+      let classification = bytes.decodeSnapshotSurfaceClassification()
+      check classification.surfaceIndex == 3
+      check classification.surfaceGeneration == 1
+      check classification.classification == 2
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":
