@@ -1113,6 +1113,92 @@ suite "Hagia private policy model":
     byExpel.validate()
     byMove.validate()
 
+  test "the tile master area honours its count and ratio":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.applyAction(output, PolicyAction.selectTileLayout)
+
+    # One master at half width: three windows share the stack.
+    var projected = model.projectLayout([output])[0]
+    check projected.placements[0].geometry == Rect(width: 500, height: 800)
+    check projected.placements[1].geometry == Rect(
+      x: 500, y: 0, width: 500, height: 266
+    )
+
+    # A wider master takes width from the stack, not from the viewport.
+    model.applyAction(output, PolicyAction.increaseMasterRatio)
+    projected = model.projectLayout([output])[0]
+    check projected.placements[0].geometry.width == 549
+    check projected.placements[1].geometry.x == 549
+    check projected.placements[1].geometry.width == 451
+
+    # Two masters share the master area vertically.
+    model.applyAction(output, PolicyAction.increaseMasterCount)
+    projected = model.projectLayout([output])[0]
+    check projected.placements[0].geometry == Rect(width: 549, height: 400)
+    check projected.placements[1].geometry == Rect(
+      x: 0, y: 400, width: 549, height: 400
+    )
+    check projected.placements[2].geometry.x == 549
+    model.validate()
+
+  test "master settings stay inside their bounds however hard a key is held":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    for _ in 0 ..< 20:
+      model.applyAction(output, PolicyAction.increaseMasterCount)
+      model.applyAction(output, PolicyAction.increaseMasterRatio)
+    check model.settings.masterCount == maxMasterCount
+    check model.settings.masterRatio == maxMasterRatio
+    for _ in 0 ..< 40:
+      model.applyAction(output, PolicyAction.decreaseMasterCount)
+      model.applyAction(output, PolicyAction.decreaseMasterRatio)
+    check model.settings.masterCount == 1
+    check model.settings.masterRatio == minMasterRatio
+    model.validate()
+
+  test "toggling gaps hides them without forgetting them":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    model.settings.outerGap = 8
+    model.settings.innerGap = 8
+
+    model.applyAction(output, PolicyAction.toggleGaps)
+    check model.effectiveGaps() == (0'i32, 0'i32)
+    check model.settings.outerGap == 8
+    model.applyAction(output, PolicyAction.toggleGaps)
+    check model.effectiveGaps() == (8'i32, 8'i32)
+
+    # Asking for wider gaps while they are hidden turns them back on, because
+    # otherwise the key would do nothing a user could see.
+    model.applyAction(output, PolicyAction.toggleGaps)
+    model.applyAction(output, PolicyAction.increaseGaps)
+    check model.settings.gapsEnabled
+    check model.effectiveGaps() == (10'i32, 10'i32)
+    for _ in 0 ..< 20:
+      model.applyAction(output, PolicyAction.decreaseGaps)
+    check model.effectiveGaps() == (0'i32, 0'i32)
+    model.validate()
+
+  test "maximizing a column is a column decision, not a window one":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    let column = model.window(first).get().column
+
+    model.applyAction(output, PolicyAction.maximizeColumn)
+    check model.columns[column].widthScale == scaleOne
+    check not model.windows[first].maximized
+    check model.projectLayout([output])[0].placements[0].geometry.width == 1000
+    model.applyAction(output, PolicyAction.maximizeColumn)
+    check model.columns[column].widthScale == autoScale
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
@@ -1373,7 +1459,7 @@ suite "Sophia snapshot adapter":
     expect PolicyAdapterError:
       discard ("BAD" & payload).restoreCheckpointPayload()
 
-  test "checkpoint v2 retains dynamic workspace identity and reusable slot":
+  test "the checkpoint retains dynamic workspace identity and reusable slot":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
     var adapter = initPolicyAdapter()
     adapter.reconcile(snapshot(1, @[output], @[]))
@@ -1417,7 +1503,7 @@ suite "Sophia snapshot adapter":
     check restored.model().tagIdForSlot(10) == dynamicTag
     restored.model().validate()
 
-  test "checkpoint v2 retains scratchpad restore and transient relations":
+  test "the checkpoint retains scratchpad restore and transient relations":
     var output = SnapshotOutput(
       output: 10,
       generation: 1,
@@ -1479,9 +1565,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 2
+    check parseJson(printed)["schema"].getInt() == 3
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-2\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-3\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")

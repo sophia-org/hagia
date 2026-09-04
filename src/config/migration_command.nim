@@ -96,10 +96,20 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "policy", MigrationDisposition.transformed, "toggleFullscreen policy action",
       "toggle-fullscreen",
     )
-  of "toggle-maximized", "maximize-column", "maximize-window-to-edges":
+  of "toggle-maximized", "maximize-window-to-edges":
     commandMigration(
       "policy", MigrationDisposition.transformed, "toggleMaximized policy action",
       "toggle-maximized",
+    )
+  of "maximize-column":
+    commandMigration(
+      "policy", MigrationDisposition.retained,
+      "maximizeColumn policy action; a column decision, distinct from maximizing one window",
+      command,
+    )
+  of "toggle-gaps":
+    commandMigration(
+      "policy", MigrationDisposition.retained, "toggleGaps policy action", command
     )
   of "minimize":
     commandMigration(
@@ -307,6 +317,31 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       return commandMigration(
         "policy", MigrationDisposition.transformed, "moveToView policy action", command
       )
+    for stepped in [
+      ("adjust-gaps ", "gaps", "increase-gaps", "decrease-gaps"),
+      (
+        "adjust-master-count ", "master count", "increase-master-count",
+        "decrease-master-count",
+      ),
+      (
+        "adjust-master-ratio ", "master ratio", "increase-master-ratio",
+        "decrease-master-ratio",
+      ),
+    ]:
+      let argument = command.commandArgument(stepped[0])
+      if argument.len == 0:
+        continue
+      # Hagia's actions carry no argument: the step size is a profile setting,
+      # so a binding says which way to go and the profile says how far.
+      return commandMigration(
+        "policy",
+        MigrationDisposition.transformed,
+        "stepped " & stepped[1] & " policy action; Hagia reads the step from the profile",
+        if argument.startsWith('-'):
+          stepped[3]
+        else:
+          stepped[2],
+      )
     if command.boundedWorkspaceCommand("swap-to-tag "):
       return commandMigration(
         "policy",
@@ -355,10 +390,9 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "tabbed substrate deferred until a shell surface can draw the tab bar; see docs/action-vocabulary.md",
       )
     if name in [
-      "adjust-gaps", "adjust-master-count", "adjust-master-ratio", "center-tile",
-      "deck", "dwindle", "dwindle-split-down", "dwindle-split-left",
+      "center-tile", "deck", "dwindle", "dwindle-split-down", "dwindle-split-left",
       "dwindle-split-right", "dwindle-split-up", "focus-next-in-group", "group-windows",
-      "right-tile", "spiral", "tgmix", "toggle-gaps", "ungroup-window", "vertical-grid",
+      "right-tile", "spiral", "tgmix", "ungroup-window", "vertical-grid",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,

@@ -224,9 +224,12 @@ suite "Hagia foundation":
     ).model
     check not runtime.checkpointDirty
 
-  test "checkpoint v1 is rejected with a targeted diagnostic":
-    expect PolicyAdapterError:
-      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-1\n{}")
+  test "every superseded checkpoint is rejected with a targeted diagnostic":
+    # A schema that gained fields cannot be read by guessing what the older
+    # payload meant to say, so it is refused and a complete snapshot rebuilds.
+    for version in ["1", "2"]:
+      expect PolicyAdapterError:
+        discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-" & version & "\n{}")
 
   test "profile includes are deterministic and provenance is retained":
     let directory = createTempDir("hagia-profile-", "")
@@ -312,8 +315,8 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 77
-    check policyBindings == 71
+    check shortcuts.values.len == 85
+    check policyBindings == 79
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
@@ -804,7 +807,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 79
+    check report.outputProfile.count("\n  bind ") == 86
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -826,6 +829,11 @@ output {
       "bind Super+Shift+1 \"policy:swap-with-view 1\"",
       "bind Super+Shift+h \"policy:move-view-to-output-prev\"",
       "bind Super+Shift+l \"policy:move-view-to-output-next\"",
+      "bind Super+m \"policy:maximize-column\"", "bind Super+0 \"policy:toggle-gaps\"",
+      "bind Super+. \"policy:increase-master-ratio\"",
+      "bind Super+, \"policy:decrease-master-ratio\"",
+      "bind \"Super+]\" \"policy:increase-master-count\"",
+      "bind \"Super+[\" \"policy:decrease-master-count\"",
     ]:
       check carried in report.outputProfile
 

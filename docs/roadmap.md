@@ -256,7 +256,7 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 79 of its bindings now carry over, up from 40 at the
+`tests/tfoundation.nim`: 86 of its bindings now carry over, up from 40 at the
 freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -311,13 +311,19 @@ move lands where the user saw the window.
   directional consume-or-expel pair; both are new actions and a separate
   design call from where a column opens.
 
-- [ ] Tile master count and ratio (`master-count`, `adjust-master-ratio`);
-  the native tile currently fixes both.
+- [x] Tile master count and ratio, as `master-count` and `master-ratio`
+  profile keys with paired increase/decrease actions. Both are global rather
+  than per-view; Triad keeps them per tag, which is a refinement worth making
+  once something needs it.
+- [x] Runtime gap adjustment. `increase-gaps`/`decrease-gaps` step by the
+  configured `gap-step`, and `toggle-gaps` hides the configured gaps without
+  discarding them. Projections read `effectiveGaps`, so hidden gaps stay
+  readable in the profile.
+- [x] `maximize-column`, which had been folded onto `toggle-maximized` by the
+  migration. It is a decision about a column, so it now has its own action.
 - [ ] Center-tile and right-tile variants of the native tile.
-- [ ] Runtime gap adjustment (`adjust-gaps`, `toggle-gaps`); gaps are
-  config-only today.
 - [ ] Column width presets and absolute width (`set-column-width`,
-  `switch-proportion-preset`) and `maximize-column`.
+  `switch-proportion-preset`).
 
 ### Tier 4 — layout power, large and coupled
 

@@ -243,6 +243,35 @@ proc gridDimensions(count: int): tuple[columns, rows: int] =
   result.columns = int(ceil(sqrt(float64(count))))
   result.rows = int(ceil(float64(count) / float64(result.columns)))
 
+proc stackColumn(
+    model: PolicyModel,
+    windows: openArray[WindowId],
+    area: Rect,
+    gap: int32,
+    projection: var LogicalOutputProjection,
+) =
+  ## Share one rectangle vertically between windows, giving the last the
+  ## remainder so rounding never leaves a gap the layout did not ask for.
+  if windows.len == 0:
+    return
+  let gaps = int64(gap) * int64(windows.len - 1)
+  if gaps >= int64(area.height):
+    raise newException(PolicyStateError, "tile gaps consume the stack")
+  let baseHeight = int32((int64(area.height) - gaps) div windows.len)
+  if baseHeight <= 0:
+    raise newException(PolicyStateError, "tile stack is too short for its windows")
+  var y = area.y
+  for index, windowId in windows:
+    let height =
+      if index == windows.high:
+        area.y + area.height - y
+      else:
+        baseHeight
+    model.appendPlacement(
+      windowId, Rect(x: area.x, y: y, width: area.width, height: height), projection
+    )
+    y += height + gap
+
 proc projectNative(
     model: PolicyModel, outputId: OutputId, mode: LayoutMode, outerGap, innerGap: int32
 ): LogicalOutputProjection =
@@ -257,36 +286,34 @@ proc projectNative(
   of LayoutMode.scroller, LayoutMode.verticalScroller:
     raise newException(PolicyStateError, "scrolling layout entered native projection")
   of LayoutMode.tile:
-    if tiled.len == 1:
-      model.appendPlacement(tiled[0], bounds, result)
-    elif tiled.len > 1:
+    let masterCount = max(1, min(model.settings.masterCount, tiled.len))
+    if tiled.len <= masterCount:
+      model.stackColumn(tiled, bounds, gap, result)
+    elif tiled.len > 0:
       if gap >= bounds.width:
         raise newException(PolicyStateError, "tile gap consumes the viewport")
-      let masterWidth = (bounds.width - gap) div 2
+      let masterWidth =
+        max(1'i32, (bounds.width - gap).scaledExtent(model.settings.masterRatio))
       let stackWidth = bounds.width - gap - masterWidth
-      model.appendPlacement(
-        tiled[0],
+      if stackWidth <= 0:
+        raise newException(PolicyStateError, "tile master consumes the viewport")
+      model.stackColumn(
+        tiled[0 ..< masterCount],
         Rect(x: bounds.x, y: bounds.y, width: masterWidth, height: bounds.height),
+        gap,
         result,
       )
-      let stackCount = tiled.len - 1
-      let stackGaps = int64(gap) * int64(stackCount - 1)
-      if stackGaps >= int64(bounds.height):
-        raise newException(PolicyStateError, "tile gaps consume the stack")
-      let baseHeight = int32((int64(bounds.height) - stackGaps) div stackCount)
-      var y = bounds.y
-      for index in 1 .. tiled.high:
-        let height =
-          if index == tiled.high:
-            bounds.y + bounds.height - y
-          else:
-            baseHeight
-        model.appendPlacement(
-          tiled[index],
-          Rect(x: bounds.x + masterWidth + gap, y: y, width: stackWidth, height: height),
-          result,
-        )
-        y += height + gap
+      model.stackColumn(
+        tiled[masterCount .. ^1],
+        Rect(
+          x: bounds.x + masterWidth + gap,
+          y: bounds.y,
+          width: stackWidth,
+          height: bounds.height,
+        ),
+        gap,
+        result,
+      )
   of LayoutMode.grid:
     let dimensions = gridDimensions(tiled.len)
     if dimensions.columns > 0:

@@ -154,3 +154,12 @@ proc visibleColumns*(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]]
     let windows = model.columnWindows(columnId, eligible)
     if windows.len > 0:
       result.add(windows)
+
+proc effectiveGaps*(model: PolicyModel): (int32, int32) =
+  ## The outer and inner gaps a projection should use. `toggle-gaps` hides
+  ## them without discarding what the profile configured, so the configured
+  ## values stay readable and only their effect is suppressed.
+  if model.settings.gapsEnabled:
+    (model.settings.outerGap, model.settings.innerGap)
+  else:
+    (0'i32, 0'i32)

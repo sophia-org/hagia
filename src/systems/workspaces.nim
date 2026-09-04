@@ -71,6 +71,13 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
   if model.settings.viewCount < 1 or model.settings.viewCount > 9 or
       model.settings.layoutCycle.len == 0:
     fail("policy settings candidate is invalid")
+  if model.settings.masterCount < 1 or model.settings.masterCount > maxMasterCount or
+      uint32(model.settings.masterRatio) < uint32(minMasterRatio) or
+      uint32(model.settings.masterRatio) > uint32(maxMasterRatio) or
+      model.settings.gapStep < 1 or model.settings.gapStep > maxGap or
+      model.settings.outerGap < 0 or model.settings.outerGap > maxGap or
+      model.settings.innerGap < 0 or model.settings.innerGap > maxGap:
+    fail("policy layout settings candidate is outside its bounds")
   for viewId in model.views.ids:
     if model.views[viewId].layout notin model.settings.layoutCycle:
       model.views[viewId].layout = model.settings.layoutCycle[0]

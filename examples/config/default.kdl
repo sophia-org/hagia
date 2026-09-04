@@ -12,6 +12,12 @@ policy {
   // Horizontal scroller viewport bias in pixels; 0 keeps the focused column
   // centering rule untouched.
   viewport-offset 0
+  // Tile master area: how many windows share it, and what percentage of the
+  // width it takes. Both are adjustable at runtime from the keys below.
+  master-count 1
+  master-ratio 50
+  // How far one press of increase-gaps or decrease-gaps moves both gaps.
+  gap-step 2
 }
 
 shell {
@@ -98,6 +104,18 @@ shortcut {
   bind "Super+=" "policy:resize-width 0.1"
   bind "Super+Shift+-" "policy:resize-height -0.1"
   bind "Super+Shift+=" "policy:resize-height 0.1"
+
+  // Layout knobs. The master keys shape the tile layout; the gap keys apply
+  // everywhere, and toggling gaps hides them without discarding the values
+  // configured above.
+  bind "Super+bracketleft" "policy:decrease-master-count"
+  bind "Super+bracketright" "policy:increase-master-count"
+  bind "Super+comma" "policy:decrease-master-ratio"
+  bind "Super+period" "policy:increase-master-ratio"
+  bind "Super+0" "policy:toggle-gaps"
+  bind "Super+Ctrl+minus" "policy:decrease-gaps"
+  bind "Super+Ctrl+equal" "policy:increase-gaps"
+  bind "Super+Ctrl+m" "policy:maximize-column"
 
   // Direct layout selection. The cycle key above reaches every mode; these
   // reach one mode each. The remaining named scratchpad slots follow the same

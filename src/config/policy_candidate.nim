@@ -3,6 +3,7 @@ import std/[sequtils, strutils]
 import kdl
 
 import ../types/[config_values, model]
+import ../state/values
 import ./profile
 
 proc integerValue(value: ProfileValue): int =
@@ -75,8 +76,28 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
       settings.innerGap = value.int32Value()
     of "policy.viewport-offset":
       settings.viewportOffset = value.int32Value()
+    of "policy.master-count":
+      settings.masterCount = value.integerValue()
+      if settings.masterCount < 1 or settings.masterCount > maxMasterCount:
+        raise newException(
+          DesktopProfileError, "policy master-count is outside 1.." & $maxMasterCount
+        )
+    of "policy.master-ratio":
+      # Written as a percentage, because a profile is read by people and a
+      # fixed-point scale is not.
+      let percent = value.integerValue()
+      if percent < 10 or percent > 90:
+        raise newException(DesktopProfileError, "policy master-ratio is outside 10..90")
+      settings.masterRatio = scaleFromRatio(uint32(percent), 100)
+    of "policy.gap-step":
+      settings.gapStep = value.int32Value()
+      if settings.gapStep < 1 or settings.gapStep > maxGap:
+        raise
+          newException(DesktopProfileError, "policy gap-step is outside 1.." & $maxGap)
     else:
       raise newException(DesktopProfileError, "unknown Hagia policy candidate value")
+  if settings.outerGap > maxGap or settings.innerGap > maxGap:
+    raise newException(DesktopProfileError, "policy gaps exceed their bound")
   if settings.outerGap < 0 or settings.innerGap < 0 or settings.viewportOffset < 0:
     raise
       newException(DesktopProfileError, "policy geometry settings must be nonnegative")

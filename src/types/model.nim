@@ -75,6 +75,10 @@ type
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
     layoutCycle*: seq[LayoutMode]
+    masterCount*: int
+    masterRatio*: Scale
+    gapStep*: int32
+    gapsEnabled*: bool
 
   OutputData* = object
     id*: OutputId
@@ -130,8 +134,23 @@ const
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64
   maxNamedScratchpadSlots* = 4
+  maxMasterCount* = 9
+  maxGap* = 512
+  # A master area narrower than a tenth or wider than nine tenths stops being
+  # a master area, so the ratio is bounded rather than merely positive.
+  minMasterRatio* = Scale(6554)
+  maxMasterRatio* = Scale(58982)
+  defaultMasterRatio* = Scale(32768)
+  defaultGapStep* = 2'i32
   defaultLayoutCycle* = @[
     LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
     LayoutMode.verticalScroller,
   ]
-  defaultPolicySettings* = PolicySettings(viewCount: 9, layoutCycle: defaultLayoutCycle)
+  defaultPolicySettings* = PolicySettings(
+    viewCount: 9,
+    layoutCycle: defaultLayoutCycle,
+    masterCount: 1,
+    masterRatio: defaultMasterRatio,
+    gapStep: defaultGapStep,
+    gapsEnabled: true,
+  )

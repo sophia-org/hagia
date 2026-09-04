@@ -134,6 +134,22 @@ proc profileName*(action: PolicyAction): string =
     "move-view-to-output-prev"
   of PolicyAction.swapWithView1 .. PolicyAction.swapWithView9:
     "swap-with-view " & $(ord(action) - ord(PolicyAction.swapWithView1) + 1)
+  of PolicyAction.increaseMasterCount:
+    "increase-master-count"
+  of PolicyAction.decreaseMasterCount:
+    "decrease-master-count"
+  of PolicyAction.increaseMasterRatio:
+    "increase-master-ratio"
+  of PolicyAction.decreaseMasterRatio:
+    "decrease-master-ratio"
+  of PolicyAction.increaseGaps:
+    "increase-gaps"
+  of PolicyAction.decreaseGaps:
+    "decrease-gaps"
+  of PolicyAction.toggleGaps:
+    "toggle-gaps"
+  of PolicyAction.maximizeColumn:
+    "maximize-column"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -319,3 +335,19 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.moveViewToOutputRelative(output, -1)
   of PolicyAction.swapWithView1 .. PolicyAction.swapWithView9:
     model.swapWithViewSlot(output, ord(action) - ord(PolicyAction.swapWithView1) + 1)
+  of PolicyAction.increaseMasterCount:
+    model.adjustMasterCount(1)
+  of PolicyAction.decreaseMasterCount:
+    model.adjustMasterCount(-1)
+  of PolicyAction.increaseMasterRatio:
+    model.adjustMasterRatio(1)
+  of PolicyAction.decreaseMasterRatio:
+    model.adjustMasterRatio(-1)
+  of PolicyAction.increaseGaps:
+    model.adjustGaps(1)
+  of PolicyAction.decreaseGaps:
+    model.adjustGaps(-1)
+  of PolicyAction.toggleGaps:
+    model.toggleGaps()
+  of PolicyAction.maximizeColumn:
+    model.toggleColumnMaximized(output)

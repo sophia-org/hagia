@@ -48,7 +48,7 @@ type
     slot: uint32
     window: uint32
 
-  CheckpointV2Dto = object
+  CheckpointV3Dto = object
     schema: uint32
     counters: IdCounters
     settings: PolicySettings
@@ -129,8 +129,8 @@ proc model*(adapter: PolicyAdapter): PolicyModel =
 proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
-proc checkpointDto(adapter: PolicyAdapter): CheckpointV2Dto =
-  result.schema = 2
+proc checkpointDto(adapter: PolicyAdapter): CheckpointV3Dto =
+  result.schema = 3
   result.counters = adapter.model.counters
   result.settings = adapter.model.settings
   result.activeOutput = uint32(adapter.model.activeOutput)
@@ -224,20 +224,24 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV2Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-2\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-3\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  const prefix = "HAGIA-POLICY-CHECKPOINT-2\n"
-  if payload.startsWith("HAGIA-POLICY-CHECKPOINT-1\n"):
-    fail("policy checkpoint v1 is unsupported; a complete snapshot will rebuild it")
+  const prefix = "HAGIA-POLICY-CHECKPOINT-3\n"
+  for superseded in ["1", "2"]:
+    if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & superseded & "\n"):
+      fail(
+        "policy checkpoint v" & superseded &
+          " is unsupported; a complete snapshot will rebuild it"
+      )
   if not payload.startsWith(prefix):
     fail("policy checkpoint version is invalid")
-  var dto: CheckpointV2Dto
+  var dto: CheckpointV3Dto
   try:
-    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV2Dto)
+    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV3Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
-  if dto.schema != 2:
+  if dto.schema != 3:
     fail("policy checkpoint schema is invalid")
   result.model.counters = dto.counters
   if dto.settings.layoutCycle.len == 0:
@@ -625,9 +629,9 @@ proc projection*(
       fail("projection request names an unknown output")
     affected.add(adapter.outputToLogical[output])
 
+  let (outerGap, innerGap) = adapter.model.effectiveGaps()
   for logical in adapter.model.projectLayout(
-    affected, adapter.model.settings.outerGap, adapter.model.settings.innerGap,
-    adapter.model.settings.viewportOffset,
+    affected, outerGap, innerGap, adapter.model.settings.viewportOffset
   ):
     let rawOutput = adapter.logicalToOutput[logical.output].output
     var outputSnapshot: SnapshotOutput
