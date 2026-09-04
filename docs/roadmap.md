@@ -243,3 +243,79 @@ physical input, and clean teardown.
   recovery profile to the public projection transport, and pin a digest-checked
   revision-3 compatibility client. Physical archive `0001` closes the last
   physical row and makes the archived client permanent.
+
+## Post-Freeze Feature Queue
+
+The Triad-to-Hagia gap analysis (2026-09-04) classified every Triad feature
+Hagia lacks. The ledger's exclusions stand; this queue records what could come
+next, ordered by the two product lenses — daily-driver muscle memory first,
+layout power second — and annotated by cost. A row here is a candidate, not a
+commitment; promoting one is a deliberate act.
+
+### Tier 1 — muscle memory, model-ready or near
+
+- [ ] Named-scratchpad actions. `toggleNamedScratchpad` and
+  `assignNamedScratchpad` are implemented and checkpointed but no PolicyAction
+  or config key reaches them; migration classifies `toggle-named-scratchpad`
+  as an excluded historical command while the model sits ready. Needs action
+  ordinals, a reducer arm, and a config spelling for slot naming.
+- [ ] Workspace naming. `TagData.name` and `setWorkspaceName` exist with zero
+  callers, and indicator labels are hardcoded to the numeric index. Freeze
+  Decision 1 already reserved the 32-byte indicator label as the carrier, and
+  "a name is not an identity" is the standing rule. Needs a config key or
+  action plus label plumb-through.
+- [ ] `focus-last` (MRU toggle). Per-output focus history already exists
+  (bounded 32); the toggle is a small systems addition.
+- [ ] Spatial focus (`focus-left/right/up/down`). No geometry search needed in
+  the shipped layouts: left/right map to column order and up/down to
+  within-column order per layout. An order-based mapping keeps it cheap.
+
+### Tier 2 — muscle memory, new model work
+
+- [ ] Window movement within and between columns
+  (`move-window-up/down/left/right`).
+- [ ] Column reordering (`move-column-left/right/to-first/to-last`).
+- [ ] `zoom` (promote focused to first column).
+- [ ] `swap-to-tag` and `move-workspace-to-output`.
+
+### Tier 3 — layout power inside the retained families
+
+- [ ] Tile master count and ratio (`master-count`, `adjust-master-ratio`);
+  the native tile currently fixes both.
+- [ ] Center-tile and right-tile variants of the native tile.
+- [ ] Runtime gap adjustment (`adjust-gaps`, `toggle-gaps`); gaps are
+  config-only today.
+- [ ] Column width presets and absolute width (`set-column-width`,
+  `switch-proportion-preset`) and `maximize-column`.
+
+### Tier 4 — layout power, large and coupled
+
+- [ ] Structural layout substrates: frame-tree (Notion), split-tree (i3),
+  BSP/dwindle. The ledger routes their chrome (tabs, preselect, drop
+  previews) to a later shell tranche, so these land with or after shell r2.
+- [ ] Janet policy and layouts, gated as Milestone 4 records: model
+  determinism, fuel, and fallback semantics first.
+
+### Routed elsewhere — recorded so nobody looks for them here
+
+- Overview, MRU switcher previews/filtering, hotkey overlay, toasts,
+  confirmation dialogs → Narthex and `sophia_shell_v1` r2.
+- Screenshots and capture sessions → the portal tranche.
+- Lock, idle inhibition, shortcut inhibition → the dedicated security
+  authority.
+- Axis, gesture, and switch bindings; per-device input overrides → the input
+  authority.
+- Watched config reload → the cross-authority reload protocol.
+- Metadata window rules, sticky, swallowing → excluded with the metadata
+  boundary; a classification-based subset (size policy by broker class) is
+  the only compatible shape.
+
+### Config keys queue
+
+- [ ] Scratchpad geometry (migration already reports "not yet configurable").
+- [ ] Workspace-name key (with Tier 1 naming).
+- [ ] Per-workspace default layout.
+- [ ] Floating placement defaults.
+- [ ] Sophia-stack installer wiring for `hagia config init`.
+- [ ] README names wallpaper and audio as queued session capabilities; record
+  them in the ledger's post-freeze process when they become real.
