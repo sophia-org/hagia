@@ -3,5 +3,11 @@
 /tests/nimcache/
 /tests/tsophia_wm_v1
 /tests/tpolicy_model
+
+# Built nimble binaries land beside their sources at the repo root. Keep an
+# entry here even for a binary this repo no longer builds: deleting a line
+# while a stale build is still in the worktree silently un-ignores it, which
+# is how a 191 KiB ELF reached a public commit.
 /hagia
 /hagia_policy_proof
+/hagia_shell
