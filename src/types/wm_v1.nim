@@ -56,6 +56,10 @@ type
     identity*: ProfileIdentity
     outcome*: ProfileOutcomeKind
 
+  OutputHandle* = tuple[output, generation: uint64]
+    ## A Sophia output identity: the opaque id paired with the generation it
+    ## was seen at. A reused id with a new generation is a different output.
+
   SnapshotOutput* = object
     output*: uint64
     generation*: uint64
