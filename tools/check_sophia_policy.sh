@@ -34,7 +34,7 @@ cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- 
 cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
     "$build_dir/hagia-shell"
 SOPHIA_HAGIA_BIN="$build_dir/hagia" \
-    cargo test --offline -q -p sophia-cli --features atomic-scanout-live \
+    cargo test --offline -q -p sophia-session --features atomic-scanout-live \
     hagia_pregraphics_profile_admission_activates_every_owner
 
 printf '%s\n' \
