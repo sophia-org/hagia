@@ -1,8 +1,13 @@
 /.nimble/
 /nimcache/
 /tests/nimcache/
-/tests/tsophia_wm_v1
-/tests/tpolicy_model
+
+# Compiled test binaries land beside their sources. Ignore all of them by the
+# extensionless pattern so a new suite cannot leave an untracked ELF the way an
+# unlisted one silently would.
+/tests/t*
+!/tests/*.nim
+!/tests/*.kdl
 
 # Built nimble binaries land beside their sources at the repo root. Keep an
 # entry here even for a binary this repo no longer builds: deleting a line
