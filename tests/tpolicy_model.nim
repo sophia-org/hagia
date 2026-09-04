@@ -249,6 +249,20 @@ proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   payload.addU32(65520)
   bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
 
+proc appendWelcomeChunkLimit(bytes: var seq[byte], epoch: uint64, limit: uint32) =
+  ## A welcome advertising a smaller chunk limit than the protocol maximum, so
+  ## the client can be observed honouring the negotiated value.
+  var payload: seq[byte]
+  payload.addU16(3)
+  payload.addU16(0)
+  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10))
+  payload.addU64(epoch)
+  payload.addU16(16)
+  payload.addU16(256)
+  payload.addU32(1024)
+  payload.addU32(limit)
+  bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
+
 proc appendWelcomeWith(bytes: var seq[byte], epoch: uint64, extra: uint64) =
   ## A welcome granting one capability beyond the socket-session set. The
   ## ordinary welcome models `runPolicySessionOnSocket`, which negotiates
@@ -1520,6 +1534,15 @@ suite "Sophia policy session":
     # proposal takes transaction 2 rather than 3.
     check clientWire.proposalTransactions() == @[1'u64, 2'u64]
     check clientWire.policyDirtyFrames().len == 0
+
+  test "a projection chunk honours the negotiated limit, not the compiled one":
+    # Sophia may advertise less than the protocol maximum. The client compiles
+    # with 65536 and would otherwise send a chunk this server never allowed.
+    var serverBytes: seq[byte]
+    serverBytes.appendWelcomeChunkLimit(9, 8)
+    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
+    expect PolicyClientError:
+      discard serverBytes.runWireSession()
 
   test "projection outcomes reject unknown status values":
     var payload: seq[byte]

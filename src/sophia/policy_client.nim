@@ -15,6 +15,10 @@ type PolicyClient = ref object
   socket: Socket
   connectionEpoch: uint64
   capabilities: uint64
+  # Limits Sophia selected for this connection. They are bounded by this
+  # client's own constants at negotiation, but the negotiated value governs:
+  # a server may advertise less than the protocol maximum.
+  maxChunkBytes: int
   nextTransaction: uint64
   readTimeoutMsec: int
 
@@ -51,7 +55,15 @@ proc receiveFrame(client: PolicyClient): Frame =
   bytes.add(payload)
   bytes.decodeFrame()
 
+const chunkHeaderLen = 16
+
 proc sendFrame(client: PolicyClient, frame: Frame) =
+  # A chunk's record bytes are bounded by the limit Sophia selected, not by the
+  # protocol maximum this client happens to compile with. The two are equal
+  # today, which is exactly why the check has to name the negotiated value.
+  if frame.kind == MessageKind.projectionChunk and client.maxChunkBytes > 0 and
+      frame.payload.len - chunkHeaderLen > client.maxChunkBytes:
+    fail("policy projection chunk exceeds the negotiated limit")
   client.socket.send(frame.encodeFrame().toBinaryString())
 
 proc negotiatePolicy(
@@ -102,6 +114,7 @@ proc negotiatePolicy(
       welcome.payload.u16At(22) > uint16(maxBindings) or welcome.payload.u32At(28) == 0 or
       welcome.payload.u32At(28) > uint32(maxPayloadLen):
     fail("Sophia advertised invalid policy limits")
+  result.maxChunkBytes = int(welcome.payload.u32At(28))
   injectConfiguredFault("negotiated")
 
 proc connectPolicy(
