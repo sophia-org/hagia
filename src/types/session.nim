@@ -88,3 +88,11 @@ type
     operation*: uint64
     targetIndex*: uint32
     targetGeneration*: uint32
+
+  PolicyTraceEntry* = object
+    ## One recorded cycle. The reducer is pure, so a snapshot and the request
+    ## answered from it fully determine the projection; recording the pair is
+    ## enough to replay the cycle anywhere.
+    snapshot*: PolicySnapshot
+    request*: ProjectionRequest
+    transaction*: uint64

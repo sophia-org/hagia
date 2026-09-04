@@ -6,7 +6,7 @@ import ../observability
 import
   ./[
     policy_adapter, policy_checkpoint, policy_codec, policy_session, policy_signals,
-    policy_transport, profile_handoff, wm_v1,
+    policy_trace, policy_transport, profile_handoff, wm_v1,
   ]
 
 export PolicyClientError, policy_codec
@@ -515,12 +515,21 @@ proc runPolicyCycles*(path: string, cycleCount: int) =
   if cycleCount < 1 or cycleCount > 16:
     fail("policy proof cycle count is invalid")
   let client = path.connectPolicy(false)
+  let tracePath = getEnv("HAGIA_POLICY_TRACE")
   var session = initPolicySession()
   try:
     for _ in 0 ..< cycleCount:
       let snapshot = client.receiveSnapshot()
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
+      if tracePath.len > 0:
+        # Recorded before the reduction, so a trace replays the inputs rather
+        # than a conclusion already drawn from them.
+        tracePath.appendTrace(
+          PolicyTraceEntry(
+            snapshot: snapshot, request: request, transaction: transaction
+          )
+        )
       let projection = session.prepare(snapshot, request, transaction)
       let outcome = client.sendProjection(request, transaction, projection)
       session.settle(outcome)
@@ -540,6 +549,7 @@ proc runPolicySession(
     policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
 ) =
   installPolicySignals()
+  let tracePath = getEnv("HAGIA_POLICY_TRACE")
   let privateCheckpoint = checkpointPath()
   var checkpointEnabled = privateCheckpoint.len > 0
   var restoredCheckpoint = false
@@ -584,6 +594,12 @@ proc runPolicySession(
       injectConfiguredFault("snapshot_received")
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
+      if tracePath.len > 0:
+        tracePath.appendTrace(
+          PolicyTraceEntry(
+            snapshot: snapshot, request: request, transaction: transaction
+          )
+        )
       let projection = session.prepare(snapshot, request, transaction)
       if projection.activeOutput != snapshot.activeOutput:
         operationalLog(OperationalLevel.info, "projection", "active_output_changed")

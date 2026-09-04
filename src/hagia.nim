@@ -4,7 +4,8 @@ import config/[migration, profile]
 import types/config_values
 import types/observability
 import observability
-import sophia/[policy_checkpoint, policy_client]
+import types/session
+import sophia/[policy_checkpoint, policy_client, policy_session, policy_trace]
 
 proc option(arguments: openArray[string], name: string): string =
   let prefix = "--" & name & "="
@@ -50,6 +51,41 @@ proc run(arguments: seq[string]) =
     if dumped.isNone:
       raise newException(ValueError, "no checkpoint at " & arguments[1])
     stdout.writeLine(dumped.get().checkpointPayload().dumpCheckpointJson())
+    return
+
+  if arguments.len >= 1 and arguments[0] == "replay":
+    # Offline. The reducer is pure, so a recorded snapshot and request replay to
+    # the same projection without a compositor, a session, or hardware. This is
+    # how a live bug becomes something reproducible.
+    if arguments.len < 2:
+      raise newException(ValueError, "usage: hagia replay TRACE [--checkpoint=PATH]")
+    let checkpoint = arguments.option("checkpoint")
+    var session =
+      if checkpoint.len > 0:
+        let restored = loadPolicyCheckpoint(checkpoint)
+        if restored.isNone:
+          raise newException(ValueError, "no checkpoint at " & checkpoint)
+        initPolicySession(restored.get())
+      else:
+        initPolicySession()
+    var cycle = 0
+    for entry in readTrace(arguments[1]):
+      inc cycle
+      let projection = session.prepare(entry.snapshot, entry.request, entry.transaction)
+      stdout.writeLine(
+        "cycle=" & $cycle & " request=" & $entry.request.requestId & " outputs=" &
+          $projection.outputs.len & " active=" & $projection.activeOutput
+      )
+      session.settle(
+        ProjectionOutcome(
+          kind: ProjectionOutcomeKind.committed,
+          connectionEpoch: entry.request.connectionEpoch,
+          requestId: entry.request.requestId,
+          transaction: entry.transaction,
+          sceneGeneration: entry.snapshot.generation,
+        )
+      )
+    stdout.writeLine("replayed cycles=" & $cycle)
     return
 
   var socketPath = getEnv("SOPHIA_WM_SOCKET")

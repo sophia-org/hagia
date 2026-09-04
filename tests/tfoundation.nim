@@ -10,7 +10,8 @@ import
   ]
 import runtime/reducer as runtimeReducer
 import runtime/effect_executor
-import sophia/policy_signals
+import sophia/[policy_signals, policy_trace]
+import types/[session, wm_v1]
 import sophia/policy_adapter
 
 const trackedDefaultDesktopProfile = staticRead("../examples/config/default.kdl")
@@ -22,6 +23,34 @@ proc ownerOnly(path: string) =
   setFilePermissions(path, {fpUserRead, fpUserWrite})
 
 suite "Hagia foundation":
+  test "a trace entry round-trips so a replay sees the recorded inputs":
+    # Replay is only worth anything if what is written is what is read back.
+    # A lossy field would make a trace disagree with the session it came from
+    # while still looking like a valid recording.
+    let entry = PolicyTraceEntry(
+      snapshot: PolicySnapshot(
+        generation: 7,
+        activeOutput: 3,
+        outputs: @[SnapshotOutput(output: 3, generation: 1, width: 800, height: 600)],
+      ),
+      request: ProjectionRequest(
+        connectionEpoch: 2, requestId: 9, sceneGeneration: 7, affectedOutputs: @[3'u64]
+      ),
+      transaction: 5,
+    )
+    let restored = entry.traceLine().parseTraceLine()
+    check restored.transaction == entry.transaction
+    check restored.snapshot.generation == entry.snapshot.generation
+    check restored.snapshot.activeOutput == entry.snapshot.activeOutput
+    check restored.snapshot.outputs.len == 1
+    check restored.snapshot.outputs[0].width == 800
+    check restored.request.requestId == entry.request.requestId
+    check restored.request.affectedOutputs == entry.request.affectedOutputs
+    expect PolicyTraceError:
+      discard "not json".parseTraceLine()
+    expect PolicyTraceError:
+      discard """{"snapshot":{}}""".parseTraceLine()
+
   test "a reload request is taken exactly once":
     # The session loop refuses a reload it cannot make durable, so a request
     # that is read must not remain set and fire against a later cycle.
