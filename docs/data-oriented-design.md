@@ -20,16 +20,34 @@ intent, and deterministic geometry.
 Data is passive. Logic is active. They do not share a module. This is the
 foundational rule of this document, and every other rule here depends on it.
 
-Hagia keeps five explicit territories:
+Hagia keeps seven explicit territories, mirroring Triad's engine split:
 
 1. `src/types` defines passive data and nothing else. Every record, enum,
    distinct ID, mask, wire layout, and bound lives here.
-2. `src/policy` owns ID generation, indexed mutation, invariants, the reducer
-   transition, and pure geometry projection.
-3. `src/config` owns profile parsing, digesting, activation, and migration.
-4. `src/runtime` owns the connection lifecycle transition and effect execution.
-5. `src/sophia` assembles complete wire values, reconciles opaque identities,
+2. `src/state` is the database. It owns ID generation, read-only queries, pure
+   value arithmetic, and the model lifecycle including `validate`. Only this
+   layer and `src/entities` touch the raw stores.
+3. `src/entities` is the only place that changes indexes. Its operations create
+   and destroy windows, views, tags, columns, and outputs, and they apply the
+   arithmetic without deciding policy. A state transition finishes every
+   related index update in one procedure.
+4. `src/systems` holds behavior: focus movement, workspace policy, scratchpad
+   visibility, layout cycling, window-state toggles, and placement. Systems
+   read through queries and mutate through entity operations. They never touch
+   a store or an index directly.
+5. `src/config` owns profile parsing, digesting, activation, and migration.
+6. `src/runtime` owns the connection lifecycle transition and effect execution.
+7. `src/sophia` assembles complete wire values, reconciles opaque identities,
    stages candidates, and lowers committed policy back to Sophia records.
+
+`src/policy` keeps the reducer, the action catalog, dense storage, pure
+geometry projection, and `state.nim`, which is a facade re-exporting the three
+layers above so a caller names one module instead of eleven. Triad's
+`docs/dod-architecture.md` describes the same front for its state layer.
+
+Mutating state directly in business logic is a sin. Closing a window touches
+arrays, tags, columns, and histories; a manual update in a system invites
+desync. Every mutation goes through an entity operation.
 
 The adapter is not a second policy model. It owns only the mapping necessary to
 reconcile current generational handles with stable Hagia IDs.

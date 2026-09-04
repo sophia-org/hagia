@@ -36,7 +36,9 @@ and [DRY principles](dry-principles.md).
 - `src/types` contains every passive record: logical IDs, policy records, the
   action vocabulary, reducer messages, wire layouts, and bounds. It holds no
   logic and imports no logic module.
-- `src/policy/state.nim` owns indexed mutations and invariants.
+- `src/state` owns ID generation, queries, pure value arithmetic, and the model
+  lifecycle. `src/entities` owns every index mutation. `src/systems` owns
+  behavior and reaches state only through those two.
 - `src/policy/reducer.nim` maps typed messages to pure candidate updates and intents.
 - `src/policy/projection.nim` computes output projections without mutation.
 - `src/runtime/reducer.nim` owns connection, candidate, settlement, and effect state.
