@@ -801,6 +801,8 @@ proc projection*(
       of LayoutMode.rightTile: "Right Tile"
       of LayoutMode.verticalGrid: "Vertical Grid"
       of LayoutMode.deck: "Deck"
+      of LayoutMode.spiral: "Spiral"
+      of LayoutMode.tgmix: "Mixed"
     var status = ProjectionOutputStatus(
       output: rawOutput,
       focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),

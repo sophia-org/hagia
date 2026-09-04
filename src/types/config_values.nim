@@ -100,5 +100,5 @@ const
 
 const supportedLayoutNames* = [
   "scroller", "tile", "grid", "monocle", "vertical-scroller", "center-tile",
-  "right-tile", "vertical-grid", "deck",
+  "right-tile", "vertical-grid", "deck", "spiral", "tgmix",
 ]

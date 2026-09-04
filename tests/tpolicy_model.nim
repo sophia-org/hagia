@@ -1351,6 +1351,49 @@ suite "Hagia private policy model":
     check model.outputs[output].focusedWindow == windows[2]
     model.validate()
 
+  test "a spiral winds inward and gives the last window what is left":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 1000))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.applyAction(output, PolicyAction.selectSpiralLayout)
+
+    let projected = model.projectLayout([output])[0]
+    check projected.placements.len == 4
+    # Left half, then the top of what remains, then the right of that.
+    check projected.placements[0].geometry == Rect(width: 500, height: 1000)
+    check projected.placements[1].geometry == Rect(
+      x: 500, y: 0, width: 500, height: 500
+    )
+    check projected.placements[2].geometry ==
+      Rect(x: 750, y: 500, width: 250, height: 500)
+    # The last window takes the remainder rather than a share of it, so the
+    # spiral leaves no gap the layout did not ask for.
+    check projected.placements[3].geometry ==
+      Rect(x: 500, y: 500, width: 250, height: 500)
+    model.validate()
+
+  test "a mixed layout changes its mind at four windows":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.applyAction(output, PolicyAction.selectMixedLayout)
+
+    # Three windows read as master and stack.
+    var projected = model.projectLayout([output])[0]
+    check projected.placements[0].geometry == Rect(width: 500, height: 800)
+    check projected.placements[1].geometry.x == 500
+
+    # A fourth turns it into a grid, where nothing spans the full height.
+    windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    projected = model.projectLayout([output])[0]
+    for placement in projected.placements:
+      check placement.geometry.height < 800
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)

@@ -256,7 +256,7 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 94 of its bindings now carry over, up from 40 at the
+`tests/tfoundation.nim`: 96 of its bindings now carry over, up from 40 at the
 freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -329,9 +329,10 @@ move lands where the user saw the window.
   already expresses.
 - [ ] Column width presets and absolute width (`set-column-width`,
   `switch-proportion-preset`).
-- [ ] `tgmix`, which switches between master-stack and grid at four windows.
-  Cheap to add once someone wants it; it is a rule about which layout to run,
-  not a new geometry.
+- [x] `spiral` and `tgmix`. Both are stateless: a spiral is recursive
+  geometry over the window order, and a mixed layout is a rule about which
+  layout to run — master and stack below four windows, a grid above. Eleven
+  layouts now exist.
 
 ### Window groups
 
@@ -343,8 +344,12 @@ move lands where the user saw the window.
 
 ### Tier 4 — layout power, large and coupled
 
-- [ ] Geometric substrates: BSP, dwindle, and spiral. Pure split-tree geometry
-  with no chrome to draw, so nothing blocks them but the work itself.
+- [ ] The BSP substrate: `dwindle` and its four directional splits. This is
+  the last policy capability Triad has and Hagia does not. Unlike every other
+  layout ported so far it is not a function of the window order: it needs a
+  persistent split tree in the model, which windows insert into and which the
+  split keys preselect against. That tree is also what the deferred tabbed
+  substrates below will hang their nodes from.
 - [ ] Tabbed substrates: frame-tree (Notion), split-tree (i3). Their model is
   settled and written down in [the action vocabulary](action-vocabulary.md);
   what is missing is the tab bar, which only a shell surface can draw. Migration

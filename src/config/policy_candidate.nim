@@ -39,6 +39,10 @@ proc layoutMode(name: string): LayoutMode =
     LayoutMode.verticalGrid
   of "deck":
     LayoutMode.deck
+  of "spiral":
+    LayoutMode.spiral
+  of "tgmix":
+    LayoutMode.tgmix
   of "vertical-scroller":
     LayoutMode.verticalScroller
   else:

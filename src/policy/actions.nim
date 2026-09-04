@@ -164,6 +164,10 @@ proc profileName*(action: PolicyAction): string =
     "ungroup-window"
   of PolicyAction.focusNextInGroup:
     "focus-next-in-group"
+  of PolicyAction.selectSpiralLayout:
+    "layout-spiral"
+  of PolicyAction.selectMixedLayout:
+    "layout-mixed"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -379,3 +383,7 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.ungroupFocused(output)
   of PolicyAction.focusNextInGroup:
     model.focusNextInGroup(output)
+  of PolicyAction.selectSpiralLayout:
+    model.setLayout(output, LayoutMode.spiral)
+  of PolicyAction.selectMixedLayout:
+    model.setLayout(output, LayoutMode.tgmix)

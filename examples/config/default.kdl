@@ -6,8 +6,8 @@ schema 1
 policy {
   layout "scroller"
   // The cycle key steps through these; every layout also has a select action,
-  // bound or not. Nine are available: the five below plus center-tile,
-  // right-tile, vertical-grid, and deck.
+  // bound or not. Eleven are available: the five below plus center-tile,
+  // right-tile, vertical-grid, deck, spiral, and tgmix.
   layout-cycle "scroller" "tile" "grid" "monocle" "vertical-scroller"
   view-count 9
   outer-gap 0
@@ -138,6 +138,8 @@ shortcut {
   // bind "Super+Ctrl+Alt+7" "policy:layout-right-tile"
   // bind "Super+Ctrl+Alt+8" "policy:layout-vertical-grid"
   // bind "Super+Ctrl+Alt+9" "policy:layout-deck"
+  // bind "Super+Ctrl+Alt+0" "policy:layout-spiral"
+  // bind "Super+Ctrl+Alt+m" "policy:layout-mixed"
   // bind "Super+Ctrl+r" "policy:toggle-named-scratchpad 3"
   // bind "Super+Ctrl+Shift+r" "policy:move-to-named-scratchpad 3"
   // bind "Super+Ctrl+d" "policy:toggle-named-scratchpad 4"

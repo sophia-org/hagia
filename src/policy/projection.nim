@@ -288,6 +288,47 @@ proc stackColumn(
     )
     y += height + gap
 
+proc spiralSplit(area: Rect, side: int, ratio: Scale, gap: int32): (Rect, Rect) =
+  ## One turn of the spiral: carve a window's rectangle off `area` on the named
+  ## side and hand back what is left. Sides run left, top, right, bottom, so
+  ## successive turns wind inward clockwise.
+  if side == 0 or side == 2:
+    let available = max(1'i32, area.width - gap)
+    let first =
+      if available <= 1:
+        1'i32
+      else:
+        max(1'i32, min(available - 1, available.scaledExtent(ratio)))
+    let second = max(1'i32, available - first)
+    if side == 0:
+      (
+        Rect(x: area.x, y: area.y, width: first, height: area.height),
+        Rect(x: area.x + first + gap, y: area.y, width: second, height: area.height),
+      )
+    else:
+      (
+        Rect(x: area.x + second + gap, y: area.y, width: first, height: area.height),
+        Rect(x: area.x, y: area.y, width: second, height: area.height),
+      )
+  else:
+    let available = max(1'i32, area.height - gap)
+    let first =
+      if available <= 1:
+        1'i32
+      else:
+        max(1'i32, min(available - 1, available.scaledExtent(ratio)))
+    let second = max(1'i32, available - first)
+    if side == 1:
+      (
+        Rect(x: area.x, y: area.y, width: area.width, height: first),
+        Rect(x: area.x, y: area.y + first + gap, width: area.width, height: second),
+      )
+    else:
+      (
+        Rect(x: area.x, y: area.y + second + gap, width: area.width, height: first),
+        Rect(x: area.x, y: area.y, width: area.width, height: second),
+      )
+
 proc projectNative(
     model: PolicyModel, outputId: OutputId, mode: LayoutMode, outerGap, innerGap: int32
 ): LogicalOutputProjection =
@@ -298,9 +339,30 @@ proc projectNative(
   let bounds = output.bounds.usableBounds(outerGap)
   let gap = max(0'i32, innerGap)
   result.output = outputId
-  case mode
+  # A mixed layout is a rule about which layout to run, not a geometry of its
+  # own: a few windows read better as master and stack, more as a grid.
+  let resolved =
+    if mode == LayoutMode.tgmix:
+      if tiled.len <= 3: LayoutMode.tile else: LayoutMode.grid
+    else:
+      mode
+  case resolved
   of LayoutMode.scroller, LayoutMode.verticalScroller:
     raise newException(PolicyStateError, "scrolling layout entered native projection")
+  of LayoutMode.tgmix:
+    raise newException(PolicyStateError, "mixed layout resolved to itself")
+  of LayoutMode.spiral:
+    # Each window but the last takes a slice off one side, and the remainder
+    # winds inward. The first turn uses the master ratio, so the key that
+    # widens a tile's master widens the spiral's largest pane too.
+    var area = bounds
+    for index, windowId in tiled:
+      if index == tiled.high:
+        model.appendPlacement(windowId, area, result)
+        break
+      let (taken, rest) = area.spiralSplit(index mod 4, model.settings.masterRatio, gap)
+      model.appendPlacement(windowId, taken, result)
+      area = rest
   of LayoutMode.tile:
     let masterCount = max(1, min(model.settings.masterCount, tiled.len))
     if tiled.len <= masterCount:
@@ -544,5 +606,6 @@ proc projectLayout*(
         model.projectVerticalScroller(outputId, outerGap, innerGap, viewportOffset)
       )
     of LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle, LayoutMode.centerTile,
-        LayoutMode.rightTile, LayoutMode.verticalGrid, LayoutMode.deck:
+        LayoutMode.rightTile, LayoutMode.verticalGrid, LayoutMode.deck,
+        LayoutMode.spiral, LayoutMode.tgmix:
       result.add(model.projectNative(outputId, mode, outerGap, innerGap))

@@ -232,6 +232,17 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "policy", MigrationDisposition.transformed, "selectDeckLayout policy action",
       "layout-deck",
     )
+  of "spiral":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectSpiralLayout policy action",
+      "layout-spiral",
+    )
+  of "tgmix":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "selectMixedLayout policy action; master and stack below four windows, a grid above",
+      "layout-mixed",
+    )
   of "move-window-up":
     commandMigration(
       "policy", MigrationDisposition.transformed, "moveWindowAbove policy action",
@@ -417,11 +428,11 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       )
     if name in [
       "dwindle", "dwindle-split-down", "dwindle-split-left", "dwindle-split-right",
-      "dwindle-split-up", "spiral", "tgmix",
+      "dwindle-split-up",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,
-        "spatial command is queued behind a later Hagia policy tranche; see docs/roadmap.md",
+        "the persistent split tree these need is a later Hagia policy tranche; see docs/roadmap.md",
       )
     commandMigration(
       "unowned", MigrationDisposition.unsupported,

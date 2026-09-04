@@ -807,7 +807,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 94
+    check report.outputProfile.count("\n  bind ") == 96
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -841,6 +841,7 @@ output {
       "bind Super+y \"policy:group-windows\"",
       "bind Super+Shift+y \"policy:ungroup-window\"",
       "bind Super+Ctrl+y \"policy:focus-next-in-group\"",
+      "bind Super+Alt+6 \"policy:layout-spiral\"",
     ]:
       check carried in report.outputProfile
 

@@ -29,6 +29,8 @@ type
     rightTile
     verticalGrid
     deck
+    spiral
+    tgmix
 
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool

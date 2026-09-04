@@ -126,3 +126,5 @@ type PolicyAction* {.pure.} = enum
   groupWindows = 121
   ungroupWindow = 122
   focusNextInGroup = 123
+  selectSpiralLayout = 124
+  selectMixedLayout = 125
