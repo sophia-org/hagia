@@ -299,8 +299,17 @@ move lands where the user saw the window.
   through output order rather than screen geometry, so Triad's four compass
   directions collapse onto two neighbours.
 - [x] `move-to-tag-left/right` as `move-to-view-prev/next`.
+- [x] `expel-window` now opens its column beside the stack the window left,
+  rather than appending it to the far end of the scroller, so it agrees with
+  the edge behavior of `move-window-column-next`.
 
 ### Tier 3 — layout power inside the retained families
+
+- [ ] A consume that inverts an expel. `consume-window` always merges into the
+  next column, so it cannot undo an expel whichever side that expel opens on.
+  Making the pair reversible means either a `consume-column-prev` or a
+  directional consume-or-expel pair; both are new actions and a separate
+  design call from where a column opens.
 
 - [ ] Tile master count and ratio (`master-count`, `adjust-master-ratio`);
   the native tile currently fixes both.

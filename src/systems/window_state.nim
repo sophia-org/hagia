@@ -2,8 +2,8 @@ import std/sequtils
 
 import ../types/[core, model]
 import ../policy/entity_store
-import ../state/values
-import ../entities/[focus_ops, window_ops]
+import ../state/[queries, values]
+import ../entities/[column_ops, focus_ops, window_ops]
 
 import ./focus
 
@@ -81,6 +81,10 @@ proc toggleFocusedFloating*(model: var PolicyModel) =
     model.windows[windowId].floatingGeometry = model.outputs[outputId].bounds
 
 proc expelFocusedWindow*(model: var PolicyModel) =
+  ## Lift the focused window out of its stack into a column of its own, placed
+  ## immediately to the right of the stack it left. Appending to the far end
+  ## would throw the window across the whole scroller, and would disagree with
+  ## `moveToAdjacentColumn`, which opens a column in place at the edge.
   let outputId = model.activeOutput
   if outputId notin model.outputs:
     fail("expel output does not exist")
@@ -90,10 +94,9 @@ proc expelFocusedWindow*(model: var PolicyModel) =
   let source = model.windows[windowId].column
   if model.columns[source].windows.len == 1:
     return
-  model.columns[source].windows.keepItIf(it != windowId)
-  let target = model.addColumn(outputId)
-  model.columns[target].windows.add(windowId)
-  model.windows[windowId].column = target
+  let created =
+    model.insertColumnAt(outputId, model.visibleColumnIds(outputId).find(source) + 1)
+  model.moveWindowToColumnAt(windowId, created, 0)
 
 proc consumeNextColumn*(model: var PolicyModel) =
   let outputId = model.activeOutput

@@ -1069,6 +1069,50 @@ suite "Hagia private policy model":
     check model.eligibleWindows(output) == @[window]
     model.validate()
 
+  test "an expelled window opens a column beside the stack it left":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    # Stack the first two, leaving the others to their right.
+    model.moveWindowToColumn(windows[1], model.window(windows[0]).get().column)
+    model.setFocus(output, windows[1])
+    check model.visibleColumns(output).len == 3
+
+    model.applyAction(output, PolicyAction.expelFocusedWindow)
+    check model.visibleColumns(output) ==
+      @[@[windows[0]], @[windows[1]], @[windows[2]], @[windows[3]]]
+    model.validate()
+
+  test "expel and an edge move open a column in the same place":
+    # Both actions mean "take this window out into its own column", so at the
+    # right edge they must not answer differently.
+    var byExpel = initPolicyModel()
+    let expelOutput = byExpel.addOutput(Rect(width: 1600, height: 900))
+    let expelKeep =
+      byExpel.addWindow(expelOutput, focusableCapabilities(), SizeConstraints())
+    let expelMove =
+      byExpel.addWindow(expelOutput, focusableCapabilities(), SizeConstraints())
+    byExpel.moveWindowToColumn(expelMove, byExpel.window(expelKeep).get().column)
+    byExpel.setFocus(expelOutput, expelMove)
+    byExpel.applyAction(expelOutput, PolicyAction.expelFocusedWindow)
+
+    var byMove = initPolicyModel()
+    let moveOutput = byMove.addOutput(Rect(width: 1600, height: 900))
+    let moveKeep =
+      byMove.addWindow(moveOutput, focusableCapabilities(), SizeConstraints())
+    let moveMove =
+      byMove.addWindow(moveOutput, focusableCapabilities(), SizeConstraints())
+    byMove.moveWindowToColumn(moveMove, byMove.window(moveKeep).get().column)
+    byMove.setFocus(moveOutput, moveMove)
+    byMove.applyAction(moveOutput, PolicyAction.moveWindowToColumnNext)
+
+    check byExpel.visibleColumns(expelOutput) == @[@[expelKeep], @[expelMove]]
+    check byMove.visibleColumns(moveOutput) == byExpel.visibleColumns(expelOutput)
+    byExpel.validate()
+    byMove.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
