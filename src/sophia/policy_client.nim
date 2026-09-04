@@ -22,6 +22,7 @@ const
   capabilityBindings = 1'u64 shl 0
   capabilityActions = 1'u64 shl 1
   capabilityMultiOutput = 1'u64 shl 2
+  capabilityPointerInteractions = 1'u64 shl 3
   capabilityChrome = 1'u64 shl 4
   capabilityPolicyDirty = 1'u64 shl 5
   capabilityConfiguration = 1'u64 shl 6
@@ -76,22 +77,18 @@ proc negotiatePolicy(
     optional = optional or capabilityProfileActivation
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
-      capabilityIndicators or capabilityLaunchPlacement or optional
+      capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
+      optional
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
   if welcome.payload.u16At(0) != 3:
     fail("Sophia selected an unsupported policy revision")
   result.capabilities = welcome.payload.u64At(4)
-  if (
-    result.capabilities and (
-      capabilityBindings or capabilityActions or capabilityMultiOutput or
-      capabilityIndicators or capabilityLaunchPlacement
-    )
-  ) != (
+  const requiredCapabilities =
     capabilityBindings or capabilityActions or capabilityMultiOutput or
-    capabilityIndicators or capabilityLaunchPlacement
-  ):
+    capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement
+  if (result.capabilities and requiredCapabilities) != requiredCapabilities:
     fail("Sophia omitted a required policy capability")
   if requestConfiguration and (result.capabilities and optional) != optional:
     fail("Sophia omitted native policy configuration")

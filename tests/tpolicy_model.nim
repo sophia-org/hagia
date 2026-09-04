@@ -238,7 +238,10 @@ proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   var payload: seq[byte]
   payload.addU16(3)
   payload.addU16(0)
-  payload.addU64(7 or (1'u64 shl 8) or (1'u64 shl 10))
+  # bindings, actions, multi_output, pointer_interactions, indicators,
+  # launch_placement — the set hagia requires, mirroring Sophia's own
+  # POLICY_SUPPORTED_CAPABILITIES for these bits.
+  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10))
   payload.addU64(epoch)
   payload.addU16(16)
   payload.addU16(256)
