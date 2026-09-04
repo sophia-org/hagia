@@ -1,5 +1,6 @@
 import std/[options, os, strutils, unittest]
 
+import types/shell_v1
 import sophia/shell_v1
 
 proc hexNibble(character: char): int =

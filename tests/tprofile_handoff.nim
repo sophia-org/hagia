@@ -3,6 +3,7 @@ import std/[net, posix, strutils, unittest]
 import types/config_values
 import sophia/policy_client
 import sophia/[profile_handoff, wm_v1]
+import types/wm_v1
 
 type ClientThreadArgs = object
   fd: SocketHandle

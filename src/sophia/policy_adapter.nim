@@ -2,10 +2,12 @@ import std/[algorithm, json, jsonutils, options, sets, strutils, tables]
 
 import ../types/config_values
 import ../config/policy_candidate
+import ../types/observability
 import ../observability
 import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]
-import ./[session_types, wm_v1]
+import ../types/wm_v1
+import ./session_types
 
 type
   PolicyAdapterError* = object of CatchableError

@@ -1,5 +1,6 @@
 import std/[net, options, os, strutils]
 
+import types/shell_v1
 import sophia/shell_v1
 
 type ShellSocketClosedError = object of CatchableError
@@ -110,9 +111,7 @@ proc barReservation(): Option[ShellReservation] =
   if thickness > int(shellMaxReservationThickness):
     fail("hagia-shell: SOPHIA_SHELL_BAR_THICKNESS exceeds the protocol maximum")
   some(
-    ShellReservation(
-      edge: ShellReservationEdge.bottom, thicknessPx: uint16(thickness)
-    )
+    ShellReservation(edge: ShellReservationEdge.bottom, thicknessPx: uint16(thickness))
   )
 
 ## Reserve, withdraw, and reconnect at a fresh epoch.
@@ -136,8 +135,7 @@ proc runBarProof(socketPath: string) =
   socket.sendFrame(
     model.candidate(1, true, reservation).candidateFrame(firstFrame.transaction)
   )
-  if socket.receiveFrame().decodeOutcome().kind !=
-      ShellCandidateOutcomeKind.prepared:
+  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.prepared:
     fail("Sophia did not prepare the reserving bar candidate")
   let presented = socket.receiveFrame().decodeOutcome()
   if presented.kind != ShellCandidateOutcomeKind.presented:
@@ -146,12 +144,12 @@ proc runBarProof(socketPath: string) =
 
   let withdrawalFrame = socket.receiveFrame()
   model.reconcile(withdrawalFrame.decodeSnapshot())
-  socket.sendFrame(model.candidate(2, false).candidateFrame(withdrawalFrame.transaction))
-  if socket.receiveFrame().decodeOutcome().kind !=
-      ShellCandidateOutcomeKind.prepared:
+  socket.sendFrame(
+    model.candidate(2, false).candidateFrame(withdrawalFrame.transaction)
+  )
+  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.prepared:
     fail("Sophia did not prepare the bar withdrawal")
-  if socket.receiveFrame().decodeOutcome().kind !=
-      ShellCandidateOutcomeKind.presented:
+  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.presented:
     fail("Sophia did not present the bar withdrawal")
   stdout.writeLine(
     "hagia_shell_bar_proof schema=1 status=complete edge=bottom thickness=" &

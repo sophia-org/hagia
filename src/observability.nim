@@ -2,30 +2,7 @@ import std/[json, os, strutils, times]
 
 import chronicles
 
-type
-  OperationalLevel* {.pure.} = enum
-    debug
-    info
-    warning
-    failure
-
-  EvidenceKind* {.pure.} = enum
-    reducer
-    configuration
-    settlement
-    checkpoint
-    connection
-
-  EvidenceEvent* = object
-    kind*: EvidenceKind
-    epoch*, generation*, requestId*, transaction*: uint64
-    status*: string
-    digest*: string
-
-const
-  evidenceSchema* = 1
-  maxEvidenceBytes* = 1_048_576'i64
-  maxEvidenceFiles* = 4
+import ./types/observability
 
 proc configuredLevel(): OperationalLevel =
   case getEnv("HAGIA_LOG_LEVEL", "info").toLowerAscii()

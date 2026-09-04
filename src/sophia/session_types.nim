@@ -1,4 +1,4 @@
-import ./wm_v1
+import ../types/wm_v1
 
 type
   ProjectionOutcomeKind* {.pure.} = enum

@@ -1,6 +1,7 @@
 import std/[os, strutils, unittest]
 
 import sophia/wm_v1
+import types/wm_v1 as wmTypes
 
 proc hexNibble(character: char): int =
   case character

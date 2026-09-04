@@ -3,7 +3,8 @@ import std/options
 import ../policy/actions
 import ../types/runtime
 import ../runtime/reducer
-import ./[policy_adapter, session_types, wm_v1]
+import ../types/wm_v1
+import ./[policy_adapter, session_types]
 
 type
   PolicySessionError* = object of CatchableError

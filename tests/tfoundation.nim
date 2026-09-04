@@ -1,11 +1,13 @@
 import std/[json, options, os, sets, strutils, tables, tempfiles, unittest]
 
 import config/[coordinator, migration, policy_candidate, profile]
-import types/migration
-import types/config_values
 import observability
 import policy/[actions, entity_store, reducer, state]
-import types/[actions, core, model, policy_messages, runtime]
+import
+  types/[
+    actions, config_values, core, migration, model, observability, policy_messages,
+    runtime,
+  ]
 import runtime/reducer as runtimeReducer
 import runtime/effect_executor
 import sophia/policy_adapter

@@ -1,8 +1,8 @@
 import std/[net, options, os, sets, strutils]
 
-import ../types/config_values
+import ../types/[actions, config_values, wm_v1]
+import ../types/observability
 import ../observability
-import ../types/actions
 import ../policy/actions
 import
   ./[
