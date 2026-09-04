@@ -36,3 +36,11 @@ type
   MigrationReport* = object
     items*: seq[MigrationItem]
     outputProfile*: string
+
+  CommandMigration* = object
+    ## One classified Triad command: which authority claims it, whether it was
+    ## retained, and what it became.
+    authority*: string
+    disposition*: MigrationDisposition
+    result*: string
+    outputCommand*: string
