@@ -9,6 +9,8 @@ import ../policy/[actions, entity_store, projection, reducer, state]
 import ../types/wm_v1
 import ../types/session
 import ./snapshot_convert
+import ../types/tab_tree
+import ../entities/tab_tree_ops
 
 export PolicyAdapterError
 
@@ -53,6 +55,7 @@ type
     group: uint32
 
   CheckpointV4Dto = object
+    tabTrees: seq[TabTreeDto]
     schema: uint32
     counters: IdCounters
     settings: PolicySettings
@@ -136,7 +139,13 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 4
+  result.schema = 5
+  for view, tree in adapter.model.tabTrees:
+    result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
+  result.tabTrees.sort(
+    proc(a, b: TabTreeDto): int =
+      cmp(a.view, b.view)
+  )
   result.counters = adapter.model.counters
   result.settings = adapter.model.settings
   result.activeOutput = uint32(adapter.model.activeOutput)
@@ -240,10 +249,12 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-4\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-5\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  const prefix = "HAGIA-POLICY-CHECKPOINT-4\n"
+  let legacy = payload.startsWith("HAGIA-POLICY-CHECKPOINT-4\n")
+  let prefix =
+    if legacy: "HAGIA-POLICY-CHECKPOINT-4\n" else: "HAGIA-POLICY-CHECKPOINT-5\n"
   for superseded in ["1", "2", "3"]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & superseded & "\n"):
       fail(
@@ -254,11 +265,20 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     fail("policy checkpoint version is invalid")
   var dto: CheckpointV4Dto
   try:
-    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV4Dto)
+    var node = payload[prefix.len .. ^1].parseJson()
+    if legacy:
+      node["tabTrees"] = newJArray()
+    dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
-  if dto.schema != 4:
+  if dto.schema != (if legacy: 4 else: 5):
     fail("policy checkpoint schema is invalid")
+  for item in dto.tabTrees:
+    let view = ViewId(item.view)
+    if view in result.model.tabTrees:
+      fail("duplicate checkpoint tab tree")
+    item.tree.validateTabTree()
+    result.model.tabTrees[view] = item.tree
   result.model.counters = dto.counters
   if dto.settings.layoutCycle.len == 0:
     dto.settings.layoutCycle = defaultLayoutCycle
@@ -750,6 +770,33 @@ proc projection*(
         )
       )
       inc projection.output.placementCount
+    var fullscreen = false
+    for placement in projection.placements:
+      if (placement.presentationBits and 1) != 0:
+        fullscreen = true
+    if not fullscreen:
+      for group in logical.tabGroups:
+        var wire = ProjectionTabGroup(
+          output: rawOutput,
+          group: group.id,
+          x: group.geometry.x,
+          y: group.geometry.y,
+          width: group.geometry.width,
+          height: group.geometry.height,
+          focused: group.focused,
+        )
+        for member in group.members:
+          let facts = adapter.surfaceFacts[member]
+          wire.members.add(
+            ProjectionTabMember(
+              surfaceIndex: facts.surfaceIndex,
+              surfaceGeneration: facts.surfaceGeneration,
+            )
+          )
+          if member == group.selected:
+            wire.selectedIndex = facts.surfaceIndex
+            wire.selectedGeneration = facts.surfaceGeneration
+        result.tabGroups.add(wire)
     result.outputs.add(projection)
 
     let outputState = adapter.model.outputs[logical.output]
@@ -803,6 +850,9 @@ proc projection*(
       of LayoutMode.deck: "Deck"
       of LayoutMode.spiral: "Spiral"
       of LayoutMode.tgmix: "Mixed"
+      of LayoutMode.frameTree: "Frames"
+      of LayoutMode.notion: "Notion"
+      of LayoutMode.splitTree: "i3"
     var status = ProjectionOutputStatus(
       output: rawOutput,
       focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),

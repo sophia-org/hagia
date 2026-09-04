@@ -41,6 +41,12 @@ proc layoutMode(name: string): LayoutMode =
     LayoutMode.deck
   of "spiral":
     LayoutMode.spiral
+  of "frame-tree":
+    LayoutMode.frameTree
+  of "notion":
+    LayoutMode.notion
+  of "i3", "split-tree":
+    LayoutMode.splitTree
   of "tgmix":
     LayoutMode.tgmix
   of "vertical-scroller":

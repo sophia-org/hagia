@@ -1,5 +1,7 @@
 import ../types/[actions, core, model]
 import ./state
+import ../types/tab_tree
+import ../entities/tab_tree_ops
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -168,6 +170,80 @@ proc profileName*(action: PolicyAction): string =
     "layout-spiral"
   of PolicyAction.selectMixedLayout:
     "layout-mixed"
+  of PolicyAction.splitTreeDefault:
+    "split-tree-layout-default"
+  of PolicyAction.selectFrameTree:
+    "layout-frame-tree"
+  of PolicyAction.selectNotion:
+    "layout-notion"
+  of PolicyAction.selectSplitTree:
+    "layout-i3"
+  of PolicyAction.frameSplitHorizontal:
+    "frame-split-horizontal"
+  of PolicyAction.frameSplitVertical:
+    "frame-split-vertical"
+  of PolicyAction.frameSplitToggle:
+    "frame-split-toggle"
+  of PolicyAction.frameUnsplit:
+    "frame-unsplit"
+  of PolicyAction.frameTabNext:
+    "frame-tab-next"
+  of PolicyAction.frameTabPrevious:
+    "frame-tab-prev"
+  of PolicyAction.frameFocusParent:
+    "frame-focus-parent"
+  of PolicyAction.frameFocusChild:
+    "frame-focus-child"
+  of PolicyAction.frameResizeLeft:
+    "frame-resize-left"
+  of PolicyAction.treeFocusLeft:
+    "focus-left"
+  of PolicyAction.treeMoveLeft:
+    "move-window-left"
+  of PolicyAction.frameResizeRight:
+    "frame-resize-right"
+  of PolicyAction.treeFocusRight:
+    "focus-right"
+  of PolicyAction.treeMoveRight:
+    "move-window-right"
+  of PolicyAction.frameResizeUp:
+    "frame-resize-up"
+  of PolicyAction.treeFocusUp:
+    "focus-up"
+  of PolicyAction.treeMoveUp:
+    "move-window-up"
+  of PolicyAction.frameResizeDown:
+    "frame-resize-down"
+  of PolicyAction.treeFocusDown:
+    "focus-down"
+  of PolicyAction.treeMoveDown:
+    "move-window-down"
+  of PolicyAction.splitTreeHorizontal:
+    "split-tree-layout-split-horizontal"
+  of PolicyAction.splitTreeVertical:
+    "split-tree-layout-split-vertical"
+  of PolicyAction.splitTreeTabbed:
+    "split-tree-layout-tabbed"
+  of PolicyAction.splitTreeStacking:
+    "split-tree-layout-stacking"
+  of PolicyAction.splitTreeToggleSplit:
+    "split-tree-layout-toggle-split"
+  of PolicyAction.splitTreeCycleAll:
+    "split-tree-layout-cycle-all"
+  of PolicyAction.splitTreeSplitHorizontal:
+    "split-tree-split-horizontal"
+  of PolicyAction.splitTreeSplitVertical:
+    "split-tree-split-vertical"
+  of PolicyAction.splitTreeSplitToggle:
+    "split-tree-split-toggle"
+  of PolicyAction.splitFocusParent:
+    "split-tree-focus-parent"
+  of PolicyAction.splitFocusChild:
+    "split-tree-focus-child"
+  of PolicyAction.splitNextSibling:
+    "split-tree-focus-next-sibling"
+  of PolicyAction.splitPreviousSibling:
+    "split-tree-focus-prev-sibling"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -314,21 +390,45 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
   of PolicyAction.selectVerticalScrollerLayout:
     model.setLayout(output, LayoutMode.verticalScroller)
   of PolicyAction.focusColumnNext:
-    model.focusColumnRelative(output, 1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.focusRight)
+    else:
+      model.focusColumnRelative(output, 1)
   of PolicyAction.focusColumnPrevious:
-    model.focusColumnRelative(output, -1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.focusLeft)
+    else:
+      model.focusColumnRelative(output, -1)
   of PolicyAction.focusWindowBelow:
-    model.focusWithinColumnRelative(output, 1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.focusDown)
+    else:
+      model.focusWithinColumnRelative(output, 1)
   of PolicyAction.focusWindowAbove:
-    model.focusWithinColumnRelative(output, -1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.focusUp)
+    else:
+      model.focusWithinColumnRelative(output, -1)
   of PolicyAction.moveWindowBelow:
-    model.moveWithinColumn(output, 1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.moveDown)
+    else:
+      model.moveWithinColumn(output, 1)
   of PolicyAction.moveWindowAbove:
-    model.moveWithinColumn(output, -1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.moveUp)
+    else:
+      model.moveWithinColumn(output, -1)
   of PolicyAction.moveWindowToColumnNext:
-    model.moveToAdjacentColumn(output, 1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.moveRight)
+    else:
+      model.moveToAdjacentColumn(output, 1)
   of PolicyAction.moveWindowToColumnPrevious:
-    model.moveToAdjacentColumn(output, -1)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.moveLeft)
+    else:
+      model.moveToAdjacentColumn(output, -1)
   of PolicyAction.moveColumnNext:
     model.moveColumnRelative(output, 1)
   of PolicyAction.moveColumnPrevious:
@@ -378,12 +478,95 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
   of PolicyAction.selectDeckLayout:
     model.setLayout(output, LayoutMode.deck)
   of PolicyAction.groupWindows:
-    model.groupFocusedWithNeighbour(output)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.group)
+    else:
+      model.groupFocusedWithNeighbour(output)
   of PolicyAction.ungroupWindow:
-    model.ungroupFocused(output)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.ungroup)
+    else:
+      model.ungroupFocused(output)
   of PolicyAction.focusNextInGroup:
-    model.focusNextInGroup(output)
+    if model.tabLayoutActive(output):
+      model.tabTreeCommand(output, TabTreeCommand.nextTab)
+    else:
+      model.focusNextInGroup(output)
   of PolicyAction.selectSpiralLayout:
     model.setLayout(output, LayoutMode.spiral)
   of PolicyAction.selectMixedLayout:
     model.setLayout(output, LayoutMode.tgmix)
+  of PolicyAction.selectFrameTree:
+    model.setLayout(output, LayoutMode.frameTree)
+  of PolicyAction.selectNotion:
+    model.setLayout(output, LayoutMode.notion)
+  of PolicyAction.selectSplitTree:
+    model.setLayout(output, LayoutMode.splitTree)
+  of PolicyAction.frameSplitHorizontal:
+    model.tabTreeCommand(output, TabTreeCommand.splitHorizontal)
+  of PolicyAction.frameSplitVertical:
+    model.tabTreeCommand(output, TabTreeCommand.splitVertical)
+  of PolicyAction.frameSplitToggle:
+    model.tabTreeCommand(output, TabTreeCommand.splitToggle)
+  of PolicyAction.frameUnsplit:
+    model.tabTreeCommand(output, TabTreeCommand.unsplit)
+  of PolicyAction.frameTabNext:
+    model.tabTreeCommand(output, TabTreeCommand.nextTab)
+  of PolicyAction.frameTabPrevious:
+    model.tabTreeCommand(output, TabTreeCommand.previousTab)
+  of PolicyAction.frameFocusParent:
+    model.tabTreeCommand(output, TabTreeCommand.focusParent)
+  of PolicyAction.frameFocusChild:
+    model.tabTreeCommand(output, TabTreeCommand.focusChild)
+  of PolicyAction.frameResizeLeft:
+    model.tabTreeCommand(output, TabTreeCommand.resizeLeft)
+  of PolicyAction.treeFocusLeft:
+    model.tabTreeCommand(output, TabTreeCommand.focusLeft)
+  of PolicyAction.treeMoveLeft:
+    model.tabTreeCommand(output, TabTreeCommand.moveLeft)
+  of PolicyAction.frameResizeRight:
+    model.tabTreeCommand(output, TabTreeCommand.resizeRight)
+  of PolicyAction.treeFocusRight:
+    model.tabTreeCommand(output, TabTreeCommand.focusRight)
+  of PolicyAction.treeMoveRight:
+    model.tabTreeCommand(output, TabTreeCommand.moveRight)
+  of PolicyAction.frameResizeUp:
+    model.tabTreeCommand(output, TabTreeCommand.resizeUp)
+  of PolicyAction.treeFocusUp:
+    model.tabTreeCommand(output, TabTreeCommand.focusUp)
+  of PolicyAction.treeMoveUp:
+    model.tabTreeCommand(output, TabTreeCommand.moveUp)
+  of PolicyAction.frameResizeDown:
+    model.tabTreeCommand(output, TabTreeCommand.resizeDown)
+  of PolicyAction.treeFocusDown:
+    model.tabTreeCommand(output, TabTreeCommand.focusDown)
+  of PolicyAction.treeMoveDown:
+    model.tabTreeCommand(output, TabTreeCommand.moveDown)
+  of PolicyAction.splitTreeHorizontal:
+    model.tabTreeCommand(output, TabTreeCommand.layoutHorizontal)
+  of PolicyAction.splitTreeVertical:
+    model.tabTreeCommand(output, TabTreeCommand.layoutVertical)
+  of PolicyAction.splitTreeTabbed:
+    model.tabTreeCommand(output, TabTreeCommand.layoutTabbed)
+  of PolicyAction.splitTreeStacking:
+    model.tabTreeCommand(output, TabTreeCommand.layoutStacking)
+  of PolicyAction.splitTreeToggleSplit:
+    model.tabTreeCommand(output, TabTreeCommand.toggleSplit)
+  of PolicyAction.splitTreeCycleAll:
+    model.tabTreeCommand(output, TabTreeCommand.cycleAll)
+  of PolicyAction.splitTreeSplitHorizontal:
+    model.tabTreeCommand(output, TabTreeCommand.splitHorizontal)
+  of PolicyAction.splitTreeSplitVertical:
+    model.tabTreeCommand(output, TabTreeCommand.splitVertical)
+  of PolicyAction.splitTreeSplitToggle:
+    model.tabTreeCommand(output, TabTreeCommand.splitToggle)
+  of PolicyAction.splitFocusParent:
+    model.tabTreeCommand(output, TabTreeCommand.focusParent)
+  of PolicyAction.splitFocusChild:
+    model.tabTreeCommand(output, TabTreeCommand.focusChild)
+  of PolicyAction.splitNextSibling:
+    model.tabTreeCommand(output, TabTreeCommand.nextSibling)
+  of PolicyAction.splitPreviousSibling:
+    model.tabTreeCommand(output, TabTreeCommand.previousSibling)
+  of PolicyAction.splitTreeDefault:
+    model.tabTreeCommand(output, TabTreeCommand.layoutHorizontal)

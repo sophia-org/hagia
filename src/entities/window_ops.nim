@@ -1,3 +1,4 @@
+import ./tab_tree_ops
 import std/[options, sequtils, tables]
 
 import ../types/[core, model]
@@ -45,6 +46,7 @@ proc addWindow*(
 proc removeWindow*(model: var PolicyModel, id: WindowId) =
   if id notin model.windows:
     return
+  model.forgetTabWindow(id)
   let column = model.windows[id].column
   model.scratchpadOrder.keepItIf(it != id)
   model.scratchpadRestore.del(id)

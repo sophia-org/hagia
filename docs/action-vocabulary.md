@@ -76,20 +76,17 @@ listings are shell state, screenshots need a capture portal grant, spawning
 and locking are session capabilities, pointer warping and keyboard layout are
 input authority. These are not gaps in Hagia; they are other components' work.
 
-## Deferred: the tabbed substrates
+## Native tabbed layouts
 
-`frame-tree`, `split-tree`, `i3`, and `notion` are tabbed and stacking layouts.
-Their model is straightforward — a split tree per view, with a stacking node
-projecting its children to the same rectangle — and the wire already carries
-what that needs, since placements are ordered bottom-to-top and Engine
-composites them in that order. What is missing is the tab bar. Chrome is drawn
-by a shell surface, so a tabbed layout without shell revision 2 would show the
-top window of each stack with no visible way to know the others are there.
+`frame-tree`, `notion`, and `i3` (`split-tree`) now have persistent private
+model state and project only the active leaf or subtree. Their bar geometry
+and opaque membership use Sophia's revision-3 extension lane. Narthex receives
+sanitized descriptors through shell revision 2, and Sophia renders them using
+its GPU composition path. No metadata enters Hagia.
 
-These four are therefore classified `deferred`, not `excluded`: the design is
-settled and written down here, and the work lands when the shell can draw the
-bar. The purely geometric substrates — `bsp`, `dwindle`, `spiral` — need no
-chrome and are not blocked.
+See [native tabbed layouts](tabbed-layouts.md) for the actions, checkpoint
+migration, empty-cell behavior, and explicit exclusions. Shell unavailability
+leaves inert numbered bars while keyboard layout control continues.
 
 ## Adding one
 

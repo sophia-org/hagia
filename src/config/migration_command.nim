@@ -1,6 +1,7 @@
 import std/strutils
 
-import ../types/[migration, model]
+import ../types/[migration, model, actions]
+import ../policy/actions
 
 ## Triad command classification. Each retained command maps to one Hagia action
 ## or one recorded exclusion with a written reason; nothing is silently dropped.
@@ -420,11 +421,32 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "unowned", MigrationDisposition.unsupported, "command must not be empty"
       )
     let name = parts[0]
-    if name.startsWith("split-tree-") or name.startsWith("frame-") or
-        name in ["frame-tree", "bsp-tree", "i3", "notion"]:
+    if name in ["frame-bind-app", "frame-unbind-app"]:
       return commandMigration(
-        "policy", MigrationDisposition.deferred,
-        "tabbed substrate deferred until a shell surface can draw the tab bar; see docs/action-vocabulary.md",
+        "policy", MigrationDisposition.excluded,
+        "application identity is withheld from the WM",
+      )
+    if parts.len == 1:
+      for action in PolicyAction:
+        if ord(action) >= ord(PolicyAction.selectFrameTree) and
+            command == action.profileName():
+          return commandMigration(
+            "policy", MigrationDisposition.retained, "native tab tree action", command
+          )
+      if command in ["frame-tree", "notion", "i3", "split-tree"]:
+        return commandMigration(
+          "policy",
+          MigrationDisposition.transformed,
+          "native tab tree layout",
+          if command == "split-tree":
+            "layout-i3"
+          else:
+            "layout-" & command,
+        )
+    if name.startsWith("split-tree-") or name.startsWith("frame-") or name == "bsp-tree":
+      return commandMigration(
+        "policy", MigrationDisposition.excluded,
+        "parameterized upstream layout commands require an explicit bounded action",
       )
     if name in [
       "dwindle", "dwindle-split-down", "dwindle-split-left", "dwindle-split-right",

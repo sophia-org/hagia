@@ -70,11 +70,22 @@ type
     output*: ProjectionOutput
     placements*: seq[ProjectionPlacement]
 
+  ProjectionTabMember* = object
+    surfaceIndex*, surfaceGeneration*: uint32
+
+  ProjectionTabGroup* = object
+    output*, group*: uint64
+    x*, y*, width*, height*: int32
+    selectedIndex*, selectedGeneration*: uint32
+    focused*: bool
+    members*: seq[ProjectionTabMember]
+
   PolicyProjection* = object
     activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
     outputStatuses*: seq[ProjectionOutputStatus]
+    tabGroups*: seq[ProjectionTabGroup]
 
   ProjectionOutcome* = object
     transaction*: uint64

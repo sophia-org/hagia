@@ -105,3 +105,6 @@ discipline while adapting it to Sophia's stricter authority lines.
 BSD 3-Clause. Copyright 2026 Mason Austin Green. Triad-derived portions and
 their MIT terms are recorded in
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+[Native tabbed layouts](docs/tabbed-layouts.md) add frame-tree, Notion and i3
+with persistent policy state and Sophia/Narthex descriptor bars.

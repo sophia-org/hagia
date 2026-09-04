@@ -806,8 +806,8 @@ output {
     check pointerBindings == 5
     check unsupportedBindings == 0
     check excludedBindings > 0
-    check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 96
+    check deferredBindings == 0
+    check report.outputProfile.count("\n  bind ") == 104
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile

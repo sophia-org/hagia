@@ -1760,9 +1760,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 4
+    check parseJson(printed)["schema"].getInt() == 5
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-5\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2241,3 +2241,32 @@ suite "Sophia policy session":
       )
     check session.hasPending()
     session.abort()
+
+suite "tab checkpoint compatibility":
+  test "version 4 migrates to version 5 without losing logical identities":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
+    payload["schema"] = %4
+    payload.delete("tabTrees")
+    let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
+    check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-5\n")
+
+  test "version 5 round trips a populated tree":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10), surface(2, 10)]))
+    adapter.applyCause(
+      ProjectionRequest(
+        affectedOutputs: @[10'u64],
+        cause: ProjectionCause(
+          kind: ProjectionCauseKind.action,
+          action: PolicyAction.selectFrameTree.raw(),
+          activationSerial: 1,
+        ),
+      )
+    )
+    let restored = restoreCheckpointPayload(adapter.checkpointPayload())
+    check restored.checkpointPayload() == adapter.checkpointPayload()

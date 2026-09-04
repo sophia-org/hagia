@@ -2,6 +2,7 @@ import ../policy/entity_store
 import ../types/[core, model]
 import ../state/values
 import ../entities/window_ops
+import ../entities/tab_tree_ops
 
 ## Layout cycling and column and window sizing.
 
@@ -23,6 +24,7 @@ proc setLayout*(model: var PolicyModel, outputId: OutputId, layout: LayoutMode) 
   if outputId notin model.outputs:
     fail("layout target output does not exist")
   model.views[model.outputs[outputId].activeView].layout = layout
+  model.syncTabTrees()
 
 proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:

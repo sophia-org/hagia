@@ -2,6 +2,7 @@ import std/options
 
 import ../types/[core, model, policy_messages]
 import ./[actions, entity_store, state]
+import ../entities/tab_tree_ops
 
 proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
   ## The reducer has no transport or filesystem authority. A caller promotes
@@ -17,6 +18,7 @@ proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
   of PolicyMsgKind.focus:
     result.candidate.setActiveOutput(message.output)
     result.candidate.setFocus(message.output, message.focusWindow)
+    result.candidate.focusTabWindow(message.output, message.focusWindow)
   of PolicyMsgKind.interaction:
     let window = result.candidate.window(message.interactionWindow)
     if window.isNone or window.get().homeOutput != message.output:
@@ -32,6 +34,7 @@ proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
     result.candidate.setFloatingGeometry(
       message.output, message.interactionWindow, message.geometry
     )
+  result.candidate.syncTabTrees()
   result.candidate.validate()
   # Projection replacement is complete per affected output. Return all outputs
   # for now because existing actions can move membership across authorities.

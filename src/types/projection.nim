@@ -1,4 +1,5 @@
 import ./core
+import ./tab_tree
 
 ## Deterministic geometry results. Projection builders in
 ## `src/policy/projection.nim` read a valid model and return these records
@@ -11,6 +12,7 @@ type
     requestedWidth*, requestedHeight*: int32
 
   LogicalOutputProjection* = object
+    tabGroups*: seq[TabTreeGroup]
     output*: OutputId
     placements*: seq[LogicalPlacement]
     focus*: WindowId

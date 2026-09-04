@@ -1,6 +1,7 @@
 import std/tables
 
 import ./core
+import ./tab_tree
 
 ## Passive records for the private policy model. No logic lives here; state
 ## transitions belong to `src/policy/state.nim` and geometry to
@@ -31,6 +32,9 @@ type
     deck
     spiral
     tgmix
+    frameTree
+    notion
+    splitTree
 
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool
@@ -119,6 +123,7 @@ type
     minimized*: bool
 
   PolicyModel* = object
+    tabTrees*: Table[ViewId, TabTree]
     settings*: PolicySettings
     windows*: EntityStore[WindowId, WindowData]
     windowOrder*: seq[WindowId]

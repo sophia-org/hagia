@@ -1,7 +1,9 @@
-import std/[math, options, sequtils]
+import std/[math, options, sequtils, tables]
 
 import ../types/[core, model, projection]
 import ./[entity_store, state]
+import ./tab_tree_projection
+import ../entities/tab_tree_ops
 
 proc clamp(value, minimum, maximum: int32): int32 =
   result = value
@@ -349,6 +351,8 @@ proc projectNative(
   case resolved
   of LayoutMode.scroller, LayoutMode.verticalScroller:
     raise newException(PolicyStateError, "scrolling layout entered native projection")
+  of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree:
+    raise newException(PolicyStateError, "tab tree entered stateless projection")
   of LayoutMode.tgmix:
     raise newException(PolicyStateError, "mixed layout resolved to itself")
   of LayoutMode.spiral:
@@ -584,6 +588,29 @@ proc projectVerticalScroller(
     placement.geometry = placement.geometry.transpose()
     swap(placement.requestedWidth, placement.requestedHeight)
 
+proc projectTabbed(
+    model: PolicyModel, outputId: OutputId, outerGap, innerGap: int32
+): LogicalOutputProjection =
+  var prepared = model.clone()
+  prepared.syncTabTrees()
+  let output = prepared.outputs[outputId]
+  let tree = prepared.tabTrees[output.activeView]
+  let projected = tree.projectTabTree(
+    output.activeView,
+    output.bounds.usableBounds(outerGap),
+    max(0'i32, innerGap),
+    output.focusedWindow,
+  )
+  result.output = outputId
+  result.tabGroups = projected.groups
+  for placement in projected.placements:
+    prepared.appendPlacement(placement.window, placement.geometry, result)
+  let eligible =
+    prepared.eligibleWindows(outputId).filterIt(not prepared.windows[it].minimized)
+  prepared.appendFloating(outputId, eligible, result)
+  let visible = result.placements.mapIt(it.window)
+  prepared.selectFocus(output, visible, result)
+
 proc projectLayout*(
     model: PolicyModel,
     affectedOutputs: openArray[OutputId],
@@ -597,6 +624,8 @@ proc projectLayout*(
       raise newException(PolicyStateError, "projection output does not exist")
     let mode = model.views[model.outputs[outputId].activeView].layout
     case mode
+    of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree:
+      result.add(model.projectTabbed(outputId, outerGap, innerGap))
     of LayoutMode.scroller:
       result.add(
         model.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]

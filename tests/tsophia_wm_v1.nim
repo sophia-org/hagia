@@ -1,3 +1,5 @@
+import sophia/wm_tab_groups
+import types/session
 import std/[os, strutils, unittest]
 
 import sophia/wm_v1
@@ -126,7 +128,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 9
+  check lines.len == 11
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -152,6 +154,23 @@ proc checkRecords(path: string) =
       check classification.surfaceIndex == 3
       check classification.surfaceGeneration == 1
       check classification.classification == 2
+    of "projection_tab_group", "projection_tab_member":
+      let group = ProjectionTabGroup(
+        output: 1,
+        group: 1,
+        x: 1,
+        y: 1,
+        width: 1,
+        height: 1,
+        selectedIndex: 1,
+        selectedGeneration: 1,
+        focused: true,
+        members: @[ProjectionTabMember(surfaceIndex: 1, surfaceGeneration: 1)],
+      )
+      if fields[0] == "projection_tab_group":
+        check group.encodeTabGroup() == bytes
+      else:
+        check group.encodeTabMember(group.members[0]) == bytes
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":

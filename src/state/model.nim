@@ -3,6 +3,8 @@ import std/[sets, tables]
 import ../types/[core, model]
 import ../policy/entity_store
 import ./[queries, values]
+import ../entities/tab_tree_ops
+import ../types/tab_tree
 
 ## Model lifecycle: construction, defensive copying for a candidate, and the
 ## invariant check every state transition must leave satisfied.
@@ -11,6 +13,8 @@ proc initPolicyModel*(): PolicyModel =
   PolicyModel(settings: defaultPolicySettings)
 
 proc clone*(model: PolicyModel): PolicyModel =
+  for view, tree in model.tabTrees.pairs:
+    result.tabTrees[view] = tree.cloneTabTree()
   result.settings = model.settings
   result.settings.layoutCycle = @(model.settings.layoutCycle)
   result.activeOutput = model.activeOutput
@@ -68,6 +72,18 @@ proc clone*(model: PolicyModel): PolicyModel =
     result.affinities[id] = affinity
 
 proc validate*(model: PolicyModel) =
+  var tabNodeCount = 0
+  for view, tree in model.tabTrees.pairs:
+    if view notin model.views:
+      fail("tab tree view is missing")
+    tabNodeCount += tree.nodes.len
+    if tabNodeCount > maxTabTreeNodes:
+      fail("global tab tree capacity exhausted")
+    tree.validateTabTree()
+    for node in tree.nodes:
+      for window in node.windows:
+        if window notin model.windows:
+          fail("tab member is missing")
   if model.settings.viewCount < 1 or model.settings.viewCount > 9 or
       model.settings.outerGap < 0 or model.settings.innerGap < 0 or
       model.settings.viewportOffset < 0 or model.settings.layoutCycle.len == 0 or

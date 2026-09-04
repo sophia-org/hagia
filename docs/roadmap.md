@@ -348,13 +348,11 @@ move lands where the user saw the window.
   the last policy capability Triad has and Hagia does not. Unlike every other
   layout ported so far it is not a function of the window order: it needs a
   persistent split tree in the model, which windows insert into and which the
-  split keys preselect against. That tree is also what the deferred tabbed
-  substrates below will hang their nodes from.
-- [ ] Tabbed substrates: frame-tree (Notion), split-tree (i3). Their model is
-  settled and written down in [the action vocabulary](action-vocabulary.md);
-  what is missing is the tab bar, which only a shell surface can draw. Migration
-  reports these as `deferred` rather than `excluded` — a schedule, not a
-  decision — and they land with shell r2.
+  split keys preselect against. The tabbed layouts below use a separate bounded topology owner.
+- [x] Native frame-tree/Notion and split-tree/i3 state, projection and descriptor
+  bars through Sophia shell revision 2. See [tabbed layouts](tabbed-layouts.md).
+  Physical multi-output, input, restart and fullscreen acceptance remains an
+  operator gate; deterministic checks are recorded separately.
 - [ ] Janet policy and layouts, gated as Milestone 4 records: model
   determinism, fuel, and fallback semantics first.
 

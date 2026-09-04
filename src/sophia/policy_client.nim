@@ -1,3 +1,4 @@
+import ./wm_tab_groups
 import std/[net, options, os, sets]
 
 import ../types/[actions, config_values, handoff, session, wm_v1]
@@ -33,6 +34,7 @@ const
   capabilitySessionOperations = 1'u64 shl 7
   capabilityIndicators = 1'u64 shl 8
   capabilityProfileActivation = 1'u64 shl 9
+  capabilityTabGroups = 1'u64 shl 11
   capabilityLaunchPlacement = 1'u64 shl 10
 
 proc receiveFrame(client: PolicyClient, kind: MessageKind): Frame =
@@ -90,7 +92,7 @@ proc negotiatePolicy(
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
-      optional
+      optional or capabilityTabGroups
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -434,6 +436,44 @@ proc sendProjection(
         kind: MessageKind.projectionChunk, transaction: transaction, payload: payload
       )
     )
+
+  if projection.tabGroups.len > 0:
+    if (client.capabilities and capabilityTabGroups) == 0:
+      fail("Sophia did not negotiate tab groups")
+    if projection.tabGroups.len > 1024:
+      fail("too many tab groups")
+    var groups, members: seq[byte]
+    var memberCount = 0
+    for group in projection.tabGroups:
+      groups.add(group.encodeTabGroup())
+      for member in group.members:
+        members.add(group.encodeTabMember(member))
+        inc memberCount
+    if memberCount > 2048:
+      fail("too many tab members")
+    var ordinal = uint16(chunkCount)
+    for (kind, size, data) in [(0xff01'u16, 48, groups), (0xff02'u16, 24, members)]:
+      let limit = (client.maxChunkBytes div size) * size
+      if limit == 0:
+        fail("negotiated tab chunk limit is too small")
+      var start = 0
+      while start < data.len:
+        let finish = min(start + limit, data.len)
+        var payload: seq[byte]
+        payload.addU64(client.connectionEpoch)
+        payload.addU16(ordinal)
+        payload.addU16(kind)
+        payload.addU32(uint32((finish - start) div size))
+        payload.add(data[start ..< finish])
+        client.sendFrame(
+          Frame(
+            kind: MessageKind.projectionChunk,
+            transaction: transaction,
+            payload: payload,
+          )
+        )
+        inc ordinal
+        start = finish
 
   var endPayload: seq[byte]
   endPayload.addU64(client.connectionEpoch)
