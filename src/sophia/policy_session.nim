@@ -4,7 +4,8 @@ import ../policy/actions
 import ../types/runtime
 import ../runtime/reducer
 import ../types/wm_v1
-import ./[policy_adapter, session_types]
+import ../types/session
+import ./policy_adapter
 
 type
   PolicySessionError* = object of CatchableError

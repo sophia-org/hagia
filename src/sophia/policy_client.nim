@@ -1,22 +1,13 @@
 import std/[net, options, os, sets, strutils]
 
-import ../types/[actions, config_values, wm_v1]
+import ../types/[actions, config_values, handoff, session, wm_v1]
 import ../types/observability
 import ../observability
 import ../policy/actions
-import
-  ./[
-    policy_adapter, policy_checkpoint, policy_session, profile_handoff, session_types,
-    wm_v1,
-  ]
+import ./[policy_adapter, policy_checkpoint, policy_session, profile_handoff, wm_v1]
 
 type
   PolicyClientError* = object of CatchableError
-
-  StartupProfileHandoffDisposition* {.pure.} = enum
-    activated
-    rolledBack
-    rejected
 
   PolicyClient = ref object
     socket: Socket

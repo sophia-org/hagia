@@ -1,4 +1,9 @@
-import ../types/wm_v1
+import ./wm_v1
+
+## Passive records for one unidirectional settlement round: the snapshot Hagia
+## reconciled, the single reduced cause it applied, the complete projection it
+## proposed, and Sophia's terminal outcome. The session state machine that
+## drives them lives in `src/sophia/policy_session.nim`.
 
 type
   ProjectionOutcomeKind* {.pure.} = enum

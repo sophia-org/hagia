@@ -1,36 +1,6 @@
-import ../types/config_values
-import ../types/wm_v1
+import ../types/[config_values, handoff, wm_v1]
 
-type
-  ProfileHandoffError* = object of CatchableError
-
-  ProfileHandoffPhase* {.pure.} = enum
-    loaded
-    prepared
-    active
-    rolledBack
-
-  ProfileHandoffMsgKind* {.pure.} = enum
-    prepare
-    activate
-    rollback
-
-  ProfileHandoffModel* = object
-    phase*: ProfileHandoffPhase
-    connectionEpoch*: uint64
-    candidateGeneration*: uint64
-    candidateDigest*: array[profileDigestLen, byte]
-    preparedIdentity*: ProfileIdentity
-    activeIdentity*: ProfileIdentity
-    rollbackIdentity*: ProfileIdentity
-
-  ProfileHandoffMsg* = object
-    kind*: ProfileHandoffMsgKind
-    command*: ProfileCommand
-
-  ProfileHandoffUpdate* = object
-    model*: ProfileHandoffModel
-    completion*: ProfileCompletion
+type ProfileHandoffError* = object of CatchableError
 
 proc fail(message: string) {.noreturn.} =
   raise newException(ProfileHandoffError, message)

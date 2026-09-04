@@ -3,12 +3,8 @@ import std/[net, options, os, posix, sets, strutils, tables, tempfiles, unittest
 import config/profile
 import types/config_values
 import policy/[actions, entity_store, projection, state]
-import types/[actions, core, model, projection, wm_v1]
-import
-  sophia/[
-    policy_adapter, policy_checkpoint, policy_client, policy_session, session_types,
-    wm_v1,
-  ]
+import types/[actions, core, model, projection, session, wm_v1]
+import sophia/[policy_adapter, policy_checkpoint, policy_client, policy_session, wm_v1]
 
 proc focusableCapabilities(): WindowCapabilities =
   WindowCapabilities(

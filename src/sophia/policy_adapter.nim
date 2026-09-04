@@ -7,7 +7,7 @@ import ../observability
 import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]
 import ../types/wm_v1
-import ./session_types
+import ../types/session
 
 type
   PolicyAdapterError* = object of CatchableError
