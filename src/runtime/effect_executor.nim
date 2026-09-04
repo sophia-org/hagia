@@ -1,4 +1,4 @@
-import ./reducer
+import ../types/runtime
 
 type
   RuntimeEffectHandler* = proc(effect: RuntimeEffect): bool {.closure.}

@@ -1,6 +1,7 @@
 import std/options
 
 import ../policy/actions
+import ../types/runtime
 import ../runtime/reducer
 import ./[policy_adapter, session_types, wm_v1]
 
