@@ -150,6 +150,14 @@ proc profileName*(action: PolicyAction): string =
     "toggle-gaps"
   of PolicyAction.maximizeColumn:
     "maximize-column"
+  of PolicyAction.selectCenterTileLayout:
+    "layout-center-tile"
+  of PolicyAction.selectRightTileLayout:
+    "layout-right-tile"
+  of PolicyAction.selectVerticalGridLayout:
+    "layout-vertical-grid"
+  of PolicyAction.selectDeckLayout:
+    "layout-deck"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -351,3 +359,11 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.toggleGaps()
   of PolicyAction.maximizeColumn:
     model.toggleColumnMaximized(output)
+  of PolicyAction.selectCenterTileLayout:
+    model.setLayout(output, LayoutMode.centerTile)
+  of PolicyAction.selectRightTileLayout:
+    model.setLayout(output, LayoutMode.rightTile)
+  of PolicyAction.selectVerticalGridLayout:
+    model.setLayout(output, LayoutMode.verticalGrid)
+  of PolicyAction.selectDeckLayout:
+    model.setLayout(output, LayoutMode.deck)

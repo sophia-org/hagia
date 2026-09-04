@@ -31,6 +31,14 @@ proc layoutMode(name: string): LayoutMode =
     LayoutMode.grid
   of "monocle":
     LayoutMode.monocle
+  of "center-tile":
+    LayoutMode.centerTile
+  of "right-tile":
+    LayoutMode.rightTile
+  of "vertical-grid":
+    LayoutMode.verticalGrid
+  of "deck":
+    LayoutMode.deck
   of "vertical-scroller":
     LayoutMode.verticalScroller
   else:

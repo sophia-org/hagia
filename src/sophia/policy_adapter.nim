@@ -777,6 +777,10 @@ proc projection*(
       of LayoutMode.grid: "Grid"
       of LayoutMode.monocle: "Monocle"
       of LayoutMode.verticalScroller: "Vertical Scroller"
+      of LayoutMode.centerTile: "Center Tile"
+      of LayoutMode.rightTile: "Right Tile"
+      of LayoutMode.verticalGrid: "Vertical Grid"
+      of LayoutMode.deck: "Deck"
     var status = ProjectionOutputStatus(
       output: rawOutput,
       focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),

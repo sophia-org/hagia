@@ -256,7 +256,7 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 86 of its bindings now carry over, up from 40 at the
+`tests/tfoundation.nim`: 91 of its bindings now carry over, up from 40 at the
 freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -321,9 +321,17 @@ move lands where the user saw the window.
   readable in the profile.
 - [x] `maximize-column`, which had been folded onto `toggle-maximized` by the
   migration. It is a decision about a column, so it now has its own action.
-- [ ] Center-tile and right-tile variants of the native tile.
+- [x] Center-tile, right-tile, vertical-grid, and deck, ported from Triad's
+  bundled Janet layouts as native modes. Nine layouts now exist; the shipped
+  cycle still lists five, and every mode has a select action whether bound or
+  not. `deck` puts the focused window in the master area and gives every other
+  window one shared rectangle, which the wire's bottom-to-top placement order
+  already expresses.
 - [ ] Column width presets and absolute width (`set-column-width`,
   `switch-proportion-preset`).
+- [ ] `tgmix`, which switches between master-stack and grid at four windows.
+  Cheap to add once someone wants it; it is a rule about which layout to run,
+  not a new geometry.
 
 ### Tier 4 — layout power, large and coupled
 

@@ -237,11 +237,27 @@ proc usableBounds(bounds: Rect, outerGap: int32): Rect =
   if result.width <= 0 or result.height <= 0:
     raise newException(PolicyStateError, "output gaps consume the viewport")
 
-proc gridDimensions(count: int): tuple[columns, rows: int] =
+proc gridDimensions(count: int, vertical: bool): tuple[columns, rows: int] =
+  ## A grid fills rows first and a vertical grid fills columns first, so the
+  ## two orientations derive the same pair of dimensions from opposite ends.
   if count <= 0:
     return (0, 0)
-  result.columns = int(ceil(sqrt(float64(count))))
-  result.rows = int(ceil(float64(count) / float64(result.columns)))
+  if vertical:
+    result.rows = int(ceil(sqrt(float64(count))))
+    result.columns = int(ceil(float64(count) / float64(result.rows)))
+  else:
+    result.columns = int(ceil(sqrt(float64(count))))
+    result.rows = int(ceil(float64(count) / float64(result.columns)))
+
+proc focusedFirst(windows: openArray[WindowId], focused: WindowId): seq[WindowId] =
+  ## Put the focused window at the front, keeping the rest in their order. A
+  ## deck shows one window of its stack, so which one leads is the whole point.
+  for windowId in windows:
+    if windowId == focused:
+      result.add(windowId)
+  for windowId in windows:
+    if windowId != focused:
+      result.add(windowId)
 
 proc stackColumn(
     model: PolicyModel,
@@ -314,8 +330,9 @@ proc projectNative(
         gap,
         result,
       )
-  of LayoutMode.grid:
-    let dimensions = gridDimensions(tiled.len)
+  of LayoutMode.grid, LayoutMode.verticalGrid:
+    let vertical = mode == LayoutMode.verticalGrid
+    let dimensions = gridDimensions(tiled.len, vertical)
     if dimensions.columns > 0:
       let horizontalGaps = int64(gap) * int64(dimensions.columns - 1)
       let verticalGaps = int64(gap) * int64(dimensions.rows - 1)
@@ -324,8 +341,16 @@ proc projectNative(
       let width = int32((int64(bounds.width) - horizontalGaps) div dimensions.columns)
       let height = int32((int64(bounds.height) - verticalGaps) div dimensions.rows)
       for index, windowId in tiled:
-        let column = index mod dimensions.columns
-        let row = index div dimensions.columns
+        let column =
+          if vertical:
+            index div dimensions.rows
+          else:
+            index mod dimensions.columns
+        let row =
+          if vertical:
+            index mod dimensions.rows
+          else:
+            index div dimensions.columns
         let cellWidth =
           if column + 1 == dimensions.columns:
             bounds.width - int32(column) * (width + gap)
@@ -346,6 +371,118 @@ proc projectNative(
           ),
           result,
         )
+  of LayoutMode.rightTile:
+    # Tile mirrored: the stack takes the left, the master the right.
+    let masterCount = max(1, min(model.settings.masterCount, tiled.len))
+    if tiled.len <= masterCount:
+      model.stackColumn(tiled, bounds, gap, result)
+    elif tiled.len > 0:
+      if gap >= bounds.width:
+        raise newException(PolicyStateError, "tile gap consumes the viewport")
+      let masterWidth =
+        max(1'i32, (bounds.width - gap).scaledExtent(model.settings.masterRatio))
+      let stackWidth = bounds.width - gap - masterWidth
+      if stackWidth <= 0:
+        raise newException(PolicyStateError, "tile master consumes the viewport")
+      model.stackColumn(
+        tiled[masterCount .. ^1],
+        Rect(x: bounds.x, y: bounds.y, width: stackWidth, height: bounds.height),
+        gap,
+        result,
+      )
+      model.stackColumn(
+        tiled[0 ..< masterCount],
+        Rect(
+          x: bounds.x + stackWidth + gap,
+          y: bounds.y,
+          width: masterWidth,
+          height: bounds.height,
+        ),
+        gap,
+        result,
+      )
+  of LayoutMode.centerTile:
+    # The master sits between two stacks, which the remaining windows join
+    # alternately so both sides fill evenly.
+    let masterCount = max(1, min(model.settings.masterCount, tiled.len))
+    if tiled.len <= masterCount:
+      model.stackColumn(tiled, bounds, gap, result)
+    elif tiled.len > 0:
+      var left, right: seq[WindowId]
+      for index in masterCount .. tiled.high:
+        if (index - masterCount) mod 2 == 0:
+          left.add(tiled[index])
+        else:
+          right.add(tiled[index])
+      let sideGaps = gap * (if right.len > 0: 2'i32 else: 1'i32)
+      if sideGaps >= bounds.width:
+        raise newException(PolicyStateError, "tile gap consumes the viewport")
+      let masterWidth =
+        max(1'i32, (bounds.width - sideGaps).scaledExtent(model.settings.masterRatio))
+      let sideTotal = bounds.width - sideGaps - masterWidth
+      if sideTotal <= 0:
+        raise newException(PolicyStateError, "tile master consumes the viewport")
+      let leftWidth =
+        if right.len > 0:
+          sideTotal div 2
+        else:
+          sideTotal
+      let rightWidth = sideTotal - leftWidth
+      model.stackColumn(
+        left,
+        Rect(x: bounds.x, y: bounds.y, width: leftWidth, height: bounds.height),
+        gap,
+        result,
+      )
+      let masterX = bounds.x + leftWidth + gap
+      model.stackColumn(
+        tiled[0 ..< masterCount],
+        Rect(x: masterX, y: bounds.y, width: masterWidth, height: bounds.height),
+        gap,
+        result,
+      )
+      if right.len > 0:
+        model.stackColumn(
+          right,
+          Rect(
+            x: masterX + masterWidth + gap,
+            y: bounds.y,
+            width: rightWidth,
+            height: bounds.height,
+          ),
+          gap,
+          result,
+        )
+  of LayoutMode.deck:
+    # A master area beside one shared rectangle every other window occupies.
+    # Placements are ordered bottom to top, so the last window added is the one
+    # on show; the focused window leads, which puts it in the master area.
+    var ordered = focusedFirst(tiled, output.focusedWindow)
+    let masterCount = max(1, min(model.settings.masterCount, ordered.len))
+    if ordered.len <= masterCount:
+      model.stackColumn(ordered, bounds, gap, result)
+    elif ordered.len > 0:
+      if gap >= bounds.width:
+        raise newException(PolicyStateError, "deck gap consumes the viewport")
+      let masterWidth =
+        max(1'i32, (bounds.width - gap).scaledExtent(model.settings.masterRatio))
+      let stackWidth = bounds.width - gap - masterWidth
+      if stackWidth <= 0:
+        raise newException(PolicyStateError, "deck master consumes the viewport")
+      model.stackColumn(
+        ordered[0 ..< masterCount],
+        Rect(x: bounds.x, y: bounds.y, width: masterWidth, height: bounds.height),
+        gap,
+        result,
+      )
+      let shared = Rect(
+        x: bounds.x + masterWidth + gap,
+        y: bounds.y,
+        width: stackWidth,
+        height: bounds.height,
+      )
+      for index in masterCount .. ordered.high:
+        model.appendPlacement(ordered[index], shared, result)
   of LayoutMode.monocle:
     if tiled.len > 0:
       let selected =
@@ -406,5 +543,6 @@ proc projectLayout*(
       result.add(
         model.projectVerticalScroller(outputId, outerGap, innerGap, viewportOffset)
       )
-    of LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle:
+    of LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle, LayoutMode.centerTile,
+        LayoutMode.rightTile, LayoutMode.verticalGrid, LayoutMode.deck:
       result.add(model.projectNative(outputId, mode, outerGap, innerGap))

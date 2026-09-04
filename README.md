@@ -27,9 +27,10 @@ validation, atomic commit, supervision, and scanout; Hagia only ever proposes.
 The policy surface: stable logical IDs, nine shared tag slots with
 output-local views, deterministic fixed-point scrolling columns, atomic
 cross-output movement, bounded focus and minimize histories, output reconnect
-affinity, scratchpads, and reduced pointer move/resize. The freeze profile —
-a five-layout cycle (scroller, tile, grid, monocle, vertical scroller) across
-nine views — is complete, and wire revision 3 is frozen. The full row-by-row record lives in
+affinity, scratchpads, and reduced pointer move/resize. Nine native layouts
+ship — scroller, tile, grid, monocle, vertical scroller, center tile, right
+tile, vertical grid, and deck — with a five-layout cycle across nine views by
+default, and wire revision 3 is frozen. The full row-by-row record lives in
 [the port ledger](docs/triad-port-ledger.md); signed physical archives back
 the claims that need hardware to prove.
 
@@ -37,7 +38,7 @@ The freeze locked the transport, not the vocabulary. Actions travel as opaque
 tokens Sophia never interprets, so Hagia keeps adding spatial commands without
 touching the wire — the goal being every Triad command whose authority is
 spatial policy. [The action vocabulary](docs/action-vocabulary.md) states the
-rules; `hagia config migrate-triad` is the scoreboard, and it now carries 86
+rules; `hagia config migrate-triad` is the scoreboard, and it now carries 91
 of the 137 bindings in Triad's recorded default, up from 40 at the freeze.
 
 The product goal is a complete, niri-class daily driver. What a window

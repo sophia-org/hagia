@@ -1199,6 +1199,70 @@ suite "Hagia private policy model":
     check model.columns[column].widthScale == autoScale
     model.validate()
 
+  test "the tile variants place the master where their names say":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+
+    # Right tile mirrors tile: stack on the left, master on the right.
+    model.applyAction(output, PolicyAction.selectRightTileLayout)
+    var projected = model.projectLayout([output])[0]
+    check projected.placements[0].window == windows[1]
+    check projected.placements[0].geometry == Rect(width: 500, height: 450)
+    check projected.placements[2].window == windows[0]
+    check projected.placements[2].geometry == Rect(x: 500, width: 500, height: 900)
+
+    # Centre tile puts the master between two stacks, filled alternately.
+    model.applyAction(output, PolicyAction.selectCenterTileLayout)
+    projected = model.projectLayout([output])[0]
+    check projected.placements[0].window == windows[1]
+    check projected.placements[0].geometry == Rect(width: 250, height: 900)
+    check projected.placements[1].window == windows[0]
+    check projected.placements[1].geometry == Rect(x: 250, width: 500, height: 900)
+    check projected.placements[2].window == windows[2]
+    check projected.placements[2].geometry == Rect(x: 750, width: 250, height: 900)
+    model.validate()
+
+  test "a deck shares one rectangle and shows the window that leads it":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[2])
+    model.applyAction(output, PolicyAction.selectDeckLayout)
+
+    # The focused window leads, so it takes the master area; the rest overlap.
+    let projected = model.projectLayout([output])[0]
+    check projected.placements.len == 3
+    check projected.placements[0].window == windows[2]
+    check projected.placements[0].geometry == Rect(width: 500, height: 900)
+    check projected.placements[1].geometry == Rect(x: 500, width: 500, height: 900)
+    check projected.placements[2].geometry == projected.placements[1].geometry
+    model.validate()
+
+  test "a vertical grid fills columns where a grid fills rows":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 900, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 6:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+
+    model.applyAction(output, PolicyAction.selectGridLayout)
+    let rows = model.projectLayout([output])[0]
+    check rows.placements[1].geometry.y == 0
+    check rows.placements[3].geometry.y > 0
+
+    model.applyAction(output, PolicyAction.selectVerticalGridLayout)
+    let columns = model.projectLayout([output])[0]
+    check columns.placements[1].geometry.x == 0
+    check columns.placements[1].geometry.y > 0
+    check columns.placements[3].geometry.x > 0
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)

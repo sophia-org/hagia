@@ -25,6 +25,10 @@ type
     grid
     monocle
     verticalScroller
+    centerTile
+    rightTile
+    verticalGrid
+    deck
 
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool

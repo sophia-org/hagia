@@ -807,7 +807,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 86
+    check report.outputProfile.count("\n  bind ") == 91
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -834,6 +834,10 @@ output {
       "bind Super+, \"policy:decrease-master-ratio\"",
       "bind \"Super+]\" \"policy:increase-master-count\"",
       "bind \"Super+[\" \"policy:decrease-master-count\"",
+      "bind Super+Ctrl+c \"policy:layout-center-tile\"",
+      "bind Super+Shift+c \"policy:layout-right-tile\"",
+      "bind Super+Shift+g \"policy:layout-vertical-grid\"",
+      "bind Super+Ctrl+v \"policy:layout-deck\"",
     ]:
       check carried in report.outputProfile
 

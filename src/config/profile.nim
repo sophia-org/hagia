@@ -304,18 +304,18 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
   if node.args.len > 32 or node.props.len > 32 or node.children.len > 64:
     fail("desktop profile setting exceeds structural bounds")
   if authority == ProfileAuthority.policy and node.name == "layout":
-    if node.stringArg("policy layout") notin
-        ["scroller", "tile", "grid", "monocle", "vertical-scroller"]:
+    if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")
   if authority == ProfileAuthority.policy and node.name == "layout-cycle":
-    if node.args.len == 0 or node.args.len > 5 or node.props.len != 0 or
-        node.children.len != 0:
-      fail("policy layout-cycle requires one to five layout names")
+    if node.args.len == 0 or node.args.len > supportedLayoutNames.len or
+        node.props.len != 0 or node.children.len != 0:
+      fail(
+        "policy layout-cycle requires one to " & $supportedLayoutNames.len &
+          " layout names"
+      )
     var layouts = initHashSet[string]()
     for argument in node.args:
-      if argument.kind != KString or
-          argument.kString() notin
-          ["scroller", "tile", "grid", "monocle", "vertical-scroller"] or
+      if argument.kind != KString or argument.kString() notin supportedLayoutNames or
           argument.kString() in layouts:
         fail("policy layout-cycle contains an invalid or duplicate layout")
       layouts.incl(argument.kString())

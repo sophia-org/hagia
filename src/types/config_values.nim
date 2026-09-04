@@ -97,3 +97,8 @@ const
   maxProfileBytes* = 1_048_576'i64
   maxDesktopShortcutBindings* = 256
   allProfileAuthorities* = {ProfileAuthority.policy .. ProfileAuthority.broker}
+
+const supportedLayoutNames* = [
+  "scroller", "tile", "grid", "monocle", "vertical-scroller", "center-tile",
+  "right-tile", "vertical-grid", "deck",
+]

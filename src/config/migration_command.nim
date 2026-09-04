@@ -206,6 +206,26 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "policy", MigrationDisposition.transformed, "selectMonocleLayout policy action",
       "layout-monocle",
     )
+  of "center-tile":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "selectCenterTileLayout policy action", "layout-center-tile",
+    )
+  of "right-tile":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectRightTileLayout policy action",
+      "layout-right-tile",
+    )
+  of "vertical-grid":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "selectVerticalGridLayout policy action", "layout-vertical-grid",
+    )
+  of "deck":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "selectDeckLayout policy action",
+      "layout-deck",
+    )
   of "move-window-up":
     commandMigration(
       "policy", MigrationDisposition.transformed, "moveWindowAbove policy action",
@@ -390,9 +410,9 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "tabbed substrate deferred until a shell surface can draw the tab bar; see docs/action-vocabulary.md",
       )
     if name in [
-      "center-tile", "deck", "dwindle", "dwindle-split-down", "dwindle-split-left",
-      "dwindle-split-right", "dwindle-split-up", "focus-next-in-group", "group-windows",
-      "right-tile", "spiral", "tgmix", "ungroup-window", "vertical-grid",
+      "dwindle", "dwindle-split-down", "dwindle-split-left", "dwindle-split-right",
+      "dwindle-split-up", "focus-next-in-group", "group-windows", "spiral", "tgmix",
+      "ungroup-window",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,

@@ -119,3 +119,7 @@ type PolicyAction* {.pure.} = enum
   decreaseGaps = 114
   toggleGaps = 115
   maximizeColumn = 116
+  selectCenterTileLayout = 117
+  selectRightTileLayout = 118
+  selectVerticalGridLayout = 119
+  selectDeckLayout = 120
