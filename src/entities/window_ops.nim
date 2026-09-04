@@ -4,7 +4,7 @@ import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[id_gen, queries, values]
 
-import ./[focus_ops, tag_ops]
+import ./[focus_ops, group_ops, tag_ops]
 
 ## Window and column lifecycle. Closing a window touches arrays, tags, columns,
 ## and histories, so every one of those updates happens here in one pass.
@@ -56,6 +56,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
       removedSlots.add(slot)
   for slot in removedSlots:
     model.namedScratchpads.del(slot)
+  model.forgetGroupMembership(id)
   for windowId in model.windowOrder:
     if windowId != id and model.windows[windowId].parent == id:
       model.windows[windowId].parent = nullWindowId

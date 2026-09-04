@@ -227,7 +227,7 @@ suite "Hagia foundation":
   test "every superseded checkpoint is rejected with a targeted diagnostic":
     # A schema that gained fields cannot be read by guessing what the older
     # payload meant to say, so it is refused and a complete snapshot rebuilds.
-    for version in ["1", "2"]:
+    for version in ["1", "2", "3"]:
       expect PolicyAdapterError:
         discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-" & version & "\n{}")
 
@@ -315,8 +315,8 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 85
-    check policyBindings == 79
+    check shortcuts.values.len == 88
+    check policyBindings == 82
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
@@ -807,7 +807,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 91
+    check report.outputProfile.count("\n  bind ") == 94
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -838,6 +838,9 @@ output {
       "bind Super+Shift+c \"policy:layout-right-tile\"",
       "bind Super+Shift+g \"policy:layout-vertical-grid\"",
       "bind Super+Ctrl+v \"policy:layout-deck\"",
+      "bind Super+y \"policy:group-windows\"",
+      "bind Super+Shift+y \"policy:ungroup-window\"",
+      "bind Super+Ctrl+y \"policy:focus-next-in-group\"",
     ]:
       check carried in report.outputProfile
 

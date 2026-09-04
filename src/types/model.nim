@@ -99,6 +99,14 @@ type
     focusedWindow*: WindowId
     disconnectedOrder*: uint64
 
+  GroupData* = object
+    ## A set of windows a user cycles as one. Membership changes nothing about
+    ## where a layout puts them; it changes which windows one key steps through,
+    ## and it is what a tabbed substrate will read to decide what a tab holds.
+    id*: GroupId
+    windows*: seq[WindowId]
+    activeWindow*: WindowId
+
   ScratchpadRestoreData* = object
     tags*: seq[TagId]
     output*: OutputId
@@ -127,6 +135,8 @@ type
     scratchpadOrder*: seq[WindowId]
     scratchpadRestore*: Table[WindowId, ScratchpadRestoreData]
     namedScratchpads*: Table[ScratchpadSlotId, WindowId]
+    groups*: EntityStore[GroupId, GroupData]
+    groupOfWindow*: Table[WindowId, GroupId]
     visibleScratchpad*: WindowId
     scratchpadTag*: TagId
     counters*: IdCounters
@@ -138,6 +148,7 @@ const
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64
   maxNamedScratchpadSlots* = 4
+  maxGroupMembers* = 32
   maxMasterCount* = 9
   maxGap* = 512
   # A master area narrower than a tenth or wider than nine tenths stops being

@@ -120,6 +120,12 @@ shortcut {
   bind "Super+Ctrl+equal" "policy:increase-gaps"
   bind "Super+Ctrl+m" "policy:maximize-column"
 
+  // Window groups. Grouping decides what one key steps through; it changes
+  // nothing about where a layout puts a window.
+  bind "Super+y" "policy:group-windows"
+  bind "Super+Shift+y" "policy:ungroup-window"
+  bind "Super+Ctrl+y" "policy:focus-next-in-group"
+
   // Direct layout selection. The cycle key above reaches every mode; these
   // reach one mode each. The remaining named scratchpad slots follow the same
   // pattern as the two bound above.

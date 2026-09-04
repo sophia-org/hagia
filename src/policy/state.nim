@@ -1,5 +1,7 @@
 import ../state/[id_gen, model, queries, values]
-import ../entities/[column_ops, focus_ops, output_ops, tag_ops, view_ops, window_ops]
+import
+  ../entities/
+    [column_ops, focus_ops, group_ops, output_ops, tag_ops, view_ops, window_ops]
 import
   ../systems/[focus, layout, movement, placement, scratchpad, window_state, workspaces]
 
@@ -9,5 +11,5 @@ import
 ## did not churn every consumer.
 
 export id_gen, model, queries, values
-export column_ops, focus_ops, output_ops, tag_ops, view_ops, window_ops
+export column_ops, focus_ops, group_ops, output_ops, tag_ops, view_ops, window_ops
 export focus, layout, movement, placement, scratchpad, window_state, workspaces

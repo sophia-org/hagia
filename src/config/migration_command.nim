@@ -107,6 +107,12 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "maximizeColumn policy action; a column decision, distinct from maximizing one window",
       command,
     )
+  of "group-windows", "ungroup-window", "focus-next-in-group":
+    commandMigration(
+      "policy", MigrationDisposition.retained,
+      "window group policy action; grouping decides what one key steps through, not where a layout puts a window",
+      command,
+    )
   of "toggle-gaps":
     commandMigration(
       "policy", MigrationDisposition.retained, "toggleGaps policy action", command
@@ -411,8 +417,7 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       )
     if name in [
       "dwindle", "dwindle-split-down", "dwindle-split-left", "dwindle-split-right",
-      "dwindle-split-up", "focus-next-in-group", "group-windows", "spiral", "tgmix",
-      "ungroup-window",
+      "dwindle-split-up", "spiral", "tgmix",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,

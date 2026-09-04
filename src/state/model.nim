@@ -29,6 +29,11 @@ proc clone*(model: PolicyModel): PolicyModel =
     result.scratchpadRestore[id].tags = @(restore.tags)
   for slot, id in model.namedScratchpads.pairs:
     result.namedScratchpads[slot] = id
+  for id, group in model.groups.pairs:
+    result.groups[id] = group
+    result.groups[id].windows = @(group.windows)
+  for id, groupId in model.groupOfWindow.pairs:
+    result.groupOfWindow[id] = groupId
   for id in model.columnOrder:
     var column = model.columns[id]
     column.windows = @[]
@@ -237,6 +242,20 @@ proc validate*(model: PolicyModel) =
   for slot, windowId in model.namedScratchpads.pairs:
     if slot == nullScratchpadSlotId or windowId notin seenScratchpads:
       fail("named scratchpad relationship is invalid")
+  for groupId in model.groups.ids:
+    let group = model.groups[groupId]
+    if groupId == nullGroupId or group.id != groupId or group.windows.len < 2 or
+        group.windows.len > maxGroupMembers or group.activeWindow notin group.windows:
+      fail("window group is invalid")
+    var seenMembers = initHashSet[WindowId]()
+    for windowId in group.windows:
+      if windowId notin model.windows or windowId in seenMembers or
+          model.groupOfWindow.getOrDefault(windowId, nullGroupId) != groupId:
+        fail("window group membership disagrees with its index")
+      seenMembers.incl(windowId)
+  for windowId, groupId in model.groupOfWindow.pairs:
+    if groupId notin model.groups or windowId notin model.groups[groupId].windows:
+      fail("window group index names a membership the group does not hold")
   if model.minimizedOrder.len > maxMinimizedHistory:
     fail("minimized history is excessive")
   var seenMinimized = initHashSet[WindowId]()

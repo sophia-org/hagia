@@ -48,7 +48,11 @@ type
     slot: uint32
     window: uint32
 
-  CheckpointV3Dto = object
+  GroupRelationDto = object
+    window: uint32
+    group: uint32
+
+  CheckpointV4Dto = object
     schema: uint32
     counters: IdCounters
     settings: PolicySettings
@@ -69,6 +73,8 @@ type
     scratchpadOrder: seq[uint32]
     scratchpadRestore: seq[ScratchpadRestoreDto]
     namedScratchpads: seq[NamedScratchpadDto]
+    groups: seq[GroupData]
+    groupOfWindow: seq[GroupRelationDto]
     visibleScratchpad: uint32
     scratchpadTag: uint32
     surfaces: seq[SurfaceDto]
@@ -129,8 +135,8 @@ proc model*(adapter: PolicyAdapter): PolicyModel =
 proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
-proc checkpointDto(adapter: PolicyAdapter): CheckpointV3Dto =
-  result.schema = 3
+proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
+  result.schema = 4
   result.counters = adapter.model.counters
   result.settings = adapter.model.settings
   result.activeOutput = uint32(adapter.model.activeOutput)
@@ -192,6 +198,16 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV3Dto =
     proc(left, right: NamedScratchpadDto): int =
       cmp(left.slot, right.slot)
   )
+  for groupId in adapter.model.groups.ids:
+    result.groups.add(adapter.model.groups[groupId])
+  for window, group in adapter.model.groupOfWindow.pairs:
+    result.groupOfWindow.add(
+      GroupRelationDto(window: uint32(window), group: uint32(group))
+    )
+  result.groupOfWindow.sort(
+    proc(left, right: GroupRelationDto): int =
+      cmp(left.window, right.window)
+  )
   result.visibleScratchpad = uint32(adapter.model.visibleScratchpad)
   result.scratchpadTag = uint32(adapter.model.scratchpadTag)
   for key, window in adapter.surfaceToWindow.pairs:
@@ -224,11 +240,11 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV3Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-3\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-4\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  const prefix = "HAGIA-POLICY-CHECKPOINT-3\n"
-  for superseded in ["1", "2"]:
+  const prefix = "HAGIA-POLICY-CHECKPOINT-4\n"
+  for superseded in ["1", "2", "3"]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & superseded & "\n"):
       fail(
         "policy checkpoint v" & superseded &
@@ -236,12 +252,12 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       )
   if not payload.startsWith(prefix):
     fail("policy checkpoint version is invalid")
-  var dto: CheckpointV3Dto
+  var dto: CheckpointV4Dto
   try:
-    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV3Dto)
+    dto = payload[prefix.len .. ^1].parseJson().jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
-  if dto.schema != 3:
+  if dto.schema != 4:
     fail("policy checkpoint schema is invalid")
   result.model.counters = dto.counters
   if dto.settings.layoutCycle.len == 0:
@@ -285,6 +301,10 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   for relation in dto.namedScratchpads:
     result.model.namedScratchpads[ScratchpadSlotId(relation.slot)] =
       WindowId(relation.window)
+  for group in dto.groups:
+    result.model.groups[group.id] = group
+  for relation in dto.groupOfWindow:
+    result.model.groupOfWindow[WindowId(relation.window)] = GroupId(relation.group)
   result.model.visibleScratchpad = WindowId(dto.visibleScratchpad)
   result.model.scratchpadTag = TagId(dto.scratchpadTag)
   if dto.affinities.len != dto.affinityOrder.len:

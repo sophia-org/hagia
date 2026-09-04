@@ -1263,6 +1263,94 @@ suite "Hagia private policy model":
     check columns.placements[3].geometry.x > 0
     model.validate()
 
+  test "grouping joins a neighbour and widens rather than splinters":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+
+    model.applyAction(output, PolicyAction.groupWindows)
+    let first = model.groupOfWindow[windows[0]]
+    check model.groups[first].windows == @[windows[0], windows[1]]
+    check model.groupOfWindow[windows[1]] == first
+
+    # Grouping again from a member takes in the next neighbour instead of
+    # starting a second group beside the first.
+    model.setFocus(output, windows[1])
+    model.applyAction(output, PolicyAction.groupWindows)
+    check model.groups.ids.len == 1
+    let widened = model.groupOfWindow[windows[1]]
+    check model.groups[widened].windows.len == 3
+    for windowId in windows:
+      check model.groupOfWindow[windowId] == widened
+    model.validate()
+
+  test "a group of two dissolves rather than leaving one window in it":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    let left = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let right = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, left)
+    model.applyAction(output, PolicyAction.groupWindows)
+    check model.groups.ids.len == 1
+
+    model.applyAction(output, PolicyAction.ungroupWindow)
+    check model.groups.ids.len == 0
+    check left notin model.groupOfWindow
+    check right notin model.groupOfWindow
+    model.validate()
+
+  test "closing a window leaves no group membership behind":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.groupWindows)
+    model.setFocus(output, windows[1])
+    model.applyAction(output, PolicyAction.groupWindows)
+    check model.groups[model.groupOfWindow[windows[0]]].windows.len == 3
+
+    model.removeWindow(windows[2])
+    check model.groups[model.groupOfWindow[windows[0]]].windows.len == 2
+    model.removeWindow(windows[1])
+    check model.groups.ids.len == 0
+    check model.groupOfWindow.len == 0
+    model.validate()
+
+  test "group focus steps through members and skips one that left the view":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    model.ensureViewCount(output, 9)
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.groupWindows)
+    model.setFocus(output, windows[1])
+    model.applyAction(output, PolicyAction.groupWindows)
+
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.focusNextInGroup)
+    check model.outputs[output].focusedWindow == windows[1]
+    model.applyAction(output, PolicyAction.focusNextInGroup)
+    check model.outputs[output].focusedWindow == windows[2]
+    model.applyAction(output, PolicyAction.focusNextInGroup)
+    check model.outputs[output].focusedWindow == windows[0]
+
+    # A member sent to another view is still a member, but stepping to it
+    # would focus something the user cannot see.
+    model.setFocus(output, windows[1])
+    model.applyAction(output, PolicyAction.moveToView2)
+    model.activateViewSlot(output, 1)
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.focusNextInGroup)
+    check model.outputs[output].focusedWindow == windows[2]
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
@@ -1629,9 +1717,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 3
+    check parseJson(printed)["schema"].getInt() == 4
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-3\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")

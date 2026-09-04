@@ -158,6 +158,12 @@ proc profileName*(action: PolicyAction): string =
     "layout-vertical-grid"
   of PolicyAction.selectDeckLayout:
     "layout-deck"
+  of PolicyAction.groupWindows:
+    "group-windows"
+  of PolicyAction.ungroupWindow:
+    "ungroup-window"
+  of PolicyAction.focusNextInGroup:
+    "focus-next-in-group"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -367,3 +373,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.setLayout(output, LayoutMode.verticalGrid)
   of PolicyAction.selectDeckLayout:
     model.setLayout(output, LayoutMode.deck)
+  of PolicyAction.groupWindows:
+    model.groupFocusedWithNeighbour(output)
+  of PolicyAction.ungroupWindow:
+    model.ungroupFocused(output)
+  of PolicyAction.focusNextInGroup:
+    model.focusNextInGroup(output)

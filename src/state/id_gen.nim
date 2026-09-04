@@ -25,3 +25,6 @@ proc allocateWindowId*(model: var PolicyModel): WindowId =
 
 proc allocateColumnId*(model: var PolicyModel): ColumnId =
   ColumnId(nextRaw(model.counters.columns, "column"))
+
+proc allocateGroupId*(model: var PolicyModel): GroupId =
+  GroupId(nextRaw(model.counters.groups, "group"))

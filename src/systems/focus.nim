@@ -1,9 +1,9 @@
-import std/sequtils
+import std/[sequtils, tables]
 
 import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[queries, values]
-import ../entities/focus_ops
+import ../entities/[focus_ops, group_ops]
 
 import ./[placement]
 
@@ -123,3 +123,60 @@ proc focusWithinColumnRelative*(
   if windows.len < 2:
     return
   model.setFocus(outputId, windows[wrappedIndex(row, delta, windows.len)])
+
+proc groupFocusedWithNeighbour*(model: var PolicyModel, outputId: OutputId) =
+  ## Join the focused window to the one after it in layout order, merging both
+  ## windows' existing groups so grouping twice widens a group rather than
+  ## splintering it.
+  if outputId notin model.outputs:
+    fail("group output does not exist")
+  let focused = model.outputs[outputId].focusedWindow
+  if focused == nullWindowId:
+    return
+  var visible: seq[WindowId]
+  for windows in model.visibleColumns(outputId):
+    visible.add(windows)
+  let index = visible.find(focused)
+  if index < 0 or visible.len < 2:
+    return
+  let neighbour = visible[wrappedIndex(index, 1, visible.len)]
+  var members: seq[WindowId]
+  for windowId in [focused, neighbour]:
+    if windowId in model.groupOfWindow:
+      for member in model.groups[model.groupOfWindow[windowId]].windows:
+        if member notin members:
+          members.add(member)
+    elif windowId notin members:
+      members.add(windowId)
+  discard model.addGroup(members)
+  model.setGroupActiveWindow(focused)
+
+proc ungroupFocused*(model: var PolicyModel, outputId: OutputId) =
+  if outputId notin model.outputs:
+    fail("group output does not exist")
+  let focused = model.outputs[outputId].focusedWindow
+  if focused != nullWindowId:
+    model.forgetGroupMembership(focused)
+
+proc focusNextInGroup*(model: var PolicyModel, outputId: OutputId) =
+  ## Step to the next window of the focused window's group. A window that is
+  ## in no group has no group to step through, and staying put says so.
+  if outputId notin model.outputs:
+    fail("focus output does not exist")
+  let focused = model.outputs[outputId].focusedWindow
+  if focused == nullWindowId or focused notin model.groupOfWindow:
+    return
+  let windows = model.groups[model.groupOfWindow[focused]].windows
+  let index = windows.find(focused)
+  if index < 0 or windows.len < 2:
+    return
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  var step = 1
+  while step < windows.len:
+    let candidate = windows[wrappedIndex(index, step, windows.len)]
+    if candidate in eligible:
+      model.setGroupActiveWindow(candidate)
+      model.setFocus(outputId, candidate)
+      return
+    inc step

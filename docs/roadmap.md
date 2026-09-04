@@ -256,7 +256,7 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 91 of its bindings now carry over, up from 40 at the
+`tests/tfoundation.nim`: 94 of its bindings now carry over, up from 40 at the
 freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -332,6 +332,14 @@ move lands where the user saw the window.
 - [ ] `tgmix`, which switches between master-stack and grid at four windows.
   Cheap to add once someone wants it; it is a rule about which layout to run,
   not a new geometry.
+
+### Window groups
+
+- [x] `group-windows`, `ungroup-window`, and `focus-next-in-group`. A group is
+  a set of windows one key steps through; it decides nothing about geometry,
+  which is what grouping does in Triad outside its frame tree. The membership
+  model is also what a tabbed substrate needs to know what a tab holds, so it
+  is built before the substrates rather than with them.
 
 ### Tier 4 — layout power, large and coupled
 
