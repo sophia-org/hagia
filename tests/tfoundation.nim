@@ -1,6 +1,8 @@
 import std/[json, options, os, sets, strutils, tables, tempfiles, unittest]
 
 import config/[coordinator, migration, policy_candidate, profile]
+import types/migration
+import types/config_values
 import observability
 import policy/[actions, entity_store, reducer, state]
 import types/[actions, core, model, policy_messages, runtime]

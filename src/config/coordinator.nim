@@ -1,65 +1,7 @@
 import std/[os, posix, sets, tables, tempfiles]
 
+import ../types/config_values
 import ./profile
-
-type
-  EffectiveSetting* = object
-    key*: string
-    value*: string
-    provenance*: ValueProvenance
-
-  EffectiveAuthorityConfig* = object
-    authority*: ProfileAuthority
-    settings*: Table[string, EffectiveSetting]
-
-  ProfileActivationPhase* {.pure.} = enum
-    idle
-    preparing
-    prepared
-    activating
-    rollingBack
-
-  ProfileActivationModel* = object
-    phase*: ProfileActivationPhase
-    activeGeneration*: uint64
-    activeDigest*: string
-    latestGeneration*: uint64
-    candidateGeneration*: uint64
-    candidateDigest*: string
-    preparedAuthorities*: set[ProfileAuthority]
-    activatedAuthorities*: set[ProfileAuthority]
-    rollbackPending*: set[ProfileAuthority]
-
-  ProfileActivationMsgKind* {.pure.} = enum
-    beginCandidate
-    authorityPrepared
-    activationRequested
-    authorityActivated
-    rollbackCompleted
-
-  ProfileActivationMsg* = object
-    kind*: ProfileActivationMsgKind
-    authority*: ProfileAuthority
-    generation*: uint64
-    digest*: string
-    success*: bool
-
-  ProfileActivationEffectKind* {.pure.} = enum
-    prepareAuthority
-    activateAuthority
-    rollbackAuthority
-
-  ProfileActivationEffect* = object
-    kind*: ProfileActivationEffectKind
-    authority*: ProfileAuthority
-    generation*: uint64
-    digest*: string
-
-  ProfileActivationUpdate* = object
-    model*: ProfileActivationModel
-    effects*: seq[ProfileActivationEffect]
-
-const allProfileAuthorities* = {ProfileAuthority.policy .. ProfileAuthority.broker}
 
 proc clearCandidate(model: var ProfileActivationModel) =
   model.candidateGeneration = 0

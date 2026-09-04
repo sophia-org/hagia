@@ -1,6 +1,6 @@
 import std/[net, posix, strutils, unittest]
 
-import config/profile
+import types/config_values
 import sophia/policy_client
 import sophia/[profile_handoff, wm_v1]
 

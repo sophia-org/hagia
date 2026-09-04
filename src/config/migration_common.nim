@@ -2,40 +2,7 @@ import std/[math, sets]
 
 import kdl
 
-type
-  MigrationDisposition* {.pure.} = enum
-    retained
-    transformed
-    unsupported
-    excluded
-
-  MigrationItemKind* {.pure.} = enum
-    setting
-    physicalBinding
-
-  MigrationBindingKind* {.pure.} = enum
-    none
-    key
-    pointer
-    axis
-    gesture
-    switch
-
-  MigrationItem* = object
-    kind*: MigrationItemKind
-    source*: string
-    settingAuthority*: string
-    authority*: string
-    disposition*: MigrationDisposition
-    result*: string
-    bindingKind*: MigrationBindingKind
-    context*: string
-    trigger*: string
-    command*: string
-
-  MigrationReport* = object
-    items*: seq[MigrationItem]
-    outputProfile*: string
+import ../types/migration
 
 proc add*(
     report: var MigrationReport,

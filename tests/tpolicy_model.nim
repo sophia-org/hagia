@@ -1,6 +1,7 @@
 import std/[net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
 import config/profile
+import types/config_values
 import policy/[actions, entity_store, projection, state]
 import types/[actions, core, model, projection]
 import

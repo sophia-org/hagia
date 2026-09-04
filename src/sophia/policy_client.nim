@@ -1,6 +1,6 @@
 import std/[net, options, os, sets, strutils]
 
-import ../config/profile
+import ../types/config_values
 import ../observability
 import ../types/actions
 import ../policy/actions

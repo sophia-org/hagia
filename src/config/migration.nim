@@ -2,6 +2,8 @@ import std/[os, sets, strutils]
 
 import kdl
 
+import ../types/migration
+
 import ./[migration_common, migration_output, profile]
 
 export migration_common

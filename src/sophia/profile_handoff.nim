@@ -1,4 +1,4 @@
-import ../config/profile
+import ../types/config_values
 import ./wm_v1
 
 type

@@ -2,6 +2,8 @@ import std/[math, sets, strutils]
 
 import kdl
 
+import ../types/migration
+
 import ./migration_common
 
 proc validConnector*(value: string): bool =

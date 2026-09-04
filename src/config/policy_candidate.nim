@@ -2,7 +2,7 @@ import std/[sequtils, strutils]
 
 import kdl
 
-import ../types/model
+import ../types/[config_values, model]
 import ./profile
 
 proc integerValue(value: ProfileValue): int =

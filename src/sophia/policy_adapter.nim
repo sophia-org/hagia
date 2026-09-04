@@ -1,6 +1,7 @@
 import std/[algorithm, json, jsonutils, options, sets, strutils, tables]
 
-import ../config/[policy_candidate, profile]
+import ../types/config_values
+import ../config/policy_candidate
 import ../observability
 import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]

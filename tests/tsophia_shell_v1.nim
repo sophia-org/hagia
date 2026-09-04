@@ -105,8 +105,7 @@ suite "independent Sophia Shell v1 wire and reducer":
     )
     check reserving.reservation.isSome
     let transaction = 0x0102030405060708'u64
-    check reserving.candidateFrame(transaction).encodeShellFrame() ==
-      golden.decodeHex()
+    check reserving.candidateFrame(transaction).encodeShellFrame() == golden.decodeHex()
 
   test "complete snapshot withdrawal clears visible shell state":
     let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")

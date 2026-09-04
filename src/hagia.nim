@@ -1,6 +1,7 @@
 import std/[os, strutils]
 
 import config/[migration, profile]
+import types/config_values
 import observability
 import sophia/policy_client
 

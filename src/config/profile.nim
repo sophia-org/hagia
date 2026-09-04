@@ -3,38 +3,10 @@ import std/[algorithm, options, os, posix, sets, strutils, tables]
 import kdl
 import nimcrypto/[hash, sha2]
 
+import ../types/config_values
+
 type
   DesktopProfileError* = object of CatchableError
-
-  ProfileAuthority* {.pure.} = enum
-    policy
-    shell
-    shortcut
-    session
-    input
-    output
-    broker
-
-  ValueProvenance* = object
-    path*: string
-    ordinal*: int
-
-  ProfileValue* = object
-    key*: string
-    encoded*: string
-    provenance*: ValueProvenance
-
-  AuthorityCandidate* = object
-    authority*: ProfileAuthority
-    generation*: uint64
-    digest*: string
-    values*: seq[ProfileValue]
-
-  DesktopProfileGeneration* = object
-    generation*: uint64
-    digest*: string
-    sources*: seq[string]
-    candidates*: array[ProfileAuthority, AuthorityCandidate]
 
   ExpansionState = object
     files: int
@@ -48,12 +20,7 @@ type
     node: KdlNode
     provenance: ValueProvenance
 
-const
-  maxProfileDepth* = 10
-  maxProfileFiles* = 64
-  maxProfileBytes* = 1_048_576'i64
-  maxDesktopShortcutBindings* = 256
-  compiledDesktopProfile* = staticRead("../../examples/config/default.kdl")
+const compiledDesktopProfile* = staticRead("../../examples/config/default.kdl")
 
 proc fail(message: string) {.noreturn.} =
   raise newException(DesktopProfileError, message)
