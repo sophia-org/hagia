@@ -106,6 +106,40 @@ suite "Hagia foundation":
       second.candidate.output(output).get().focusedWindow
     check first.affectedOutputs == second.affectedOutputs
 
+  test "config init seeds once and never overwrites":
+    let directory = createTempDir("hagia-init-", "")
+    let previousConfigHome = getEnv("XDG_CONFIG_HOME")
+    defer:
+      if previousConfigHome.len > 0:
+        putEnv("XDG_CONFIG_HOME", previousConfigHome)
+      else:
+        delEnv("XDG_CONFIG_HOME")
+      removeDir(directory)
+    putEnv("XDG_CONFIG_HOME", directory)
+    let expected = directory / "hagia" / "config.kdl"
+
+    # First run installs the compiled default byte-for-byte, and the result
+    # loads: a seed that cannot be loaded must not count as installed.
+    let first = initDesktopProfile()
+    check first.path == expected
+    check first.installed
+    check readFile(expected) == compiledDesktopProfile
+    check loadDesktopProfile(expected).generation == 1
+
+    # Second run leaves the file untouched, even after a user edit.
+    writeFile(expected, "schema 1\n")
+    let second = initDesktopProfile()
+    check not second.installed
+    check readFile(expected) == "schema 1\n"
+
+    # A symlink occupying the path is also left alone: seeding must never
+    # write through or replace something the user pointed elsewhere.
+    removeFile(expected)
+    createSymlink(directory / "nowhere.kdl", expected)
+    let third = initDesktopProfile()
+    check not third.installed
+    check symlinkExists(expected)
+
   test "Hagia accepts only its provenance-bearing policy candidate":
     var model = initPolicyModel()
     let directory = createTempDir("hagia-compiled-profile-", "")

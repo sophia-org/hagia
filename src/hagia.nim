@@ -18,6 +18,8 @@ const usage = """hagia — reference window manager for the Sophia display serve
 usage:
   hagia [--socket=PATH] [--config=PATH]   run the policy session
   hagia config check [--config=PATH]      validate a desktop profile
+  hagia config init [--config=PATH]       seed the default profile, never
+                                          overwriting an existing one
   hagia config print-effective [--config=PATH]
                                           print the fully expanded profile
   hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH
@@ -53,6 +55,18 @@ proc run(arguments: seq[string]) =
       stdout.writeLine(
         "ok generation=" & $profile.generation & " digest=" & profile.digest
       )
+    of "init":
+      # Seed-if-absent, never overwrite. Validation is the load-back: a write
+      # that cannot be loaded must not report success.
+      let (path, installed) = initDesktopProfile(configPath)
+      if installed:
+        let profile = loadDesktopProfile(path)
+        stdout.writeLine(
+          "installed " & path & " generation=" & $profile.generation & " digest=" &
+            profile.digest
+        )
+      else:
+        stdout.writeLine("left existing " & path)
     of "print-effective":
       stdout.write(loadDesktopProfile(configPath).effectiveProfile())
     of "migrate-triad":
@@ -66,7 +80,7 @@ proc run(arguments: seq[string]) =
     else:
       raise newException(
         ValueError,
-        "usage: hagia config check|print-effective [--config=PATH]\n" &
+        "usage: hagia config check|print-effective|init [--config=PATH]\n" &
           "       hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH",
       )
     return

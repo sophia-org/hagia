@@ -1,4 +1,4 @@
-import std/[algorithm, options, os, posix, sets, strutils, tables]
+import std/[algorithm, options, os, posix, sets, strutils, tables, tempfiles]
 
 import kdl
 import nimcrypto/[hash, sha2]
@@ -42,6 +42,53 @@ proc profilePath*(explicitPath = ""): Option[string] =
   if fileExists(systemPath):
     return some(systemPath)
   none(string)
+
+proc initTargetPath(explicitPath: string): string =
+  ## Where `config init` writes: the explicit path, or the user discovery
+  ## location. Never the system path — seeding /etc is an operator act, not a
+  ## first-run convenience.
+  if explicitPath.len > 0:
+    if not explicitPath.isAbsolute():
+      fail("explicit desktop profile path must be absolute")
+    return explicitPath
+  let configHome = getEnv("XDG_CONFIG_HOME")
+  if configHome.len > 0:
+    configHome / "hagia" / "config.kdl"
+  else:
+    getHomeDir() / ".config" / "hagia" / "config.kdl"
+
+proc initDesktopProfile*(explicitPath = ""): tuple[path: string, installed: bool] =
+  ## Seed-if-absent, Triad's installer discipline: write the compiled default
+  ## only when nothing — file, symlink, or anything else — already occupies the
+  ## path, and never overwrite. An existing entry is left alone and reported,
+  ## not treated as an error, so repeated runs are safe.
+  let target = initTargetPath(explicitPath)
+  if fileExists(target) or symlinkExists(target) or dirExists(target):
+    return (target, false)
+  let parent = target.parentDir()
+  if parent.len > 0:
+    createDir(parent)
+  let directory = if parent.len > 0: parent else: "."
+  var temporary = ""
+  var candidate: File
+  try:
+    (candidate, temporary) =
+      createTempFile(target.extractFilename() & ".init-", "", directory)
+    setFilePermissions(temporary, {fpUserRead, fpUserWrite, fpGroupRead, fpOthersRead})
+    candidate.write(compiledDesktopProfile)
+    candidate.flushFile()
+    if posix.fsync(candidate.getFileHandle()) != 0:
+      raiseOSError(osLastError())
+    candidate.close()
+    candidate = nil
+    moveFile(temporary, target)
+    temporary = ""
+  finally:
+    if candidate != nil:
+      candidate.close()
+    if temporary.len > 0:
+      removeFile(temporary)
+  (target, true)
 
 proc checkedPath(path: string): string =
   result = path.expandFilename()

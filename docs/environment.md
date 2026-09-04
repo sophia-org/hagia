@@ -23,7 +23,7 @@ development sometimes needs one.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `XDG_CONFIG_HOME` | `~/.config` | Root of profile discovery. The search order is `--config=PATH` (absolute), then `$XDG_CONFIG_HOME/hagia/config.kdl`, then `~/.config/hagia/config.kdl`, then `/etc/hagia/config.kdl`, then the compiled fallback that `examples/config/default.kdl` mirrors exactly. |
+| `XDG_CONFIG_HOME` | `~/.config` | Root of profile discovery. The search order is `--config=PATH` (absolute), then `$XDG_CONFIG_HOME/hagia/config.kdl`, then `~/.config/hagia/config.kdl`, then `/etc/hagia/config.kdl`, then the compiled fallback that `examples/config/default.kdl` mirrors exactly. `hagia config init` seeds the user location with that default — once, never overwriting. |
 
 ## Observability
 

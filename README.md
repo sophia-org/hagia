@@ -79,8 +79,9 @@ hagia config print-effective [--config=/absolute/path]
 hagia config migrate-triad --input=/path/config.kdl --output-dir=/new/directory
 ```
 
-`examples/config/default.kdl` is the copyable default and the exact compiled
-fallback. Personal profiles stay user-owned; migration never overwrites an
+`examples/config/default.kdl` is the default and the exact compiled fallback;
+`hagia config init` seeds it into `~/.config/hagia/config.kdl` once and never
+overwrites an existing profile. Personal profiles stay user-owned; migration never overwrites an
 output file, and it reports every setting it retained, transformed, or
 excluded — with the reason.
 
