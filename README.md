@@ -1,71 +1,68 @@
 # Hagia
 
-Hagia is a standalone spatial-policy project for the Sophia display server.
-It is the planned Sophia-native port of Triad's useful policy and desktop
-experience, not a Triad plugin, compatibility branch, or River client. Hagia
-imports none of Triad's River/Wayland runtime machinery or project history. It
-ports useful policy deliberately from a recorded Triad baseline, reusing
-authority-neutral storage, identity, include-expansion, and test patterns with
-source-level provenance and license notices.
+Hagia is the reference window manager for the
+[Sophia display server](https://github.com/sophia-org/sophia-stack): a
+standalone spatial-policy client that owns tags, views, layouts, and focus,
+and draws nothing. It's also a real window manager, ported deliberately from
+[Triad](docs/provenance.md) and driven daily — a reference implementation in
+the sense that it's the canonical example to learn from, not in the sense of
+being a toy.
 
-The first retained slice independently implements Sophia's `sophia_wm_v1`
-wire in Nim. Its proof client negotiates a private session socket, strictly
-assembles a complete snapshot, reconciles it into stable Hagia entities,
-answers the exact affected-output request with a complete private-tag
-projection, and requires an explicit committed outcome. It imports no Sophia,
-Wayland, River, or Triad runtime library.
+Hagia is one corner of a triangle. Sophia owns the server and the protocols.
+[Narthex](https://github.com/sophia-org/narthex) is the reference shell — the
+switcher and work-area client with a strictly smaller capability. If you're
+deciding what to build and where it goes, start with Sophia's
+[Building on Sophia](https://github.com/sophia-org/sophia-stack/blob/master/docs/building-on-sophia.md);
+if you're building a window manager, this repository is the one to copy from.
 
-Run its cross-repository conformance gate against a Sophia checkout:
+## What It Does
+
+Hagia independently implements the `sophia_wm_v1` wire in Nim — no Sophia,
+Wayland, River, or Triad library anywhere in the build. It connects to the
+session-owned `SOPHIA_WM_SOCKET`, assembles complete snapshots, reconciles
+them into stable logical entities, and answers each projection request with a
+complete, deterministic layout. Sophia keeps scene truth, input, rendering,
+validation, atomic commit, supervision, and scanout; Hagia only ever proposes.
+
+The policy surface: stable logical IDs, nine shared tag slots with
+output-local views, deterministic fixed-point scrolling columns, atomic
+cross-output movement, bounded focus and minimize histories, output reconnect
+affinity, scratchpads, and reduced pointer move/resize. The freeze profile —
+one scrolling layout, nine views — is complete, and wire revision 3 is
+frozen. The full row-by-row record lives in
+[the port ledger](docs/triad-port-ledger.md); signed physical archives back
+the claims that need hardware to prove.
+
+Sessions survive restarts. An optional `HAGIA_POLICY_CHECKPOINT` file is
+written atomically after every committed cycle, and a restarted Hagia
+revalidates it against a complete snapshot before trusting it. `SIGHUP` asks a
+running Hagia to hand over to a rebuilt binary; `SIGUSR1` dumps its state;
+`HAGIA_POLICY_TRACE` records a session that `hagia replay` can re-run offline,
+byte for byte, on any machine.
+
+## Verify It
+
+The conformance gate runs against a Sophia checkout:
 
 ```sh
 SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
 ```
 
-The gate checks the same valid, malformed, and fixed-record corpus used by
-Sophia's generated Rust and C99 codecs, then runs the independently compiled
-Hagia client through Sophia's authenticated transport and canonical Engine
-reducer.
+It checks the same valid, malformed, and fixed-record corpus that Sophia's
+generated Rust and C99 codecs parse, then drives the compiled Hagia client
+through Sophia's authenticated transport and canonical Engine reducer.
+`nimble verify` adds formatting, bounded Alloy/Z3 entity invariants, and the
+TLA+ startup/rollback lifecycle. `nimble layout` checks the data-oriented
+module discipline alone, in under a second.
 
-`nimble verify` additionally checks formatting, bounded Alloy/Z3 entity
-invariants, and the generation-aware TLA+ startup/rollback lifecycle. Set
-`HAGIA_TLA2TOOLS_JAR` when the TLC jar is not under `~/src/Specula/lib/`.
+The installed hardware procedure lives in Sophia's
+`tools/hagia_policy_physical_gate.sh` and is deliberately not part of
+`nimble test` — taking DRM/KMS and physical input needs an operator's
+explicit say-so.
 
-Hagia now carries the first bounded Triad-policy slice: stable logical IDs, nine
-shared tag slots with output-local views, commit-aware complete-snapshot
-reconciliation, bounded output reconnect affinity, deterministic fixed-point
-scrolling columns, atomic cross-output movement, output focus, column
-consume/expel, bounded focus/minimize histories, presentation-state reduction,
-nonempty multi-tag view/window mutation, completed reduced pointer move/resize,
-and a checked-in native action and chrome profile. The retained freeze profile
-has one scrolling layout and nine fixed views. It is complete, and Sophia
-interface major 1, wire revision 3 is stable. The 28-row record closes at 21
-complete, 0 partial, 0 open, and 7 excluded; signed Sophia physical archive
-`0001` supplies the final frame-fed apply/rollback evidence. The `hagia`
-executable is a long-running client of the session-owned
-`SOPHIA_WM_SOCKET`; it does not create or own that endpoint. Persistent
-recovery uses an optional `HAGIA_POLICY_CHECKPOINT` file with bounded,
-owner-only, atomic replacement; restored state is revalidated and reconciled
-against a complete snapshot before use. Checkpoint v2 is an explicit,
-stable-ID-ordered logical DTO; v1 is rejected and rebuilt from a complete
-snapshot. The physical checkpoint/restart and presentation-state workload has
-passed. Shell surface policy now lives in
-[Narthex](https://github.com/sophia-org/narthex), a separate client with a
-strictly smaller capability. Hagia is a window manager only: it owns tags,
-views, layouts, and focus, and it does not grow panels, launchers, trays, or
-notifications. Signed archive `0006` proves the retained generic switcher
-lifecycle under the previous in-tree `hagia-shell` name. The
-retained continuous move/resize interaction is complete; broader policy parity
-remains open. Sophia owns scene truth, input
-authority, validation, atomic
-commit, rendering, supervision, and scanout. See
-`docs/architecture.md`,
-`docs/capability-map.md`, `docs/provenance.md`, and `docs/roadmap.md`.
+## Configuration
 
-Contributor rules are indexed in `docs/README.md`. Hagia carries Triad's
-reviewed NEP-1/`nph`, data-oriented, single-lookup, and DRY discipline while
-adapting it to Sophia's stricter authority and independent-wire boundaries.
-
-Validate or inspect the unified desktop profile without opening a session:
+Inspect or migrate a desktop profile without opening a session:
 
 ```sh
 hagia config check [--config=/absolute/path]
@@ -73,21 +70,20 @@ hagia config print-effective [--config=/absolute/path]
 hagia config migrate-triad --input=/path/config.kdl --output-dir=/new/directory
 ```
 
-`examples/config/default.kdl` is the generic copyable default and the exact
-compiled fallback. Personal profiles remain user-owned configuration; release
-and conformance work must not copy them into Hagia source.
+`examples/config/default.kdl` is the copyable default and the exact compiled
+fallback. Personal profiles stay user-owned; migration never overwrites an
+output file, and it reports every setting it retained, transformed, or
+excluded — with the reason.
 
-The profile uses explicit authority sections and bounded owner-safe includes.
-Migration never overwrites output files and reports every retained,
-transformed, unsupported, or authority-excluded Triad setting.
+## For Contributors
 
-Sophia carries the opt-in installed hardware procedure in
-`tools/hagia_policy_physical_gate.sh`. It is intentionally not part of
-`nimble test`: taking DRM/KMS and physical input ownership requires explicit
-operator authorization.
+`docs/README.md` indexes the rules. The short version: NEP-1 with `nph` as
+the formatter, data separated from code and gated mechanically, one lookup
+per decision, and every boundary failing closed. Hagia carries Triad's
+discipline while adapting it to Sophia's stricter authority lines.
 
 ## License
 
-Hagia is released under the BSD 3-Clause License. Copyright 2026 Mason Austin
-Green. Source-derived Triad portions and their MIT terms are recorded in
+BSD 3-Clause. Copyright 2026 Mason Austin Green. Triad-derived portions and
+their MIT terms are recorded in
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
