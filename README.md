@@ -28,8 +28,8 @@ The policy surface: stable logical IDs, nine shared tag slots with
 output-local views, deterministic fixed-point scrolling columns, atomic
 cross-output movement, bounded focus and minimize histories, output reconnect
 affinity, scratchpads, and reduced pointer move/resize. The freeze profile —
-one scrolling layout, nine views — is complete, and wire revision 3 is
-frozen. The full row-by-row record lives in
+a five-layout cycle (scroller, tile, grid, monocle, vertical scroller) across
+nine views — is complete, and wire revision 3 is frozen. The full row-by-row record lives in
 [the port ledger](docs/triad-port-ledger.md); signed physical archives back
 the claims that need hardware to prove.
 
