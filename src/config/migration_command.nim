@@ -196,6 +196,72 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "policy", MigrationDisposition.transformed, "selectMonocleLayout policy action",
       "layout-monocle",
     )
+  of "move-window-up":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveWindowAbove policy action",
+      "move-window-above",
+    )
+  of "move-window-down":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveWindowBelow policy action",
+      "move-window-below",
+    )
+  of "move-window-left":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "moveWindowToColumnPrevious policy action; at the edge the window opens a column there",
+      "move-window-column-prev",
+    )
+  of "move-window-right":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "moveWindowToColumnNext policy action; at the edge the window opens a column there",
+      "move-window-column-next",
+    )
+  of "move-column-left":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveColumnPrevious policy action",
+      "move-column-prev",
+    )
+  of "move-column-right":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveColumnNext policy action",
+      "move-column-next",
+    )
+  of "move-column-to-first":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveColumnFirst policy action",
+      "move-column-first",
+    )
+  of "move-column-to-last":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveColumnLast policy action",
+      "move-column-last",
+    )
+  of "focus-column-first":
+    commandMigration(
+      "policy", MigrationDisposition.retained, "focusColumnFirst policy action", command
+    )
+  of "focus-column-last":
+    commandMigration(
+      "policy", MigrationDisposition.retained, "focusColumnLast policy action", command
+    )
+  of "zoom":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "promoteColumn policy action; Hagia's master is whichever column sits first",
+      "promote-column",
+    )
+  of "move-to-tag-right":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveToViewNext policy action",
+      "move-to-view-next",
+    )
+  of "move-to-tag-left":
+    commandMigration(
+      "policy", MigrationDisposition.transformed, "moveToViewPrevious policy action",
+      "move-to-view-prev",
+    )
   of "new-workspace":
     commandMigration(
       "policy", MigrationDisposition.retained, "newWorkspace policy action", command
@@ -241,6 +307,31 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       return commandMigration(
         "policy", MigrationDisposition.transformed, "moveToView policy action", command
       )
+    if command.boundedWorkspaceCommand("swap-to-tag "):
+      return commandMigration(
+        "policy",
+        MigrationDisposition.transformed,
+        "swapWithView policy action",
+        "swap-with-view " & command.commandArgument("swap-to-tag "),
+      )
+    let outputDirection = command.commandArgument("move-workspace-to-output ")
+    if outputDirection.len > 0:
+      if outputDirection notin ["left", "right", "up", "down"]:
+        return commandMigration(
+          "policy", MigrationDisposition.excluded,
+          "move-workspace-to-output names a direction Hagia does not recognise",
+        )
+      # Hagia orders outputs rather than placing them on a compass, so the two
+      # senses collapse onto the neighbour actions the output keys already use.
+      return commandMigration(
+        "policy",
+        MigrationDisposition.transformed,
+        "moveViewToOutput policy action; Hagia steps through output order rather than screen geometry",
+        if outputDirection in ["left", "up"]:
+          "move-view-to-output-prev"
+        else:
+          "move-view-to-output-next",
+      )
     if command.startsWith("spawn "):
       return commandMigration(
         "session", MigrationDisposition.excluded,
@@ -266,13 +357,8 @@ proc classifyTriadCommand*(command: string): CommandMigration =
     if name in [
       "adjust-gaps", "adjust-master-count", "adjust-master-ratio", "center-tile",
       "deck", "dwindle", "dwindle-split-down", "dwindle-split-left",
-      "dwindle-split-right", "dwindle-split-up", "focus-column-first",
-      "focus-column-last", "focus-next-in-group", "group-windows", "move-column-left",
-      "move-column-right", "move-column-to-first", "move-column-to-last",
-      "move-to-tag-left", "move-to-tag-right", "move-window-down", "move-window-left",
-      "move-window-right", "move-window-up", "move-workspace-to-output", "right-tile",
-      "spiral", "swap-to-tag", "tgmix", "toggle-gaps", "ungroup-window",
-      "vertical-grid", "zoom",
+      "dwindle-split-right", "dwindle-split-up", "focus-next-in-group", "group-windows",
+      "right-tile", "spiral", "tgmix", "toggle-gaps", "ungroup-window", "vertical-grid",
     ]:
       return commandMigration(
         "policy", MigrationDisposition.excluded,

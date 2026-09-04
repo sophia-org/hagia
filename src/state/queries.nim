@@ -1,4 +1,4 @@
-import std/[options, tables]
+import std/[options, sequtils, tables]
 
 import ../types/[core, model]
 import ../policy/entity_store
@@ -134,3 +134,23 @@ proc columnWindows*(
   for windowId in model.columns[columnId].windows:
     if windowId in eligible and not model.windows[windowId].floating:
       result.add(windowId)
+
+proc visibleColumnIds*(model: PolicyModel, outputId: OutputId): seq[ColumnId] =
+  ## The columns a layout would actually draw on an output: those holding at
+  ## least one window the projection places.
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  for columnId in model.tiledColumnIds(outputId):
+    if model.columnWindows(columnId, eligible).len > 0:
+      result.add(columnId)
+
+proc visibleColumns*(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]] =
+  ## The same columns as `visibleColumnIds`, in the same order, as their
+  ## ordered windows. Focus and movement both have to agree with what the user
+  ## sees, so they ask this one question rather than each filtering their own.
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  for columnId in model.tiledColumnIds(outputId):
+    let windows = model.columnWindows(columnId, eligible)
+    if windows.len > 0:
+      result.add(windows)

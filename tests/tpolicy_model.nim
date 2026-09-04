@@ -917,6 +917,158 @@ suite "Hagia private policy model":
     check model.visibleScratchpad == nullWindowId
     model.validate()
 
+  test "window movement inside a column is a reversible permutation":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    let top = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let middle = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let bottom = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let column = model.window(top).get().column
+    model.moveWindowToColumn(middle, column)
+    model.moveWindowToColumn(bottom, column)
+    model.setFocus(output, middle)
+    let before = model.columns[column].windows
+
+    model.applyAction(output, PolicyAction.moveWindowBelow)
+    check model.columns[column].windows == @[top, bottom, middle]
+    check model.outputs[output].focusedWindow == middle
+    model.applyAction(output, PolicyAction.moveWindowAbove)
+    check model.columns[column].windows == before
+    model.validate()
+
+  test "a window moved sideways keeps its row and opens a column at the edge":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    let leftTop = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let leftBottom = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let right = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let left = model.window(leftTop).get().column
+    model.moveWindowToColumn(leftBottom, left)
+    let rightColumn = model.window(right).get().column
+    model.setFocus(output, leftBottom)
+
+    # Row one of the left column lands at row one of the right column.
+    model.applyAction(output, PolicyAction.moveWindowToColumnNext)
+    check model.windows[leftBottom].column == rightColumn
+    check model.columns[rightColumn].windows == @[right, leftBottom]
+    check model.visibleColumnIds(output).len == 2
+
+    # At the right edge a further move opens a column rather than wrapping.
+    model.applyAction(output, PolicyAction.moveWindowToColumnNext)
+    let columns = model.visibleColumnIds(output)
+    check columns.len == 3
+    check model.columns[columns[^1]].windows == @[leftBottom]
+    model.validate()
+
+  test "a lone window at the edge has nowhere further to go":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    let only = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, only)
+    let before = model.visibleColumnIds(output)
+
+    model.applyAction(output, PolicyAction.moveWindowToColumnNext)
+    check model.visibleColumnIds(output) == before
+    model.applyAction(output, PolicyAction.moveWindowToColumnPrevious)
+    check model.visibleColumnIds(output) == before
+    model.validate()
+
+  test "column reordering permutes one output and clamps at the ends":
+    var model = initPolicyModel()
+    let first = model.addOutput(Rect(width: 1200, height: 900))
+    let second = model.addOutput(Rect(x: 1200, width: 1200, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(first, focusableCapabilities(), SizeConstraints()))
+    let other = model.addWindow(second, focusableCapabilities(), SizeConstraints())
+    let otherColumn = model.window(other).get().column
+    model.setFocus(first, windows[2])
+    let ordered = model.visibleColumnIds(first)
+
+    model.applyAction(first, PolicyAction.moveColumnPrevious)
+    check model.visibleColumnIds(first) == @[ordered[0], ordered[2], ordered[1]]
+    # The second output keeps every column it held.
+    check model.visibleColumnIds(second) == @[otherColumn]
+
+    model.applyAction(first, PolicyAction.moveColumnFirst)
+    check model.visibleColumnIds(first) == @[ordered[2], ordered[0], ordered[1]]
+    # Already first: another move changes nothing rather than wrapping.
+    model.applyAction(first, PolicyAction.moveColumnPrevious)
+    check model.visibleColumnIds(first) == @[ordered[2], ordered[0], ordered[1]]
+    model.applyAction(first, PolicyAction.moveColumnLast)
+    check model.visibleColumnIds(first) == @[ordered[0], ordered[1], ordered[2]]
+    model.validate()
+
+  test "column edge focus and promotion read the drawn order":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+
+    model.applyAction(output, PolicyAction.focusColumnLast)
+    check model.outputs[output].focusedWindow == windows[2]
+    model.applyAction(output, PolicyAction.focusColumnFirst)
+    check model.outputs[output].focusedWindow == windows[0]
+
+    model.setFocus(output, windows[2])
+    model.applyAction(output, PolicyAction.promoteColumn)
+    check model.visibleColumns(output)[0] == @[windows[2]]
+    check model.outputs[output].focusedWindow == windows[2]
+    model.validate()
+
+  test "swapping two views exchanges their windows and keeps the view active":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    model.ensureViewCount(output, 9)
+    let onOne = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.activateViewSlot(output, 2)
+    let onTwo = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.activateViewSlot(output, 1)
+    check model.eligibleWindows(output) == @[onOne]
+
+    # The user stays on view one; what changes is which windows it shows.
+    model.applyAction(output, PolicyAction.swapWithView2)
+    check model.outputs[output].activeView == model.outputs[output].views[0]
+    check model.eligibleWindows(output) == @[onTwo]
+    model.activateViewSlot(output, 2)
+    check model.eligibleWindows(output) == @[onOne]
+    model.validate()
+
+  test "a view sent to another output lands in the same slot there":
+    var model = initPolicyModel()
+    let source = model.addOutput(Rect(width: 1200, height: 900))
+    let target = model.addOutput(Rect(x: 1200, width: 1200, height: 900))
+    model.ensureViewCount(source, 9)
+    model.ensureViewCount(target, 9)
+    let travelling = model.addWindow(source, focusableCapabilities(), SizeConstraints())
+    model.setFocus(source, travelling)
+    model.applyAction(source, PolicyAction.moveToView3)
+    check model.eligibleWindows(source) == @[travelling]
+
+    model.applyAction(source, PolicyAction.moveViewToOutputNext)
+    check model.windows[travelling].homeOutput == target
+    check model.outputs[target].activeView == model.outputs[target].views[2]
+    check model.eligibleWindows(target) == @[travelling]
+    check model.eligibleWindows(source).len == 0
+    model.validate()
+
+  test "relative view movement carries the focused window and follows it":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    model.ensureViewCount(output, 9)
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+
+    model.applyAction(output, PolicyAction.moveToViewNext)
+    check model.outputs[output].activeView == model.outputs[output].views[1]
+    check model.outputs[output].focusedWindow == window
+    model.applyAction(output, PolicyAction.moveToViewPrevious)
+    check model.outputs[output].activeView == model.outputs[output].views[0]
+    check model.eligibleWindows(output) == @[window]
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)

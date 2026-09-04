@@ -76,6 +76,24 @@ shortcut {
   bind "Super+Shift+a" "policy:move-to-named-scratchpad 2"
   bind "Super+Shift+z" "policy:consume-window"
   bind "Super+Ctrl+z" "policy:expel-window"
+
+  // Moving what is focused, on the same axes the focus keys use. A window
+  // pushed past the last column opens a column there rather than wrapping.
+  bind "Super+Ctrl+h" "policy:move-window-column-prev"
+  bind "Super+Ctrl+j" "policy:move-window-below"
+  bind "Super+Ctrl+k" "policy:move-window-above"
+  bind "Super+Ctrl+l" "policy:move-window-column-next"
+  bind "Super+Alt+h" "policy:move-column-prev"
+  bind "Super+Alt+l" "policy:move-column-next"
+  bind "Super+Alt+Home" "policy:move-column-first"
+  bind "Super+Alt+End" "policy:move-column-last"
+  bind "Super+Home" "policy:focus-column-first"
+  bind "Super+End" "policy:focus-column-last"
+  bind "Super+z" "policy:promote-column"
+  bind "Super+Ctrl+u" "policy:move-to-view-next"
+  bind "Super+Ctrl+i" "policy:move-to-view-prev"
+  bind "Super+Shift+h" "policy:move-view-to-output-prev"
+  bind "Super+Shift+l" "policy:move-view-to-output-next"
   bind "Super+-" "policy:resize-width -0.1"
   bind "Super+=" "policy:resize-width 0.1"
   bind "Super+Shift+-" "policy:resize-height -0.1"
@@ -93,6 +111,17 @@ shortcut {
   // bind "Super+Ctrl+Shift+r" "policy:move-to-named-scratchpad 3"
   // bind "Super+Ctrl+d" "policy:toggle-named-scratchpad 4"
   // bind "Super+Ctrl+Shift+d" "policy:move-to-named-scratchpad 4"
+
+  // Whole-view swaps: trade the windows of the active view with another slot.
+  // bind "Super+Shift+1" "policy:swap-with-view 1"
+  // bind "Super+Shift+2" "policy:swap-with-view 2"
+  // bind "Super+Shift+3" "policy:swap-with-view 3"
+  // bind "Super+Shift+4" "policy:swap-with-view 4"
+  // bind "Super+Shift+5" "policy:swap-with-view 5"
+  // bind "Super+Shift+6" "policy:swap-with-view 6"
+  // bind "Super+Shift+7" "policy:swap-with-view 7"
+  // bind "Super+Shift+8" "policy:swap-with-view 8"
+  // bind "Super+Shift+9" "policy:swap-with-view 9"
 
   // Tag-mask toggles: multi-tag membership beyond the workspace model.
   // Uncomment the slots you use; the actions are always registered.

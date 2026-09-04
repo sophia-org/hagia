@@ -312,8 +312,8 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 62
-    check policyBindings == 56
+    check shortcuts.values.len == 77
+    check policyBindings == 71
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
@@ -804,7 +804,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 12
-    check report.outputProfile.count("\n  bind ") == 55
+    check report.outputProfile.count("\n  bind ") == 79
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -817,6 +817,15 @@ output {
       "bind Super+Ctrl+x \"policy:layout-monocle\"",
       "bind Super+Ctrl+e \"policy:toggle-named-scratchpad 1\"",
       "bind Super+Shift+a \"policy:move-to-named-scratchpad 2\"",
+      "bind Super+Ctrl+h \"policy:move-window-column-prev\"",
+      "bind Super+Ctrl+k \"policy:move-window-above\"",
+      "bind Super+Alt+l \"policy:move-column-next\"",
+      "bind Super+Alt+Home \"policy:move-column-first\"",
+      "bind Super+z \"policy:promote-column\"",
+      "bind Super+Ctrl+u \"policy:move-to-view-next\"",
+      "bind Super+Shift+1 \"policy:swap-with-view 1\"",
+      "bind Super+Shift+h \"policy:move-view-to-output-prev\"",
+      "bind Super+Shift+l \"policy:move-view-to-output-next\"",
     ]:
       check carried in report.outputProfile
 

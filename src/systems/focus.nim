@@ -78,14 +78,6 @@ proc focusLast*(model: var PolicyModel, outputId: OutputId) =
       return
     dec index
 
-proc visibleColumns(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]] =
-  let eligible =
-    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
-  for columnId in model.tiledColumnIds(outputId):
-    let windows = model.columnWindows(columnId, eligible)
-    if windows.len > 0:
-      result.add(windows)
-
 proc focusedPosition(
     columns: openArray[seq[WindowId]], windowId: WindowId
 ): (int, int) =

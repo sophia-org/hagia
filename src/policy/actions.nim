@@ -102,6 +102,38 @@ proc profileName*(action: PolicyAction): string =
     "focus-window-below"
   of PolicyAction.focusWindowAbove:
     "focus-window-above"
+  of PolicyAction.moveWindowBelow:
+    "move-window-below"
+  of PolicyAction.moveWindowAbove:
+    "move-window-above"
+  of PolicyAction.moveWindowToColumnNext:
+    "move-window-column-next"
+  of PolicyAction.moveWindowToColumnPrevious:
+    "move-window-column-prev"
+  of PolicyAction.moveColumnNext:
+    "move-column-next"
+  of PolicyAction.moveColumnPrevious:
+    "move-column-prev"
+  of PolicyAction.moveColumnFirst:
+    "move-column-first"
+  of PolicyAction.moveColumnLast:
+    "move-column-last"
+  of PolicyAction.focusColumnFirst:
+    "focus-column-first"
+  of PolicyAction.focusColumnLast:
+    "focus-column-last"
+  of PolicyAction.promoteColumn:
+    "promote-column"
+  of PolicyAction.moveToViewNext:
+    "move-to-view-next"
+  of PolicyAction.moveToViewPrevious:
+    "move-to-view-prev"
+  of PolicyAction.moveViewToOutputNext:
+    "move-view-to-output-next"
+  of PolicyAction.moveViewToOutputPrevious:
+    "move-view-to-output-prev"
+  of PolicyAction.swapWithView1 .. PolicyAction.swapWithView9:
+    "swap-with-view " & $(ord(action) - ord(PolicyAction.swapWithView1) + 1)
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -140,6 +172,11 @@ proc moveToNamedScratchpadAction*(slot: int): PolicyAction =
   if slot notin 1 .. maxNamedScratchpadSlots:
     raise newException(PolicyStateError, "named scratchpad action slot is invalid")
   PolicyAction(ord(PolicyAction.moveToNamedScratchpad1) + slot - 1)
+
+proc swapWithViewAction*(slot: int): PolicyAction =
+  if slot notin 1 .. 9:
+    raise newException(PolicyStateError, "view swap action slot is invalid")
+  PolicyAction(ord(PolicyAction.swapWithView1) + slot - 1)
 
 proc isPolicyAction*(raw: uint64): bool =
   raw in PolicyAction.focusNext.raw() .. PolicyAction.moveToView9.raw() or
@@ -250,3 +287,35 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.focusWithinColumnRelative(output, 1)
   of PolicyAction.focusWindowAbove:
     model.focusWithinColumnRelative(output, -1)
+  of PolicyAction.moveWindowBelow:
+    model.moveWithinColumn(output, 1)
+  of PolicyAction.moveWindowAbove:
+    model.moveWithinColumn(output, -1)
+  of PolicyAction.moveWindowToColumnNext:
+    model.moveToAdjacentColumn(output, 1)
+  of PolicyAction.moveWindowToColumnPrevious:
+    model.moveToAdjacentColumn(output, -1)
+  of PolicyAction.moveColumnNext:
+    model.moveColumnRelative(output, 1)
+  of PolicyAction.moveColumnPrevious:
+    model.moveColumnRelative(output, -1)
+  of PolicyAction.moveColumnFirst:
+    model.moveColumnToEdge(output, last = false)
+  of PolicyAction.moveColumnLast:
+    model.moveColumnToEdge(output, last = true)
+  of PolicyAction.focusColumnFirst:
+    model.focusColumnEdge(output, last = false)
+  of PolicyAction.focusColumnLast:
+    model.focusColumnEdge(output, last = true)
+  of PolicyAction.promoteColumn:
+    model.promoteFocusedColumn(output)
+  of PolicyAction.moveToViewNext:
+    model.moveFocusedToViewRelative(output, 1)
+  of PolicyAction.moveToViewPrevious:
+    model.moveFocusedToViewRelative(output, -1)
+  of PolicyAction.moveViewToOutputNext:
+    model.moveViewToOutputRelative(output, 1)
+  of PolicyAction.moveViewToOutputPrevious:
+    model.moveViewToOutputRelative(output, -1)
+  of PolicyAction.swapWithView1 .. PolicyAction.swapWithView9:
+    model.swapWithViewSlot(output, ord(action) - ord(PolicyAction.swapWithView1) + 1)

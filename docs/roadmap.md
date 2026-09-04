@@ -256,7 +256,7 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 55 of its bindings now carry over, up from 40 at the
+`tests/tfoundation.nim`: 79 of its bindings now carry over, up from 40 at the
 freeze.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -280,11 +280,25 @@ freeze.
 
 ### Tier 2 — muscle memory, new model work
 
-- [ ] Window movement within and between columns
-  (`move-window-up/down/left/right`).
-- [ ] Column reordering (`move-column-left/right/to-first/to-last`).
-- [ ] `zoom` (promote focused to first column).
-- [ ] `swap-to-tag` and `move-workspace-to-output`.
+All landed. `entities/column_ops.nim` holds the positional primitives —
+`insertColumnAt`, `moveColumnToIndex`, `swapWindowsInColumn`,
+`moveWindowToColumnAt` — and `systems/movement.nim` composes them. Positions
+are read from `visibleColumns`, the same query focus and projection use, so a
+move lands where the user saw the window.
+
+- [x] Window movement within and between columns. Pushed past the last column
+  a window opens a column there rather than wrapping, so a repeated press
+  expels it instead of cycling it back.
+- [x] Column reordering. Columns clamp at the ends rather than wrapping, and
+  reordering one output permutes only that output's slots in the shared
+  `columnOrder`.
+- [x] `zoom`, as `promote-column`: Hagia's master is whichever column sits
+  first, so promoting moves a column rather than swapping two fixed roles.
+- [x] `swap-to-tag` as nine `swap-with-view` slots, and
+  `move-workspace-to-output` as `move-view-to-output-prev/next` — Hagia steps
+  through output order rather than screen geometry, so Triad's four compass
+  directions collapse onto two neighbours.
+- [x] `move-to-tag-left/right` as `move-to-view-prev/next`.
 
 ### Tier 3 — layout power inside the retained families
 
