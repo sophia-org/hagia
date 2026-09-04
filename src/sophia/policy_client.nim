@@ -5,8 +5,8 @@ import ../types/observability
 import ../observability
 import
   ./[
-    policy_adapter, policy_checkpoint, policy_codec, policy_session, policy_transport,
-    profile_handoff, wm_v1,
+    policy_adapter, policy_checkpoint, policy_codec, policy_session, policy_signals,
+    policy_transport, profile_handoff, wm_v1,
   ]
 
 export PolicyClientError, policy_codec
@@ -538,6 +538,7 @@ proc runPolicySession(
     configure: bool,
     policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
 ) =
+  installPolicySignals()
   let privateCheckpoint = checkpointPath()
   var checkpointEnabled = privateCheckpoint.len > 0
   var restoredCheckpoint = false
@@ -592,6 +593,13 @@ proc runPolicySession(
           status: $outcome.kind,
         )
       )
+      if not checkpointEnabled and takeReloadRequest():
+        # Without a checkpoint an exit would drop the session rather than
+        # reload it, so the request is refused rather than half-honoured.
+        operationalLog(
+          OperationalLevel.warning, "reload", "refused",
+          "HAGIA_POLICY_CHECKPOINT is unset",
+        )
       if outcome.kind == ProjectionOutcomeKind.committed and checkpointEnabled:
         try:
           privateCheckpoint.savePolicyCheckpoint(session.committedAdapter())
@@ -611,6 +619,21 @@ proc runPolicySession(
             )
           )
           injectConfiguredFault("checkpoint_saved")
+          if takeReloadRequest():
+            # The checkpoint for this cycle is on disk, so exiting is a reload
+            # rather than a loss: Sophia restarts the process from the same
+            # path and the next generation reconciles this state against a
+            # complete snapshot.
+            operationalLog(OperationalLevel.info, "reload", "requested")
+            recordEvidence(
+              EvidenceEvent(
+                kind: EvidenceKind.connection,
+                epoch: request.connectionEpoch,
+                generation: outcome.sceneGeneration,
+                status: "reload_requested",
+              )
+            )
+            quit(0)
           if restoredCheckpoint:
             operationalLog(
               OperationalLevel.info,

@@ -13,6 +13,9 @@ requires "nimkdl >= 2.1.0"
 task layout, "Check the data-oriented layout of the source tree":
   exec "sh tools/check_data_oriented_layout.sh"
 
+task liveReload, "Rebuild and hand the running Hagia over to the new binary":
+  exec "sh tools/live_reload.sh"
+
 task test, "Run the independent Sophia policy conformance suite":
   exec "sh tools/check_data_oriented_layout.sh"
   exec "sh tools/check_sophia_policy.sh"

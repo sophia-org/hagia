@@ -1,4 +1,4 @@
-import std/[json, options, os, sets, strutils, tables, tempfiles, unittest]
+import std/[json, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
 import config/[coordinator, migration, policy_candidate, profile]
 import observability
@@ -10,6 +10,7 @@ import
   ]
 import runtime/reducer as runtimeReducer
 import runtime/effect_executor
+import sophia/policy_signals
 import sophia/policy_adapter
 
 const trackedDefaultDesktopProfile = staticRead("../examples/config/default.kdl")
@@ -21,6 +22,15 @@ proc ownerOnly(path: string) =
   setFilePermissions(path, {fpUserRead, fpUserWrite})
 
 suite "Hagia foundation":
+  test "a reload request is taken exactly once":
+    # The session loop refuses a reload it cannot make durable, so a request
+    # that is read must not remain set and fire against a later cycle.
+    installPolicySignals()
+    check not takeReloadRequest()
+    discard posix.raise(posix.SIGHUP)
+    check takeReloadRequest()
+    check not takeReloadRequest()
+
   test "dense entity removal swaps storage without changing semantic order":
     var store: EntityStore[WindowId, WindowData]
     for raw in 1'u32 .. 3'u32:
