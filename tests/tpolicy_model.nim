@@ -249,6 +249,22 @@ proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
   payload.addU32(65520)
   bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
 
+proc appendWelcomeWith(bytes: var seq[byte], epoch: uint64, extra: uint64) =
+  ## A welcome granting one capability beyond the socket-session set. The
+  ## ordinary welcome models `runPolicySessionOnSocket`, which negotiates
+  ## without configuration and so never receives policy_dirty or
+  ## session_operations.
+  var payload: seq[byte]
+  payload.addU16(3)
+  payload.addU16(0)
+  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10) or extra)
+  payload.addU64(epoch)
+  payload.addU16(16)
+  payload.addU16(256)
+  payload.addU32(1024)
+  payload.addU32(65520)
+  bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
+
 proc runWireSession(serverBytes: seq[byte]): seq[byte] =
   var handles: array[0 .. 1, cint]
   doAssert posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, handles) == 0
@@ -1445,7 +1461,42 @@ suite "Sophia policy session":
     check replacementServer.runWireSession().proposalTransactions() == @[1'u64]
 
   test "a reconciled private checkpoint requests one bounded fresh cycle":
+    # policy_dirty is granted explicitly: the ordinary socket welcome withholds
+    # it, and a refresh is only legal once it has been negotiated.
     let directory = createTempDir("hagia-refresh-", "")
+    defer:
+      delEnv("HAGIA_POLICY_CHECKPOINT")
+      if fileExists(directory / "policy.checkpoint"):
+        removeFile(directory / "policy.checkpoint")
+      removeDir(directory)
+    let path = directory / "policy.checkpoint"
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    path.savePolicyCheckpoint(adapter)
+    putEnv("HAGIA_POLICY_CHECKPOINT", path)
+
+    var serverBytes: seq[byte]
+    serverBytes.appendWelcomeWith(9, 1'u64 shl 5)
+    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
+    serverBytes.appendWireCycle(
+      9, 2, 12, 102, 202, 3, ProjectionOutcomeKind.disconnected, 2
+    )
+    let clientWire = serverBytes.runWireSession()
+    check clientWire.proposalTransactions() == @[1'u64, 3'u64]
+    let refreshes = clientWire.policyDirtyFrames()
+    require refreshes.len == 1
+    check refreshes[0].transaction == 2
+    check refreshes[0].payload.u64At(0) == 9
+    check refreshes[0].payload.u64At(8) == 2
+    check refreshes[0].payload.u16At(16) == 1
+    check refreshes[0].payload.u64At(20) == 10
+
+  test "a refresh is skipped when policy_dirty was not negotiated":
+    # A session started without configuration never requests policy_dirty, and
+    # Sophia answers an unnegotiated PolicyDirty with UnsupportedCapability and
+    # drops the connection. Skipping the enhancement keeps the session alive.
+    let directory = createTempDir("hagia-refresh-ungated-", "")
     defer:
       delEnv("HAGIA_POLICY_CHECKPOINT")
       if fileExists(directory / "policy.checkpoint"):
@@ -1462,17 +1513,13 @@ suite "Sophia policy session":
     serverBytes.appendWelcome(9)
     serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
     serverBytes.appendWireCycle(
-      9, 2, 12, 102, 202, 3, ProjectionOutcomeKind.disconnected, 2
+      9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.disconnected, 2
     )
     let clientWire = serverBytes.runWireSession()
-    check clientWire.proposalTransactions() == @[1'u64, 3'u64]
-    let refreshes = clientWire.policyDirtyFrames()
-    require refreshes.len == 1
-    check refreshes[0].transaction == 2
-    check refreshes[0].payload.u64At(0) == 9
-    check refreshes[0].payload.u64At(8) == 2
-    check refreshes[0].payload.u16At(16) == 1
-    check refreshes[0].payload.u64At(20) == 10
+    # The session settles both cycles. Because no refresh is sent, the second
+    # proposal takes transaction 2 rather than 3.
+    check clientWire.proposalTransactions() == @[1'u64, 2'u64]
+    check clientWire.policyDirtyFrames().len == 0
 
   test "projection outcomes reject unknown status values":
     var payload: seq[byte]

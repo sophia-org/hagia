@@ -697,12 +697,28 @@ proc runPolicySession(
               kind: EvidenceKind.checkpoint, event: "checkpoint", status: "disabled"
             )
           )
+      # Both sends are capability-gated by Sophia, which answers an
+      # unnegotiated one with UnsupportedCapability and drops the connection.
+      # A session started without configuration never requested either bit, so
+      # the enhancement is skipped rather than allowed to kill the session.
       if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
-        let operationOutcome = client.sendSessionOperation(operation.get())
-        if operationOutcome == ProjectionOutcomeKind.disconnected:
-          return
+        if (client.capabilities and capabilitySessionOperations) == 0:
+          operationalLog(
+            OperationalLevel.warning, "session_operation", "skipped",
+            "session_operations was not negotiated",
+          )
+        else:
+          let operationOutcome = client.sendSessionOperation(operation.get())
+          if operationOutcome == ProjectionOutcomeKind.disconnected:
+            return
       if outcome.kind == ProjectionOutcomeKind.committed and restoredCheckpoint:
-        client.requestFreshCycle(session.policyGeneration(), snapshot)
+        if (client.capabilities and capabilityPolicyDirty) == 0:
+          operationalLog(
+            OperationalLevel.warning, "policy_refresh", "skipped",
+            "policy_dirty was not negotiated",
+          )
+        else:
+          client.requestFreshCycle(session.policyGeneration(), snapshot)
         restoredCheckpoint = false
       if outcome.kind == ProjectionOutcomeKind.disconnected:
         return
