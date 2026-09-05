@@ -270,8 +270,10 @@ proc validateShortcutSetting(node: KdlNode) =
   of "session":
     if node.name == "pointer-bind":
       fail("pointer shortcut cannot invoke a session capability")
-    if command notin
-        ["close-window", "logout", "spawn-terminal", "spawn-browser", "window-switcher"]:
+    if command notin [
+      "close-window", "logout", "spawn-terminal", "spawn-browser", "window-switcher",
+      "reload-profile", "restart-wm",
+    ]:
       fail("shortcut names an unknown session capability")
   else:
     fail("shortcut target authority is unsupported")

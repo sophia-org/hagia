@@ -173,3 +173,8 @@ type PolicyAction* {.pure.} = enum
   consumePreviousColumn = 168
   cycleColumnWidth = 169
   cycleColumnWidthBack = 170
+  ## Session operations, like the four above: Sophia carries them out and the
+  ## reduction below refuses them. Reload re-reads the desktop profile; restart
+  ## replaces this process, whose checkpoint carries the windows across.
+  sessionReloadProfile = 171
+  sessionRestartWm = 172

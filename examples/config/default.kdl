@@ -42,6 +42,14 @@ shell {
 shortcut {
   profile "default"
   bind "Ctrl+Alt+Delete" "session:logout"
+  // Re-read this file and put it into effect. The policy client is replaced to
+  // read it, and its checkpoint carries the windows across, so a reload looks
+  // like the configuration changing rather than the desktop restarting.
+  bind "Ctrl+Alt+r" "session:reload-profile"
+  // Replace the policy client without re-reading anything: the escape for a
+  // window manager that has stopped behaving, kept away from the letters so it
+  // cannot be reached by accident.
+  bind "Ctrl+Alt+f5" "session:restart-wm"
   bind "Super+Return" "session:spawn-terminal"
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"

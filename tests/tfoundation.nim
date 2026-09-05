@@ -317,7 +317,10 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    check shortcuts.values.len == 88
+    # Ninety bindings, of which eighty-two name a policy action. The other
+    # eight are session capabilities Sophia carries out, including the two that
+    # reload the profile and replace this process.
+    check shortcuts.values.len == 90
     check policyBindings == 82
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
@@ -859,7 +862,9 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 0
-    check report.outputProfile.count("\n  bind ") == 107
+    # One more than the old count: triad-reload is carried now instead of
+    # refused, because the session gained a reload capability for it to name.
+    check report.outputProfile.count("\n  bind ") == 108
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile

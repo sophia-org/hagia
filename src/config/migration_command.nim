@@ -68,8 +68,9 @@ proc classifyTriadCommand*(command: string): CommandMigration =
     )
   of "triad-reload":
     commandMigration(
-      "session", MigrationDisposition.excluded,
-      "excluded from the WM freeze profile; watched reload requires a cross-authority recovery protocol",
+      "session", MigrationDisposition.transformed,
+      "session reload re-reads the desktop profile and replaces the policy client",
+      "reload-profile",
     )
   of "select-window":
     commandMigration(

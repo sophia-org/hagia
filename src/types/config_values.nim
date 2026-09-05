@@ -112,8 +112,9 @@ const bindableTriggerNames* = [
   ## `desktop_shortcut_evdev_keycode` in Sophia's `shortcut_candidate.rs`;
   ## the cross-repository conformance gate keeps the two honest.
   ",", "-", ".", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "=", "?", "[", "]",
-  "a", "b", "backspace", "c", "d", "delete", "down", "e", "end", "enter", "escape", "f",
-  "g", "grave", "h", "home", "i", "insert", "j", "k", "l", "left", "m", "n", "o", "p",
+  "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "a", "b",
+  "backspace", "c", "d", "delete", "down", "e", "end", "enter", "escape", "f", "g",
+  "grave", "h", "home", "i", "insert", "j", "k", "l", "left", "m", "n", "o", "p",
   "page_down", "page_up", "print", "q", "r", "return", "right", "s", "space", "t",
   "tab", "u", "up", "v", "w", "x", "y", "z",
 ]
