@@ -150,11 +150,18 @@ proc projectScroller*(
     # width takes the configured default.
     let defaultScale =
       scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
+    # A proportion is of the space a column can actually occupy, which is the
+    # viewport less the gap it carries. Measuring against the raw width makes
+    # two half-width columns wider than the screen by exactly one gap, so they
+    # never fit together and the camera centres on every new window instead of
+    # placing it beside its neighbour. niri computes the same way:
+    # (working - gaps) * proportion - gaps.
+    let proportionBase = max(1'i32, usableWidth - safeInnerGap)
     for index, item in columns:
       let (column, windows) = item
       let scale =
         if column.widthScale == autoScale: defaultScale else: column.widthScale
-      let width = max(1'i32, usableWidth.scaledExtent(scale))
+      let width = max(1'i32, proportionBase.scaledExtent(scale) - safeInnerGap)
       if virtualX > int64(high(int32)):
         raise newException(PolicyStateError, "scroller extent is excessive")
       positions.add(int32(virtualX))

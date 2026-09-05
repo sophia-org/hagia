@@ -623,6 +623,31 @@ suite "Hagia private policy model":
     # beyond the right edge and only scrolling can reach it.
     check projected[0].placements[3].geometry.x + 500 > 1000
 
+  test "two half-width columns tile the screen instead of overflowing it":
+    ## A proportion has to be of the room a column can occupy. Measured against
+    ## the raw viewport instead, two half-width columns came to one gap more
+    ## than the screen, so they could never share it: every newly focused
+    ## window decided it did not fit beside its neighbour and centred, shoving
+    ## the previous one half off the edge. The widths looked right and the
+    ## camera looked possessed.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let second = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, second)
+
+    let projected = model.projectScroller([output], innerGap = 20)[0]
+    require projected.placements.len == 2
+    let left = projected.placements[0].geometry
+    let right = projected.placements[1].geometry
+    check left.width == right.width
+    # Both columns and the gap between them fit within the viewport, so
+    # focusing the second one does not have to move the camera off the first.
+    check left.x >= 0
+    check right.x + right.width <= 1000
+    check right.x == left.x + left.width + 20
+    discard first
+
   test "the camera stays where it was left when the focused column still fits":
     ## The other half of the symptom: the view would not stay put. The offset
     ## was read from settings and never written back, so every projection
@@ -690,11 +715,13 @@ suite "Hagia private policy model":
     check projected[0].placements.len == 2
     # One column that never chose a width takes the configured default of half
     # the screen. It does not stretch to fill, because a scroller sizes a
-    # column from its own width and lets the strip be as long as it is.
+    # column from its own width and lets the strip be as long as it is. Half of
+    # a thousand-wide viewport carrying a twenty-wide gap is 470, not 500: the
+    # proportion is of the room a column can occupy, so two of them still fit.
     check projected[0].placements[0].geometry ==
-      Rect(x: 0, y: 0, width: 500, height: 245)
+      Rect(x: 0, y: 0, width: 470, height: 245)
     check projected[0].placements[1].geometry ==
-      Rect(x: 0, y: 265, width: 500, height: 735)
+      Rect(x: 0, y: 265, width: 470, height: 735)
     model.validate()
 
   test "scroller saturates excessive fixed-point extents":
