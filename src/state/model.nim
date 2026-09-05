@@ -130,6 +130,13 @@ proc validate*(model: PolicyModel) =
           model.viewTagIds(viewId).len == 0 or
           model.views[viewId].preferredOutput == nullOutputId:
         fail("policy view is invalid")
+      # A camera this far from any strip is a corrupt checkpoint. Raising here
+      # is what makes the restore path discard it and start fresh, instead of
+      # restoring a crash: die on the offset, restart, restore the same
+      # offset, die again.
+      if abs(model.views[viewId].viewportOffset) > maxViewportOffset or
+          abs(model.views[viewId].viewportOffsetY) > maxViewportOffset:
+        fail("policy view camera offset is corrupt")
       var seenViewTags = initHashSet[TagId]()
       for tagId in model.viewTagIds(viewId):
         if tagId notin model.tags or tagId in seenViewTags or

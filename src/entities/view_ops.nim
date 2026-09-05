@@ -70,7 +70,13 @@ proc rememberViewportOffset*(
     return
   let viewId = model.outputs[outputId].activeView
   if viewId in model.views:
-    model.views[viewId].viewportOffset = offset
+    # The camera that produced this offset scrolled along one axis, and the
+    # layout says which, so the offset lands in the field for that axis and
+    # the other axis keeps its own place.
+    if model.views[viewId].layout == LayoutMode.verticalScroller:
+      model.views[viewId].viewportOffsetY = offset
+    else:
+      model.views[viewId].viewportOffset = offset
     # The intent has been resolved into the offset above, so it is spent. A
     # camera action moves the view once; it does not pin it there.
     model.views[viewId].cameraIntent = CameraIntent.none

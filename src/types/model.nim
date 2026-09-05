@@ -106,6 +106,11 @@ type
     # It may be negative, which is how a column narrower than the screen sits
     # centred with space to its left.
     viewportOffset*: int32
+    # The same camera for the vertical scroller. The two layouts scroll along
+    # different axes, so one field cannot serve both: an x offset applied as y
+    # scrolls the view somewhere nobody asked for the moment a view switches
+    # between them.
+    viewportOffsetY*: int32
     ## A camera move asked for by name rather than derived from focus. The
     ## projection is the only place the strip geometry exists, so an action
     ## that wants to centre something records what it wants and the projection

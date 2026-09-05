@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 9
+  result.schema = 10
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,16 +249,17 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-9\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-10\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
   # version 6 predates named views and placement sizing, version 7 predates
-  # the scroller camera and the default column width, and version 8 stored a
-  # maximised column as a width; each migrates forward by filling the fields
-  # it could not have written.
-  var version = 9
-  for legacy in [4, 5, 6, 7, 8]:
+  # the scroller camera and the default column width, version 8 stored a
+  # maximised column as a width, and version 9 shared one camera across both
+  # scroll axes; each migrates forward by filling the fields it could not
+  # have written.
+  var version = 10
+  for legacy in [4, 5, 6, 7, 8, 9]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -314,6 +315,11 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
         columnNode["fullWidth"] = toJson(maximized)
         if maximized:
           columnNode["widthScale"] = toJson(autoScale)
+    if version <= 9:
+      # The vertical camera starts at the origin: the one stored offset was
+      # horizontal, and the first vertical projection settles its own.
+      for viewNode in node["views"]:
+        viewNode["viewportOffsetY"] = toJson(0'i32)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")

@@ -54,6 +54,13 @@ const
   ## bounded rather than free: past this the strip coordinates stop meaning
   ## anything and a single column can put every other one out of reach.
   maximumScale* = Scale(655360)
+  ## The furthest a stored camera offset may sit from the strip origin, in
+  ## either direction. Far beyond any real strip, and small enough that
+  ## `position - offset` always stays representable. A checkpoint claiming
+  ## more is corrupt, and refusing it here is what turns a crash loop -- die
+  ## on the offset, restart, restore the same offset, die again -- into one
+  ## discarded checkpoint and a fresh start.
+  maxViewportOffset* = int32(1 shl 30)
   maxTagBits* = 64'u32
   maxWorkspaceTagSlot* = 63'u32
   scratchpadTagSlot* = 64'u32

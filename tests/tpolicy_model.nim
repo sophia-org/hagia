@@ -727,6 +727,74 @@ suite "Hagia private policy model":
       Rect(x: 0, y: 265, width: 470, height: 735)
     model.validate()
 
+  test "a corrupt camera offset is refused rather than restored":
+    ## An absurd stored offset used to raise mid-projection: die on the
+    ## offset, restart, restore the same offset, die again. Refusing it in
+    ## validation is what makes the restore path discard the checkpoint and
+    ## start fresh instead of restoring a crash loop.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let view = model.outputs[output].activeView
+    model.views[view].viewportOffset = maxViewportOffset + 1
+    expect PolicyStateError:
+      model.validate()
+    model.views[view].viewportOffset = 0
+    model.views[view].viewportOffsetY = -(maxViewportOffset + 1)
+    expect PolicyStateError:
+      model.validate()
+
+  test "a stale camera is clamped to the strip that exists now":
+    ## The strip an offset was stored against can shrink -- columns close,
+    ## widths change. An offset pointing past today's strip would place every
+    ## column off screen; instead it is pulled back to the strip's end.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    var opened: seq[WindowId]
+    for _ in 0 ..< 3:
+      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    let view = model.outputs[output].activeView
+    # Legal per validation, far past the three-column strip.
+    model.views[view].viewportOffset = 500_000
+    # Minimize everything, so no column projects, no reveal correction runs,
+    # and the stored offset is what the projection has to live with.
+    for window in opened:
+      model.setFocus(output, window)
+      model.minimizeFocused()
+    let projected = model.projectScroller([output])[0]
+    check projected.viewportOffset == 0
+    model.validate()
+
+  test "each scroll axis keeps its own camera":
+    ## One field served both scrollers, so an x offset applied as y scrolled
+    ## the view somewhere nobody asked the moment a view switched between
+    ## them.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    var opened: seq[WindowId]
+    for _ in 0 ..< 4:
+      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, opened[3])
+    let view = model.outputs[output].activeView
+
+    let horizontal = model.projectScroller([output])[0]
+    model.rememberViewportOffset(output, horizontal.viewportOffset)
+    let storedX = model.views[view].viewportOffset
+    require storedX != 0
+
+    model.views[view].layout = LayoutMode.verticalScroller
+    let vertical = model.projectLayout([output])[0]
+    model.rememberViewportOffset(output, vertical.viewportOffset)
+    # The vertical camera settled on its own axis; the horizontal one is
+    # untouched by it.
+    check model.views[view].viewportOffset == storedX
+    check model.views[view].viewportOffsetY == vertical.viewportOffset
+
+    model.views[view].layout = LayoutMode.scroller
+    let back = model.projectScroller([output])[0]
+    check back.viewportOffset == storedX
+    model.validate()
+
   test "centring the focused column moves the camera and nothing else":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1000, height: 700))
@@ -2091,9 +2159,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 9
+    check parseJson(printed)["schema"].getInt() == 10
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-9\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-10\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2589,9 +2657,10 @@ suite "tab checkpoint compatibility":
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:
       viewNode.delete("viewportOffset")
+      viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2607,10 +2676,12 @@ suite "tab checkpoint compatibility":
     for columnNode in payload["columns"]:
       columnNode.delete("fullWidth")
       columnNode["widthScale"] = %int(scaleOne)
+    for viewNode in payload["views"]:
+      viewNode.delete("viewportOffsetY")
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
@@ -2636,7 +2707,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2665,6 +2736,7 @@ suite "tab checkpoint compatibility":
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:
       viewNode.delete("viewportOffset")
+      viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-5\n" & $payload)
     check restored.checkpointPayload() == adapter.checkpointPayload()
 

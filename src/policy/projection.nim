@@ -166,6 +166,16 @@ proc projectScroller*(
         model.views[activeView].viewportOffset
       else:
         viewportOffset
+    # A stored camera is clamped to the strip that exists now. The strip it
+    # was stored against may have shrunk -- columns close, widths change --
+    # and an offset pointing past it would place every column off screen and
+    # could push a coordinate past what a placement can carry.
+    let stripEnd =
+      if strip.positions.len > 0:
+        int64(strip.positions[^1]) + int64(strip.widths[^1])
+      else:
+        0'i64
+    targetOffset = int32(max(-int64(usableWidth), min(int64(targetOffset), stripEnd)))
     if focusedColumn >= 0:
       let columnX = positions[focusedColumn]
       let columnWidth = widths[focusedColumn]
@@ -672,6 +682,13 @@ proc projectVerticalScroller(
 ): LogicalOutputProjection =
   var transposed = model.clone()
   transposed.outputs[outputId].bounds = transposed.outputs[outputId].bounds.transpose()
+  # The vertical scroller scrolls along y, so it reads and seeds the y camera.
+  # The transpose maps y onto the horizontal machinery, so the y offset goes
+  # where that machinery will look for it.
+  let cameraView = transposed.outputs[outputId].activeView
+  if cameraView in transposed.views:
+    transposed.views[cameraView].viewportOffset =
+      transposed.views[cameraView].viewportOffsetY
   for windowId in transposed.windowOrder:
     if transposed.windows[windowId].homeOutput != outputId:
       continue
