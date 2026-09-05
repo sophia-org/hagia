@@ -213,6 +213,11 @@ proc shortcutTrigger(node: KdlNode): string =
   for value in trigger:
     if value notin {'a' .. 'z', '0' .. '9', '_', '-', '=', '?', ',', '.', '[', ']'}:
       fail("shortcut trigger contains unsupported characters")
+  # A trigger Sophia cannot resolve to a keycode is refused here rather than
+  # at login, where it fails the whole session after the profile has already
+  # been called valid. Pointer triggers name buttons and are checked below.
+  if node.name == "bind" and trigger notin bindableTriggerNames:
+    fail("shortcut trigger names no bindable key: " & trigger)
   var modifiers = 0'u8
   for index in 0 ..< parts.high:
     let bit =

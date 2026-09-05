@@ -103,3 +103,17 @@ const supportedLayoutNames* = [
   "right-tile", "vertical-grid", "deck", "spiral", "tgmix", "frame-tree", "notion",
   "i3", "split-tree", "dwindle",
 ]
+
+const bindableTriggerNames* = [
+  ## Every trigger Sophia's shortcut authority can resolve to an evdev
+  ## keycode. Hagia validates against this list because a chord it accepts
+  ## but Sophia cannot bind fails the whole session at login, long after
+  ## `hagia config check` said the profile was fine. Mirrors
+  ## `desktop_shortcut_evdev_keycode` in Sophia's `shortcut_candidate.rs`;
+  ## the cross-repository conformance gate keeps the two honest.
+  ",", "-", ".", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "=", "?", "[", "]",
+  "a", "b", "backspace", "c", "d", "delete", "down", "e", "end", "enter", "escape", "f",
+  "g", "grave", "h", "home", "i", "insert", "j", "k", "l", "left", "m", "n", "o", "p",
+  "page_down", "page_up", "print", "q", "r", "return", "right", "s", "space", "t",
+  "tab", "u", "up", "v", "w", "x", "y", "z",
+]

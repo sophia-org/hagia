@@ -125,13 +125,13 @@ shortcut {
   // Layout knobs. The master keys shape the tile layout; the gap keys apply
   // everywhere, and toggling gaps hides them without discarding the values
   // configured above.
-  bind "Super+bracketleft" "policy:decrease-master-count"
-  bind "Super+bracketright" "policy:increase-master-count"
-  bind "Super+comma" "policy:decrease-master-ratio"
-  bind "Super+period" "policy:increase-master-ratio"
+  bind "Super+[" "policy:decrease-master-count"
+  bind "Super+]" "policy:increase-master-count"
+  bind "Super+," "policy:decrease-master-ratio"
+  bind "Super+." "policy:increase-master-ratio"
   bind "Super+0" "policy:toggle-gaps"
-  bind "Super+Ctrl+minus" "policy:decrease-gaps"
-  bind "Super+Ctrl+equal" "policy:increase-gaps"
+  bind "Super+Ctrl+-" "policy:decrease-gaps"
+  bind "Super+Ctrl+=" "policy:increase-gaps"
   bind "Super+Ctrl+m" "policy:maximize-column"
 
   // Window groups. Grouping decides what one key steps through; it changes

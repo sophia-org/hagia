@@ -1,5 +1,7 @@
 import std/[json, options, os, posix, sets, strutils, tables, tempfiles, unittest]
 
+import kdl
+
 import config/[coordinator, migration, policy_candidate, profile]
 import observability
 import policy/[actions, entity_store, reducer, state]
@@ -317,6 +319,56 @@ suite "Hagia foundation":
       inc policyBindings
     check shortcuts.values.len == 88
     check policyBindings == 82
+
+  test "a trigger Sophia cannot bind is refused before a session is attempted":
+    # A chord that passes the character check but names no key used to reach
+    # Sophia, which rejected the whole policy configuration and killed the
+    # session at login, after `config check` had already called the profile
+    # valid. The keysym spellings below are the ones that actually did it.
+    let directory = createTempDir("hagia-trigger-", "")
+    defer:
+      removeDir(directory)
+    for spelling in ["bracketleft", "bracketright", "comma", "period", "minus", "equal"]:
+      let path = directory / "config.kdl"
+      writeFile(
+        path,
+        "schema 1\nshortcut { profile \"t\"; bind \"Super+" & spelling &
+          "\" \"policy:focus-next\"; }\n",
+      )
+      path.ownerOnly()
+      expect DesktopProfileError:
+        discard loadDesktopProfile(path)
+
+    # The characters those spellings stand for are bindable.
+    for literal in ["[", "]", ",", ".", "-", "="]:
+      let path = directory / "config.kdl"
+      writeFile(
+        path,
+        "schema 1\nshortcut { profile \"t\"; bind \"Super+" & literal &
+          "\" \"policy:focus-next\"; }\n",
+      )
+      path.ownerOnly()
+      discard loadDesktopProfile(path)
+
+  test "every shipped default binding names a key Sophia can resolve":
+    # The compiled fallback is what an unconfigured desktop starts with, so a
+    # trigger it cannot bind is a broken default, not a broken profile.
+    let directory = createTempDir("hagia-default-triggers-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(path, compiledDesktopProfile)
+    path.ownerOnly()
+    let profile = loadDesktopProfile(path)
+    var checked = 0
+    for value in profile.candidates[ProfileAuthority.shortcut].values:
+      let node = parseKdl(value.encoded)[0]
+      if node.name != "bind" or node.args.len == 0:
+        continue
+      check node.args[0].get(string).split('+')[^1].toLowerAscii() in
+        bindableTriggerNames
+      inc checked
+    check checked > 0
 
   test "profile cycles, duplicates, and unsafe modes fail closed":
     let directory = createTempDir("hagia-invalid-profile-", "")
