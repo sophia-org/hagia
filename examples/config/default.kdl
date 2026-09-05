@@ -228,6 +228,19 @@ session {
   browser "browser"
 }
 
-input { inherit-sophia #true; }
+input {
+  inherit-sophia #true
+
+  // The cursor is the pointer's appearance, so it lives with the pointer
+  // rather than in a block of its own. Stating nothing here leaves the core
+  // config (~/.config/sophia/config.kdl) in charge, which is the default a
+  // generic desktop wants; naming only one key overrides only that key.
+  //
+  // cursor {
+  //   theme "Adwaita"   // an icon-theme directory name, 1-128 px sizes
+  //   size 24
+  //   shake-to-find #true   // accepted, not yet acted on
+  // }
+}
 output { inherit-sophia #true; }
 broker { enabled #false; }
