@@ -5,7 +5,9 @@ import types/config_values
 import types/observability
 import observability
 import types/session
-import sophia/[policy_checkpoint, policy_client, policy_session, policy_trace]
+import
+  sophia/
+    [policy_adapter, policy_checkpoint, policy_client, policy_session, policy_trace]
 
 proc option(arguments: openArray[string], name: string): string =
   let prefix = "--" & name & "="
@@ -52,6 +54,7 @@ proc run(arguments: seq[string]) =
     case arguments[1]
     of "check":
       let profile = loadDesktopProfile(configPath)
+      discard initPolicyAdapter(profile.candidates[ProfileAuthority.policy])
       stdout.writeLine(
         "ok generation=" & $profile.generation & " digest=" & profile.digest
       )

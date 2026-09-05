@@ -1,5 +1,6 @@
 import std/[net, posix, strutils, unittest]
 
+import config/profile
 import types/config_values
 import sophia/policy_client
 import sophia/[profile_handoff, wm_v1]
@@ -277,3 +278,40 @@ suite "Hagia profile authority handoff":
     check configuration.kind == MessageKind.policyConfiguration
     check configuration.transaction == 1
     check configuration.payload.u64At(0) == 9
+
+  test "invalid policy values cannot acknowledge Prepare or Active":
+    var descriptors: array[0 .. 1, cint]
+    require posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, descriptors) == 0
+    let client = newSocket(
+      SocketHandle(descriptors[0]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    let server = newSocket(
+      SocketHandle(descriptors[1]),
+      Domain.AF_UNIX,
+      SockType.SOCK_STREAM,
+      Protocol.IPPROTO_IP,
+      false,
+    )
+    defer:
+      server.close()
+    server.sendTestFrame(welcome(9, true))
+    let exact = identity(9, 7, 0x5a)
+    server.sendTestFrame(MessageKind.profilePrepare.profileCommandFrame(1, exact))
+    server.sendTestFrame(MessageKind.profileActivate.profileCommandFrame(2, exact))
+    discard posix.shutdown(SocketHandle(descriptors[1]), posix.SHUT_WR)
+    var invalid = candidate(7, "5a")
+    # This value passes the KDL loader; policy-model construction rejects it.
+    invalid.values.add(ProfileValue(key: "policy.outer-gap", encoded: "outer-gap 513"))
+    expect DesktopProfileError:
+      client.runProfileActivatedPolicySessionOnSocket(invalid)
+    check server.receiveTestFrame().kind == MessageKind.clientHello
+    # The only outgoing frame was negotiation, never a profile acknowledgement.
+    # Closing with unread commands may report reset rather than orderly EOF.
+    try:
+      check server.recv(1, 1000).len == 0
+    except OSError:
+      discard

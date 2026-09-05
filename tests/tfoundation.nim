@@ -921,3 +921,60 @@ output {
     recordEvidence(EvidenceEvent(kind: EvidenceKind.connection, status: "rotated"))
     check fileExists(path & ".1")
     check parseJson(readFile(path).strip())["status"].getStr() == "rotated"
+
+suite "WM-owned profile validation":
+  test "policy settings retain workspace identities and accept their bounds":
+    let directory = createTempDir("hagia-policy-owner-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    for policy in [
+      "scratchpad-size 10 100; floating-size 0 10; column-width-presets 5 95;",
+      "scratchpad-size 70 60; floating-size 100 0; column-width-presets 33 50 67;",
+      "view-name 1 \"code\"; view-name 2 \"web\"; view-layout 1 \"dwindle\"; view-layout 2 \"split-tree\";",
+    ]:
+      writeFile(path, "schema 1\npolicy { " & policy & " }\n")
+      path.ownerOnly()
+      let candidate = loadDesktopProfile(path).candidates[ProfileAuthority.policy]
+      discard initPolicyAdapter(candidate)
+      if policy.startsWith("view-name"):
+        check candidate.values[0].key == "policy.view-name.1"
+        check candidate.values[1].key == "policy.view-name.2"
+
+  test "malformed and unknown settings fail in the owning WM":
+    let directory = createTempDir("hagia-policy-invalid-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    for policy in [
+      "scratchpad-size 0 60;",
+      "scratchpad-size 9 60;",
+      "scratchpad-size 70 101;",
+      "scratchpad-size 70;",
+      "floating-size 1 0;",
+      "floating-size -1 60;",
+      "column-width-presets;",
+      "column-width-presets 4 50;",
+      "column-width-presets 50 96;",
+      "column-width-presets 5 10 15 20 25 30 35 40 45;",
+      "column-width-presets \"50\";",
+      "column-width-presets 50 extra=1;",
+      "view-name 0 \"code\";",
+      "view-name 10 \"code\";",
+      "view-name 1 \" code\";",
+      "view-name 1 \"\";",
+      "view-name 1 \"" & repeat("x", 33) & "\";",
+      "view-name 1 \"a\"; view-name 1 \"b\";",
+      "view-layout 1 \"unknown\";",
+      "view-layout 10 \"tile\";",
+      "view-layout 1 \"tile\"; view-layout 1 \"grid\";",
+      "future-wm-setting 1;",
+      "layout \"unknown\";",
+      "layout-cycle \"i3\" \"split-tree\";",
+      "outer-gap 513;",
+    ]:
+      writeFile(path, "schema 1\npolicy { " & policy & " }\n")
+      path.ownerOnly()
+      expect DesktopProfileError:
+        let candidate = loadDesktopProfile(path).candidates[ProfileAuthority.policy]
+        discard initPolicyAdapter(candidate)

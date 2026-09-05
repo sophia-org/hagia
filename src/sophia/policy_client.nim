@@ -597,6 +597,7 @@ proc runPolicySession(
     client: PolicyClient,
     configure: bool,
     policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
+    preparedAdapter: Option[PolicyAdapter] = none(PolicyAdapter),
 ) =
   installPolicySignals()
   let tracePath = getEnv("HAGIA_POLICY_TRACE")
@@ -604,7 +605,9 @@ proc runPolicySession(
   var checkpointEnabled = privateCheckpoint.len > 0
   var restoredCheckpoint = false
   var session =
-    if policyCandidate.isSome:
+    if preparedAdapter.isSome:
+      initPolicySession(preparedAdapter.get())
+    elif policyCandidate.isSome:
       initPolicySession(initPolicyAdapter(policyCandidate.get()))
     else:
       initPolicySession()
@@ -786,12 +789,17 @@ proc runPolicySession*(path: string, candidate: AuthorityCandidate) =
   path.connectPolicy(true).runPolicySession(true, some(candidate))
 
 proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidate) =
-  if client.activateProfileCandidate(candidate) !=
-      StartupProfileHandoffDisposition.activated:
+  try:
+    # Active permits Sophia to open its graphical gate. Build the actual
+    # policy first, so a value-level rejection cannot arrive after that promise.
+    let prepared = initPolicyAdapter(candidate)
+    if client.activateProfileCandidate(candidate) !=
+        StartupProfileHandoffDisposition.activated:
+      fail("desktop profile activation did not admit normal policy traffic")
+    client.readTimeoutMsec = -1
+    client.runPolicySession(true, some(candidate), some(prepared))
+  finally:
     client.socket.close()
-    fail("desktop profile activation did not admit normal policy traffic")
-  client.readTimeoutMsec = -1
-  client.runPolicySession(true, some(candidate))
 
 proc runProfileActivatedPolicySession*(path: string, candidate: AuthorityCandidate) =
   ## Reuses the authenticated connection only after exact Active settlement.

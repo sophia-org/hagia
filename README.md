@@ -91,6 +91,13 @@ hagia config print-effective [--config=/absolute/path]
 hagia config migrate-triad --input=/path/config.kdl --output-dir=/new/directory
 ```
 
+Hagia owns policy-setting names, layouts, value ranges, and identities such as
+workspace slots. `config check` builds the policy candidate as runtime does;
+Sophia's paired check validates the session envelope and reports policy
+validation as delegated. On startup, Hagia builds the policy model before
+acknowledging profile activation, so a bad value cannot open Sophia's graphical
+gate. Sophia passes only the staged Policy fragment to the running WM.
+
 `examples/config/default.kdl` is the default and the exact compiled fallback;
 `hagia config init` seeds it into `~/.config/hagia/config.kdl` once and never
 overwrites an existing profile. Personal profiles stay user-owned; migration never overwrites an

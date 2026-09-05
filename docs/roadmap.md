@@ -2,6 +2,14 @@
 
 ## Current Position
 
+The policy configuration boundary now has one semantic owner. Sophia preserves
+ordered Policy records within the session envelope; Hagia checks their setting
+names, values, and duplicate identities. Offline `config check` and startup both
+construct the policy model, with startup preparation preceding any activation
+acknowledgement. Socket and cross-repository regressions cover repeated workspace
+records and rejection of malformed policy before graphical admission. This is
+parser/activation coverage, not a new physical-session acceptance claim.
+
 Hagia independently implements the draft `sophia_wm_v1` wire in Nim and passes
 Sophia's shared valid, malformed, and record corpus. Its proof client completes
 the shared eleven-cycle behavior corpus through Sophia's canonical reducer on
