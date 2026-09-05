@@ -239,7 +239,7 @@ input {
   // cursor {
   //   theme "Adwaita"   // an icon-theme directory name, 1-128 px sizes
   //   size 24
-  //   shake-to-find #true   // accepted, not yet acted on
+  //   shake-to-find #true   // shake the pointer to enlarge it briefly
   // }
 }
 output { inherit-sophia #true; }
