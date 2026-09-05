@@ -78,7 +78,16 @@ proc toggleFocusedFloating*(model: var PolicyModel) =
   let enabled = not model.windows[windowId].floating
   model.windows[windowId].floating = enabled
   if enabled and model.windows[windowId].floatingGeometry.width <= 0:
-    model.windows[windowId].floatingGeometry = model.outputs[outputId].bounds
+    let bounds = model.outputs[outputId].bounds
+    if model.settings.floatingWidthPercent > 0 or
+        model.settings.floatingHeightPercent > 0:
+      let (width, height) = bounds.placementSize(
+        model.settings.floatingWidthPercent, model.settings.floatingHeightPercent
+      )
+      model.windows[windowId].floatingGeometry =
+        centeredGeometry(bounds, model.windows[windowId].constraints, width, height)
+    else:
+      model.windows[windowId].floatingGeometry = bounds
 
 proc expelFocusedWindow*(model: var PolicyModel) =
   ## Lift the focused window out of its stack into a column of its own, placed
@@ -98,7 +107,7 @@ proc expelFocusedWindow*(model: var PolicyModel) =
     model.insertColumnAt(outputId, model.visibleColumnIds(outputId).find(source) + 1)
   model.moveWindowToColumnAt(windowId, created, 0)
 
-proc consumeNextColumn*(model: var PolicyModel) =
+proc consumeRelativeColumn(model: var PolicyModel, delta: int) =
   let outputId = model.activeOutput
   if outputId notin model.outputs:
     fail("consume output does not exist")
@@ -114,5 +123,13 @@ proc consumeNextColumn*(model: var PolicyModel) =
   if candidates.len < 2 or current < 0:
     return
   model.moveWindowToColumn(
-    windowId, candidates[wrappedIndex(current, 1, candidates.len)]
+    windowId, candidates[wrappedIndex(current, delta, candidates.len)]
   )
+
+proc consumeNextColumn*(model: var PolicyModel) =
+  model.consumeRelativeColumn(1)
+
+proc consumePreviousColumn*(model: var PolicyModel) =
+  ## The inverse pairing expel lacked: an expelled window sits in a fresh
+  ## column just right of the one it left, so consuming leftward undoes it.
+  model.consumeRelativeColumn(-1)

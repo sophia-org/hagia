@@ -1394,6 +1394,95 @@ suite "Hagia private policy model":
       check placement.geometry.height < 800
     model.validate()
 
+  test "consume-window-prev inverts an expel":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1200, height: 900))
+    let top = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let bottom = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let column = model.window(top).get().column
+    model.moveWindowToColumn(bottom, column)
+    model.setFocus(output, bottom)
+    let before = model.columns[column].windows
+
+    model.applyAction(output, PolicyAction.expelFocusedWindow)
+    check model.window(bottom).get().column != column
+    model.applyAction(output, PolicyAction.consumePreviousColumn)
+    check model.window(bottom).get().column == column
+    check model.columns[column].windows == before
+    model.validate()
+
+  test "column width presets cycle both ways and adopt a stray width":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+    let column = model.window(window).get().column
+    check model.settings.columnWidthPresets == @[33'i32, 50, 67]
+
+    # An auto-width column is on no preset, so the first press takes the
+    # nearest end for the direction pressed.
+    model.applyAction(output, PolicyAction.cycleColumnWidth)
+    check model.columns[column].widthScale == scaleFromRatio(33, 100)
+    model.applyAction(output, PolicyAction.cycleColumnWidth)
+    check model.columns[column].widthScale == scaleFromRatio(50, 100)
+    model.applyAction(output, PolicyAction.cycleColumnWidthBack)
+    check model.columns[column].widthScale == scaleFromRatio(33, 100)
+    model.applyAction(output, PolicyAction.cycleColumnWidthBack)
+    check model.columns[column].widthScale == scaleFromRatio(67, 100)
+    model.validate()
+
+  test "scratchpad and floating sizes come from the profile":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    let hidden = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, hidden)
+    model.settings.scratchpadWidthPercent = 50
+    model.settings.scratchpadHeightPercent = 50
+    model.applyAction(output, PolicyAction.moveToScratchpad)
+    model.applyAction(output, PolicyAction.toggleScratchpad)
+    check model.windows[hidden].floatingGeometry.width == 500
+    check model.windows[hidden].floatingGeometry.height == 400
+
+    # A floating default of zero keeps the whole output; a percentage centers.
+    let floater = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, floater)
+    model.applyAction(output, PolicyAction.toggleFloating)
+    check model.windows[floater].floatingGeometry == Rect(width: 1000, height: 800)
+    model.applyAction(output, PolicyAction.toggleFloating)
+    model.windows[floater].floatingGeometry = Rect()
+    model.settings.floatingWidthPercent = 60
+    model.settings.floatingHeightPercent = 50
+    model.applyAction(output, PolicyAction.toggleFloating)
+    check model.windows[floater].floatingGeometry ==
+      Rect(x: 200, y: 200, width: 600, height: 400)
+    model.validate()
+
+  test "view names label indicators and view layouts seed new views":
+    var model = initPolicyModel()
+    model.settings.viewNames = @[ViewSlotName(slot: 2, name: "web")]
+    model.settings.viewLayouts = @[ViewSlotLayout(slot: 2, layout: LayoutMode.grid)]
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    model.reconcilePolicySettings()
+
+    let second = model.outputs[output].views[1]
+    check model.views[second].layout == LayoutMode.grid
+    check model.tags[model.viewTagIds(second)[0]].name == "web"
+    # The first view keeps the profile default and a numeric identity.
+    let first = model.outputs[output].views[0]
+    check model.views[first].layout == model.settings.layoutCycle[0]
+    check model.tags[model.viewTagIds(first)[0]].name == ""
+
+    # A rename lands on reload; a layout change waits for a fresh view, since
+    # the profile sets a starting layout and a runtime switch owns it after.
+    model.applyAction(output, PolicyAction.activateView2)
+    model.applyAction(output, PolicyAction.selectMonocleLayout)
+    model.settings.viewNames = @[ViewSlotName(slot: 2, name: "mail")]
+    model.settings.viewLayouts = @[ViewSlotLayout(slot: 2, layout: LayoutMode.tile)]
+    model.reconcilePolicySettings()
+    check model.tags[model.viewTagIds(second)[0]].name == "mail"
+    check model.views[second].layout == LayoutMode.monocle
+    model.validate()
+
 suite "Sophia snapshot adapter":
   test "trusted launch classification places only the first surface admission":
     let output = SnapshotOutput(output: 10, generation: 1, width: 1000, height: 700)
@@ -1760,9 +1849,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 6
+    check parseJson(printed)["schema"].getInt() == 7
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-6\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2250,9 +2339,14 @@ suite "tab checkpoint compatibility":
     var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
     payload["schema"] = %4
     payload.delete("tabTrees")
+    for grown in [
+      "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
+      "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
+    ]:
+      payload["settings"].delete(grown)
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-6\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-7\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2273,6 +2367,11 @@ suite "tab checkpoint compatibility":
     for item in payload["tabTrees"]:
       for treeNode in item["tree"]["nodes"]:
         treeNode.delete("preselect")
+    for grown in [
+      "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
+      "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
+    ]:
+      payload["settings"].delete(grown)
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-5\n" & $payload)
     check restored.checkpointPayload() == adapter.checkpointPayload()
 

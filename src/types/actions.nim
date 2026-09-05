@@ -170,3 +170,6 @@ type PolicyAction* {.pure.} = enum
   splitDirectionRight = 165
   splitDirectionUp = 166
   splitDirectionDown = 167
+  consumePreviousColumn = 168
+  cycleColumnWidth = 169
+  cycleColumnWidthBack = 170

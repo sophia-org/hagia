@@ -1,4 +1,4 @@
-import std/[sequtils, strutils]
+import std/[algorithm, sequtils, strutils]
 
 import kdl
 
@@ -109,13 +109,39 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
       if percent < 10 or percent > 90:
         raise newException(DesktopProfileError, "policy master-ratio is outside 10..90")
       settings.masterRatio = scaleFromRatio(uint32(percent), 100)
+    of "policy.column-width-presets":
+      let node = parseKdl(value.encoded)[0]
+      settings.columnWidthPresets = @[]
+      for argument in node.args:
+        settings.columnWidthPresets.add(int32(argument.get(int)))
+    of "policy.scratchpad-size":
+      let node = parseKdl(value.encoded)[0]
+      settings.scratchpadWidthPercent = int32(node.args[0].get(int))
+      settings.scratchpadHeightPercent = int32(node.args[1].get(int))
+    of "policy.floating-size":
+      let node = parseKdl(value.encoded)[0]
+      settings.floatingWidthPercent = int32(node.args[0].get(int))
+      settings.floatingHeightPercent = int32(node.args[1].get(int))
     of "policy.gap-step":
       settings.gapStep = value.int32Value()
       if settings.gapStep < 1 or settings.gapStep > maxGap:
         raise
           newException(DesktopProfileError, "policy gap-step is outside 1.." & $maxGap)
     else:
-      raise newException(DesktopProfileError, "unknown Hagia policy candidate value")
+      if value.key.startsWith("policy.view-name."):
+        let node = parseKdl(value.encoded)[0]
+        settings.viewNames.add(
+          ViewSlotName(slot: node.args[0].get(int), name: node.args[1].get(string))
+        )
+      elif value.key.startsWith("policy.view-layout."):
+        let node = parseKdl(value.encoded)[0]
+        settings.viewLayouts.add(
+          ViewSlotLayout(
+            slot: node.args[0].get(int), layout: node.args[1].get(string).layoutMode()
+          )
+        )
+      else:
+        raise newException(DesktopProfileError, "unknown Hagia policy candidate value")
   if settings.outerGap > maxGap or settings.innerGap > maxGap:
     raise newException(DesktopProfileError, "policy gaps exceed their bound")
   if settings.outerGap < 0 or settings.innerGap < 0 or settings.viewportOffset < 0:
@@ -123,4 +149,12 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
       newException(DesktopProfileError, "policy geometry settings must be nonnegative")
   settings.layoutCycle.keepItIf(it != defaultLayout)
   settings.layoutCycle.insert(defaultLayout, 0)
+  settings.viewNames.sort(
+    proc(left, right: ViewSlotName): int =
+      cmp(left.slot, right.slot)
+  )
+  settings.viewLayouts.sort(
+    proc(left, right: ViewSlotLayout): int =
+      cmp(left.slot, right.slot)
+  )
   model.settings = settings

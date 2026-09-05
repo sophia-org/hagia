@@ -3,7 +3,7 @@ import std/[algorithm, options, os, posix, sets, strutils, tables, tempfiles]
 import kdl
 import nimcrypto/[hash, sha2]
 
-import ../types/config_values
+import ../types/[config_values, model]
 
 type
   DesktopProfileError* = object of CatchableError
@@ -180,6 +180,11 @@ proc settingKey(authority: ProfileAuthority, node: KdlNode): string =
     if node.args.len == 0 or node.args[0].kind != KString:
       fail(node.name & " requires a string identity")
     result.add("." & node.args[0].kString())
+  if node.name in ["view-name", "view-layout"]:
+    if node.args.len == 0 or
+        node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
+      fail(node.name & " requires an integer view slot")
+    result.add("." & $node.args[0].kInt())
 
 proc isReservedDesktopShortcut*(source: string): bool =
   let parts = source.split('+')
@@ -285,7 +290,8 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
     of ProfileAuthority.policy:
       node.name in [
         "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap",
-        "viewport-offset", "master-count", "master-ratio", "gap-step",
+        "viewport-offset", "master-count", "master-ratio", "gap-step", "view-name",
+        "view-layout", "column-width-presets", "scratchpad-size", "floating-size",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
@@ -306,6 +312,49 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
   if authority == ProfileAuthority.policy and node.name == "layout":
     if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")
+  if authority == ProfileAuthority.policy and node.name == "view-name":
+    if node.args.len != 2 or
+        node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or
+        node.args[1].kind != KString or node.props.len != 0 or node.children.len != 0:
+      fail("policy view-name requires a slot and a name")
+    if node.args[0].kInt() < 1 or node.args[0].kInt() > 9:
+      fail("policy view-name slot is outside 1..9")
+    let name = node.args[1].kString()
+    if name.len == 0 or name.len > maxViewNameBytes or name.strip() != name:
+      fail("policy view-name length is invalid")
+    for value in name:
+      if value in {'\0' .. '\31', '\127'}:
+        fail("policy view-name contains control characters")
+  if authority == ProfileAuthority.policy and node.name == "view-layout":
+    if node.args.len != 2 or
+        node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or
+        node.args[1].kind != KString or node.props.len != 0 or node.children.len != 0:
+      fail("policy view-layout requires a slot and a layout name")
+    if node.args[0].kInt() < 1 or node.args[0].kInt() > 9:
+      fail("policy view-layout slot is outside 1..9")
+    if node.args[1].kString() notin supportedLayoutNames:
+      fail("policy view-layout names an unsupported layout")
+  if authority == ProfileAuthority.policy and node.name == "column-width-presets":
+    if node.args.len < 1 or node.args.len > maxColumnWidthPresets or node.props.len != 0 or
+        node.children.len != 0:
+      fail("policy column-width-presets requires one to eight percentages")
+    for argument in node.args:
+      if argument.kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or argument.kInt() < 5 or
+          argument.kInt() > 95:
+        fail("policy column-width-presets values must be 5..95 percent")
+  if authority == ProfileAuthority.policy and
+      node.name in ["scratchpad-size", "floating-size"]:
+    if node.args.len != 2 or node.props.len != 0 or node.children.len != 0:
+      fail("policy " & node.name & " requires width and height percentages")
+    for argument in node.args:
+      if argument.kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
+        fail("policy " & node.name & " requires width and height percentages")
+    for argument in node.args:
+      let value = argument.kInt()
+      let zeroAllowed = node.name == "floating-size"
+      if (value == 0 and not zeroAllowed) or value < 0 or
+          (value != 0 and (value < 10 or value > 100)):
+        fail("policy " & node.name & " percentages must be 10..100")
   if authority == ProfileAuthority.policy and node.name == "layout-cycle":
     if node.args.len == 0 or node.args.len > supportedLayoutNames.len or
         node.props.len != 0 or node.children.len != 0:

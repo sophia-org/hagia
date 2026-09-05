@@ -163,3 +163,18 @@ proc effectiveGaps*(model: PolicyModel): (int32, int32) =
     (model.settings.outerGap, model.settings.innerGap)
   else:
     (0'i32, 0'i32)
+
+proc placementSize*(bounds: Rect, widthPercent, heightPercent: int32): (int32, int32) =
+  ## A configured percentage pair as pixels of an output. Zero means the
+  ## caller's own default, so it answers the full bounds.
+  let width =
+    if widthPercent > 0:
+      int32(int64(bounds.width) * int64(widthPercent) div 100)
+    else:
+      bounds.width
+  let height =
+    if heightPercent > 0:
+      int32(int64(bounds.height) * int64(heightPercent) div 100)
+    else:
+      bounds.height
+  (max(1'i32, width), max(1'i32, height))

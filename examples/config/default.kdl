@@ -21,6 +21,17 @@ policy {
   master-ratio 50
   // How far one press of increase-gaps or decrease-gaps moves both gaps.
   gap-step 2
+  // Scratchpad windows appear centered at this fraction of the output.
+  scratchpad-size 70 60
+  // cycle-column-width steps the focused column through these percentages.
+  column-width-presets 33 50 67
+  // Freshly floated windows take the whole output; set percentages to size
+  // them instead, e.g. floating-size 60 60.
+  // floating-size 0 0
+  // Name a workspace and its indicator says so; the slot number stays the
+  // identity. Per-view starting layouts follow the same slot addressing.
+  // view-name 1 "code"
+  // view-layout 1 "scroller"
 }
 
 shell {
@@ -105,6 +116,9 @@ shortcut {
   bind "Super+Shift+l" "policy:move-view-to-output-next"
   bind "Super+-" "policy:resize-width -0.1"
   bind "Super+=" "policy:resize-width 0.1"
+  // bind "Super+r" "policy:cycle-column-width"
+  // bind "Super+Shift+r" "policy:cycle-column-width-back"
+  // bind "Super+Alt+z" "policy:consume-window-prev"
   bind "Super+Shift+-" "policy:resize-height -0.1"
   bind "Super+Shift+=" "policy:resize-height 0.1"
 

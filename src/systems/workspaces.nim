@@ -1,4 +1,4 @@
-import std/options
+import std/[options, sets]
 
 import ../types/[core, model]
 import ../policy/entity_store
@@ -78,6 +78,35 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       model.settings.outerGap < 0 or model.settings.outerGap > maxGap or
       model.settings.innerGap < 0 or model.settings.innerGap > maxGap:
     fail("policy layout settings candidate is outside its bounds")
+  if model.settings.columnWidthPresets.len > maxColumnWidthPresets:
+    fail("policy column width presets exceed their bound")
+  for preset in model.settings.columnWidthPresets:
+    if preset < 5 or preset > 95:
+      fail("policy column width preset is outside 5..95 percent")
+  for pair in [
+    (
+      model.settings.scratchpadWidthPercent, model.settings.scratchpadHeightPercent,
+      false,
+    ),
+    (model.settings.floatingWidthPercent, model.settings.floatingHeightPercent, true),
+  ]:
+    for value in [pair[0], pair[1]]:
+      if (value == 0 and not pair[2]) or value < 0 or
+          (value != 0 and (value < 10 or value > 100)):
+        fail("policy placement size percentage is outside its bounds")
+  var namedSlots = initHashSet[int]()
+  for entry in model.settings.viewNames:
+    if entry.slot < 1 or entry.slot > model.settings.viewCount or
+        entry.slot in namedSlots or entry.name.len == 0 or
+        entry.name.len > maxViewNameBytes:
+      fail("policy view name candidate is invalid")
+    namedSlots.incl(entry.slot)
+  var layoutSlots = initHashSet[int]()
+  for entry in model.settings.viewLayouts:
+    if entry.slot < 1 or entry.slot > model.settings.viewCount or
+        entry.slot in layoutSlots:
+      fail("policy view layout candidate is invalid")
+    layoutSlots.incl(entry.slot)
   for viewId in model.views.ids:
     if model.views[viewId].layout notin model.settings.layoutCycle:
       model.views[viewId].layout = model.settings.layoutCycle[0]
@@ -85,7 +114,12 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
   for outputId in outputs:
     for slot in 1'u32 .. uint32(model.settings.viewCount):
       if model.profileViewForSlot(outputId, slot) == nullViewId:
-        discard model.addView(outputId, [model.profileTag(slot)])
+        let created = model.addView(outputId, [model.profileTag(slot)])
+        # The profile sets a view's starting layout; a runtime switch wins
+        # from then on, so this applies only when the view is born.
+        for entry in model.settings.viewLayouts:
+          if uint32(entry.slot) == slot:
+            model.views[created].layout = entry.layout
     var removed: seq[ViewId]
     for viewId in model.outputs[outputId].views:
       let tags = model.viewTagIds(viewId)
@@ -96,6 +130,11 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       model.activateView(outputId, model.profileViewForSlot(outputId, 1))
     for viewId in removed:
       model.removeView(viewId)
+    for entry in model.settings.viewNames:
+      let viewId = model.profileViewForSlot(outputId, uint32(entry.slot))
+      if viewId != nullViewId:
+        for tagId in model.viewTagIds(viewId):
+          model.setWorkspaceName(tagId, entry.name)
     var ordered: seq[ViewId]
     for slot in 1'u32 .. uint32(model.settings.viewCount):
       let viewId = model.profileViewForSlot(outputId, slot)

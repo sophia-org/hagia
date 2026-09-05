@@ -200,11 +200,11 @@ proc moveWindowToScratchpad*(model: var PolicyModel, windowId: WindowId) =
   model.windows[windowId].minimized = false
   model.windows[windowId].floating = true
   let bounds = model.outputs[model.windows[windowId].homeOutput].bounds
+  let (scratchWidth, scratchHeight) = bounds.placementSize(
+    model.settings.scratchpadWidthPercent, model.settings.scratchpadHeightPercent
+  )
   model.windows[windowId].floatingGeometry = centeredGeometry(
-    bounds,
-    model.windows[windowId].constraints,
-    max(1'i32, int32(int64(bounds.width) * 7 div 10)),
-    max(1'i32, int32(int64(bounds.height) * 6 div 10)),
+    bounds, model.windows[windowId].constraints, scratchWidth, scratchHeight
   )
   if model.visibleScratchpad == windowId:
     model.visibleScratchpad = nullWindowId

@@ -82,6 +82,14 @@ type
     view*: ViewId
     tag*: TagId
 
+  ViewSlotName* = object
+    slot*: int
+    name*: string
+
+  ViewSlotLayout* = object
+    slot*: int
+    layout*: LayoutMode
+
   PolicySettings* = object
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
@@ -90,6 +98,11 @@ type
     masterRatio*: Scale
     gapStep*: int32
     gapsEnabled*: bool
+    viewNames*: seq[ViewSlotName]
+    viewLayouts*: seq[ViewSlotLayout]
+    columnWidthPresets*: seq[int32]
+    scratchpadWidthPercent*, scratchpadHeightPercent*: int32
+    floatingWidthPercent*, floatingHeightPercent*: int32
 
   OutputData* = object
     id*: OutputId
@@ -157,6 +170,8 @@ const
   maxScratchpads* = 64
   maxNamedScratchpadSlots* = 4
   maxGroupMembers* = 32
+  maxColumnWidthPresets* = 8
+  maxViewNameBytes* = 32
   maxMasterCount* = 9
   maxGap* = 512
   # A master area narrower than a tenth or wider than nine tenths stops being
@@ -176,4 +191,7 @@ const
     masterRatio: defaultMasterRatio,
     gapStep: defaultGapStep,
     gapsEnabled: true,
+    scratchpadWidthPercent: 70,
+    scratchpadHeightPercent: 60,
+    columnWidthPresets: @[33'i32, 50, 67],
   )

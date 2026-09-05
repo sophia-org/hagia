@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 6
+  result.schema = 7
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,13 +249,14 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-6\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-7\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  # Version 4 predates tab trees and version 5 predates dwindle preselects;
-  # both migrate forward by filling the fields they could not have written.
-  var version = 6
-  for legacy in [4, 5]:
+  # Version 4 predates tab trees, version 5 predates dwindle preselects, and
+  # version 6 predates named views and placement sizing; each migrates
+  # forward by filling the fields it could not have written.
+  var version = 7
+  for legacy in [4, 5, 6]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -272,10 +273,21 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     var node = payload[prefix.len .. ^1].parseJson()
     if version == 4:
       node["tabTrees"] = newJArray()
-    if version == 5:
+    if version <= 5:
       for item in node["tabTrees"]:
         for treeNode in item["tree"]["nodes"]:
           treeNode["preselect"] = toJson(TabTreePreselect.none)
+    if version <= 6:
+      node["settings"]["viewNames"] = newJArray()
+      node["settings"]["viewLayouts"] = newJArray()
+      node["settings"]["columnWidthPresets"] =
+        toJson(defaultPolicySettings.columnWidthPresets)
+      node["settings"]["scratchpadWidthPercent"] =
+        toJson(defaultPolicySettings.scratchpadWidthPercent)
+      node["settings"]["scratchpadHeightPercent"] =
+        toJson(defaultPolicySettings.scratchpadHeightPercent)
+      node["settings"]["floatingWidthPercent"] = toJson(0'i32)
+      node["settings"]["floatingHeightPercent"] = toJson(0'i32)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -832,7 +844,16 @@ proc projection*(
         ):
           stateBits = stateBits or (1'u16 shl 3)
           break
-      let labelText = $(index + 1)
+      # A configured workspace name labels the indicator; the slot number is
+      # the fallback and stays the wire identity either way — a name is not
+      # an identity.
+      var labelText = $(index + 1)
+      for tagId in adapter.model.viewTagIds(viewId):
+        if adapter.model.tags[tagId].name.len > 0:
+          labelText = adapter.model.tags[tagId].name
+          break
+      if labelText.len > indicatorLabelLen:
+        labelText.setLen(indicatorLabelLen)
       var indicator = ProjectionIndicator(
         output: rawOutput,
         slot: uint32(index),

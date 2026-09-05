@@ -266,11 +266,9 @@ lack of a capability.
   and `move-to-named-scratchpad N` actions over the model that was already
   implemented and checkpointed. Migration numbers Triad's scratchpad names in
   first-seen order, so the same profile always migrates the same way.
-- [ ] Workspace naming. `TagData.name` and `setWorkspaceName` exist with zero
-  callers, and indicator labels are hardcoded to the numeric index. Freeze
-  Decision 1 already reserved the 32-byte indicator label as the carrier, and
-  "a name is not an identity" is the standing rule. Needs a config key or
-  action plus label plumb-through.
+- [x] Workspace naming, as `view-name <slot> "<name>"`. The name rides the
+  32-byte indicator label Freeze Decision 1 reserved; the slot stays the wire
+  identity, so a name is still not an identity. A rename lands on reload.
 - [x] `focus-last`. Walks the bounded per-output focus history back to the most
   recent window that is still a candidate, so a closed or moved window is
   skipped rather than resurrected.
@@ -306,11 +304,9 @@ move lands where the user saw the window.
 
 ### Tier 3 — layout power inside the retained families
 
-- [ ] A consume that inverts an expel. `consume-window` always merges into the
-  next column, so it cannot undo an expel whichever side that expel opens on.
-  Making the pair reversible means either a `consume-column-prev` or a
-  directional consume-or-expel pair; both are new actions and a separate
-  design call from where a column opens.
+- [x] A consume that inverts an expel, as `consume-window-prev`. An expelled
+  window opens a column just right of the one it left, so consuming leftward
+  undoes it, and a round-trip test pins that.
 
 - [x] Tile master count and ratio, as `master-count` and `master-ratio`
   profile keys with paired increase/decrease actions. Both are global rather
@@ -328,8 +324,10 @@ move lands where the user saw the window.
   not. `deck` puts the focused window in the master area and gives every other
   window one shared rectangle, which the wire's bottom-to-top placement order
   already expresses.
-- [ ] Column width presets and absolute width (`set-column-width`,
-  `switch-proportion-preset`).
+- [x] Column width presets, as `column-width-presets` plus
+  `cycle-column-width` and its reverse. Triad's `set-column-width <value>`
+  migrates onto the cycle: an absolute width is an argument, and actions
+  carry none, so the widths live in the profile.
 - [x] `spiral` and `tgmix`. Both are stateless: a spiral is recursive
   geometry over the window order, and a mixed layout is a rule about which
   layout to run — master and stack below four windows, a grid above. Eleven
@@ -375,10 +373,14 @@ move lands where the user saw the window.
 
 ### Config keys queue
 
-- [ ] Scratchpad geometry (migration already reports "not yet configurable").
-- [ ] Workspace-name key (with Tier 1 naming).
-- [ ] Per-workspace default layout.
-- [ ] Floating placement defaults.
-- [ ] Sophia-stack installer wiring for `hagia config init`.
-- [ ] README names wallpaper and audio as queued session capabilities; record
+- [x] Scratchpad geometry, as `scratchpad-size`. Both places that centred a scratchpad shared one hardcoded fraction; they now share one helper.
+- [x] Workspace-name key, landed with the naming above.
+- [x] Per-workspace default layout, as `view-layout <slot> "<layout>"`. It seeds a view when the view is born; a runtime switch owns it afterwards.
+- [x] Floating placement defaults, as `floating-size`. Zero keeps the current whole-output behavior.
+- [ ] Sophia-stack installer wiring for `hagia config init` — sophia-stack's
+  installer owns this, so it is out of scope for hagia tranches.
+- [ ] README names wallpaper and audio as queued session capabilities. With
+  lock and screenshot they wait on a session-operation slot registry in
+  sophia-stack's session authority; hagia's side is a whitelist entry and an
+  action each once slots exist. Record
   them in the ledger's post-freeze process when they become real.

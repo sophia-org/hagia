@@ -95,3 +95,28 @@ proc toggleColumnMaximized*(model: var PolicyModel, outputId: OutputId) =
     columnId,
     if model.columns[columnId].widthScale == scaleOne: autoScale else: scaleOne,
   )
+
+proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: int) =
+  ## Step the focused column through the configured width presets. A column
+  ## sitting on none of them starts from the nearest end, and no presets
+  ## configured means no key to press.
+  if outputId notin model.outputs:
+    fail("column preset output does not exist")
+  if model.settings.columnWidthPresets.len == 0:
+    return
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let columnId = model.windows[windowId].column
+  var scales: seq[Scale]
+  for percent in model.settings.columnWidthPresets:
+    scales.add(scaleFromRatio(uint32(percent), 100))
+  let current = scales.find(model.columns[columnId].widthScale)
+  let target =
+    if current >= 0:
+      wrappedIndex(current, delta, scales.len)
+    elif delta < 0:
+      scales.high
+    else:
+      0
+  model.setColumnWidthScale(columnId, scales[target])

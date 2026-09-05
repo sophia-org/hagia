@@ -314,6 +314,12 @@ proc classifyTriadCommand*(command: string): CommandMigration =
     commandMigration(
       "policy", MigrationDisposition.retained, "newWorkspace policy action", command
     )
+  of "switch-proportion-preset":
+    commandMigration(
+      "policy", MigrationDisposition.transformed,
+      "cycleColumnWidth policy action over the profile's column-width-presets",
+      "cycle-column-width",
+    )
   of "consume-window":
     commandMigration(
       "policy", MigrationDisposition.transformed, "consumeNextColumn policy action",
@@ -404,6 +410,14 @@ proc classifyTriadCommand*(command: string): CommandMigration =
           "move-view-to-output-prev"
         else:
           "move-view-to-output-next",
+      )
+    if command.startsWith("set-column-width "):
+      # An absolute width is an argument, and actions carry none: the presets
+      # live in the profile and one key steps through them.
+      return commandMigration(
+        "policy", MigrationDisposition.transformed,
+        "cycleColumnWidth policy action; the width belongs in column-width-presets",
+        "cycle-column-width",
       )
     if command.startsWith("spawn "):
       return commandMigration(

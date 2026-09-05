@@ -254,6 +254,12 @@ proc profileName*(action: PolicyAction): string =
     "split-up"
   of PolicyAction.splitDirectionDown:
     "split-down"
+  of PolicyAction.consumePreviousColumn:
+    "consume-window-prev"
+  of PolicyAction.cycleColumnWidth:
+    "cycle-column-width"
+  of PolicyAction.cycleColumnWidthBack:
+    "cycle-column-width-back"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -590,3 +596,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.tabTreeCommand(output, TabTreeCommand.splitUp)
   of PolicyAction.splitDirectionDown:
     model.tabTreeCommand(output, TabTreeCommand.splitDown)
+  of PolicyAction.consumePreviousColumn:
+    model.consumePreviousColumn()
+  of PolicyAction.cycleColumnWidth:
+    model.cycleColumnWidthPreset(output, 1)
+  of PolicyAction.cycleColumnWidthBack:
+    model.cycleColumnWidthPreset(output, -1)
