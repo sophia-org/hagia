@@ -5,7 +5,12 @@ import kdl
 import ../types/migration
 import ./migration_common
 
-## Input device translation: keyboard layout, repeat, and pointer settings.
+## Input device translation: keyboard layout, repeat, pointer, and cursor
+## settings.
+
+const CursorThemeNameChars = {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '-', '_', '.'}
+  ## The alphabet a cursor theme name may use, matching what the Sophia input
+  ## candidate accepts. It is narrow because the name becomes a directory.
 
 proc reportField*(value: string): string =
   value.multiReplace(("\\", "\\\\"), ("\t", "\\t"), ("\r", "\\r"), ("\n", "\\n"))
@@ -167,6 +172,74 @@ proc migrateMouse*(
       )
   if children.len > 0:
     settings.add("    pointer {\n" & children.join("\n") & "\n    }")
+
+proc migrateCursor*(
+    node: KdlNode, settings: var seq[string], report: var MigrationReport
+) =
+  ## Triad states the cursor at the top level; Sophia carries it inside the
+  ## input candidate, because the cursor is the pointer's appearance and the
+  ## input authority already owns the pointer. The block moves, the keys do
+  ## not.
+  report.add(
+    "cursor", "input", MigrationDisposition.transformed,
+    "cursor block inside the Sophia input candidate",
+  )
+  var emitted = initHashSet[string]()
+  var children: seq[string]
+  for child in node.children:
+    let source = "cursor." & child.name
+    case child.name
+    of "theme":
+      let value = child.oneString(1, 64)
+      if value.valid and value.value.allCharsInSet(CursorThemeNameChars):
+        report.emitSetting(
+          children, emitted, source, "input", "theme", value.encoded,
+          "input cursor theme", MigrationDisposition.transformed,
+        )
+      else:
+        # A theme name becomes a directory under an icon path, so a name that
+        # could leave it is refused rather than carried across and refused
+        # later by a session the operator is no longer watching.
+        report.unsupportedSetting(
+          source, "input", "cursor theme must be a plain icon-theme name"
+        )
+    of "size":
+      # Triad allows 512; Sophia rasters to 128. Clamping silently would put a
+      # cursor on screen at a size nobody chose, so an oversized value is
+      # reported instead.
+      let value = child.oneInteger(1, 128)
+      if value.valid:
+        report.emitSetting(
+          children, emitted, source, "input", "size", value.encoded,
+          "input cursor size", MigrationDisposition.transformed,
+        )
+      else:
+        report.unsupportedSetting(
+          source, "input", "cursor size must be in 1..128"
+        )
+    of "shake-to-find":
+      let value = child.oneBoolean(true)
+      if value.valid:
+        report.emitSetting(
+          children, emitted, source, "input", "shake-to-find", value.encoded,
+          "input cursor shake-to-find, which the session accepts but does not yet act on",
+          MigrationDisposition.deferred,
+        )
+      else:
+        report.unsupportedSetting(
+          source, "input", "shake-to-find requires a flag or bool"
+        )
+    of "hide-when-typing", "hide-after-inactive-ms":
+      report.unsupportedSetting(
+        source, "input",
+        "cursor hiding is not yet part of the input candidate",
+      )
+    else:
+      report.unsupportedSetting(
+        source, "input", "input candidate does not support this cursor setting"
+      )
+  if children.len > 0:
+    settings.add("    cursor {\n" & children.join("\n") & "\n    }")
 
 proc migrateInput*(
     node: KdlNode, settings: var seq[string], report: var MigrationReport

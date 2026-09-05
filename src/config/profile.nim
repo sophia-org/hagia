@@ -309,7 +309,7 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
     of ProfileAuthority.session:
       node.name in ["terminal", "browser", "logout", "startup"]
     of ProfileAuthority.input:
-      node.name in ["inherit-sophia", "keyboard", "pointer"]
+      node.name in ["inherit-sophia", "keyboard", "pointer", "cursor"]
     of ProfileAuthority.output:
       node.name in ["inherit-sophia", "named"]
     of ProfileAuthority.broker:

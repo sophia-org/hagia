@@ -821,6 +821,60 @@ output {
     check "output.monitor[DP-1].disabled" in unsupported
     check "output.monitor[DP-1]" in unsupported
 
+  test "semantic migration moves the cursor block into the input candidate":
+    ## Triad states the cursor at the top level and Sophia carries it inside
+    ## the input candidate, because the cursor is the pointer's appearance.
+    ## The block moves; the keys do not.
+    let report = migrateTriadProfile(
+      """
+cursor {
+  theme "WhiteSur-cursors"
+  size 24
+  shake-to-find #true
+  hide-when-typing #true
+  hide-after-inactive-ms 4000
+}
+"""
+    )
+    check "    cursor {" in report.outputProfile
+    # Bare, as every migrated string value is: KDL reads it back as one.
+    check "        theme WhiteSur-cursors" in report.outputProfile
+    check "        size 24" in report.outputProfile
+    check "        shake-to-find #true" in report.outputProfile
+
+    var disposition: Table[string, MigrationDisposition]
+    for item in report.items:
+      disposition[item.source] = item.disposition
+      check item.authority in ["input", "unowned"] or item.authority.len > 0
+    check disposition["cursor.theme"] == MigrationDisposition.transformed
+    check disposition["cursor.size"] == MigrationDisposition.transformed
+    # Carried across and accepted by the schema, but nothing acts on it yet,
+    # and a reader deciding whether to expect it to work needs that said.
+    check disposition["cursor.shake-to-find"] == MigrationDisposition.deferred
+    check disposition["cursor.hide-when-typing"] == MigrationDisposition.unsupported
+    check disposition["cursor.hide-after-inactive-ms"] ==
+      MigrationDisposition.unsupported
+
+  test "semantic migration refuses a cursor Sophia would not raster or open":
+    ## Triad allows sizes to 512 and any theme string. Clamping or carrying
+    ## either one silently would put a cursor on screen that nobody chose, or
+    ## defer the refusal to a session the operator is no longer watching.
+    let report = migrateTriadProfile(
+      """
+cursor {
+  theme "../../etc/passwd"
+  size 512
+}
+"""
+    )
+    check "    cursor {" notin report.outputProfile
+    var unsupported = initHashSet[string]()
+    for item in report.items:
+      if item.disposition == MigrationDisposition.unsupported:
+        unsupported.incl(item.source)
+    check "cursor.theme" in unsupported
+    check "cursor.size" in unsupported
+
   test "recorded Triad default has a complete physical binding inventory":
     let fixture =
       currentSourcePath().parentDir() / "fixtures" / "triad-default-bindings.kdl"

@@ -275,10 +275,7 @@ proc migrateTriadProfile*(source: string): MigrationReport =
         "capture settings require an explicit portal grant",
       )
     of "cursor":
-      result.classifyTree(
-        node, node.name, "input", MigrationDisposition.unsupported,
-        "cursor presentation is not yet part of the input candidate",
-      )
+      node.migrateCursor(inputSettings, result)
     of "presentation-mode":
       result.add(
         node.name, "output", MigrationDisposition.unsupported,
