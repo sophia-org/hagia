@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 11
+  result.schema = 12
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,7 +249,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-11\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-12\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
@@ -258,8 +258,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # maximised column as a width, and version 9 shared one camera across both
   # scroll axes; each migrates forward by filling the fields it could not
   # have written.
-  var version = 11
-  for legacy in [4, 5, 6, 7, 8, 9, 10]:
+  var version = 12
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -325,6 +325,14 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       # profile written before these keys existed was getting anyway.
       node["settings"]["defaultRowHeightPercent"] = toJson(0'i32)
       node["settings"]["rowHeightPresets"] = newJArray()
+    if version <= 11:
+      for viewNode in node["views"]:
+        viewNode["camera"] = toJson(CameraAnchor())
+        viewNode["cameraY"] = toJson(CameraAnchor())
+        viewNode["openedColumn"] = toJson(nullColumnId)
+        viewNode["openingFocus"] = toJson(nullWindowId)
+        viewNode["openingOffset"] = toJson(0'i32)
+        viewNode["openingOffsetY"] = toJson(0'i32)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -652,8 +660,12 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   for key in adapter.surfaceToWindow.keys:
     if key notin liveSurfaces:
       removedSurfaces.add(key)
+  var removalFocusOutputs: seq[OutputId]
   for key in removedSurfaces:
     let window = adapter.surfaceToWindow[key]
+    for outputId in adapter.model.outputOrder:
+      if adapter.model.outputs[outputId].focusedWindow == window:
+        removalFocusOutputs.add(outputId)
     adapter.model.removeWindow(window)
     adapter.surfaceToWindow.del(key)
     adapter.windowToSurface.del(window)
@@ -703,7 +715,9 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
 
   for output in snapshot.outputs:
     if output.focusGeneration == 0:
-      adapter.model.clearFocus(adapter.outputToLogical[output.output])
+      let logical = adapter.outputToLogical[output.output]
+      if logical notin removalFocusOutputs:
+        adapter.model.clearFocus(logical)
       continue
     let key = surfaceKey(output.focusIndex, output.focusGeneration)
     if key in adapter.surfaceToWindow:
@@ -738,7 +752,9 @@ proc projection*(
     # is written back before the next projection reads it. Without this the
     # strip recomputes from the configured offset every time and springs back.
     if logical.cameraDecided:
-      adapter.model.rememberViewportOffset(logical.output, logical.viewportOffset)
+      adapter.model.rememberViewportOffset(
+        logical.output, logical.viewportOffset, logical.camera
+      )
     let rawOutput = adapter.logicalToOutput[logical.output].output
     var outputSnapshot: SnapshotOutput
     var foundOutput = false
@@ -756,6 +772,25 @@ proc projection*(
       let key = adapter.windowToSurface[logical.focus]
       output.focusIndex = uint32(key and 0xffffffff'u64)
       output.focusGeneration = uint32(key shr 32)
+    if logical.cameraDecided:
+      let view = adapter.model.views[adapter.model.outputs[logical.output].activeView]
+      var group = ProjectionTranslationGroup(output: rawOutput, group: uint64(view.id))
+      if view.layout == LayoutMode.verticalScroller:
+        group.y = -logical.viewportOffset
+      else:
+        group.x = -logical.viewportOffset
+      for placement in logical.placements:
+        let window = adapter.model.windows[placement.window]
+        if not window.floating and not window.fullscreen and not window.maximized:
+          let key = adapter.windowToSurface[placement.window]
+          group.members.add(
+            ProjectionTabMember(
+              surfaceIndex: uint32(key and 0xffffffff'u64),
+              surfaceGeneration: uint32(key shr 32),
+            )
+          )
+      if group.members.len > 0:
+        result.translationGroups.add(group)
     var projection = PolicyOutputProjection(output: output)
     for placement in logical.placements:
       if placement.window notin adapter.surfaceFacts:

@@ -95,6 +95,10 @@ type
     ## the same pair, and setting a width clears the flag.
     fullWidth*: bool
 
+  CameraAnchor* = object
+    column*: ColumnId
+    position*: int32
+
   ViewData* = object
     id*: ViewId
     preferredOutput*: OutputId
@@ -116,6 +120,10 @@ type
     ## that wants to centre something records what it wants and the projection
     ## works out where that is. Cleared once a projection commits.
     cameraIntent*: CameraIntent
+    camera*, cameraY*: CameraAnchor
+    openedColumn*: ColumnId
+    openingFocus*: WindowId
+    openingOffset*, openingOffsetY*: int32
 
   TagData* = object
     id*: TagId

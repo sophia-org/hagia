@@ -214,9 +214,7 @@ proc migrateCursor*(
           "input cursor size", MigrationDisposition.transformed,
         )
       else:
-        report.unsupportedSetting(
-          source, "input", "cursor size must be in 1..128"
-        )
+        report.unsupportedSetting(source, "input", "cursor size must be in 1..128")
     of "shake-to-find":
       let value = child.oneBoolean(true)
       if value.valid:
@@ -231,8 +229,7 @@ proc migrateCursor*(
         )
     of "hide-when-typing", "hide-after-inactive-ms":
       report.unsupportedSetting(
-        source, "input",
-        "cursor hiding is not yet part of the input candidate",
+        source, "input", "cursor hiding is not yet part of the input candidate"
       )
     else:
       report.unsupportedSetting(

@@ -1,3 +1,4 @@
+import sophia/wm_translation
 import sophia/wm_tab_groups
 import types/session
 import std/[os, strutils, unittest]
@@ -128,7 +129,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 11
+  check lines.len == 13
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -171,6 +172,18 @@ proc checkRecords(path: string) =
         check group.encodeTabGroup() == bytes
       else:
         check group.encodeTabMember(group.members[0]) == bytes
+    of "projection_translation_group", "projection_translation_member":
+      let group = ProjectionTranslationGroup(
+        output: 1,
+        group: 1,
+        x: 1,
+        y: 0,
+        members: @[ProjectionTabMember(surfaceIndex: 1, surfaceGeneration: 1)],
+      )
+      if fields[0] == "projection_translation_group":
+        check group.encodeTranslationGroup() == bytes
+      else:
+        check group.encodeTranslationMember(group.members[0]) == bytes
     of "projection_output":
       check bytes.decodeProjectionOutput().output == 1
     of "projection_placement":

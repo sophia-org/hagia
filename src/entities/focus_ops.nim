@@ -18,6 +18,11 @@ proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
     not model.windowTagIds(windowId).intersects(model.viewTagIds(view.get().id))
   ) or not window.get().capabilities.focusable or window.get().minimized:
     fail("focus target is not visible and focusable")
+  # Reconciliation repeating the current focus does not spend opening context.
+  if output.get().focusedWindow != windowId and
+      model.views[view.get().id].openedColumn != window.get().column:
+    model.views[view.get().id].openedColumn = nullColumnId
+    model.views[view.get().id].openingFocus = nullWindowId
   model.outputs[outputId].focusedWindow = windowId
   model.outputs[outputId].focusHistory.keepItIf(it != windowId)
   model.outputs[outputId].focusHistory.add(windowId)

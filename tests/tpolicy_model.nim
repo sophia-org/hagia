@@ -532,11 +532,10 @@ suite "Hagia private policy model":
     check dynamicView notin model.views
     model.validate()
 
-  test "walking off the strip reaches the next display, or wraps without one":
+  test "walking off the strip reaches the next display and stops at the outer edge":
     ## The key that walks the strip has to mean something at its ends. With a
     ## display on that side it hands over, which is the only way the same key
-    ## reaches the other monitor. With nothing there it wraps, which is what
-    ## it did before hand-off existed and what a lone display still expects.
+    ## reaches the other monitor. At an outer edge the same key stops.
     var model = initPolicyModel()
     let left = model.addOutput(Rect(width: 1600, height: 900))
     let right = model.addOutput(Rect(x: 1600, width: 1600, height: 900))
@@ -545,18 +544,15 @@ suite "Hagia private policy model":
 
     var leftWindows: seq[WindowId]
     for _ in 0 ..< 2:
-      leftWindows.add(
-        model.addWindow(left, focusableCapabilities(), SizeConstraints())
-      )
-    let rightWindow =
-      model.addWindow(right, focusableCapabilities(), SizeConstraints())
+      leftWindows.add(model.addWindow(left, focusableCapabilities(), SizeConstraints()))
+    let rightWindow = model.addWindow(right, focusableCapabilities(), SizeConstraints())
 
     # On the left display's last column, stepping right hands over.
     model.setFocus(left, leftWindows[^1])
     model.applyAction(left, PolicyAction.focusColumnNext)
     check model.activeOutput == right
 
-    # The right display is the outer edge, so the same step wraps in place.
+    # The right display is the outer edge, so the same step stays put.
     model.setFocus(right, rightWindow)
     model.applyAction(right, PolicyAction.focusColumnNext)
     check model.activeOutput == right
@@ -567,23 +563,21 @@ suite "Hagia private policy model":
     check model.activeOutput == left
     model.validate()
 
-  test "a lone display wraps at either end of the strip":
-    ## The regression guard for the change above: hand-off must not cost a
-    ## single-monitor desk the wrap it has always had.
+  test "a lone display stops at either end of the strip":
+    ## Directional movement has a boundary even on a single display.
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1600, height: 900))
     model.views[model.outputs[output].activeView].layout = LayoutMode.scroller
     var windows: seq[WindowId]
     for _ in 0 ..< 3:
-      windows.add(
-        model.addWindow(output, focusableCapabilities(), SizeConstraints())
-      )
+      windows.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
 
     model.setFocus(output, windows[^1])
     model.applyAction(output, PolicyAction.focusColumnNext)
-    check model.outputs[output].focusedWindow == windows[0]
-    model.applyAction(output, PolicyAction.focusColumnPrevious)
     check model.outputs[output].focusedWindow == windows[^1]
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.focusColumnPrevious)
+    check model.outputs[output].focusedWindow == windows[0]
     model.validate()
 
   test "view actions switch visibility and move the focused window":
@@ -910,13 +904,13 @@ suite "Hagia private policy model":
       let view = model.outputs[output].activeView
 
       let horizontal = model.projectScroller([output])[0]
-      model.rememberViewportOffset(output, horizontal.viewportOffset)
+      model.rememberViewportOffset(output, horizontal.viewportOffset, horizontal.camera)
       let storedX = model.views[view].viewportOffset
       require storedX != 0
 
       model.views[view].layout = LayoutMode.verticalScroller
       let vertical = model.projectLayout([output])[0]
-      model.rememberViewportOffset(output, vertical.viewportOffset)
+      model.rememberViewportOffset(output, vertical.viewportOffset, vertical.camera)
       # The vertical camera settled on its own axis; the horizontal one is
       # untouched by it.
       check model.views[view].viewportOffset == storedX
@@ -935,7 +929,7 @@ suite "Hagia private policy model":
       opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
     model.setFocus(output, opened[1])
     let before = model.projectScroller([output])[0]
-    model.rememberViewportOffset(output, before.viewportOffset)
+    model.rememberViewportOffset(output, before.viewportOffset, before.camera)
 
     model.applyAction(output, PolicyAction.centerColumn)
     let centred = model.projectScroller([output])[0]
@@ -944,7 +938,7 @@ suite "Hagia private policy model":
     let focusWidth = centred.placements[1].geometry.width
     check focusX == (1000 - focusWidth) div 2
     check centred.focus == opened[1]
-    model.rememberViewportOffset(output, centred.viewportOffset)
+    model.rememberViewportOffset(output, centred.viewportOffset, centred.camera)
 
     # The request is spent, so the next projection does not re-centre.
     let view = model.outputs[output].activeView
@@ -971,36 +965,32 @@ suite "Hagia private policy model":
     check model.columns[column].fullWidth
     model.validate()
 
-  test "opening a second window does not leave the strip centred for one":
-    ## The centring rule keyed on the column count, so a second window opening
-    ## left the camera where a single column had put it. The focused column
-    ## was still visible, so the reveal rule had no reason to move, and the
-    ## strip sat in the middle of the screen with dead space beside it until
-    ## focus happened to move. Two windows that fit are centred as a pair.
+  test "unfocused admissions preserve the current view":
+    ## Admission without focus preserves the visible focused column's anchor.
+    ## Single-column centering does not recenter a whole fitting strip.
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 2560, height: 1440))
     let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
     model.setFocus(output, first)
     let alone = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
-    model.rememberViewportOffset(output, alone.viewportOffset)
+    model.rememberViewportOffset(output, alone.viewportOffset, alone.camera)
     check alone.placements[0].geometry.x == 650
 
-    # Focus deliberately does not follow, which is the case that broke: the
-    # focused column stays visible, so nothing forces a recompute.
+    # Focus deliberately does not follow the newly admitted window.
     discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
     let pair = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
     require pair.placements.len == 2
-    check pair.placements[0].geometry.x == 16
-    check pair.placements[1].geometry.x == 1284
+    check pair.placements[0].geometry.x == 650
+    check pair.placements[1].geometry.x == 1918
     # Neither overlaps the other, which is what the operator actually saw.
     check pair.placements[0].geometry.x + pair.placements[0].geometry.width <=
       pair.placements[1].geometry.x
-    model.rememberViewportOffset(output, pair.viewportOffset)
+    model.rememberViewportOffset(output, pair.viewportOffset, pair.camera)
 
-    # A third does not fit, so the strip stops being centred and scrolls.
+    # A third unfocused admission also leaves the anchor where it was.
     discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
     let three = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
-    check three.placements[0].geometry.x == 16
+    check three.placements[0].geometry.x == 650
     model.validate()
 
   test "a lone window is centred rather than left against the edge":
@@ -1037,7 +1027,7 @@ suite "Hagia private policy model":
       let scrolled = model.projectScroller([output])[0]
       check scrolled.cameraDecided
       require scrolled.viewportOffset != 0
-      model.rememberViewportOffset(output, scrolled.viewportOffset)
+      model.rememberViewportOffset(output, scrolled.viewportOffset, scrolled.camera)
 
       let view = model.outputs[output].activeView
       model.views[view].layout = LayoutMode.tile
@@ -1302,11 +1292,13 @@ suite "Hagia private policy model":
     check model.outputs[output].focusedWindow == windows[3]
     model.applyAction(output, PolicyAction.focusWindowAbove)
     check model.outputs[output].focusedWindow == windows[2]
-    # Both axes wrap, and the column move keeps the row it started on.
+    # Returning to a column restores its active window; vertical edges stop.
     model.applyAction(output, PolicyAction.focusColumnPrevious)
+    check model.outputs[output].focusedWindow == windows[1]
+    model.applyAction(output, PolicyAction.focusWindowAbove)
     check model.outputs[output].focusedWindow == windows[0]
     model.applyAction(output, PolicyAction.focusWindowAbove)
-    check model.outputs[output].focusedWindow == windows[1]
+    check model.outputs[output].focusedWindow == windows[0]
     model.validate()
 
   test "column focus lands on the nearest row of a shorter column":
@@ -2204,6 +2196,47 @@ suite "Sophia snapshot adapter":
       check indicator.action in 11'u64 .. 19'u64
     adapter.model().validate()
 
+  test "close focus survives a zero-focus snapshot without overriding explicit clearing":
+    var output = SnapshotOutput(
+      output: 10,
+      generation: 1,
+      width: 2560,
+      height: 1440,
+      focusIndex: 1,
+      focusGeneration: 1,
+    )
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    output.focusIndex = 2
+    adapter.reconcile(snapshot(2, @[output], @[surface(1, 10), surface(2, 10)]))
+    output.focusIndex = 0
+    output.focusGeneration = 0
+    adapter.reconcile(snapshot(3, @[output], @[surface(1, 10)]))
+    let logical = adapter.logicalOutput(10).get()
+    check adapter.model().outputs[logical].focusedWindow ==
+      adapter.logicalWindow(1, 1).get()
+    adapter.reconcile(snapshot(4, @[output], @[surface(1, 10)]))
+    check adapter.model().outputs[logical].focusedWindow == nullWindowId
+
+  test "v11 checkpoints migrate camera history and reject corrupt offsets":
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
+    payload["schema"] = %11
+    for view in payload["views"]:
+      for field in [
+        "camera", "cameraY", "openedColumn", "openingFocus", "openingOffset",
+        "openingOffsetY",
+      ]:
+        view.delete(field)
+    let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $payload)
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-12\n")
+    var corrupt = parseJson(restored.checkpointPayload().dumpCheckpointJson())
+    corrupt["views"][0]["openingOffset"] = %int64(low(int32))
+    expect PolicyStateError:
+      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-12\n" & $corrupt)
+
   test "a private checkpoint remains a candidate until complete reconciliation":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
     let first = snapshot(1, @[output], @[surface(1, 10)])
@@ -2324,9 +2357,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 11
+    check parseJson(printed)["schema"].getInt() == 12
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-12\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2825,7 +2858,7 @@ suite "tab checkpoint compatibility":
       viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-12\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2846,7 +2879,7 @@ suite "tab checkpoint compatibility":
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-12\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
@@ -2872,7 +2905,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-12\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)

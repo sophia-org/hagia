@@ -42,6 +42,19 @@ proc addWindow*(
   model.windowTags[result] = model.viewTagIds(activeView.get().id)
   model.windowOrder.add(result)
   model.columns[column].windows.add(result)
+  if activeView.get().layout in {LayoutMode.scroller, LayoutMode.verticalScroller}:
+    let focused = output.get().focusedWindow
+    if focused in model.windows and not model.windows[focused].floating:
+      let anchor = model.windows[focused].column
+      let index = model.columnOrder.find(anchor)
+      if index >= 0:
+        model.columnOrder.setLen(model.columnOrder.len - 1)
+        model.columnOrder.insert(column, index + 1)
+        let view = activeView.get().id
+        model.views[view].openedColumn = column
+        model.views[view].openingFocus = focused
+        model.views[view].openingOffset = model.views[view].viewportOffset
+        model.views[view].openingOffsetY = model.views[view].viewportOffsetY
 
 proc removeWindow*(model: var PolicyModel, id: WindowId) =
   if id notin model.windows:
@@ -62,6 +75,58 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   for windowId in model.windowOrder:
     if windowId != id and model.windows[windowId].parent == id:
       model.windows[windowId].parent = nullWindowId
+  # Closing the freshly opened column returns to its opening context. Other
+  # removals leave a surviving focused column anchored by the next projection.
+  for outputId in model.outputOrder:
+    let view = model.outputs[outputId].activeView
+    if model.outputs[outputId].focusedWindow == id and view in model.views:
+      let previous = model.views[view].openingFocus
+      if model.columns[column].windows.len == 1 and
+          model.views[view].openedColumn == column and previous in model.windows and
+          previous != id and model.windows[previous].homeOutput == outputId and
+          not model.windows[previous].minimized and
+          model.windows[previous].capabilities.focusable and
+          previous in model.eligibleWindows(outputId):
+        model.views[view].viewportOffset = model.views[view].openingOffset
+        model.views[view].viewportOffsetY = model.views[view].openingOffsetY
+        model.views[view].camera = CameraAnchor()
+        model.views[view].cameraY = CameraAnchor()
+        model.setFocus(outputId, previous)
+    if model.outputs[outputId].focusedWindow == id and view in model.views and
+        model.views[view].layout in {LayoutMode.scroller, LayoutMode.verticalScroller}:
+      let columns = model.visibleColumnIds(outputId)
+      let index = columns.find(column)
+      var candidates: seq[ColumnId]
+      if index >= 0:
+        candidates.add(column)
+        if index + 1 < columns.len:
+          candidates.add(columns[index + 1])
+        if index > 0:
+          candidates.add(columns[index - 1])
+      for candidate in candidates:
+        var selected = nullWindowId
+        let eligible = model
+          .columnWindows(candidate, model.eligibleWindows(outputId))
+          .filterIt(not model.windows[it].minimized)
+        for i in countdown(model.outputs[outputId].focusHistory.high, 0):
+          let remembered = model.outputs[outputId].focusHistory[i]
+          if remembered != id and remembered in eligible and
+              model.windows[remembered].capabilities.focusable:
+            selected = remembered
+            break
+        if selected == nullWindowId:
+          for window in eligible:
+            if window != id and model.windows[window].capabilities.focusable:
+              selected = window
+              break
+        if selected != nullWindowId:
+          model.setFocus(outputId, selected)
+          break
+    if view in model.views and (
+      model.views[view].openingFocus == id or model.views[view].openedColumn == column
+    ):
+      model.views[view].openedColumn = nullColumnId
+      model.views[view].openingFocus = nullWindowId
   model.windows.del(id)
   model.windowTags.del(id)
   model.windowOrder.keepItIf(it != id)

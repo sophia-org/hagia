@@ -90,6 +90,7 @@ proc transposedForVerticalScroller*(
   let cameraView = result.outputs[outputId].activeView
   if cameraView in result.views:
     result.views[cameraView].viewportOffset = result.views[cameraView].viewportOffsetY
+    result.views[cameraView].camera = result.views[cameraView].cameraY
   # Likewise the along-axis default: the machine reads it as a column width,
   # and along this axis a column width is a row height.
   result.settings.defaultColumnWidthPercent =
@@ -173,9 +174,16 @@ proc validate*(model: PolicyModel) =
       # is what makes the restore path discard it and start fresh, instead of
       # restoring a crash: die on the offset, restart, restore the same
       # offset, die again.
-      if abs(model.views[viewId].viewportOffset) > maxViewportOffset or
-          abs(model.views[viewId].viewportOffsetY) > maxViewportOffset:
-        fail("policy view camera offset is corrupt")
+      for offset in [
+        model.views[viewId].viewportOffset,
+        model.views[viewId].viewportOffsetY,
+        model.views[viewId].camera.position,
+        model.views[viewId].cameraY.position,
+        model.views[viewId].openingOffset,
+        model.views[viewId].openingOffsetY,
+      ]:
+        if abs(int64(offset)) > int64(maxViewportOffset):
+          fail("policy view camera offset is corrupt")
       var seenViewTags = initHashSet[TagId]()
       for tagId in model.viewTagIds(viewId):
         if tagId notin model.tags or tagId in seenViewTags or

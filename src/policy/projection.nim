@@ -143,16 +143,12 @@ proc projectScroller*(
     positions = strip.positions
     widths = strip.widths
     focusedColumn = strip.focused
+    let activeView = output.get().activeView
+    let previousCamera = model.views[activeView].camera
     for index, item in columns:
-      let (_, windows) = item
-      # The column focus came from, for the overflow rule below. The most
-      # recent entry that is not the focused window is where focus was before
-      # this projection.
-      if previousColumn < 0:
-        for remembered in output.get().focusHistory:
-          if remembered != output.get().focusedWindow and remembered in windows:
-            previousColumn = index
-            break
+      if item[0].id == previousCamera.column:
+        previousColumn = index
+        break
 
     # The camera carries over from the last projection rather than restarting
     # at the configured offset, which is what lets the strip stay where it was
@@ -160,12 +156,22 @@ proc projectScroller*(
     # view springs back the moment the focused column happens to fit.
     # Seeded from the view's own camera, not the configured offset, so the
     # strip resumes where this view left it.
-    let activeView = output.get().activeView
     var targetOffset =
       if activeView in model.views:
         model.views[activeView].viewportOffset
       else:
         viewportOffset
+    # Keep the old focused column stationary when the strip before it changes.
+    # The anchor belongs to the last committed projection, not focus history.
+    if previousColumn >= 0:
+      targetOffset = int32(
+        clamp(
+          int64(targetOffset) + int64(positions[previousColumn]) -
+            int64(previousCamera.position),
+          int64(low(int32)),
+          int64(high(int32)),
+        )
+      )
     # A stored camera is clamped to the strip that exists now. The strip it
     # was stored against may have shrunk -- columns close, widths change --
     # and an offset pointing past it would place every column off screen and
@@ -179,21 +185,6 @@ proc projectScroller*(
     if focusedColumn >= 0:
       let columnX = positions[focusedColumn]
       let columnWidth = widths[focusedColumn]
-      # A strip that fits on screen is centred as a whole, rather than left
-      # against one edge with the space all on the other side.
-      #
-      # The condition is that the strip fits, not that it holds one column.
-      # Keying it to a lone column meant the centred offset stayed put when a
-      # second one opened: the focused column was still visible, so the reveal
-      # rule had no reason to move, and the strip sat in the middle of the
-      # screen with dead space beside it until focus happened to move.
-      let stripWidth =
-        if strip.positions.len > 0:
-          int64(strip.positions[^1]) + int64(strip.widths[^1])
-        else:
-          0'i64
-      let stripFits =
-        model.settings.alwaysCenterSingleColumn and stripWidth <= int64(usableWidth)
       targetOffset =
         case model.settings.centerFocusedColumn
         of CenterFocusedColumn.always:
@@ -232,11 +223,8 @@ proc projectScroller*(
               )
             else:
               scrollerCenteredOffset(usableWidth, columnX, columnWidth)
-      if stripFits:
-        # Centre the strip, not the focused column. Centring the column would
-        # put a two-column strip that already fits back where a one-column
-        # strip belonged, which is the dead space this rule exists to remove.
-        targetOffset = int32(-((int64(usableWidth) - stripWidth) div 2))
+      if model.settings.alwaysCenterSingleColumn and columns.len == 1:
+        targetOffset = scrollerCenteredOffset(usableWidth, columnX, columnWidth)
 
     # A camera action asked for a position by name. It is resolved here
     # because this is the only place the strip geometry exists.
@@ -278,6 +266,10 @@ proc projectScroller*(
             )
     projection.viewportOffset = targetOffset
     projection.cameraDecided = true
+    if focusedColumn >= 0:
+      projection.camera = CameraAnchor(
+        column: columns[focusedColumn][0].id, position: positions[focusedColumn]
+      )
 
     for index, item in columns:
       let (_, windows) = item

@@ -2,6 +2,15 @@
 
 ## Current Position
 
+The September 5 scrolling audit is implemented against Niri `dd75865f` and
+Triad `fb8fb27`: committed camera anchors, incoming-neighbor overflow,
+focus-relative admission, close restoration, bounded directional navigation,
+and per-column focus memory. Hagia submits optional generic translation groups;
+Sophia owns GPU motion. Deterministic camera, reconciliation, checkpoint and
+shared-wire regressions accompany the change. Physical acceptance of three
+Kitty windows, vertical scrolling, both outputs and moving-content clicks is
+still pending. The running session has not been reloaded.
+
 The policy configuration boundary now has one semantic owner. Sophia preserves
 ordered Policy records within the session envelope; Hagia checks their setting
 names, values, and duplicate identities. Offline `config check` and startup both

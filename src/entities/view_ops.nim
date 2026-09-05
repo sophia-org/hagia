@@ -61,7 +61,7 @@ proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
       discard model.addView(outputId, [model.profileTag(slot)])
 
 proc rememberViewportOffset*(
-    model: var PolicyModel, outputId: OutputId, offset: int32
+    model: var PolicyModel, outputId: OutputId, offset: int32, camera = CameraAnchor()
 ) =
   ## Record where the scroller camera ended up on the view this output is
   ## showing. The projection decides the position; this is what makes the next
@@ -75,8 +75,10 @@ proc rememberViewportOffset*(
     # the other axis keeps its own place.
     if model.views[viewId].layout == LayoutMode.verticalScroller:
       model.views[viewId].viewportOffsetY = offset
+      model.views[viewId].cameraY = camera
     else:
       model.views[viewId].viewportOffset = offset
+      model.views[viewId].camera = camera
     # The intent has been resolved into the offset above, so it is spent. A
     # camera action moves the view once; it does not pin it there.
     model.views[viewId].cameraIntent = CameraIntent.none

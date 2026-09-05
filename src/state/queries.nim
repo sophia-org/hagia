@@ -297,9 +297,7 @@ proc scrollerStrip*(
 proc transpose*(rect: Rect): Rect =
   Rect(x: rect.y, y: rect.x, width: rect.height, height: rect.width)
 
-proc adjacentOutput*(
-    model: PolicyModel, outputId: OutputId, delta: int
-): OutputId =
+proc adjacentOutput*(model: PolicyModel, outputId: OutputId, delta: int): OutputId =
   ## The display beside this one, in the direction asked for.
   ##
   ## Ordered by where the outputs actually sit rather than by the order they

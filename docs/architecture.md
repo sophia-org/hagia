@@ -115,14 +115,28 @@ Full width is a flag the column holds, not a width it was given. Writing the
 width over would lose what the column had, leaving the operator no way back
 once focus moved; anything that sets a width clears the flag.
 
-The camera is one offset per view, in strip coordinates, and only a scroller
-decides one. Every other layout leaves it alone, so switching away and back
-returns to where the view was. It moves for exactly two reasons: to reveal the
-focused column, and because an action asked. The reveal is load-bearing —
-Sophia routes keys to whatever holds focus without asking whether it can be
-seen, so the camera is the only thing standing between a focus change and a
-window receiving input nobody can see. A column wider than the viewport is
-shown from its left edge, since no offset shows all of it.
+The camera retains an offset and the last committed focused column's strip
+position independently for each axis. Projection preserves that anchor when
+columns before it are inserted or removed. On-overflow reveal uses the actual
+incoming column, centers when the incoming adjacent pair cannot fit, and
+otherwise moves only enough to reveal focus. Single-column centering applies
+only when one column is visible. Repeating an unchanged projection is stable.
+
+New tiled columns are inserted after focus. Closing a freshly opened focused
+column restores its opening focus and camera until navigation clears that
+context. Ordinary close chooses a surviving member or adjacent column;
+reconciliation preserves this fallback when the removal snapshot has no focus.
+Directional navigation stops at outer edges, retains adjacent-monitor handoff,
+and remembers each destination column's last focused member. Explicit cycling
+remains a separate wrapping action.
+
+Checkpoint version 12 carries camera anchors and opening context; versions
+4 through 11 migrate with empty anchors. As with all policy state, a candidate
+is promoted only after Engine commit. Hagia does not run animation clocks:
+optional `translation_groups` capability bit 12 submits one opaque group per
+scrolling view and final translation alongside ordinary placements. Sophia
+owns the GPU spring, frame scheduling and presented input geometry. Without
+the capability, final placements still work immediately.
 
 The vertical scroller is the same machine seen from ninety degrees away: it
 turns the output on its side and runs the horizontal code, then turns the

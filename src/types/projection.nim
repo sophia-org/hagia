@@ -1,4 +1,5 @@
 import ./core
+import ./model
 import ./tab_tree
 
 ## Deterministic geometry results. Projection builders in
@@ -23,3 +24,4 @@ type
     ## reset the view a scroller had been left at, and switching layout and
     ## back lost the scroll position.
     cameraDecided*: bool
+    camera*: CameraAnchor

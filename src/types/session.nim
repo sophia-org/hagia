@@ -80,12 +80,18 @@ type
     focused*: bool
     members*: seq[ProjectionTabMember]
 
+  ProjectionTranslationGroup* = object
+    output*, group*: uint64
+    x*, y*: int32
+    members*: seq[ProjectionTabMember]
+
   PolicyProjection* = object
     activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
     outputStatuses*: seq[ProjectionOutputStatus]
     tabGroups*: seq[ProjectionTabGroup]
+    translationGroups*: seq[ProjectionTranslationGroup]
 
   ProjectionOutcome* = object
     transaction*: uint64

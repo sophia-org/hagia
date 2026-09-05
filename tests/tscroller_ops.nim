@@ -175,7 +175,9 @@ proc runOps(
       let (outerGap, innerGap) = model.effectiveGaps()
       let projected = model.projectScroller([outputId], outerGap, innerGap)[0]
       if projected.cameraDecided:
-        model.rememberViewportOffset(outputId, projected.viewportOffset)
+        model.rememberViewportOffset(
+          outputId, projected.viewportOffset, projected.camera
+        )
 
 suite "scroller operation sequences":
   test "the invariants hold across every centring mode":
@@ -232,7 +234,9 @@ suite "scroller operation sequences":
       for window in opened:
         model.setFocus(outputId, window)
         let projected = model.projectScroller([outputId], outerGap, innerGap)[0]
-        model.rememberViewportOffset(outputId, projected.viewportOffset)
+        model.rememberViewportOffset(
+          outputId, projected.viewportOffset, projected.camera
+        )
         let strip = model.scrollerStrip(outputId, outerGap, innerGap)
         require strip.focused >= 0
         let left =

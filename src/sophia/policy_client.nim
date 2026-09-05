@@ -1,3 +1,4 @@
+import ./wm_translation
 import ./wm_tab_groups
 import std/[net, options, os, sets]
 
@@ -34,6 +35,7 @@ const
   capabilitySessionOperations = 1'u64 shl 7
   capabilityIndicators = 1'u64 shl 8
   capabilityProfileActivation = 1'u64 shl 9
+  capabilityTranslationGroups = 1'u64 shl 12
   capabilityTabGroups = 1'u64 shl 11
   capabilityLaunchPlacement = 1'u64 shl 10
 
@@ -92,7 +94,7 @@ proc negotiatePolicy(
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
-      optional or capabilityTabGroups
+      optional or capabilityTabGroups or capabilityTranslationGroups
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -437,6 +439,7 @@ proc sendProjection(
       )
     )
 
+  var extensionOrdinal = uint16(chunkCount)
   if projection.tabGroups.len > 0:
     if (client.capabilities and capabilityTabGroups) == 0:
       fail("Sophia did not negotiate tab groups")
@@ -451,7 +454,7 @@ proc sendProjection(
         inc memberCount
     if memberCount > 2048:
       fail("too many tab members")
-    var ordinal = uint16(chunkCount)
+    var ordinal = extensionOrdinal
     for (kind, size, data) in [(0xff01'u16, 48, groups), (0xff02'u16, 24, members)]:
       let limit = (client.maxChunkBytes div size) * size
       if limit == 0:
@@ -473,6 +476,42 @@ proc sendProjection(
           )
         )
         inc ordinal
+        start = finish
+    extensionOrdinal = ordinal
+
+  if (client.capabilities and capabilityTranslationGroups) != 0:
+    if projection.translationGroups.len > maxOutputs:
+      fail("too many translation groups")
+    var groups, members: seq[byte]
+    for group in projection.translationGroups:
+      if group.group == 0 or group.members.len == 0:
+        fail("empty translation group")
+      groups.add(group.encodeTranslationGroup())
+      for member in group.members:
+        members.add(group.encodeTranslationMember(member))
+    if members.len div 24 > maxSurfaces:
+      fail("too many translation members")
+    for (kind, size, data) in [(0xff03'u16, 32, groups), (0xff04'u16, 24, members)]:
+      let limit = (client.maxChunkBytes div size) * size
+      if limit == 0:
+        fail("negotiated translation chunk limit is too small")
+      var start = 0
+      while start < data.len:
+        let finish = min(start + limit, data.len)
+        var payload: seq[byte]
+        payload.addU64(client.connectionEpoch)
+        payload.addU16(extensionOrdinal)
+        payload.addU16(kind)
+        payload.addU32(uint32((finish - start) div size))
+        payload.add(data[start ..< finish])
+        client.sendFrame(
+          Frame(
+            kind: MessageKind.projectionChunk,
+            transaction: transaction,
+            payload: payload,
+          )
+        )
+        inc extensionOrdinal
         start = finish
 
   var endPayload: seq[byte]

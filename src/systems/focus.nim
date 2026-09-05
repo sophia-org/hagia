@@ -114,10 +114,14 @@ proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int
       if model.outputs[adjacent].focusedWindow == nullWindowId:
         model.focusRelative(adjacent, 1)
       return
-    # Nothing on that side, so the strip wraps as it always has. A single
-    # display keeps precisely the behaviour it had before hand-off existed;
-    # the outer edge of a multi-display arrangement behaves the same way.
-  let target = columns[wrappedIndex(columnIndex, delta, columns.len)]
+    return
+  let target = columns[next]
+  # A column remembers its own active window; row matching is only the fallback.
+  for index in countdown(model.outputs[outputId].focusHistory.high, 0):
+    let remembered = model.outputs[outputId].focusHistory[index]
+    if remembered in target:
+      model.setFocus(outputId, remembered)
+      return
   model.setFocus(outputId, target[min(row, target.high)])
 
 proc focusWithinColumnRelative*(
@@ -138,7 +142,9 @@ proc focusWithinColumnRelative*(
   let windows = columns[columnIndex]
   if windows.len < 2:
     return
-  model.setFocus(outputId, windows[wrappedIndex(row, delta, windows.len)])
+  let target = row + delta
+  if target >= 0 and target < windows.len:
+    model.setFocus(outputId, windows[target])
 
 proc groupFocusedWithNeighbour*(model: var PolicyModel, outputId: OutputId) =
   ## Join the focused window to the one after it in layout order, merging both
