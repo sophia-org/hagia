@@ -212,10 +212,12 @@ as a no-state tombstone. A test-only refinement executor drives the real
 coordinator effects through seven independent participants and proves
 convergence or exact single-authority recovery divergence at every failure
 position. No production handler invokes that model yet. Startup may eventually
-hide partial local activation behind the graphical launch gate; watched live
-reload cannot use that assumption and remains disabled until a separate global
-visibility and recovery protocol is proved and populated through dedicated
-authorities.
+hide partial local activation behind the graphical launch gate. Requested
+reload does not need that assumption: it restages the fragments and replaces
+the policy client, so the new profile is read by a process that starts fresh
+against it. Watching the file for changes remains disabled until a separate
+global visibility and recovery protocol is proved and populated through
+dedicated authorities.
 
 Sophia's startup configuration now retains one canonical immutable typed
 candidate bundle after verifying every raw authority candidate against the
@@ -326,9 +328,11 @@ socketpair test proves negotiation and exact prepare/activate ordering. The
 cross-repository gate also launches the real Hagia executable through Sophia's
 supervisor and proves complete owner activation and cleanup without acquiring
 graphical resources. A supervised restart reuses the activated generation and
-digest under a fresh connection epoch. Normal policy connections do not call
-this loop and still omit the capability. Watched reload remains deferred until
-the same global visibility and rollback guarantees exist beyond startup.
+digest under a fresh connection epoch. That is what a requested reload uses:
+the fragments are rewritten in place under a newer generation and the client
+is replaced, so the restart path applies the new profile without a second
+handshake being invented for it. Watching the file remains deferred until the
+same global visibility and rollback guarantees exist beyond startup.
 
 At startup, Sophia prepares the session fragment into bounded terminal,
 browser, startup, and logout selectors and resolves them only against its

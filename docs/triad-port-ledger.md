@@ -1,8 +1,14 @@
 # Triad Port Completion Ledger
 
-This ledger records what “Triad is ported to Hagia” meant when Sophia froze
+This ledger records what “Triad is ported to Hagia” meant when Sophia settled
 revision 3 of `sophia_wm_v1`. The unit of parity is retained behavior,
 not source files, process shape, River protocols, or command spelling.
+
+`sophia_wm_v1` is no longer frozen; it is a work in progress whose revisions
+advance, with negotiation as the compatibility contract. Where this ledger
+says “freeze”, read it as “revision 3”: the rows record what that revision
+carried and what a row would cost, and a row marked post-freeze is later work
+rather than forbidden work.
 
 The reviewed source baseline is
 `fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9`. A row is complete only when its
@@ -48,7 +54,7 @@ all 137 bindings in Triad's historical default.
 | Floating, fullscreen, maximize, minimize, restore, and client-visible state | Complete | Reducers, frontend settlement, checkpoint persistence, and signed installed evidence cover floating, fullscreen, maximize, minimize, and restore. Snapping and metadata-rule-driven defaults are excluded; reduced dialog defaults remain covered by the complete transient row. |
 | Dialogs, transients, popups, and scratchpads | Complete | Reduced parent/role facts drive dialog defaults; standard and named scratchpads cycle and restore through bounded logical relations. Popup rendering remains outside WM policy. |
 | Additional native layouts, frames, tabs, BSP/split trees, grid, and layout switching | Complete | The retained five-layout compiled native cycle has per-view state, deterministic projections, checkpoint persistence, an opaque action, Tier-0 visible status, and installed restart evidence. Frames, tabs, and additional BSP/split layouts are excluded from this freeze because the daily-driver profile does not select them and their chrome belongs to a later shell tranche. |
-| Declarative policy configuration | Complete | Provenance-bearing startup candidates reconcile configured views and native layouts on a clone, validate the full logical model, and preserve last-known-good state on failure. Watched reload remains deferred to the cross-authority protocol. |
+| Declarative policy configuration | Complete | Provenance-bearing startup candidates reconcile configured views and native layouts on a clone, validate the full logical model, and preserve last-known-good state on failure. Requested reload is carried by `session:reload-profile`, which re-reads the profile and replaces this process so its checkpoint restores the windows; watching the file for changes remains deferred. |
 | Janet commands and layouts | Excluded | Embedded policy execution is not selected by the daily-driver profile and adds a separate determinism, memory, and fallback boundary without exercising a missing WM correspondence. Keep it on the post-freeze Hagia roadmap. |
 | Placement, sticky behavior, swallowing, size policy, and window rules | Complete | Trusted registered-launch provenance emits one opaque class for the first observed surface. Hagia maps retained classes 1..9 to view slots without switching the active view; retry/reconnect preserves the grant until the manage projection commits. Hagia never receives title, app ID, PID, path, namespace identity, or regex input. Sticky behavior, swallowing, and metadata-matched rule parity are excluded from this freeze. |
 | Completed and continuous pointer policy interactions | Complete | The retained pointer surface is move and resize. Engine capture crosses as ordered Begin/Update/End values with latest queued Update replacement; topology, VT, seat, and policy-restart revocation clear capture and prioritize Cancel, which Hagia applies as a spatial no-op. Drag and scroll policy producers are excluded because the daily-driver profile registers only move and resize pointer actions; their wire enum values remain reserved. |
@@ -84,7 +90,7 @@ the signed archives bind these commits. New shell work belongs to Narthex.
 | Launch, startup environment, configured processes, and shell supervision | Complete | The retained product resolves terminal, browser, startup, logout, and switcher selectors only against Sophia's registered applications, activates the typed session payload at startup, and supervises the separately protected Hagia Shell through fresh-epoch reconnect. Arbitrary commands, ambient launch environments, and general process lists are excluded. |
 | Lock, logout, session exit, idle inhibition, and shortcut inhibition | Excluded | Clean logout and session exit remain retained through registered operations above. Lock, idle inhibition, and shortcut inhibition require a dedicated security authority and are post-freeze product work; they cannot widen the blind WM boundary. |
 | Cursor theme, visibility, inactivity, and find feedback | Excluded | The existing Engine cursor remains the v1 baseline. Theme configuration, inactivity, and find feedback are independent Engine/shell capabilities and do not gate the WM contract. |
-| Configuration discovery, validation, activation, reload, and rollback | Complete | Discovery, partitioning, exact fragment admission, seven-owner preparation, startup activation, generation/digest identity, and rollback on timeout, disconnect, rejection, or local failure are retained and tested. Watched reload and durable cross-authority recovery are explicitly excluded from this freeze. |
+| Configuration discovery, validation, activation, reload, and rollback | Complete | Discovery, partitioning, exact fragment admission, seven-owner preparation, startup activation, generation/digest identity, and rollback on timeout, disconnect, rejection, or local failure are retained and tested. Requested reload restages the fragments and restarts the client; watching the file and durable cross-authority recovery remain later work. |
 
 ## Brokers And Portals
 

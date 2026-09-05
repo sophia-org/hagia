@@ -261,11 +261,11 @@ layout power second — and annotated by cost.
 
 The queue is now being worked toward a stated goal: **every Triad command whose
 authority is spatial policy becomes a Hagia action.** The rules for growing the
-catalog, and why the frozen wire never blocks it, are in
+catalog, and why the wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 107 of its bindings now carry over, up from 40 at
-the freeze, and the parity test pins that no policy command is excluded for
+`tests/tfoundation.nim`: 108 of its bindings now carry over, up from 40 at
+revision 3, and the parity test pins that no policy command is excluded for
 lack of a capability.
 
 ### Tier 1 — muscle memory, model-ready or near
@@ -374,7 +374,9 @@ move lands where the user saw the window.
   authority.
 - Axis, gesture, and switch bindings; per-device input overrides → the input
   authority.
-- Watched config reload → the cross-authority reload protocol.
+- Watched config reload → still unbuilt, but the reload itself now exists:
+  `session:reload-profile` re-reads the profile on request. What is missing is
+  the watcher, not the mechanism.
 - Metadata window rules, sticky, swallowing → excluded with the metadata
   boundary; a classification-based subset (size policy by broker class) is
   the only compatible shape.
@@ -396,10 +398,10 @@ wire:
 - Sophia advertises every session operation with its slot in each snapshot
   (`SnapshotSessionOperation`, record kind 4, max 256 — Hagia uses four).
   `sophia/policy_session.nim` resolves an action's slot to the advertised
-  operation and sends `SessionOperationRequest`. Adding a fifth operation
-  needs no revision and touches nothing frozen.
+  operation and sends `SessionOperationRequest`. Adding an operation needs no
+  revision: the slot is profile-local and the token is opaque.
 - What is closed is Sophia's own vocabulary: `DesktopSessionShortcut` in
-  `crates/sophia-config/src/shortcut_candidate.rs` has exactly the five
+  `crates/sophia-config/src/shortcut_candidate.rs` holds exactly the
   variants whose `profile_name()` strings are Hagia's session whitelist in
   `config/profile.nim`, and `WmActionBehavior` in `.../types.rs` is closed
   the same way. Each capability also needs its behavior implemented, and
@@ -411,4 +413,49 @@ So the work is sophia-stack's, tracked in its `todo.md` under Native WM and
 shell product. Hagia's side per capability is one whitelist string in
 `config/profile.nim`, one appended action whose `sessionOperationSlot`
 returns the new slot, and a binding — a few lines, once the slot exists.
-Record each in the ledger's post-freeze process as it becomes real.
+Record each in the ledger as it becomes real.
+
+## Desktop-profile parity with a Triad configuration
+
+Measured against a real Triad profile in daily use. Everything below is a key
+that profile sets and this one cannot yet express, so the list is a statement
+of what an operator would have to give up, not a wish list.
+
+Single settings, each a policy key and a projection term:
+
+- `smart-gaps` — suppress gaps for a lone window.
+- `default-window-width` / `default-window-height` — per-window proportions;
+  column width exists, the window inside it does not.
+- floating `x-ratio`, `y-ratio`, `min-width`, `min-height` — only the size
+  pair exists today.
+- spiral `ratio`, `main-pane`, `clockwise` — the layout ships, its tuning
+  does not.
+- `presentation-mode`, `frame-rate` — Engine-facing, so an output-authority
+  key rather than a policy one.
+- `mirror-hjkl-arrows` — refused so far for wanting deterministic shortcut
+  expansion; the expansion is the work.
+
+Subsystems, each needing an authority decision before any key:
+
+- **Appearance** — border width and colours, frame-tab background, layout
+  toast. No appearance authority exists in the profile schema; deciding
+  whether policy or Engine owns border colour is the actual question.
+- **Animations** — `enable-animations`, `animation-speed`. Engine owns
+  pixels, so this is an Engine capability a profile names.
+- **Window rules** — needs app-id and title, which the broker deliberately
+  withholds from policy. A classification-based subset is the only compatible
+  shape.
+- **Shells** — active shell, cycle, watchdog, per-shell launch and stop.
+  Hagia has `shell { enabled; panel }`; the rest is session-authority work.
+- **Overview** and its modal bindings — Hagia has no modal binding concept,
+  which is the prerequisite.
+- **Recent-windows MRU** — the Alt+Tab family, a bounded focus history with
+  its own presentation.
+- **Hotkey overlay** — needs bind properties (`hotkey-overlay-title`), and
+  the profile grammar rejects properties on `bind` today.
+- **Screenshot**, **screen-lock** — portal and security authorities.
+- **Janet** — scripted layouts, its own tranche.
+- **spawn-at-startup** — `session.startup` is accepted by the schema and has
+  no consumer; it must either grow one or stop being accepted.
+- **Per-layout binding scopes** — Triad scopes bindings inside `layout "i3"`
+  blocks; Hagia chords are global.

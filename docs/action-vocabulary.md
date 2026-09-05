@@ -5,14 +5,15 @@ manager to do. It grows; the wire it travels on does not. This document is the
 rulebook for growing it, written once so every later tranche follows the same
 shape.
 
-## Why the frozen wire never blocks a new action
+## Why the wire never blocks a new action
 
-`sophia_wm_v1` revision 3 is frozen, and adding spatial commands to Hagia needs
-no revision. The protocol carries an *opaque* action catalog: Hagia sends up to
-256 entries of `(ordinal, session slot, name)`, Sophia binds triggers to names
-it never interprets, and a shortcut arrives back as the ordinal Hagia chose.
-Meaning lives entirely on this side. The freeze locked the transport, not the
-vocabulary, and the protocol's direction rule — client to server, additive
+`sophia_wm_v1` is a work in progress whose revisions advance, but adding
+spatial commands to Hagia needs no revision at all. The protocol carries an
+*opaque* action catalog: Hagia sends up to 256 entries of
+`(ordinal, session slot, name)`, Sophia binds triggers to names it never
+interprets, and a shortcut arrives back as the ordinal Hagia chose. Meaning
+lives entirely on this side. The transport carries the vocabulary without
+knowing it, and the protocol's direction rule — client to server, additive
 forever — is exactly the direction a new action travels.
 
 So every command below is Hagia-internal work: an enum entry, a reducer arm,
