@@ -24,6 +24,23 @@ type
   ## mirroring niri's center-focused-column. `onOverflow` centers only when
   ## the focused column and the one it came from cannot share the screen;
   ## otherwise the camera scrolls the shortest distance that reveals it.
+  ## What a camera action asked for, if anything.
+  ScrollerStrip* = object
+    ## Where every column of a scroller sits, in strip coordinates.
+    ##
+    ## The projection needs this to place windows and an action needs it to
+    ## decide what is on screen, so it is computed once, by `scrollerStrip`,
+    ## rather than twice with two chances to disagree.
+    positions*: seq[int32]
+    widths*: seq[int32]
+    usableWidth*: int32
+    focused*: int
+
+  CameraIntent* {.pure.} = enum
+    none
+    centerFocused
+    centerVisible
+
   CenterFocusedColumn* {.pure.} = enum
     never
     always
@@ -89,6 +106,11 @@ type
     # It may be negative, which is how a column narrower than the screen sits
     # centred with space to its left.
     viewportOffset*: int32
+    ## A camera move asked for by name rather than derived from focus. The
+    ## projection is the only place the strip geometry exists, so an action
+    ## that wants to centre something records what it wants and the projection
+    ## works out where that is. Cleared once a projection commits.
+    cameraIntent*: CameraIntent
 
   TagData* = object
     id*: TagId

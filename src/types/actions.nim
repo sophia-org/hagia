@@ -178,3 +178,6 @@ type PolicyAction* {.pure.} = enum
   ## replaces this process, whose checkpoint carries the windows across.
   sessionReloadProfile = 171
   sessionRestartWm = 172
+  centerColumn = 173
+  centerVisibleColumns = 174
+  expandColumnToAvailableWidth = 175

@@ -148,3 +148,60 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
         break
   model.setColumnWidthScale(columnId, scales[target])
   model.columns[columnId].fullWidth = false
+
+proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
+  ## Grow the focused column into the space its neighbours are not using.
+  ##
+  ## Only the columns wholly on screen count, and the focused one must be
+  ## among them: widening a column that cannot be seen would move the strip
+  ## under the operator for no visible reason. A column already at full width
+  ## has nothing to expand into, and one with nothing beside it toggles full
+  ## width instead, so the key always does something and always has a way
+  ## back. niri resolves it the same way.
+  if outputId notin model.outputs:
+    fail("column expand output does not exist")
+  let windowId = model.outputs[outputId].focusedWindow
+  if windowId == nullWindowId:
+    return
+  let columnId = model.windows[windowId].column
+  if model.columns[columnId].fullWidth:
+    return
+  let (outerGap, innerGap) = model.effectiveGaps()
+  let strip = model.scrollerStrip(outputId, outerGap, innerGap)
+  if strip.focused < 0:
+    return
+  let offset = model.views[model.outputs[outputId].activeView].viewportOffset
+  var taken = 0'i64
+  var holdsFocus = false
+  var neighbours = 0
+  for index, position in strip.positions:
+    if int64(position) < int64(offset) + int64(innerGap):
+      continue
+    if int64(offset) + int64(strip.usableWidth) <
+        int64(position) + int64(strip.widths[index]) + int64(innerGap):
+      break
+    if index == strip.focused:
+      holdsFocus = true
+    else:
+      inc neighbours
+    taken += int64(strip.widths[index]) + int64(innerGap)
+  if not holdsFocus:
+    return
+  if neighbours == 0:
+    model.columns[columnId].fullWidth = true
+    return
+  let available = int64(strip.usableWidth) - int64(innerGap) - taken
+  if available <= 0:
+    return
+  let grown = int64(strip.widths[strip.focused]) + available
+  let proportionBase = max(1'i32, strip.usableWidth - innerGap)
+  # Back out the scale that produces this width, since a width is stored as a
+  # proportion of the room a column can occupy.
+  let raw =
+    (grown + int64(innerGap)) * int64(uint32(scaleOne)) div int64(proportionBase)
+  model.setColumnWidthScale(
+    columnId,
+    Scale(
+      uint32(max(int64(uint32(minimumScale)), min(int64(uint32(maximumScale)), raw)))
+    ),
+  )

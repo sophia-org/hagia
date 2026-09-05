@@ -50,6 +50,13 @@ shortcut {
   // window manager that has stopped behaving, kept away from the letters so it
   // cannot be reached by accident.
   bind "Ctrl+Alt+f5" "session:restart-wm"
+
+  // Camera keys. The first two move the view without moving focus, which
+  // nothing else does; the third grows a column into whatever space its
+  // neighbours are not using.
+  bind "Super+Alt+c" "policy:center-column"
+  bind "Super+Alt+g" "policy:center-visible-columns"
+  bind "Super+Alt+e" "policy:expand-column-to-available-width"
   bind "Super+Return" "session:spawn-terminal"
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"

@@ -12,14 +12,6 @@ proc clamp(value, minimum, maximum: int32): int32 =
   if maximum > 0:
     result = min(result, maximum)
 
-proc scaledExtent(base: int32, scale: Scale): int32 =
-  if base <= 0:
-    return 0
-  let scaled = int64(base) * int64(uint32(scale)) div int64(uint32(scaleOne))
-  if scaled > int64(high(int32)):
-    return high(int32)
-  int32(scaled)
-
 proc scrollerViewOffset*(
     currentOffset, viewWidth, columnX, columnWidth, gap: int32
 ): int32 =
@@ -144,57 +136,15 @@ proc projectScroller*(
     var virtualX = 0'i64
     var focusedColumn = -1
     var previousColumn = -1
-    # A scroller does not divide the screen among its columns. Each column
-    # keeps the width it was given and the strip grows past the edge, which is
-    # the whole point of scrolling: opening a window pushes the row along
-    # rather than making every column thinner. A column that never chose a
-    # width takes the configured default.
-    let defaultScale =
-      scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
-    # A proportion is of the space a column can actually occupy, which is the
-    # viewport less the gap it carries. Measuring against the raw width makes
-    # two half-width columns wider than the screen by exactly one gap, so they
-    # never fit together and the camera centres on every new window instead of
-    # placing it beside its neighbour. niri computes the same way:
-    # (working - gaps) * proportion - gaps.
-    let proportionBase = max(1'i32, usableWidth - safeInnerGap)
+    # The strip geometry is computed once, in one place, so an action that
+    # reasons about what is on screen and the projection that draws it cannot
+    # disagree about where the columns are.
+    let strip = model.scrollerStrip(outputId, safeOuterGap, safeInnerGap)
+    positions = strip.positions
+    widths = strip.widths
+    focusedColumn = strip.focused
     for index, item in columns:
-      let (column, windows) = item
-      # Full width is a flag the column carries, not a width it was given, so
-      # the width it chose survives being maximised and comes back when the
-      # flag clears.
-      let scale =
-        if column.fullWidth:
-          scaleOne
-        elif column.widthScale == autoScale:
-          defaultScale
-        else:
-          column.widthScale
-      var width = max(1'i32, proportionBase.scaledExtent(scale) - safeInnerGap)
-      # A client that cannot be narrower than some size gets a column that
-      # fits it. A proportion is a preference; a minimum is a fact, and a
-      # column narrower than its window would leave the window overflowing it.
-      var columnMinWidth = 0'i32
-      var columnMaxWidth = 0'i32
-      for windowId in windows:
-        let constraints = model.windows[windowId].constraints
-        if constraints.minWidth > columnMinWidth:
-          columnMinWidth = constraints.minWidth
-        if constraints.maxWidth > 0 and
-            (columnMaxWidth == 0 or constraints.maxWidth < columnMaxWidth):
-          columnMaxWidth = constraints.maxWidth
-      if columnMaxWidth > 0 and columnMaxWidth >= columnMinWidth and
-          width > columnMaxWidth:
-        width = columnMaxWidth
-      if width < columnMinWidth:
-        width = columnMinWidth
-      if virtualX > int64(high(int32)):
-        raise newException(PolicyStateError, "scroller extent is excessive")
-      positions.add(int32(virtualX))
-      widths.add(width)
-      virtualX += int64(width) + int64(safeInnerGap)
-      if output.get().focusedWindow in windows:
-        focusedColumn = index
+      let (_, windows) = item
       # The column focus came from, for the overflow rule below. The most
       # recent entry that is not the focused window is where focus was before
       # this projection.
@@ -264,6 +214,44 @@ proc projectScroller*(
               )
             else:
               scrollerCenteredOffset(usableWidth, columnX, columnWidth)
+    # A camera action asked for a position by name. It is resolved here
+    # because this is the only place the strip geometry exists.
+    if activeView in model.views:
+      case model.views[activeView].cameraIntent
+      of CameraIntent.none:
+        discard
+      of CameraIntent.centerFocused:
+        if focusedColumn >= 0:
+          targetOffset = scrollerCenteredOffset(
+            usableWidth, positions[focusedColumn], widths[focusedColumn]
+          )
+      of CameraIntent.centerVisible:
+        # The run of columns wholly on screen, taken as a block and centred.
+        # It has to contain the focused column: centring a group that does not
+        # would scroll the window being worked in off the edge.
+        if focusedColumn >= 0:
+          var leftmost = -1
+          var taken = 0'i64
+          var holdsFocus = false
+          for index, position in positions:
+            if int64(position) < int64(targetOffset) + int64(safeInnerGap):
+              continue
+            if leftmost < 0:
+              leftmost = index
+            if int64(targetOffset) + int64(usableWidth) <
+                int64(position) + int64(widths[index]) + int64(safeInnerGap):
+              break
+            if index == focusedColumn:
+              holdsFocus = true
+            taken += int64(widths[index]) + int64(safeInnerGap)
+          if holdsFocus and leftmost >= 0:
+            let free = int64(usableWidth) - taken + int64(safeInnerGap)
+            targetOffset = int32(
+              max(
+                int64(low(int32)),
+                min(int64(high(int32)), int64(positions[leftmost]) - free div 2),
+              )
+            )
     projection.viewportOffset = targetOffset
     projection.cameraDecided = true
 

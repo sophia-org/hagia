@@ -71,3 +71,18 @@ proc rememberViewportOffset*(
   let viewId = model.outputs[outputId].activeView
   if viewId in model.views:
     model.views[viewId].viewportOffset = offset
+    # The intent has been resolved into the offset above, so it is spent. A
+    # camera action moves the view once; it does not pin it there.
+    model.views[viewId].cameraIntent = CameraIntent.none
+
+proc requestCamera*(model: var PolicyModel, outputId: OutputId, intent: CameraIntent) =
+  ## Ask the next projection to move the camera somewhere named.
+  ##
+  ## The strip geometry only exists inside the projection, so an action that
+  ## wants to centre something records what it wants rather than working out
+  ## where that is. The request is spent when the projection resolves it.
+  if outputId notin model.outputs:
+    return
+  let viewId = model.outputs[outputId].activeView
+  if viewId in model.views:
+    model.views[viewId].cameraIntent = intent

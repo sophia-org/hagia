@@ -185,3 +185,81 @@ proc placementSize*(bounds: Rect, widthPercent, heightPercent: int32): (int32, i
     else:
       bounds.height
   (max(1'i32, width), max(1'i32, height))
+
+proc scrollerColumnWidth*(
+    model: PolicyModel,
+    column: ColumnData,
+    windows: openArray[WindowId],
+    proportionBase, innerGap: int32,
+): int32 =
+  ## One column's width. Full width is a flag the column carries, not a width
+  ## it was given, so the width it chose survives being maximised and comes
+  ## back when the flag clears.
+  let scale =
+    if column.fullWidth:
+      scaleOne
+    elif column.widthScale == autoScale:
+      model.defaultColumnScale()
+    else:
+      column.widthScale
+  result = max(1'i32, proportionBase.scaledExtent(scale) - innerGap)
+  # A client that cannot be narrower than some size gets a column that fits
+  # it. A proportion is a preference; a minimum is a fact, and a column
+  # narrower than its window would leave the window overflowing it.
+  var columnMinWidth = 0'i32
+  var columnMaxWidth = 0'i32
+  for windowId in windows:
+    let constraints = model.windows[windowId].constraints
+    if constraints.minWidth > columnMinWidth:
+      columnMinWidth = constraints.minWidth
+    if constraints.maxWidth > 0 and
+        (columnMaxWidth == 0 or constraints.maxWidth < columnMaxWidth):
+      columnMaxWidth = constraints.maxWidth
+  if columnMaxWidth > 0 and columnMaxWidth >= columnMinWidth and result > columnMaxWidth:
+    result = columnMaxWidth
+  if result < columnMinWidth:
+    result = columnMinWidth
+
+proc scrollerStrip*(
+    model: PolicyModel, outputId: OutputId, outerGap, innerGap: int32
+): ScrollerStrip =
+  ## Lay the strip out without projecting it. A scroller does not divide the
+  ## screen among its columns: each keeps the width it was given and the strip
+  ## grows past the edge, which is the whole point of scrolling.
+  let output = model.output(outputId)
+  if output.isNone:
+    raise newException(PolicyStateError, "projection output does not exist")
+  let safeOuterGap = max(0'i32, outerGap)
+  let safeInnerGap = max(0'i32, innerGap)
+  let inset = int64(output.get().bounds.width) - int64(safeOuterGap) * 2
+  result.usableWidth =
+    if inset <= 0:
+      0'i32
+    elif inset > int64(high(int32)):
+      high(int32)
+    else:
+      int32(inset)
+  result.focused = -1
+  if result.usableWidth == 0:
+    raise newException(PolicyStateError, "output gaps consume the viewport")
+  # A proportion is of the space a column can actually occupy, which is the
+  # viewport less the gap it carries. niri computes the same way:
+  # (working - gaps) * proportion - gaps.
+  let proportionBase = max(1'i32, result.usableWidth - safeInnerGap)
+  let eligible =
+    model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
+  var virtualX = 0'i64
+  for columnId in model.tiledColumnIds(outputId):
+    let windows = model.columnWindows(columnId, eligible)
+    if windows.len == 0:
+      continue
+    let width = model.scrollerColumnWidth(
+      model.columns[columnId], windows, proportionBase, safeInnerGap
+    )
+    if virtualX > int64(high(int32)):
+      raise newException(PolicyStateError, "scroller extent is excessive")
+    if output.get().focusedWindow in windows:
+      result.focused = result.positions.len
+    result.positions.add(int32(virtualX))
+    result.widths.add(width)
+    virtualX += int64(width) + int64(safeInnerGap)

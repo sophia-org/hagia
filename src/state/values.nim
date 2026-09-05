@@ -15,6 +15,15 @@ proc tagForSlot*(slot: uint32): TagMask =
     fail("tag slot is outside Hagia's bounded mask")
   TagMask(1'u64 shl (slot - 1))
 
+proc scaledExtent*(base: int32, scale: Scale): int32 =
+  ## How much of `base` a scale asks for, saturating rather than wrapping.
+  if base <= 0:
+    return 0
+  let scaled = int64(base) * int64(uint32(scale)) div int64(uint32(scaleOne))
+  if scaled > int64(high(int32)):
+    return high(int32)
+  int32(scaled)
+
 proc scaleFromRatio*(numerator, denominator: uint32): Scale =
   if denominator == 0:
     fail("scale denominator must be nonzero")

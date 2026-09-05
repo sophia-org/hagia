@@ -317,11 +317,12 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    # Ninety bindings, of which eighty-two name a policy action. The other
-    # eight are session capabilities Sophia carries out, including the two that
-    # reload the profile and replace this process.
-    check shortcuts.values.len == 90
-    check policyBindings == 82
+    # Ninety-three bindings, of which eighty-five name a policy action --
+    # three of those being the camera keys, which move the view without
+    # moving focus. The other eight are session capabilities Sophia carries
+    # out, including the two that reload the profile and replace this process.
+    check shortcuts.values.len == 93
+    check policyBindings == 85
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
     # A chord that passes the character check but names no key used to reach

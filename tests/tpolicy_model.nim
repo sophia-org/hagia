@@ -727,32 +727,94 @@ suite "Hagia private policy model":
       Rect(x: 0, y: 265, width: 470, height: 735)
     model.validate()
 
-  test "a layout that has no camera does not reset the one a scroller left":
-    ## The offset field defaults to zero, and only a scroller fills it in.
-    ## Writing it back unconditionally meant every tile, grid, monocle or
-    ## tabbed projection quietly scrolled the view home, so switching layout
-    ## and back lost the position.
+  test "centring the focused column moves the camera and nothing else":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1000, height: 700))
     var opened: seq[WindowId]
     for _ in 0 ..< 4:
       opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
-    model.setFocus(output, opened[3])
+    model.setFocus(output, opened[1])
+    let before = model.projectScroller([output])[0]
+    model.rememberViewportOffset(output, before.viewportOffset)
 
-    let scrolled = model.projectScroller([output])[0]
-    check scrolled.cameraDecided
-    require scrolled.viewportOffset != 0
-    model.rememberViewportOffset(output, scrolled.viewportOffset)
+    model.applyAction(output, PolicyAction.centerColumn)
+    let centred = model.projectScroller([output])[0]
+    # The focused column sits in the middle: equal space either side.
+    let focusX = centred.placements[1].geometry.x
+    let focusWidth = centred.placements[1].geometry.width
+    check focusX == (1000 - focusWidth) div 2
+    check centred.focus == opened[1]
+    model.rememberViewportOffset(output, centred.viewportOffset)
 
+    # The request is spent, so the next projection does not re-centre.
     let view = model.outputs[output].activeView
-    model.views[view].layout = LayoutMode.tile
-    let tiled = model.projectLayout([output])[0]
-    check not tiled.cameraDecided
-    check model.views[view].viewportOffset == scrolled.viewportOffset
-
-    model.views[view].layout = LayoutMode.scroller
-    check model.views[view].viewportOffset == scrolled.viewportOffset
+    check model.views[view].cameraIntent == CameraIntent.none
     model.validate()
+
+  test "expanding a column takes only the space beside it":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    let column = model.window(first).get().column
+
+    # Two half-width columns leave nothing spare, so there is nothing to take.
+    let before = model.projectScroller([output])[0].placements[0].geometry.width
+    model.applyAction(output, PolicyAction.expandColumnToAvailableWidth)
+    check model.projectScroller([output])[0].placements[0].geometry.width == before
+
+    # A column already at full width has nothing to expand into either, and
+    # says so by leaving the flag alone rather than clearing it.
+    model.columns[column].fullWidth = true
+    model.applyAction(output, PolicyAction.expandColumnToAvailableWidth)
+    check model.columns[column].fullWidth
+    model.validate()
+
+  test "a lone window is centred rather than left against the edge":
+    var model = initPolicyModel()
+    check model.settings.alwaysCenterSingleColumn
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    let only = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, only)
+
+    let projected = model.projectScroller([output])[0]
+    let geometry = projected.placements[0].geometry
+    check geometry.x == (1000 - geometry.width) div 2
+
+    # Turning it off puts the window back against the left edge.
+    model.settings.alwaysCenterSingleColumn = false
+    let flush = model.projectScroller([output])[0]
+    check flush.placements[0].geometry.x < geometry.x
+    model.validate()
+
+  test "a layout that has no camera does not reset the one a scroller left":
+    test "a layout that has no camera does not reset the one a scroller left":
+      ## The offset field defaults to zero, and only a scroller fills it in.
+      ## Writing it back unconditionally meant every tile, grid, monocle or
+      ## tabbed projection quietly scrolled the view home, so switching layout
+      ## and back lost the position.
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 1000, height: 700))
+      var opened: seq[WindowId]
+      for _ in 0 ..< 4:
+        opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+      model.setFocus(output, opened[3])
+
+      let scrolled = model.projectScroller([output])[0]
+      check scrolled.cameraDecided
+      require scrolled.viewportOffset != 0
+      model.rememberViewportOffset(output, scrolled.viewportOffset)
+
+      let view = model.outputs[output].activeView
+      model.views[view].layout = LayoutMode.tile
+      let tiled = model.projectLayout([output])[0]
+      check not tiled.cameraDecided
+      check model.views[view].viewportOffset == scrolled.viewportOffset
+
+      model.views[view].layout = LayoutMode.scroller
+      check model.views[view].viewportOffset == scrolled.viewportOffset
+      model.validate()
 
   test "maximizing survives focus moving away and back":
     ## The toggle used to overwrite the width, so it could only be undone by

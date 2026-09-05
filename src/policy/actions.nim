@@ -46,6 +46,12 @@ proc profileName*(action: PolicyAction): string =
     "reload-profile"
   of PolicyAction.sessionRestartWm:
     "restart-wm"
+  of PolicyAction.centerColumn:
+    "center-column"
+  of PolicyAction.centerVisibleColumns:
+    "center-visible-columns"
+  of PolicyAction.expandColumnToAvailableWidth:
+    "expand-column-to-available-width"
   of PolicyAction.focusNextOutput:
     "focus-output-next"
   of PolicyAction.focusPreviousOutput:
@@ -610,3 +616,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.cycleColumnWidthPreset(output, 1)
   of PolicyAction.cycleColumnWidthBack:
     model.cycleColumnWidthPreset(output, -1)
+  of PolicyAction.centerColumn:
+    model.requestCamera(output, CameraIntent.centerFocused)
+  of PolicyAction.centerVisibleColumns:
+    model.requestCamera(output, CameraIntent.centerVisible)
+  of PolicyAction.expandColumnToAvailableWidth:
+    model.expandFocusedColumn(output)
