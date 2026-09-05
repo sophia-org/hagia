@@ -70,7 +70,7 @@ These are read by scripts, not by `src/`.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `SOPHIA_STACK_ROOT` | none | A Sophia checkout. Required by `nimble test` and `nimble verify`. |
-| `HAGIA_ALLOY`, `HAGIA_Z3` | `alloy`, `z3` | Model checkers for `nimble verify`. Versions are pinned exactly. |
+| `HAGIA_ALLOY`, `HAGIA_Z3` | `alloy`, `z3` | Model checkers for `nimble verify`. Alloy is pinned to 6.2.0; Z3 admits the known-good list in `tools/check_foundation_models.sh` (4.16.0, 5.1.0), grown by verifying the expected results under a new version. |
 | `HAGIA_TLA2TOOLS_JAR` | under `~/src/Specula/lib/` | TLC jar for the profile lifecycle model. |
 | `HAGIA_SPECULA_ROOT` | `~/src/Specula` | Where the TLA+ tooling lives. |
 | `HAGIA_TLC_WORKERS` | `auto` | TLC worker count. |

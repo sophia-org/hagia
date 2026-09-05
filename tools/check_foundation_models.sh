@@ -12,10 +12,14 @@ if [ "$($alloy_bin version 2>/dev/null)" != "6.2.0" ]; then
     echo "Hagia foundation models require Alloy 6.2.0" >&2
     exit 1
 fi
+# Known-good Z3 versions: the expected-results file was produced under 4.16.0
+# and verified byte-identical under 5.1.0. A new version is admitted by
+# checking `z3 validation/z3/entities.smt2` against the expected file and
+# adding it here, not by loosening this match to a wildcard.
 case "$($z3_bin --version 2>/dev/null)" in
-    "Z3 version 4.16.0"*) ;;
+    "Z3 version 4.16.0"* | "Z3 version 5.1.0"*) ;;
     *)
-        echo "Hagia foundation models require Z3 4.16.0" >&2
+        echo "Hagia foundation models require Z3 4.16.0 or 5.1.0" >&2
         exit 1
         ;;
 esac
