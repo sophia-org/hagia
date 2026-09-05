@@ -297,6 +297,7 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
         "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap",
         "viewport-offset", "master-count", "master-ratio", "gap-step", "view-name",
         "view-layout", "column-width-presets", "scratchpad-size", "floating-size",
+        "default-column-width", "center-focused-column",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]

@@ -59,3 +59,15 @@ proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
   for slot in 1'u32 .. uint32(count):
     if model.profileViewForSlot(outputId, slot) == nullViewId:
       discard model.addView(outputId, [model.profileTag(slot)])
+
+proc rememberViewportOffset*(
+    model: var PolicyModel, outputId: OutputId, offset: int32
+) =
+  ## Record where the scroller camera ended up on the view this output is
+  ## showing. The projection decides the position; this is what makes the next
+  ## projection start from it rather than from the configured offset.
+  if outputId notin model.outputs:
+    return
+  let viewId = model.outputs[outputId].activeView
+  if viewId in model.views:
+    model.views[viewId].viewportOffset = offset

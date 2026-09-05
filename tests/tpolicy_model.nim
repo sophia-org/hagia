@@ -604,7 +604,52 @@ suite "Hagia private policy model":
     check projected[0].placements[1].geometry ==
       Rect(x: 600, y: 0, width: 600, height: 800)
 
-  test "fixed-point columns center a focused overflow target":
+  test "opening columns runs the strip past the edge instead of thinning it":
+    ## The reported symptom: windows kept sharing the screen instead of the row
+    ## scrolling. Columns divided the screen by their own count, so a fourth
+    ## window made every column a quarter wide and the strip never outgrew the
+    ## viewport -- which is tiling, not scrolling.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    var opened: seq[WindowId]
+    for _ in 0 ..< 4:
+      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+
+    let projected = model.projectScroller([output])
+    require projected.len == 1
+    for placement in projected[0].placements:
+      check placement.geometry.width == 500
+    # Four half-width columns are twice the screen, so the last one starts
+    # beyond the right edge and only scrolling can reach it.
+    check projected[0].placements[3].geometry.x + 500 > 1000
+
+  test "the camera stays where it was left when the focused column still fits":
+    ## The other half of the symptom: the view would not stay put. The offset
+    ## was read from settings and never written back, so every projection
+    ## recomputed from zero and the strip sprang back to the left the moment
+    ## the focused column happened to fit on screen.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    var opened: seq[WindowId]
+    for _ in 0 ..< 4:
+      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+
+    model.setFocus(output, opened[3])
+    let scrolled = model.projectScroller([output])[0]
+    let restingOffset = scrolled.viewportOffset
+    check restingOffset > 0
+
+    # Focus a column that is already on screen at this offset. The camera has
+    # no reason to move, and moving would be the springing-back the old code
+    # did: at offset zero this column fits, so recomputing from zero would
+    # yield zero and yank the view left.
+    let view = model.outputs[output].activeView
+    model.views[view].viewportOffset = restingOffset
+    model.setFocus(output, opened[2])
+    let held = model.projectScroller([output])[0]
+    check held.viewportOffset == restingOffset
+
+  test "a focused overflow target scrolls the shortest way into view":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1000, height: 700))
     let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
@@ -618,11 +663,18 @@ suite "Hagia private policy model":
 
     let projected = model.projectScroller([output])
     require projected.len == 1
-    check projected[0].viewportOffset == 750
-    check projected[0].placements[0].geometry.x == -750
-    check projected[0].placements[1].geometry.x == -250
+    # Three half-width columns on a 1000-wide screen sit at 0, 500 and 1000,
+    # and focusing the third has to move the camera because it starts past the
+    # right edge. It stops at 500, which puts that column flush against the
+    # right edge, rather than at 750, which would centre it. Centring is
+    # further to travel and leaves half a screen of nothing on the right; niri
+    # takes the shorter of the two alignments that reveal the column, so
+    # walking focus along the strip scrolls by a column instead of jumping.
+    check projected[0].viewportOffset == 500
+    check projected[0].placements[0].geometry.x == -500
+    check projected[0].placements[1].geometry.x == 0
     check projected[0].placements[2].geometry ==
-      Rect(x: 250, y: 0, width: 500, height: 700)
+      Rect(x: 500, y: 0, width: 500, height: 700)
     check projected[0].focus == third
 
   test "scroller stacks column windows with deterministic fixed-point heights":
@@ -636,10 +688,13 @@ suite "Hagia private policy model":
     let projected = model.projectScroller([output], innerGap = 20)
     require projected.len == 1
     check projected[0].placements.len == 2
+    # One column that never chose a width takes the configured default of half
+    # the screen. It does not stretch to fill, because a scroller sizes a
+    # column from its own width and lets the strip be as long as it is.
     check projected[0].placements[0].geometry ==
-      Rect(x: 0, y: 0, width: 1000, height: 245)
+      Rect(x: 0, y: 0, width: 500, height: 245)
     check projected[0].placements[1].geometry ==
-      Rect(x: 0, y: 265, width: 1000, height: 735)
+      Rect(x: 0, y: 265, width: 500, height: 735)
     model.validate()
 
   test "scroller saturates excessive fixed-point extents":
@@ -684,8 +739,12 @@ suite "Hagia private policy model":
     check model.views[view].layout == LayoutMode.verticalScroller
     let vertical = model.projectLayout([output])[0]
     check vertical.placements.len == 4
-    check vertical.placements[0].geometry == Rect(width: 1000, height: 200)
-    check vertical.placements[3].geometry == Rect(y: 600, width: 1000, height: 200)
+    # Transposed, the same rule sizes rows: each takes half the height rather
+    # than a quarter each so that four fit. The strip runs past the bottom and
+    # the camera has scrolled to hold the focused row, which is why the first
+    # row now sits above the top edge.
+    check vertical.placements[0].geometry == Rect(y: -400, width: 1000, height: 400)
+    check vertical.placements[3].geometry == Rect(y: 800, width: 1000, height: 400)
     model.applyAction(output, PolicyAction.switchLayout)
     check model.views[view].layout == LayoutMode.scroller
     model.validate()
@@ -1849,9 +1908,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 7
+    check parseJson(printed)["schema"].getInt() == 8
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2342,11 +2401,33 @@ suite "tab checkpoint compatibility":
     for grown in [
       "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
+      "defaultColumnWidthPercent", "centerFocusedColumn",
     ]:
       payload["settings"].delete(grown)
+    for viewNode in payload["views"]:
+      viewNode.delete("viewportOffset")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-7\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-8\n")
+
+  test "version 7 migrates forward, its views gaining a resting camera":
+    ## Version 7 predates the scroller camera, so its views carry no offset and
+    ## its settings no default column width. A restored camera starts at the
+    ## origin rather than guessing: the strip is rebuilt from the columns, and
+    ## the first focus settles it where the rule says it belongs.
+    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+    var adapter = initPolicyAdapter()
+    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+    var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
+    payload["schema"] = %7
+    for grown in ["defaultColumnWidthPercent", "centerFocusedColumn"]:
+      payload["settings"].delete(grown)
+    for viewNode in payload["views"]:
+      viewNode.delete("viewportOffset")
+
+    let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
+    check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-8\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2370,8 +2451,11 @@ suite "tab checkpoint compatibility":
     for grown in [
       "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
+      "defaultColumnWidthPercent", "centerFocusedColumn",
     ]:
       payload["settings"].delete(grown)
+    for viewNode in payload["views"]:
+      viewNode.delete("viewportOffset")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-5\n" & $payload)
     check restored.checkpointPayload() == adapter.checkpointPayload()
 

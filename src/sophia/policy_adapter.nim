@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 7
+  result.schema = 8
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,14 +249,15 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-7\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-8\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  # Version 4 predates tab trees, version 5 predates dwindle preselects, and
-  # version 6 predates named views and placement sizing; each migrates
+  # Version 4 predates tab trees, version 5 predates dwindle preselects,
+  # version 6 predates named views and placement sizing, and version 7
+  # predates the scroller camera and the default column width; each migrates
   # forward by filling the fields it could not have written.
-  var version = 7
-  for legacy in [4, 5, 6]:
+  var version = 8
+  for legacy in [4, 5, 6, 7]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -288,6 +289,17 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
         toJson(defaultPolicySettings.scratchpadHeightPercent)
       node["settings"]["floatingWidthPercent"] = toJson(0'i32)
       node["settings"]["floatingHeightPercent"] = toJson(0'i32)
+    if version <= 7:
+      # A camera resting at the origin is the honest restore: the strip is
+      # rebuilt from the columns, and the first focus settles it where the
+      # rule says it belongs rather than somewhere a previous run happened to
+      # leave it.
+      for viewNode in node["views"]:
+        viewNode["viewportOffset"] = toJson(0'i32)
+      node["settings"]["defaultColumnWidthPercent"] =
+        toJson(defaultPolicySettings.defaultColumnWidthPercent)
+      node["settings"]["centerFocusedColumn"] =
+        toJson(defaultPolicySettings.centerFocusedColumn)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -678,8 +690,12 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   adapter.model.validate()
 
 proc projection*(
-    adapter: PolicyAdapter, snapshot: PolicySnapshot, request: ProjectionRequest
+    adapter: var PolicyAdapter, snapshot: PolicySnapshot, request: ProjectionRequest
 ): PolicyProjection =
+  ## Takes `var` because the scroller camera is state, not a derived value: the
+  ## offset this projection settles on is where the view now sits. It rides the
+  ## same transaction as everything else here, so a rejected projection leaves
+  ## the camera where it was.
   if request.sceneGeneration != snapshot.generation:
     fail("projection request names a stale snapshot")
   result.activeOutput = snapshot.activeOutput
@@ -693,6 +709,10 @@ proc projection*(
   for logical in adapter.model.projectLayout(
     affected, outerGap, innerGap, adapter.model.settings.viewportOffset
   ):
+    # The camera the projection settled on is where this view now sits, so it
+    # is written back before the next projection reads it. Without this the
+    # strip recomputes from the configured offset every time and springs back.
+    adapter.model.rememberViewportOffset(logical.output, logical.viewportOffset)
     let rawOutput = adapter.logicalToOutput[logical.output].output
     var outputSnapshot: SnapshotOutput
     var foundOutput = false

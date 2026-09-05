@@ -109,6 +109,36 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
       if percent < 10 or percent > 90:
         raise newException(DesktopProfileError, "policy master-ratio is outside 10..90")
       settings.masterRatio = scaleFromRatio(uint32(percent), 100)
+    of "policy.default-column-width":
+      # A percentage, like master-ratio, because a profile is read by people.
+      # This is what a column gets when it has never been given a width, and a
+      # scroller needs it: column widths no longer follow from how many
+      # columns there are.
+      let percent = value.integerValue()
+      if percent < 10 or percent > 100:
+        raise newException(
+          DesktopProfileError, "policy default-column-width is outside 10..100"
+        )
+      settings.defaultColumnWidthPercent = int32(percent)
+    of "policy.center-focused-column":
+      let node = parseKdl(value.encoded)[0]
+      if node.args.len != 1 or node.args[0].kind != KString:
+        raise
+          newException(DesktopProfileError, value.key & " requires one centring mode")
+      let mode = node.args[0].kString()
+      settings.centerFocusedColumn =
+        case mode
+        of "never":
+          CenterFocusedColumn.never
+        of "always":
+          CenterFocusedColumn.always
+        of "on-overflow":
+          CenterFocusedColumn.onOverflow
+        else:
+          raise newException(
+            DesktopProfileError,
+            "policy center-focused-column expects never, always, or on-overflow",
+          )
     of "policy.column-width-presets":
       let node = parseKdl(value.encoded)[0]
       settings.columnWidthPresets = @[]

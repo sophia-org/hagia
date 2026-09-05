@@ -20,6 +20,15 @@ type
     popup
     unknown
 
+  ## Which rule the scroller camera follows when the focused column moves,
+  ## mirroring niri's center-focused-column. `onOverflow` centers only when
+  ## the focused column and the one it came from cannot share the screen;
+  ## otherwise the camera scrolls the shortest distance that reveals it.
+  CenterFocusedColumn* {.pure.} = enum
+    never
+    always
+    onOverflow
+
   LayoutMode* {.pure.} = enum
     scroller
     tile
@@ -67,6 +76,13 @@ type
     id*: ViewId
     preferredOutput*: OutputId
     layout*: LayoutMode
+    # Where the scroller camera sits on this view, in virtual strip
+    # coordinates. It lives here rather than in settings because it is
+    # position, not preference: niri keeps one per workspace so a view stays
+    # where it was scrolled to while another view is visited and returned to.
+    # It may be negative, which is how a column narrower than the screen sits
+    # centred with space to its left.
+    viewportOffset*: int32
 
   TagData* = object
     id*: TagId
@@ -93,6 +109,13 @@ type
   PolicySettings* = object
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
+    # What a column gets when it has never been given a width of its own.
+    # niri calls this default-column-width; a scroller needs one because
+    # column widths no longer follow from how many columns there are.
+    defaultColumnWidthPercent*: int32
+    # never | always | on-overflow. Which of these the camera obeys when the
+    # focused column moves, mirroring niri's center-focused-column.
+    centerFocusedColumn*: CenterFocusedColumn
     layoutCycle*: seq[LayoutMode]
     masterCount*: int
     masterRatio*: Scale
@@ -179,6 +202,7 @@ const
   minMasterRatio* = Scale(6554)
   maxMasterRatio* = Scale(58982)
   defaultMasterRatio* = Scale(32768)
+  defaultColumnWidthPercent* = 50'i32
   defaultGapStep* = 2'i32
   defaultLayoutCycle* = @[
     LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
@@ -194,4 +218,6 @@ const
     scratchpadWidthPercent: 70,
     scratchpadHeightPercent: 60,
     columnWidthPresets: @[33'i32, 50, 67],
+    defaultColumnWidthPercent: defaultColumnWidthPercent,
+    centerFocusedColumn: CenterFocusedColumn.onOverflow,
   )

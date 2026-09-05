@@ -20,8 +20,44 @@ proc scaledExtent(base: int32, scale: Scale): int32 =
     return high(int32)
   int32(scaled)
 
-proc automaticScale(columnCount: int): Scale =
-  scaleFromRatio(1, uint32(max(1, columnCount)))
+proc scrollerViewOffset*(
+    currentOffset, viewWidth, columnX, columnWidth, gap: int32
+): int32 =
+  ## Where the camera goes so a column is on screen, following niri's rule
+  ## rather than centring on every move.
+  ##
+  ## Three cases, in order. A column wider than the screen is left-aligned,
+  ## because no offset shows all of it and its left edge is the useful one. A
+  ## column already fully visible leaves the camera exactly where it is --
+  ## this is the case that makes the view feel still, and centring on every
+  ## focus change is what loses it. Otherwise the camera moves the shorter of
+  ## the two distances that would reveal the column, so focus travel scrolls
+  ## by a column rather than jumping half a screen.
+  if viewWidth <= columnWidth:
+    return columnX
+  let padding = max(0'i32, min(gap, (viewWidth - columnWidth) div 2))
+  let wantLeft = int64(columnX) - int64(padding)
+  let wantRight = int64(columnX) + int64(columnWidth) + int64(padding)
+  let viewLeft = int64(currentOffset)
+  let viewRight = viewLeft + int64(viewWidth)
+  if viewLeft <= wantLeft and wantRight <= viewRight:
+    return currentOffset
+  let distanceLeft = abs(viewLeft - wantLeft)
+  let distanceRight = abs(viewRight - wantRight)
+  let target =
+    if distanceLeft <= distanceRight:
+      wantLeft
+    else:
+      int64(columnX) + int64(columnWidth) + int64(padding) - int64(viewWidth)
+  int32(max(low(int32).int64, min(target, high(int32).int64)))
+
+proc scrollerCenteredOffset*(viewWidth, columnX, columnWidth: int32): int32 =
+  ## Where the camera goes to put a column in the middle. A column at least as
+  ## wide as the screen has no middle to find, so it is left-aligned instead.
+  if viewWidth <= columnWidth:
+    return columnX
+  let target = int64(columnX) - (int64(viewWidth) - int64(columnWidth)) div 2
+  int32(max(low(int32).int64, min(target, high(int32).int64)))
 
 proc insetExtent(extent, gap: int32): int32 =
   let value = int64(extent) - int64(max(0'i32, gap)) * 2
@@ -107,34 +143,18 @@ proc projectScroller*(
     var widths: seq[int32]
     var virtualX = 0'i64
     var focusedColumn = -1
-    var allAutomatic = true
-    for item in columns:
-      if item[0].widthScale != autoScale:
-        allAutomatic = false
-        break
-    let horizontalGaps = int64(safeInnerGap) * int64(columns.len - 1)
-    let automaticWidth =
-      if allAutomatic and horizontalGaps < int64(usableWidth):
-        int32((int64(usableWidth) - horizontalGaps) div int64(columns.len))
-      else:
-        0'i32
+    # A scroller does not divide the screen among its columns. Each column
+    # keeps the width it was given and the strip grows past the edge, which is
+    # the whole point of scrolling: opening a window pushes the row along
+    # rather than making every column thinner. A column that never chose a
+    # width takes the configured default.
+    let defaultScale =
+      scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
     for index, item in columns:
       let (column, windows) = item
-      let width =
-        if allAutomatic:
-          if automaticWidth <= 0:
-            raise newException(PolicyStateError, "column gaps consume the viewport")
-          if index + 1 == columns.len:
-            int32(int64(usableWidth) - virtualX)
-          else:
-            automaticWidth
-        else:
-          let scale =
-            if column.widthScale == autoScale:
-              automaticScale(columns.len)
-            else:
-              column.widthScale
-          max(1'i32, usableWidth.scaledExtent(scale))
+      let scale =
+        if column.widthScale == autoScale: defaultScale else: column.widthScale
+      let width = max(1'i32, usableWidth.scaledExtent(scale))
       if virtualX > int64(high(int32)):
         raise newException(PolicyStateError, "scroller extent is excessive")
       positions.add(int32(virtualX))
@@ -143,15 +163,49 @@ proc projectScroller*(
       if output.get().focusedWindow in windows:
         focusedColumn = index
 
-    var targetOffset = max(0'i32, viewportOffset)
+    # The camera carries over from the last projection rather than restarting
+    # at the configured offset, which is what lets the strip stay where it was
+    # scrolled to. Without it every projection recomputes from zero and the
+    # view springs back the moment the focused column happens to fit.
+    # Seeded from the view's own camera, not the configured offset, so the
+    # strip resumes where this view left it.
+    let activeView = output.get().activeView
+    var targetOffset =
+      if activeView in model.views:
+        model.views[activeView].viewportOffset
+      else:
+        viewportOffset
     if focusedColumn >= 0:
-      let left = positions[focusedColumn] - targetOffset
-      let right = int64(left) + int64(widths[focusedColumn])
-      if left < 0 or right > int64(usableWidth):
-        let center =
-          int64(positions[focusedColumn]) + int64(widths[focusedColumn]) div 2
-        let target = max(0'i64, center - int64(usableWidth) div 2)
-        targetOffset = int32(min(target, int64(high(int32))))
+      let columnX = positions[focusedColumn]
+      let columnWidth = widths[focusedColumn]
+      targetOffset =
+        case model.settings.centerFocusedColumn
+        of CenterFocusedColumn.always:
+          scrollerCenteredOffset(usableWidth, columnX, columnWidth)
+        of CenterFocusedColumn.never:
+          scrollerViewOffset(
+            targetOffset, usableWidth, columnX, columnWidth, safeInnerGap
+          )
+        of CenterFocusedColumn.onOverflow:
+          # Centre only when the focused column and the one beside it cannot
+          # share the screen. When they can, scrolling by the shorter distance
+          # keeps both in view, which is the whole reason to prefer it.
+          let neighbour =
+            if focusedColumn > 0:
+              focusedColumn - 1
+            else:
+              min(focusedColumn + 1, columns.len - 1)
+          let spanLeft = min(columnX, positions[neighbour])
+          let spanRight = max(
+            int64(columnX) + int64(columnWidth),
+            int64(positions[neighbour]) + int64(widths[neighbour]),
+          )
+          if spanRight - int64(spanLeft) + int64(safeInnerGap) * 2 <= int64(usableWidth):
+            scrollerViewOffset(
+              targetOffset, usableWidth, columnX, columnWidth, safeInnerGap
+            )
+          else:
+            scrollerCenteredOffset(usableWidth, columnX, columnWidth)
     projection.viewportOffset = targetOffset
 
     for index, item in columns:
