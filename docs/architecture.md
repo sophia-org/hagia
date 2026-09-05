@@ -89,12 +89,43 @@ is eligible when its home output matches and its tags intersect the active
 view. Sophia sees only the resulting ordered output projection.
 
 Columns are stable logical entities. Each view retains its native layout
-selection independently of dense storage order. The compiled cycle contains
-scroller, tile, grid, monocle, and vertical scroller. Automatic scroller widths
-divide the viewport deterministically; explicit widths use bounded Q16.16
+selection independently of dense storage order. Widths use bounded Q16.16
 scales and 64-bit intermediate arithmetic. All layout families emit final
 integer target geometry. Hagia does not animate, render, or retain client
 pixels.
+
+### The scroller
+
+The scroller follows niri, and the parts worth stating are the ones that are
+easy to get subtly wrong.
+
+A column's width is a proportion of the room a column can occupy, which is the
+viewport less the gap it carries: `(usable - gap) * proportion - gap`. It never
+depends on how many columns there are. That is the difference between a
+scroller and a tiler, and it is what lets the strip grow past the edge instead
+of making every column thinner. A column that never chose a width shows the
+configured default; a proportion is bounded at both ends, because a width is a
+preference and an unbounded one puts every other column out of reach.
+
+A window's minimum size beats the proportion. A proportion is a preference and
+a minimum is a fact, so the resolved width is clamped to the constraints the
+column's windows carry.
+
+Full width is a flag the column holds, not a width it was given. Writing the
+width over would lose what the column had, leaving the operator no way back
+once focus moved; anything that sets a width clears the flag.
+
+The camera is one offset per view, in strip coordinates, and only a scroller
+decides one. Every other layout leaves it alone, so switching away and back
+returns to where the view was. It moves for exactly two reasons: to reveal the
+focused column, and because an action asked. The reveal is load-bearing —
+Sophia routes keys to whatever holds focus without asking whether it can be
+seen, so the camera is the only thing standing between a focus change and a
+window receiving input nobody can see. A column wider than the viewport is
+shown from its left edge, since no offset shows all of it.
+
+`tests/tscroller_ops.nim` applies operation sequences and checks those
+invariants after each one, which is how niri tests the same layout.
 
 ## Recovery Direction
 
