@@ -124,6 +124,16 @@ seen, so the camera is the only thing standing between a focus change and a
 window receiving input nobody can see. A column wider than the viewport is
 shown from its left edge, since no offset shows all of it.
 
+The vertical scroller is the same machine seen from ninety degrees away: it
+turns the output on its side and runs the horizontal code, then turns the
+result back. A column's width is therefore just the extent along whichever
+axis the view scrolls, and `default-row-height` and `row-height-presets` name
+that extent in vertical mode. Both inherit the column values when unset, so a
+profile that never mentions rows behaves as it always has. Anything that
+reasons about the strip -- the projection that draws it, an action asking what
+is on screen -- goes through the same transpose, because two views of the same
+strip would eventually disagree about where a column starts.
+
 `tests/tscroller_ops.nim` applies operation sequences and checks those
 invariants after each one, which is how niri tests the same layout.
 

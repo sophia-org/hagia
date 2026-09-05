@@ -1,6 +1,6 @@
 import ../policy/entity_store
 import ../types/[core, model]
-import ../state/[queries, values]
+import ../state/[model, queries, values]
 import ../entities/window_ops
 import ../entities/tab_tree_ops
 
@@ -39,7 +39,9 @@ proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int
   # explicit.
   model.setColumnWidthScale(
     column,
-    adjustedScale(model.columns[column].widthScale, delta, model.defaultColumnScale()),
+    adjustedScale(
+      model.columns[column].widthScale, delta, model.alongAxisDefaultScale(outputId)
+    ),
   )
   model.columns[column].fullWidth = false
 
@@ -114,20 +116,20 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
   ## way. No presets configured means no key to press.
   if outputId notin model.outputs:
     fail("column preset output does not exist")
-  if model.settings.columnWidthPresets.len == 0:
+  if model.alongAxisPresets(outputId).len == 0:
     return
   let windowId = model.outputs[outputId].focusedWindow
   if windowId == nullWindowId:
     return
   let columnId = model.windows[windowId].column
   var scales: seq[Scale]
-  for percent in model.settings.columnWidthPresets:
+  for percent in model.alongAxisPresets(outputId):
     scales.add(scaleFromRatio(uint32(percent), 100))
   let showing =
     if model.columns[columnId].fullWidth:
       scaleOne
     elif model.columns[columnId].widthScale == autoScale:
-      model.defaultColumnScale()
+      model.alongAxisDefaultScale(outputId)
     else:
       model.columns[columnId].widthScale
   let current = scales.find(showing)
@@ -167,10 +169,25 @@ proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   if model.columns[columnId].fullWidth:
     return
   let (outerGap, innerGap) = model.effectiveGaps()
-  let strip = model.scrollerStrip(outputId, outerGap, innerGap)
+  # A vertical scroller is the same machine turned on its side, so this reads
+  # the strip through the same transpose the projection lays out. Reading the
+  # untransposed model here would measure widths on a view that scrolls by
+  # height, and grow the column into space that is not there.
+  let vertical = model.scrollsVertically(outputId)
+  let viewed =
+    if vertical:
+      model.transposedForVerticalScroller(outputId)
+    else:
+      model
+  let strip = viewed.scrollerStrip(outputId, outerGap, innerGap)
   if strip.focused < 0:
     return
-  let offset = model.views[model.outputs[outputId].activeView].viewportOffset
+  let activeView = model.outputs[outputId].activeView
+  let offset =
+    if vertical:
+      model.views[activeView].viewportOffsetY
+    else:
+      model.views[activeView].viewportOffset
   var taken = 0'i64
   var holdsFocus = false
   var neighbours = 0

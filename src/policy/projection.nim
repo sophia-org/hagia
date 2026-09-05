@@ -674,33 +674,10 @@ proc projectNative(
     visible.add(placement.window)
   model.selectFocus(output, visible, result)
 
-proc transpose(rect: Rect): Rect =
-  Rect(x: rect.y, y: rect.x, width: rect.height, height: rect.width)
-
 proc projectVerticalScroller(
     model: PolicyModel, outputId: OutputId, outerGap, innerGap, viewportOffset: int32
 ): LogicalOutputProjection =
-  var transposed = model.clone()
-  transposed.outputs[outputId].bounds = transposed.outputs[outputId].bounds.transpose()
-  # The vertical scroller scrolls along y, so it reads and seeds the y camera.
-  # The transpose maps y onto the horizontal machinery, so the y offset goes
-  # where that machinery will look for it.
-  let cameraView = transposed.outputs[outputId].activeView
-  if cameraView in transposed.views:
-    transposed.views[cameraView].viewportOffset =
-      transposed.views[cameraView].viewportOffsetY
-  for windowId in transposed.windowOrder:
-    if transposed.windows[windowId].homeOutput != outputId:
-      continue
-    let constraints = transposed.windows[windowId].constraints
-    transposed.windows[windowId].constraints = SizeConstraints(
-      minWidth: constraints.minHeight,
-      minHeight: constraints.minWidth,
-      maxWidth: constraints.maxHeight,
-      maxHeight: constraints.maxWidth,
-    )
-    transposed.windows[windowId].floatingGeometry =
-      transposed.windows[windowId].floatingGeometry.transpose()
+  let transposed = model.transposedForVerticalScroller(outputId)
   result = transposed.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]
   for placement in result.placements.mitems:
     placement.geometry = placement.geometry.transpose()

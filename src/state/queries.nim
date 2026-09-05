@@ -162,6 +162,36 @@ proc defaultColumnScale*(model: PolicyModel): Scale =
   ## not the one on screen.
   scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
 
+proc defaultRowScale*(model: PolicyModel): Scale =
+  ## What a vertical-scroller row that never chose a height is showing.
+  ## Unset inherits the column default, so a profile that never mentions rows
+  ## behaves exactly as it did before the key existed.
+  if model.settings.defaultRowHeightPercent == 0:
+    model.defaultColumnScale()
+  else:
+    scaleFromRatio(uint32(model.settings.defaultRowHeightPercent), 100)
+
+proc scrollsVertically*(model: PolicyModel, outputId: OutputId): bool =
+  outputId in model.outputs and model.outputs[outputId].activeView in model.views and
+    model.views[model.outputs[outputId].activeView].layout == LayoutMode.verticalScroller
+
+proc alongAxisDefaultScale*(model: PolicyModel, outputId: OutputId): Scale =
+  ## The default extent along whichever axis this view scrolls. A column's
+  ## width and a row's height are the same measurement seen from two
+  ## directions, so the sizing keys have to ask which direction they are in.
+  if model.scrollsVertically(outputId):
+    model.defaultRowScale()
+  else:
+    model.defaultColumnScale()
+
+proc alongAxisPresets*(model: PolicyModel, outputId: OutputId): seq[int32] =
+  ## The presets the cycle key steps through, by axis. An empty row list
+  ## inherits the column presets for the same reason the default does.
+  if model.scrollsVertically(outputId) and model.settings.rowHeightPresets.len > 0:
+    model.settings.rowHeightPresets
+  else:
+    model.settings.columnWidthPresets
+
 proc effectiveGaps*(model: PolicyModel): (int32, int32) =
   ## The outer and inner gaps a projection should use. `toggle-gaps` hides
   ## them without discarding what the profile configured, so the configured
@@ -263,3 +293,6 @@ proc scrollerStrip*(
     result.positions.add(int32(virtualX))
     result.widths.add(width)
     virtualX += int64(width) + int64(safeInnerGap)
+
+proc transpose*(rect: Rect): Rect =
+  Rect(x: rect.y, y: rect.x, width: rect.height, height: rect.width)

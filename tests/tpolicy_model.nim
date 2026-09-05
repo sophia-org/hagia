@@ -765,35 +765,113 @@ suite "Hagia private policy model":
     check projected.viewportOffset == 0
     model.validate()
 
-  test "each scroll axis keeps its own camera":
-    ## One field served both scrollers, so an x offset applied as y scrolled
-    ## the view somewhere nobody asked the moment a view switched between
-    ## them.
+  test "a row takes its own default height, or the column's when unset":
+    ## The vertical scroller is the same machine along y, so its along-axis
+    ## default was the column width's -- which meant `default-column-width`
+    ## silently sized rows and no key said so.
     var model = initPolicyModel()
-    let output = model.addOutput(Rect(width: 1000, height: 700))
-    var opened: seq[WindowId]
-    for _ in 0 ..< 4:
-      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
-    model.setFocus(output, opened[3])
+    let output = model.addOutput(Rect(width: 1000, height: 1000))
+    for _ in 0 ..< 3:
+      discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
     let view = model.outputs[output].activeView
-
-    let horizontal = model.projectScroller([output])[0]
-    model.rememberViewportOffset(output, horizontal.viewportOffset)
-    let storedX = model.views[view].viewportOffset
-    require storedX != 0
-
     model.views[view].layout = LayoutMode.verticalScroller
-    let vertical = model.projectLayout([output])[0]
-    model.rememberViewportOffset(output, vertical.viewportOffset)
-    # The vertical camera settled on its own axis; the horizontal one is
-    # untouched by it.
-    check model.views[view].viewportOffset == storedX
-    check model.views[view].viewportOffsetY == vertical.viewportOffset
 
+    # Unset inherits: 50% of the usable height, minus the gap it carries.
+    let inherited = model.projectLayout([output])[0]
+    check inherited.placements[0].geometry.height == 500
+
+    model.settings.defaultRowHeightPercent = 40
+    let chosen = model.projectLayout([output])[0]
+    # 399 rather than 400: a percentage becomes a Q16.16 scale, and 40% of
+    # 65536 truncates. The scroller has always rounded this way.
+    check chosen.placements[0].geometry.height == 399
+    # The column default is untouched, so the horizontal scroller is too.
     model.views[view].layout = LayoutMode.scroller
-    let back = model.projectScroller([output])[0]
-    check back.viewportOffset == storedX
+    check model.projectLayout([output])[0].placements[0].geometry.width == 500
     model.validate()
+
+  test "sizing keys step along the axis the view scrolls":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 1000))
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+    let column = model.window(window).get().column
+    let view = model.outputs[output].activeView
+    model.views[view].layout = LayoutMode.verticalScroller
+    model.settings.defaultRowHeightPercent = 40
+    model.settings.rowHeightPresets = @[20'i32, 60]
+
+    # Grow steps from the row default, not the column's.
+    model.applyAction(output, PolicyAction.growColumn)
+    check model.columns[column].widthScale ==
+      Scale(uint32(scaleFromRatio(40, 100)) + 3276)
+
+    # The cycle uses the row presets: from 40%, forwards finds 60%.
+    model.setColumnWidthScale(column, autoScale)
+    model.applyAction(output, PolicyAction.cycleColumnWidth)
+    check model.columns[column].widthScale == scaleFromRatio(60, 100)
+
+    # An empty row list inherits the column presets. The search still starts
+    # from what the row is showing, so from the 40% row default the first
+    # column preset wider than it is 50%.
+    model.settings.rowHeightPresets = @[]
+    model.setColumnWidthScale(column, autoScale)
+    model.applyAction(output, PolicyAction.cycleColumnWidth)
+    check model.columns[column].widthScale == scaleFromRatio(50, 100)
+    model.validate()
+
+  test "expanding a row measures the space below it, not beside it":
+    ## The action read the untransposed strip, so on a vertical view it
+    ## measured widths on a layout that scrolls by height and grew the row
+    ## into space that was not there.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 1000))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    let view = model.outputs[output].activeView
+    model.views[view].layout = LayoutMode.verticalScroller
+
+    # Two half-height rows fill the strip, so there is nothing spare.
+    let before = model.projectLayout([output])[0].placements[0].geometry.height
+    model.applyAction(output, PolicyAction.expandColumnToAvailableWidth)
+    let after = model.projectLayout([output])[0].placements[0].geometry
+    check after.height == before
+    # Widths are the full output either way: expanding along y must not touch
+    # the across-axis extent.
+    check after.width == 1000
+    model.validate()
+
+  test "each scroll axis keeps its own camera":
+    test "each scroll axis keeps its own camera":
+      ## One field served both scrollers, so an x offset applied as y scrolled
+      ## the view somewhere nobody asked the moment a view switched between
+      ## them.
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 1000, height: 700))
+      var opened: seq[WindowId]
+      for _ in 0 ..< 4:
+        opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+      model.setFocus(output, opened[3])
+      let view = model.outputs[output].activeView
+
+      let horizontal = model.projectScroller([output])[0]
+      model.rememberViewportOffset(output, horizontal.viewportOffset)
+      let storedX = model.views[view].viewportOffset
+      require storedX != 0
+
+      model.views[view].layout = LayoutMode.verticalScroller
+      let vertical = model.projectLayout([output])[0]
+      model.rememberViewportOffset(output, vertical.viewportOffset)
+      # The vertical camera settled on its own axis; the horizontal one is
+      # untouched by it.
+      check model.views[view].viewportOffset == storedX
+      check model.views[view].viewportOffsetY == vertical.viewportOffset
+
+      model.views[view].layout = LayoutMode.scroller
+      let back = model.projectScroller([output])[0]
+      check back.viewportOffset == storedX
+      model.validate()
 
   test "centring the focused column moves the camera and nothing else":
     var model = initPolicyModel()
@@ -2159,9 +2237,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 10
+    check parseJson(printed)["schema"].getInt() == 11
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-10\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2660,7 +2738,7 @@ suite "tab checkpoint compatibility":
       viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2681,7 +2759,7 @@ suite "tab checkpoint compatibility":
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
@@ -2707,7 +2785,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-10\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-11\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)

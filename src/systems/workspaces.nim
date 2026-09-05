@@ -78,11 +78,17 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       model.settings.outerGap < 0 or model.settings.outerGap > maxGap or
       model.settings.innerGap < 0 or model.settings.innerGap > maxGap:
     fail("policy layout settings candidate is outside its bounds")
-  if model.settings.columnWidthPresets.len > maxColumnWidthPresets:
-    fail("policy column width presets exceed their bound")
-  for preset in model.settings.columnWidthPresets:
+  if model.settings.columnWidthPresets.len > maxColumnWidthPresets or
+      model.settings.rowHeightPresets.len > maxColumnWidthPresets:
+    fail("policy width presets exceed their bound")
+  for preset in model.settings.columnWidthPresets & model.settings.rowHeightPresets:
     if preset < 5 or preset > 95:
-      fail("policy column width preset is outside 5..95 percent")
+      fail("policy width preset is outside 5..95 percent")
+  if model.settings.defaultRowHeightPercent != 0 and (
+    model.settings.defaultRowHeightPercent < 10 or
+    model.settings.defaultRowHeightPercent > 100
+  ):
+    fail("policy default row height is outside 10..100 percent")
   for pair in [
     (
       model.settings.scratchpadWidthPercent, model.settings.scratchpadHeightPercent,

@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 10
+  result.schema = 11
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,7 +249,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-10\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-11\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
@@ -258,8 +258,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # maximised column as a width, and version 9 shared one camera across both
   # scroll axes; each migrates forward by filling the fields it could not
   # have written.
-  var version = 10
-  for legacy in [4, 5, 6, 7, 8, 9]:
+  var version = 11
+  for legacy in [4, 5, 6, 7, 8, 9, 10]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -320,6 +320,11 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       # horizontal, and the first vertical projection settles its own.
       for viewNode in node["views"]:
         viewNode["viewportOffsetY"] = toJson(0'i32)
+    if version <= 10:
+      # Zero and empty mean inherit the column values, which is what a
+      # profile written before these keys existed was getting anyway.
+      node["settings"]["defaultRowHeightPercent"] = toJson(0'i32)
+      node["settings"]["rowHeightPresets"] = newJArray()
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")

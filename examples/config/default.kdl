@@ -15,6 +15,11 @@ policy {
   // Horizontal scroller viewport bias in pixels; 0 keeps the focused column
   // centering rule untouched.
   viewport-offset 0
+  // The vertical scroller's along-axis default, and the presets its cycle key
+  // steps through. Both inherit the column values when left out, which is why
+  // they are commented here: this profile behaves the same either way.
+  // default-row-height 40
+  // row-height-presets 25 40 60
   // Tile master area: how many windows share it, and what percentage of the
   // width it takes. Both are adjustable at runtime from the keys below.
   master-count 1

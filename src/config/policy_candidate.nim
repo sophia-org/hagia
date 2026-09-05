@@ -120,6 +120,21 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
           DesktopProfileError, "policy default-column-width is outside 10..100"
         )
       settings.defaultColumnWidthPercent = int32(percent)
+    of "policy.default-row-height":
+      # The vertical scroller's along-axis default. Unset inherits
+      # default-column-width, so a profile that never mentions rows behaves
+      # as it always has.
+      let percent = value.integerValue()
+      if percent < 10 or percent > 100:
+        raise newException(
+          DesktopProfileError, "policy default-row-height is outside 10..100"
+        )
+      settings.defaultRowHeightPercent = int32(percent)
+    of "policy.row-height-presets":
+      let node = parseKdl(value.encoded)[0]
+      settings.rowHeightPresets = @[]
+      for argument in node.args:
+        settings.rowHeightPresets.add(int32(argument.get(int)))
     of "policy.always-center-single-column":
       let node = parseKdl(value.encoded)[0]
       if node.args.len != 1 or node.args[0].kind != KBool:

@@ -424,10 +424,10 @@ of what an operator would have to give up, not a wish list.
 Single settings, each a policy key and a projection term:
 
 - `smart-gaps` — suppress gaps for a lone window.
-- Separate row-height scales for the vertical scroller. It transposes the
-  horizontal one, so `default-column-width` sizes row height. Confusing to
-  configure; behaviourally consistent. (The camera half of this is done:
-  each scroll axis keeps its own offset.)
+- ~~Separate row-height scales for the vertical scroller.~~ Done:
+  `default-row-height` and `row-height-presets` name the along-axis extent in
+  vertical mode and inherit the column values when unset, and each scroll
+  axis keeps its own camera offset.
 - `default-window-width` / `default-window-height` — per-window proportions;
   column width exists, the window inside it does not.
 - floating `x-ratio`, `y-ratio`, `min-width`, `min-height` — only the size

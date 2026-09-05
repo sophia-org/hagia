@@ -300,6 +300,7 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
         "viewport-offset", "master-count", "master-ratio", "gap-step", "view-name",
         "view-layout", "column-width-presets", "scratchpad-size", "floating-size",
         "default-column-width", "center-focused-column", "always-center-single-column",
+        "default-row-height", "row-height-presets",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
@@ -342,14 +343,15 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
       fail("policy view-layout slot is outside 1..9")
     if node.args[1].kString() notin supportedLayoutNames:
       fail("policy view-layout names an unsupported layout")
-  if authority == ProfileAuthority.policy and node.name == "column-width-presets":
+  if authority == ProfileAuthority.policy and
+      node.name in ["column-width-presets", "row-height-presets"]:
     if node.args.len < 1 or node.args.len > maxColumnWidthPresets or node.props.len != 0 or
         node.children.len != 0:
-      fail("policy column-width-presets requires one to eight percentages")
+      fail("policy " & node.name & " requires one to eight percentages")
     for argument in node.args:
       if argument.kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or argument.kInt() < 5 or
           argument.kInt() > 95:
-        fail("policy column-width-presets values must be 5..95 percent")
+        fail("policy " & node.name & " values must be 5..95 percent")
   if authority == ProfileAuthority.policy and
       node.name in ["scratchpad-size", "floating-size"]:
     if node.args.len != 2 or node.props.len != 0 or node.children.len != 0:

@@ -71,6 +71,45 @@ proc clone*(model: PolicyModel): PolicyModel =
     result.affinityOrder.add(id)
     result.affinities[id] = affinity
 
+proc transposedForVerticalScroller*(
+    model: PolicyModel, outputId: OutputId
+): PolicyModel =
+  ## The model a vertical scroller is really laying out.
+  ##
+  ## A vertical scroller is the horizontal one seen from ninety degrees away,
+  ## so rather than a second implementation it turns the output on its side
+  ## and runs the same machine. Anything that reasons about the strip -- the
+  ## projection that draws it, an action that asks what is on screen -- has to
+  ## start from this same view of it, or one of them is reasoning about a
+  ## strip that is not the one in front of the operator.
+  result = model.clone()
+  result.outputs[outputId].bounds = result.outputs[outputId].bounds.transpose()
+  # The vertical scroller scrolls along y, so it reads and seeds the y camera.
+  # The transpose maps y onto the horizontal machinery, so the y offset goes
+  # where that machinery will look for it.
+  let cameraView = result.outputs[outputId].activeView
+  if cameraView in result.views:
+    result.views[cameraView].viewportOffset = result.views[cameraView].viewportOffsetY
+  # Likewise the along-axis default: the machine reads it as a column width,
+  # and along this axis a column width is a row height.
+  result.settings.defaultColumnWidthPercent =
+    if model.settings.defaultRowHeightPercent == 0:
+      model.settings.defaultColumnWidthPercent
+    else:
+      model.settings.defaultRowHeightPercent
+  for windowId in result.windowOrder:
+    if result.windows[windowId].homeOutput != outputId:
+      continue
+    let constraints = result.windows[windowId].constraints
+    result.windows[windowId].constraints = SizeConstraints(
+      minWidth: constraints.minHeight,
+      minHeight: constraints.minWidth,
+      maxWidth: constraints.maxHeight,
+      maxHeight: constraints.maxWidth,
+    )
+    result.windows[windowId].floatingGeometry =
+      result.windows[windowId].floatingGeometry.transpose()
+
 proc validate*(model: PolicyModel) =
   var tabNodeCount = 0
   for view, tree in model.tabTrees.pairs:

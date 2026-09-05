@@ -149,6 +149,13 @@ type
     # never | always | on-overflow. Which of these the camera obeys when the
     # focused column moves, mirroring niri's center-focused-column.
     centerFocusedColumn*: CenterFocusedColumn
+    ## What a vertical-scroller row gets when it never chose a height, as a
+    ## percentage, and the presets its cycle key steps through. Zero and empty
+    ## mean inherit the column values: the vertical scroller is the same
+    ## machine along y, so its extent-along-the-axis default is the column
+    ## width's unless a profile says otherwise.
+    defaultRowHeightPercent*: int32
+    rowHeightPresets*: seq[int32]
     ## Centre a lone column whatever the rule above says. A single window at
     ## its configured proportion otherwise sits against the left edge with the
     ## rest of the screen empty, which reads as a mistake rather than a
@@ -259,4 +266,6 @@ const
     defaultColumnWidthPercent: defaultColumnWidthPercent,
     centerFocusedColumn: CenterFocusedColumn.onOverflow,
     alwaysCenterSingleColumn: true,
+    defaultRowHeightPercent: 0,
+    rowHeightPresets: @[],
   )

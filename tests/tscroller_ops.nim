@@ -41,6 +41,7 @@ type ScrollerOp = enum
   expelFromColumn
   switchToTile
   switchToScroller
+  switchToVerticalScroller
 
 proc focusableCapabilities(): WindowCapabilities =
   WindowCapabilities(
@@ -57,6 +58,11 @@ proc validateScroller(
   ## visible: columns that overlap draw on top of each other, a column past
   ## the bounds cannot be placed at all, and a focused column off screen is a
   ## window receiving keys that nobody can see.
+  ##
+  ## Only the horizontal scroller is checked here. The vertical one is the
+  ## same machine seen from ninety degrees away, so the same invariants hold
+  ## of it through the transpose; sequences still switch into it, because the
+  ## bugs worth finding are in the switching.
   # Printed only when something below fails, which is what makes a failure
   # replayable: the seed and step reproduce the exact sequence.
   checkpoint("seed=" & $seed & " step=" & $step & " op=" & $op)
@@ -138,6 +144,8 @@ proc applyOp(model: var PolicyModel, outputId: OutputId, op: ScrollerOp) =
     model.views[model.outputs[outputId].activeView].layout = LayoutMode.tile
   of switchToScroller:
     model.views[model.outputs[outputId].activeView].layout = LayoutMode.scroller
+  of switchToVerticalScroller:
+    model.views[model.outputs[outputId].activeView].layout = LayoutMode.verticalScroller
 
 proc runOps(
     seed: uint64, centering: CenterFocusedColumn, single: bool, steps: int
