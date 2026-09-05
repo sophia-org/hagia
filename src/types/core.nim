@@ -50,6 +50,10 @@ const
   autoScale* = Scale(0)
   scaleOne* = Scale(1'u32 shl 16)
   minimumScale* = Scale(3277)
+  ## Ten times the room a column can occupy. A width is a preference, so it is
+  ## bounded rather than free: past this the strip coordinates stop meaning
+  ## anything and a single column can put every other one out of reach.
+  maximumScale* = Scale(655360)
   maxTagBits* = 64'u32
   maxWorkspaceTagSlot* = 63'u32
   scratchpadTagSlot* = 64'u32

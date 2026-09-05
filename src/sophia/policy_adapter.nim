@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 8
+  result.schema = 9
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,15 +249,16 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-8\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-9\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
-  # version 6 predates named views and placement sizing, and version 7
-  # predates the scroller camera and the default column width; each migrates
-  # forward by filling the fields it could not have written.
-  var version = 8
-  for legacy in [4, 5, 6, 7]:
+  # version 6 predates named views and placement sizing, version 7 predates
+  # the scroller camera and the default column width, and version 8 stored a
+  # maximised column as a width; each migrates forward by filling the fields
+  # it could not have written.
+  var version = 9
+  for legacy in [4, 5, 6, 7, 8]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -300,6 +301,19 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
         toJson(defaultPolicySettings.defaultColumnWidthPercent)
       node["settings"]["centerFocusedColumn"] =
         toJson(defaultPolicySettings.centerFocusedColumn)
+    if version <= 8:
+      node["settings"]["alwaysCenterSingleColumn"] =
+        toJson(defaultPolicySettings.alwaysCenterSingleColumn)
+      # A version-8 column at exactly full width was maximised, so it becomes
+      # one that is flagged rather than sized. The two are indistinguishable
+      # in a v8 payload -- someone may have grown a column to precisely this
+      # width -- and reading it as maximised is the recoverable answer: the
+      # key that maximised it can put it back, where a width has no way home.
+      for columnNode in node["columns"]:
+        let maximized = columnNode["widthScale"].getInt() == int(scaleOne)
+        columnNode["fullWidth"] = toJson(maximized)
+        if maximized:
+          columnNode["widthScale"] = toJson(autoScale)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -712,7 +726,8 @@ proc projection*(
     # The camera the projection settled on is where this view now sits, so it
     # is written back before the next projection reads it. Without this the
     # strip recomputes from the configured offset every time and springs back.
-    adapter.model.rememberViewportOffset(logical.output, logical.viewportOffset)
+    if logical.cameraDecided:
+      adapter.model.rememberViewportOffset(logical.output, logical.viewportOffset)
     let rawOutput = adapter.logicalToOutput[logical.output].output
     var outputSnapshot: SnapshotOutput
     var foundOutput = false

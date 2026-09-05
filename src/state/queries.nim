@@ -155,6 +155,13 @@ proc visibleColumns*(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]]
     if windows.len > 0:
       result.add(windows)
 
+proc defaultColumnScale*(model: PolicyModel): Scale =
+  ## What a column that never chose a width is showing. `autoScale` is a
+  ## sentinel meaning "never chosen", so anything that steps or compares a
+  ## width has to resolve it first or it will reason about a column that is
+  ## not the one on screen.
+  scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
+
 proc effectiveGaps*(model: PolicyModel): (int32, int32) =
   ## The outer and inner gaps a projection should use. `toggle-gaps` hides
   ## them without discarding what the profile configured, so the configured

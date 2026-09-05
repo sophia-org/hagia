@@ -17,3 +17,9 @@ type
     placements*: seq[LogicalPlacement]
     focus*: WindowId
     viewportOffset*: int32
+    ## Whether this projection decided where the camera sits. Only a scroller
+    ## does. Without this the field's zero default reads as "scrolled to the
+    ## origin", so every tile, grid, monocle or tabbed projection quietly
+    ## reset the view a scroller had been left at, and switching layout and
+    ## back lost the scroll position.
+    cameraDecided*: bool

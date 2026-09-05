@@ -76,15 +76,19 @@ proc wrappedIndex*(current, delta, length: int): int =
     fail("cannot wrap an empty policy sequence")
   ((current + delta) mod length + length) mod length
 
-proc adjustedScale*(current: Scale, delta: int): Scale =
+proc adjustedScale*(current: Scale, delta: int, whenAutomatic: Scale): Scale =
+  ## Step a width one notch. `whenAutomatic` is what a column that never chose
+  ## a width is currently showing, so the first step moves from what is on
+  ## screen. Reading `autoScale` as 1.0 instead made one press jump a
+  ## half-width column past the whole viewport.
   let base =
     if current == autoScale:
-      uint64(uint32(scaleOne))
+      uint64(uint32(whenAutomatic))
     else:
       uint64(uint32(current))
   let step = uint64(uint32(scaleOne)) div 20
   if delta > 0:
-    return Scale(uint32(min(uint64(high(uint32)), base + step * uint64(delta))))
+    return Scale(uint32(min(uint64(uint32(maximumScale)), base + step * uint64(delta))))
   let reduction = step * uint64(-delta)
   let reduced =
     if reduction >= base:

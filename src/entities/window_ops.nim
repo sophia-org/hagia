@@ -133,6 +133,8 @@ proc setColumnWidthScale*(model: var PolicyModel, id: ColumnId, scale: Scale) =
     fail("column does not exist")
   if scale != autoScale and uint32(scale) < uint32(minimumScale):
     fail("column scale is too small")
+  if uint32(scale) > uint32(maximumScale):
+    fail("column scale is too large")
   model.columns[id].widthScale = scale
 
 proc setWindowHeightScale*(model: var PolicyModel, id: WindowId, scale: Scale) =

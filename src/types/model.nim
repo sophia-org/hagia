@@ -71,6 +71,12 @@ type
     preferredOutput*: OutputId
     windows*: seq[WindowId]
     widthScale*: Scale
+    ## Whether this column is showing at full width. It is a flag rather than
+    ## a width because maximising must be reversible: overwriting widthScale
+    ## loses the width the column had, and it can only be recovered by
+    ## pressing the same key on the same column before focus moves. niri keeps
+    ## the same pair, and setting a width clears the flag.
+    fullWidth*: bool
 
   ViewData* = object
     id*: ViewId
@@ -116,6 +122,11 @@ type
     # never | always | on-overflow. Which of these the camera obeys when the
     # focused column moves, mirroring niri's center-focused-column.
     centerFocusedColumn*: CenterFocusedColumn
+    ## Centre a lone column whatever the rule above says. A single window at
+    ## its configured proportion otherwise sits against the left edge with the
+    ## rest of the screen empty, which reads as a mistake rather than a
+    ## setting. niri offers the same and defaults it off; this defaults on.
+    alwaysCenterSingleColumn*: bool
     layoutCycle*: seq[LayoutMode]
     masterCount*: int
     masterRatio*: Scale
@@ -220,4 +231,5 @@ const
     columnWidthPresets: @[33'i32, 50, 67],
     defaultColumnWidthPercent: defaultColumnWidthPercent,
     centerFocusedColumn: CenterFocusedColumn.onOverflow,
+    alwaysCenterSingleColumn: true,
   )

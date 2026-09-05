@@ -143,6 +143,7 @@ proc projectScroller*(
     var widths: seq[int32]
     var virtualX = 0'i64
     var focusedColumn = -1
+    var previousColumn = -1
     # A scroller does not divide the screen among its columns. Each column
     # keeps the width it was given and the strip grows past the edge, which is
     # the whole point of scrolling: opening a window pushes the row along
@@ -159,9 +160,34 @@ proc projectScroller*(
     let proportionBase = max(1'i32, usableWidth - safeInnerGap)
     for index, item in columns:
       let (column, windows) = item
+      # Full width is a flag the column carries, not a width it was given, so
+      # the width it chose survives being maximised and comes back when the
+      # flag clears.
       let scale =
-        if column.widthScale == autoScale: defaultScale else: column.widthScale
-      let width = max(1'i32, proportionBase.scaledExtent(scale) - safeInnerGap)
+        if column.fullWidth:
+          scaleOne
+        elif column.widthScale == autoScale:
+          defaultScale
+        else:
+          column.widthScale
+      var width = max(1'i32, proportionBase.scaledExtent(scale) - safeInnerGap)
+      # A client that cannot be narrower than some size gets a column that
+      # fits it. A proportion is a preference; a minimum is a fact, and a
+      # column narrower than its window would leave the window overflowing it.
+      var columnMinWidth = 0'i32
+      var columnMaxWidth = 0'i32
+      for windowId in windows:
+        let constraints = model.windows[windowId].constraints
+        if constraints.minWidth > columnMinWidth:
+          columnMinWidth = constraints.minWidth
+        if constraints.maxWidth > 0 and
+            (columnMaxWidth == 0 or constraints.maxWidth < columnMaxWidth):
+          columnMaxWidth = constraints.maxWidth
+      if columnMaxWidth > 0 and columnMaxWidth >= columnMinWidth and
+          width > columnMaxWidth:
+        width = columnMaxWidth
+      if width < columnMinWidth:
+        width = columnMinWidth
       if virtualX > int64(high(int32)):
         raise newException(PolicyStateError, "scroller extent is excessive")
       positions.add(int32(virtualX))
@@ -169,6 +195,14 @@ proc projectScroller*(
       virtualX += int64(width) + int64(safeInnerGap)
       if output.get().focusedWindow in windows:
         focusedColumn = index
+      # The column focus came from, for the overflow rule below. The most
+      # recent entry that is not the focused window is where focus was before
+      # this projection.
+      if previousColumn < 0:
+        for remembered in output.get().focusHistory:
+          if remembered != output.get().focusedWindow and remembered in windows:
+            previousColumn = index
+            break
 
     # The camera carries over from the last projection rather than restarting
     # at the configured offset, which is what lets the strip stay where it was
@@ -185,8 +219,15 @@ proc projectScroller*(
     if focusedColumn >= 0:
       let columnX = positions[focusedColumn]
       let columnWidth = widths[focusedColumn]
+      # A lone column centres by behaving as though the mode were `always`,
+      # which is how niri expresses the same option.
+      let centering =
+        if model.settings.alwaysCenterSingleColumn and columns.len <= 1:
+          CenterFocusedColumn.always
+        else:
+          model.settings.centerFocusedColumn
       targetOffset =
-        case model.settings.centerFocusedColumn
+        case centering
         of CenterFocusedColumn.always:
           scrollerCenteredOffset(usableWidth, columnX, columnWidth)
         of CenterFocusedColumn.never:
@@ -194,26 +235,37 @@ proc projectScroller*(
             targetOffset, usableWidth, columnX, columnWidth, safeInnerGap
           )
         of CenterFocusedColumn.onOverflow:
-          # Centre only when the focused column and the one beside it cannot
-          # share the screen. When they can, scrolling by the shorter distance
-          # keeps both in view, which is the whole reason to prefer it.
-          let neighbour =
-            if focusedColumn > 0:
-              focusedColumn - 1
-            else:
-              min(focusedColumn + 1, columns.len - 1)
-          let spanLeft = min(columnX, positions[neighbour])
-          let spanRight = max(
-            int64(columnX) + int64(columnWidth),
-            int64(positions[neighbour]) + int64(widths[neighbour]),
-          )
-          if spanRight - int64(spanLeft) + int64(safeInnerGap) * 2 <= int64(usableWidth):
+          # Centre only when the focused column cannot share the screen with
+          # the column on the side focus arrived from, and only on a real move.
+          # A projection that is merely redrawing the same focus reveals
+          # without centring, which is what stops the view drifting on every
+          # cycle. The neighbour is the target's, on the side travelled from —
+          # not the column focus left, which is only the same thing for a
+          # single step.
+          if previousColumn < 0 or previousColumn == focusedColumn:
             scrollerViewOffset(
               targetOffset, usableWidth, columnX, columnWidth, safeInnerGap
             )
           else:
-            scrollerCenteredOffset(usableWidth, columnX, columnWidth)
+            let neighbour =
+              if previousColumn > focusedColumn:
+                min(focusedColumn + 1, columns.len - 1)
+              else:
+                max(focusedColumn - 1, 0)
+            let spanLeft = min(columnX, positions[neighbour])
+            let spanRight = max(
+              int64(columnX) + int64(columnWidth),
+              int64(positions[neighbour]) + int64(widths[neighbour]),
+            )
+            if spanRight - int64(spanLeft) + int64(safeInnerGap) * 2 <=
+                int64(usableWidth):
+              scrollerViewOffset(
+                targetOffset, usableWidth, columnX, columnWidth, safeInnerGap
+              )
+            else:
+              scrollerCenteredOffset(usableWidth, columnX, columnWidth)
     projection.viewportOffset = targetOffset
+    projection.cameraDecided = true
 
     for index, item in columns:
       let (_, windows) = item

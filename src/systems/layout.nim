@@ -1,6 +1,6 @@
 import ../policy/entity_store
 import ../types/[core, model]
-import ../state/values
+import ../state/[queries, values]
 import ../entities/window_ops
 import ../entities/tab_tree_ops
 
@@ -33,9 +33,15 @@ proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int
   if window == nullWindowId:
     return
   let column = model.windows[window].column
+  # A column that never chose a width is showing the configured default, so
+  # that is where the first step starts from. Setting a width also stops the
+  # column being full width; the two are separate facts and this one is now
+  # explicit.
   model.setColumnWidthScale(
-    column, adjustedScale(model.columns[column].widthScale, delta)
+    column,
+    adjustedScale(model.columns[column].widthScale, delta, model.defaultColumnScale()),
   )
+  model.columns[column].fullWidth = false
 
 proc adjustFocusedWindow*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:
@@ -44,7 +50,7 @@ proc adjustFocusedWindow*(model: var PolicyModel, outputId: OutputId, delta: int
   if window == nullWindowId:
     return
   model.setWindowHeightScale(
-    window, adjustedScale(model.windows[window].heightScale, delta)
+    window, adjustedScale(model.windows[window].heightScale, delta, scaleOne)
   )
 
 proc adjustMasterCount*(model: var PolicyModel, delta: int) =
@@ -57,7 +63,7 @@ proc adjustMasterRatio*(model: var PolicyModel, delta: int) =
   ## How much width the master area takes. The step is the same fifth-of-a-
   ## twentieth used for column and window scaling, so every size key in Hagia
   ## moves by the same amount.
-  let adjusted = adjustedScale(model.settings.masterRatio, delta)
+  let adjusted = adjustedScale(model.settings.masterRatio, delta, scaleOne)
   model.settings.masterRatio =
     if uint32(adjusted) < uint32(minMasterRatio):
       minMasterRatio
@@ -91,15 +97,21 @@ proc toggleColumnMaximized*(model: var PolicyModel, outputId: OutputId) =
   if windowId == nullWindowId:
     return
   let columnId = model.windows[windowId].column
-  model.setColumnWidthScale(
-    columnId,
-    if model.columns[columnId].widthScale == scaleOne: autoScale else: scaleOne,
-  )
+  # A flag, not a width. Overwriting the width made maximising a one-way door:
+  # it could only be undone by pressing the same key on the same column before
+  # focus moved, and nothing else ever returned a column to its own width.
+  model.columns[columnId].fullWidth = not model.columns[columnId].fullWidth
 
 proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: int) =
-  ## Step the focused column through the configured width presets. A column
-  ## sitting on none of them starts from the nearest end, and no presets
-  ## configured means no key to press.
+  ## Step the focused column through the configured width presets.
+  ##
+  ## A column sitting on none of them is placed by width rather than by
+  ## lookup: forwards goes to the first preset wider than what it is showing,
+  ## backwards to the last one narrower. Matching by equality instead meant a
+  ## column that had been grown, shrunk, maximised, or simply never given a
+  ## width matched nothing and restarted from the end of the list, which is
+  ## the one place the key should feel continuous. niri resolves it the same
+  ## way. No presets configured means no key to press.
   if outputId notin model.outputs:
     fail("column preset output does not exist")
   if model.settings.columnWidthPresets.len == 0:
@@ -111,12 +123,28 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
   var scales: seq[Scale]
   for percent in model.settings.columnWidthPresets:
     scales.add(scaleFromRatio(uint32(percent), 100))
-  let current = scales.find(model.columns[columnId].widthScale)
-  let target =
-    if current >= 0:
-      wrappedIndex(current, delta, scales.len)
-    elif delta < 0:
-      scales.high
+  let showing =
+    if model.columns[columnId].fullWidth:
+      scaleOne
+    elif model.columns[columnId].widthScale == autoScale:
+      model.defaultColumnScale()
     else:
-      0
+      model.columns[columnId].widthScale
+  let current = scales.find(showing)
+  var target: int
+  if current >= 0:
+    target = wrappedIndex(current, delta, scales.len)
+  elif delta >= 0:
+    target = 0
+    for index, scale in scales:
+      if uint32(scale) > uint32(showing):
+        target = index
+        break
+  else:
+    target = scales.high
+    for index in countdown(scales.high, 0):
+      if uint32(scales[index]) < uint32(showing):
+        target = index
+        break
   model.setColumnWidthScale(columnId, scales[target])
+  model.columns[columnId].fullWidth = false

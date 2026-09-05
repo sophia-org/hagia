@@ -199,8 +199,9 @@ proc validate*(model: PolicyModel) =
     let column = model.columns[columnId]
     if column.id != columnId or column.homeOutput notin model.outputs or
         column.preferredOutput == nullOutputId or column.windows.len == 0 or (
-      column.widthScale != autoScale and uint32(column.widthScale) < uint32(
-        minimumScale
+      column.widthScale != autoScale and (
+        uint32(column.widthScale) < uint32(minimumScale) or
+        uint32(column.widthScale) > uint32(maximumScale)
       )
     ):
       fail("policy column is invalid")

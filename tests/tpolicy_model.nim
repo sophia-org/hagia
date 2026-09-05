@@ -580,8 +580,11 @@ suite "Hagia private policy model":
     check projected[0].focus == second
     check projected[0].placements.len == 2
     check projected[0].placements[0].window == first
+    # The proportion asks for 500 and the window cannot go below 700, so the
+    # column is 700. A proportion is a preference; a minimum is a fact, and a
+    # column narrower than its window would leave the window overflowing it.
     check projected[0].placements[0].geometry ==
-      Rect(x: 10, y: 20, width: 500, height: 700)
+      Rect(x: -190, y: 20, width: 700, height: 700)
     check projected[0].placements[0].requestedWidth == 700
     check projected[0].placements[1].geometry ==
       Rect(x: 510, y: 20, width: 500, height: 700)
@@ -724,14 +727,97 @@ suite "Hagia private policy model":
       Rect(x: 0, y: 265, width: 470, height: 735)
     model.validate()
 
-  test "scroller saturates excessive fixed-point extents":
+  test "a layout that has no camera does not reset the one a scroller left":
+    ## The offset field defaults to zero, and only a scroller fills it in.
+    ## Writing it back unconditionally meant every tile, grid, monocle or
+    ## tabbed projection quietly scrolled the view home, so switching layout
+    ## and back lost the position.
     var model = initPolicyModel()
-    let output = model.addOutput(Rect(width: 100000, height: 700))
-    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
-    model.setColumnWidthScale(model.window(window).get().column, Scale(high(uint32)))
+    let output = model.addOutput(Rect(width: 1000, height: 700))
+    var opened: seq[WindowId]
+    for _ in 0 ..< 4:
+      opened.add(model.addWindow(output, focusableCapabilities(), SizeConstraints()))
+    model.setFocus(output, opened[3])
 
-    let projected = model.projectScroller([output])
-    check projected[0].placements[0].geometry.width == high(int32)
+    let scrolled = model.projectScroller([output])[0]
+    check scrolled.cameraDecided
+    require scrolled.viewportOffset != 0
+    model.rememberViewportOffset(output, scrolled.viewportOffset)
+
+    let view = model.outputs[output].activeView
+    model.views[view].layout = LayoutMode.tile
+    let tiled = model.projectLayout([output])[0]
+    check not tiled.cameraDecided
+    check model.views[view].viewportOffset == scrolled.viewportOffset
+
+    model.views[view].layout = LayoutMode.scroller
+    check model.views[view].viewportOffset == scrolled.viewportOffset
+    model.validate()
+
+  test "maximizing survives focus moving away and back":
+    ## The toggle used to overwrite the width, so it could only be undone by
+    ## pressing the same key on the same column before focus moved. Any
+    ## detour stranded the column at full width, and nothing else in the model
+    ## ever returned one to its own width.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let second = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let column = model.window(first).get().column
+    model.setFocus(output, first)
+    model.applyAction(output, PolicyAction.cycleColumnWidth)
+    let chosen = model.columns[column].widthScale
+
+    model.applyAction(output, PolicyAction.maximizeColumn)
+    check model.columns[column].fullWidth
+    model.setFocus(output, second)
+    model.setFocus(output, first)
+    model.applyAction(output, PolicyAction.maximizeColumn)
+
+    check not model.columns[column].fullWidth
+    check model.columns[column].widthScale == chosen
+    model.validate()
+
+  test "a column width is bounded at both ends":
+    test "a column width is bounded at both ends":
+      ## A width is a preference, so it is bounded rather than free. Without a
+      ## ceiling a column could be sixty-five thousand screens wide, which puts
+      ## every other column beyond reach and makes the strip coordinates stop
+      ## meaning anything.
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 100000, height: 700))
+      let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+      let column = model.window(window).get().column
+
+      expect PolicyStateError:
+        model.setColumnWidthScale(column, Scale(high(uint32)))
+      expect PolicyStateError:
+        model.setColumnWidthScale(column, Scale(uint32(minimumScale) - 1))
+
+      # The widest a column may be is ten times the room it can occupy, which is
+      # generous and still representable.
+      model.setColumnWidthScale(column, maximumScale)
+      let projected = model.projectScroller([output])
+      check projected[0].placements[0].geometry.width == 1_000_000
+      model.validate()
+
+  test "growing a column stops at the maximum instead of running away":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1000, height: 800))
+    let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, window)
+    let column = model.window(window).get().column
+
+    # The first press steps from what the column is showing -- the configured
+    # default -- not from full width. Reading `autoScale` as 1.0 made one
+    # press jump a half-width column past the whole viewport.
+    model.applyAction(output, PolicyAction.growColumn)
+    check model.columns[column].widthScale == Scale(32768 + 3276)
+
+    for _ in 0 ..< 400:
+      model.applyAction(output, PolicyAction.growColumn)
+    check model.columns[column].widthScale == maximumScale
+    model.validate()
 
   test "native layout cycle projects tile grid monocle and vertical scroller":
     var model = initPolicyModel()
@@ -1277,11 +1363,16 @@ suite "Hagia private policy model":
     model.setFocus(output, first)
     let column = model.window(first).get().column
 
+    # Maximising records a decision about the column, not a width for it. The
+    # width the column had is still there underneath and comes back untouched,
+    # which is what makes this reversible after focus has moved elsewhere.
     model.applyAction(output, PolicyAction.maximizeColumn)
-    check model.columns[column].widthScale == scaleOne
+    check model.columns[column].fullWidth
+    check model.columns[column].widthScale == autoScale
     check not model.windows[first].maximized
     check model.projectLayout([output])[0].placements[0].geometry.width == 1000
     model.applyAction(output, PolicyAction.maximizeColumn)
+    check not model.columns[column].fullWidth
     check model.columns[column].widthScale == autoScale
     model.validate()
 
@@ -1505,16 +1596,19 @@ suite "Hagia private policy model":
     let column = model.window(window).get().column
     check model.settings.columnWidthPresets == @[33'i32, 50, 67]
 
-    # An auto-width column is on no preset, so the first press takes the
-    # nearest end for the direction pressed.
+    # An auto-width column is on no preset, but it is showing the configured
+    # default of 50%, so the key steps from what is on screen: forwards to the
+    # first preset wider than it, backwards to the last one narrower. Matching
+    # by equality instead restarted from the end of the list, which is the one
+    # place this key should feel continuous.
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(33, 100)
+    check model.columns[column].widthScale == scaleFromRatio(67, 100)
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(50, 100)
-    model.applyAction(output, PolicyAction.cycleColumnWidthBack)
     check model.columns[column].widthScale == scaleFromRatio(33, 100)
     model.applyAction(output, PolicyAction.cycleColumnWidthBack)
     check model.columns[column].widthScale == scaleFromRatio(67, 100)
+    model.applyAction(output, PolicyAction.cycleColumnWidthBack)
+    check model.columns[column].widthScale == scaleFromRatio(50, 100)
     model.validate()
 
   test "scratchpad and floating sizes come from the profile":
@@ -1935,9 +2029,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 8
+    check parseJson(printed)["schema"].getInt() == 9
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-9\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2428,33 +2522,59 @@ suite "tab checkpoint compatibility":
     for grown in [
       "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
-      "defaultColumnWidthPercent", "centerFocusedColumn",
+      "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn",
     ]:
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:
       viewNode.delete("viewportOffset")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-8\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
 
-  test "version 7 migrates forward, its views gaining a resting camera":
-    ## Version 7 predates the scroller camera, so its views carry no offset and
-    ## its settings no default column width. A restored camera starts at the
-    ## origin rather than guessing: the strip is rebuilt from the columns, and
-    ## the first focus settles it where the rule says it belongs.
+  test "version 8 migrates forward, a maximized column becoming a flagged one":
+    ## Version 8 stored "maximized" as a width, so the width the column had
+    ## was already gone by the time it was written. A column at exactly full
+    ## width is read as maximized because that is the recoverable answer: the
+    ## key that maximized it can put it back, where a width has no way home.
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
     var adapter = initPolicyAdapter()
     adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
     var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
-    payload["schema"] = %7
-    for grown in ["defaultColumnWidthPercent", "centerFocusedColumn"]:
-      payload["settings"].delete(grown)
-    for viewNode in payload["views"]:
-      viewNode.delete("viewportOffset")
+    payload["schema"] = %8
+    payload["settings"].delete("alwaysCenterSingleColumn")
+    for columnNode in payload["columns"]:
+      columnNode.delete("fullWidth")
+      columnNode["widthScale"] = %int(scaleOne)
 
-    let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
+    let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-8\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
+    let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
+    for columnNode in migrated["columns"]:
+      check columnNode["fullWidth"].getBool()
+      check columnNode["widthScale"].getInt() == int(autoScale)
+
+  test "version 7 migrates forward, its views gaining a resting camera":
+    test "version 7 migrates forward, its views gaining a resting camera":
+      ## Version 7 predates the scroller camera, so its views carry no offset and
+      ## its settings no default column width. A restored camera starts at the
+      ## origin rather than guessing: the strip is rebuilt from the columns, and
+      ## the first focus settles it where the rule says it belongs.
+      let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
+      var adapter = initPolicyAdapter()
+      adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
+      var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
+      payload["schema"] = %7
+      for grown in [
+        "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn"
+      ]:
+        payload["settings"].delete(grown)
+      for viewNode in payload["views"]:
+        viewNode.delete("viewportOffset")
+
+      let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
+      check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-9\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2478,7 +2598,7 @@ suite "tab checkpoint compatibility":
     for grown in [
       "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
-      "defaultColumnWidthPercent", "centerFocusedColumn",
+      "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn",
     ]:
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:
