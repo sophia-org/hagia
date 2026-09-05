@@ -319,6 +319,7 @@ proc tabTreeCommand*(
   let view = model.outputs[outputId].activeView
   if view notin model.tabTrees:
     return
+  let dwindleView = model.views[view].layout == LayoutMode.dwindle
   var tree = model.tabTrees[view].cloneTabTree()
   var focused = tree.focused
   let current = tree.representative(focused)
@@ -563,24 +564,57 @@ proc tabTreeCommand*(
             TabTreeMode.tabbed
           else:
             TabTreeMode.horizontal
-  of TabTreeCommand.preselectLeft, TabTreeCommand.preselectRight,
-      TabTreeCommand.preselectUp, TabTreeCommand.preselectDown:
-    # A dwindle preselect aims the next insert. Repeating the same direction
-    # takes the aim back off, so a mispress is one keystroke to undo.
-    if tree.frameStyle:
-      return
-    var leaf = focused
-    while tree.node(leaf).mode != TabTreeMode.leaf:
-      leaf = tree.node(leaf).selectedChild
+  of TabTreeCommand.splitLeft, TabTreeCommand.splitRight, TabTreeCommand.splitUp,
+      TabTreeCommand.splitDown:
+    # One direction, read by whichever tree is active. A dwindle view aims the
+    # next insert and repeating a direction takes the aim back off, so a
+    # mispress costs one keystroke; every other tree splits now, putting the
+    # new cell on the side the direction names.
     let direction =
       case command
-      of TabTreeCommand.preselectLeft: TabTreePreselect.left
-      of TabTreeCommand.preselectRight: TabTreePreselect.right
-      of TabTreeCommand.preselectUp: TabTreePreselect.up
+      of TabTreeCommand.splitLeft: TabTreePreselect.left
+      of TabTreeCommand.splitRight: TabTreePreselect.right
+      of TabTreeCommand.splitUp: TabTreePreselect.up
       else: TabTreePreselect.down
-    let li = tree.nodeIndex(leaf)
-    tree.nodes[li].preselect =
-      if tree.nodes[li].preselect == direction: TabTreePreselect.none else: direction
+    let mode =
+      if direction in {TabTreePreselect.left, TabTreePreselect.right}:
+        TabTreeMode.horizontal
+      else:
+        TabTreeMode.vertical
+    let before = direction in {TabTreePreselect.left, TabTreePreselect.up}
+    if dwindleView:
+      var leaf = focused
+      while tree.node(leaf).mode != TabTreeMode.leaf:
+        leaf = tree.node(leaf).selectedChild
+      let li = tree.nodeIndex(leaf)
+      tree.nodes[li].preselect =
+        if tree.nodes[li].preselect == direction: TabTreePreselect.none else: direction
+    elif not tree.frameStyle or tree.node(focused).mode == TabTreeMode.leaf:
+      let parent = tree.node(focused).parent
+      if not tree.frameStyle and parent != 0 and tree.node(parent).children.len == 1:
+        tree.nodes[tree.nodeIndex(parent)].mode = mode
+        tree.nodes[tree.nodeIndex(parent)].lastSplit = mode
+      else:
+        let wrapper = tree.addNode(mode, parent)
+        tree.nodes[tree.nodeIndex(wrapper)].pendingSplit = not tree.frameStyle
+        tree.replaceChild(parent, focused, wrapper)
+        tree.nodes[tree.nodeIndex(focused)].parent = wrapper
+        tree.nodes[tree.nodeIndex(wrapper)].children = @[focused]
+        tree.nodes[tree.nodeIndex(wrapper)].selectedChild = focused
+        if tree.frameStyle:
+          let empty = tree.addNode(TabTreeMode.leaf, wrapper)
+          let wi = tree.nodeIndex(wrapper)
+          if before:
+            tree.nodes[wi].children.insert(empty, 0)
+          else:
+            tree.nodes[wi].children.add(empty)
+          let fi = tree.nodeIndex(focused)
+          if tree.nodes[fi].windows.len > 1:
+            tree.nodes[fi].windows.keepItIf(it != current)
+            tree.nodes[fi].active = tree.nodes[fi].windows[^1]
+            tree.nodes[tree.nodeIndex(empty)].windows = @[current]
+            tree.nodes[tree.nodeIndex(empty)].active = current
+            tree.selectWindow(current)
   tree.compactTree()
   tree.validateTabTree()
   model.tabTrees[view] = tree

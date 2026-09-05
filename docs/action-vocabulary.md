@@ -102,3 +102,35 @@ leaves inert numbered bars while keyboard layout control continues.
 5. Bind it in `examples/config/default.kdl`, or add it commented, and update
    the binding counts pinned in `tests/tfoundation.nim`.
 6. Add a reducer test and a migration test.
+
+## One intent, one action
+
+Triad implemented frame-tree, split-tree, and BSP as three substrates, so it
+grew three names for the same thing — `frame-split-horizontal`,
+`split-tree-split-horizontal`, `dwindle-split-left` — and scoped the chord to
+a layout block to tell them apart. The layout block was compensation for the
+fragmentation, not a feature.
+
+Hagia runs one tree for all four tree layouts, so it names the intent once.
+`split-left`, `split-right`, `split-up`, and `split-down` read the active
+layout: a tree that splits eagerly opens the new cell on the named side, and
+a dwindle view aims where the next window lands, cancelling if the same
+direction is pressed twice. One binding covers every tree layout, and nothing
+needs a per-layout binding scheme.
+
+The rule this illustrates: **an action names what the user wants, not which
+implementation answers.** Before adding an action, check whether an existing
+one already means it somewhere else; if it does, teach that one to dispatch.
+
+### Superseded aliases
+
+`frameSplitHorizontal`/`splitTreeSplitHorizontal`,
+`frameSplitVertical`/`splitTreeSplitVertical`,
+`frameSplitToggle`/`splitTreeSplitToggle`,
+`frameFocusParent`/`splitFocusParent`,
+`frameFocusChild`/`splitFocusChild`, and
+`splitTreeHorizontal`/`splitTreeDefault` are pairs that reduce identically.
+They stay registered because ordinals are append-only and a recorded profile
+may name them, but the shipped profile and the Triad migration both use the
+directional family instead. Six ordinals of 256 is a cheaper price than
+renumbering.

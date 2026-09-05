@@ -66,10 +66,10 @@ type
     resizeDown
     group
     ungroup
-    preselectLeft
-    preselectRight
-    preselectUp
-    preselectDown
+    splitLeft
+    splitRight
+    splitUp
+    splitDown
 
   TabTreePlacement* = object
     window*: WindowId

@@ -843,8 +843,7 @@ output {
       "bind Super+Ctrl+y \"policy:focus-next-in-group\"",
       "bind Super+Alt+6 \"policy:layout-spiral\"",
       "bind Super+Alt+3 \"policy:layout-dwindle\"",
-      "bind Super+Alt+j \"policy:dwindle-preselect-down\"",
-      "bind Super+Alt+k \"policy:dwindle-preselect-up\"",
+      "bind Super+Alt+j \"policy:split-down\"", "bind Super+Alt+k \"policy:split-up\"",
     ]:
       check carried in report.outputProfile
 

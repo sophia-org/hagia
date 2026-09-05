@@ -246,14 +246,14 @@ proc profileName*(action: PolicyAction): string =
     "split-tree-focus-prev-sibling"
   of PolicyAction.selectDwindleLayout:
     "layout-dwindle"
-  of PolicyAction.dwindlePreselectLeft:
-    "dwindle-preselect-left"
-  of PolicyAction.dwindlePreselectRight:
-    "dwindle-preselect-right"
-  of PolicyAction.dwindlePreselectUp:
-    "dwindle-preselect-up"
-  of PolicyAction.dwindlePreselectDown:
-    "dwindle-preselect-down"
+  of PolicyAction.splitDirectionLeft:
+    "split-left"
+  of PolicyAction.splitDirectionRight:
+    "split-right"
+  of PolicyAction.splitDirectionUp:
+    "split-up"
+  of PolicyAction.splitDirectionDown:
+    "split-down"
 
 proc sessionOperationSlot*(action: PolicyAction): uint16 =
   case action
@@ -582,11 +582,11 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.tabTreeCommand(output, TabTreeCommand.layoutHorizontal)
   of PolicyAction.selectDwindleLayout:
     model.setLayout(output, LayoutMode.dwindle)
-  of PolicyAction.dwindlePreselectLeft:
-    model.tabTreeCommand(output, TabTreeCommand.preselectLeft)
-  of PolicyAction.dwindlePreselectRight:
-    model.tabTreeCommand(output, TabTreeCommand.preselectRight)
-  of PolicyAction.dwindlePreselectUp:
-    model.tabTreeCommand(output, TabTreeCommand.preselectUp)
-  of PolicyAction.dwindlePreselectDown:
-    model.tabTreeCommand(output, TabTreeCommand.preselectDown)
+  of PolicyAction.splitDirectionLeft:
+    model.tabTreeCommand(output, TabTreeCommand.splitLeft)
+  of PolicyAction.splitDirectionRight:
+    model.tabTreeCommand(output, TabTreeCommand.splitRight)
+  of PolicyAction.splitDirectionUp:
+    model.tabTreeCommand(output, TabTreeCommand.splitUp)
+  of PolicyAction.splitDirectionDown:
+    model.tabTreeCommand(output, TabTreeCommand.splitDown)

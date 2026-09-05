@@ -129,7 +129,7 @@ suite "Triad tab trees":
     check geometry[windows[3]] == Rect(x: 600, y: 300, width: 200, height: 300)
     model.validate()
 
-  test "a preselect aims one insert and repeating it takes the aim off":
+  test "one directional split aims a dwindle insert and splits every other tree":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 800, height: 600))
     let first = model.addWindow(output, caps(), SizeConstraints())
@@ -138,7 +138,7 @@ suite "Triad tab trees":
     discard model.projectLayout(@[output], 0, 0, 0)
 
     # Aim up: the next window lands above instead of beside.
-    model.tabTreeCommand(output, TabTreeCommand.preselectUp)
+    model.tabTreeCommand(output, TabTreeCommand.splitUp)
     let second = model.addWindow(output, caps(), SizeConstraints())
     var projected = model.projectLayout(@[output], 0, 0, 0)[0]
     var geometry = initTable[WindowId, Rect]()
@@ -159,8 +159,29 @@ suite "Triad tab trees":
     check geometry[third] == Rect(x: 0, y: 150, width: 800, height: 150)
 
     # Aiming and re-aiming the same way cancels: the model keeps no preselect.
-    model.tabTreeCommand(output, TabTreeCommand.preselectLeft)
-    model.tabTreeCommand(output, TabTreeCommand.preselectLeft)
+    model.tabTreeCommand(output, TabTreeCommand.splitLeft)
+    model.tabTreeCommand(output, TabTreeCommand.splitLeft)
+    let view = model.outputs[output].activeView
+    for node in model.tabTrees[view].nodes:
+      check node.preselect == TabTreePreselect.none
+    model.validate()
+
+  test "the same directional key splits a tree that splits eagerly":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 800, height: 600))
+    let only = model.addWindow(output, caps(), SizeConstraints())
+    model.setFocus(output, only)
+    model.setLayout(output, LayoutMode.frameTree)
+    check model.projectLayout(@[output], 0, 0, 0)[0].tabGroups.len == 1
+
+    # No aiming here: a frame tree opens the empty cell immediately, and the
+    # direction chooses which side it takes.
+    model.tabTreeCommand(output, TabTreeCommand.splitLeft)
+    let projected = model.projectLayout(@[output], 0, 0, 0)[0]
+    check projected.tabGroups.len == 2
+    check projected.placements.len == 1
+    # The window kept the right half, so the empty cell opened on the left.
+    check projected.placements[0].geometry.x == 400
     let view = model.outputs[output].activeView
     for node in model.tabTrees[view].nodes:
       check node.preselect == TabTreePreselect.none

@@ -142,12 +142,13 @@ shortcut {
   // bind "Super+Ctrl+Alt+d" "policy:layout-dwindle"
   // bind "Super+Ctrl+Alt+m" "policy:layout-mixed"
 
-  // Dwindle preselects aim where the next window splits in; pressing the
-  // same direction again takes the aim back off.
-  // bind "Super+Alt+Shift+h" "policy:dwindle-preselect-left"
-  // bind "Super+Alt+Shift+j" "policy:dwindle-preselect-down"
-  // bind "Super+Alt+Shift+k" "policy:dwindle-preselect-up"
-  // bind "Super+Alt+Shift+l" "policy:dwindle-preselect-right"
+  // One directional split, read by whichever tree layout is active: frame
+  // tree, Notion and i3 open the new cell now, dwindle aims where the next
+  // window lands and cancels if you press the same direction twice.
+  // bind "Super+Alt+Shift+h" "policy:split-left"
+  // bind "Super+Alt+Shift+j" "policy:split-down"
+  // bind "Super+Alt+Shift+k" "policy:split-up"
+  // bind "Super+Alt+Shift+l" "policy:split-right"
   // bind "Super+Ctrl+r" "policy:toggle-named-scratchpad 3"
   // bind "Super+Ctrl+Shift+r" "policy:move-to-named-scratchpad 3"
   // bind "Super+Ctrl+d" "policy:toggle-named-scratchpad 4"

@@ -426,6 +426,27 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "policy", MigrationDisposition.excluded,
         "application identity is withheld from the WM",
       )
+    # Triad names one intent three ways, once per substrate, and scopes the
+    # chord to a layout block to tell them apart. Hagia runs one tree, so all
+    # three become the same directional action: split now where a tree splits
+    # eagerly, aim the next insert where a dwindle view does.
+    for spelling in [
+      ("dwindle-split-left", "split-left"),
+      ("dwindle-split-right", "split-right"),
+      ("dwindle-split-up", "split-up"),
+      ("dwindle-split-down", "split-down"),
+      ("frame-split-horizontal", "split-right"),
+      ("frame-split-vertical", "split-down"),
+      ("split-tree-split-horizontal", "split-right"),
+      ("split-tree-split-vertical", "split-down"),
+    ]:
+      if command == spelling[0]:
+        return commandMigration(
+          "policy",
+          MigrationDisposition.transformed,
+          "directional split policy action; one vocabulary across every tree layout",
+          spelling[1],
+        )
     if parts.len == 1:
       for action in PolicyAction:
         if ord(action) >= ord(PolicyAction.selectFrameTree) and
@@ -456,17 +477,6 @@ proc classifyTriadCommand*(command: string): CommandMigration =
         "policy", MigrationDisposition.transformed, "selectDwindleLayout policy action",
         "layout-dwindle",
       )
-    if name.startsWith("dwindle-split-"):
-      let direction = name["dwindle-split-".len .. ^1]
-      if direction in ["left", "right", "up", "down"]:
-        # Triad routes these onto BSP preselect: they aim the next insert at
-        # the focused leaf rather than splitting an existing pair.
-        return commandMigration(
-          "policy",
-          MigrationDisposition.transformed,
-          "dwindlePreselect policy action; aims where the next window splits in",
-          "dwindle-preselect-" & direction,
-        )
     commandMigration(
       "unowned", MigrationDisposition.unsupported,
       "command has no classified retained authority",
