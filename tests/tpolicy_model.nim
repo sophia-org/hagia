@@ -917,22 +917,55 @@ suite "Hagia private policy model":
     check model.columns[column].fullWidth
     model.validate()
 
-  test "a lone window is centred rather than left against the edge":
+  test "opening a second window does not leave the strip centred for one":
+    ## The centring rule keyed on the column count, so a second window opening
+    ## left the camera where a single column had put it. The focused column
+    ## was still visible, so the reveal rule had no reason to move, and the
+    ## strip sat in the middle of the screen with dead space beside it until
+    ## focus happened to move. Two windows that fit are centred as a pair.
     var model = initPolicyModel()
-    check model.settings.alwaysCenterSingleColumn
-    let output = model.addOutput(Rect(width: 1000, height: 700))
-    let only = model.addWindow(output, focusableCapabilities(), SizeConstraints())
-    model.setFocus(output, only)
+    let output = model.addOutput(Rect(width: 2560, height: 1440))
+    let first = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    let alone = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
+    model.rememberViewportOffset(output, alone.viewportOffset)
+    check alone.placements[0].geometry.x == 650
 
-    let projected = model.projectScroller([output])[0]
-    let geometry = projected.placements[0].geometry
-    check geometry.x == (1000 - geometry.width) div 2
+    # Focus deliberately does not follow, which is the case that broke: the
+    # focused column stays visible, so nothing forces a recompute.
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let pair = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
+    require pair.placements.len == 2
+    check pair.placements[0].geometry.x == 16
+    check pair.placements[1].geometry.x == 1284
+    # Neither overlaps the other, which is what the operator actually saw.
+    check pair.placements[0].geometry.x + pair.placements[0].geometry.width <=
+      pair.placements[1].geometry.x
+    model.rememberViewportOffset(output, pair.viewportOffset)
 
-    # Turning it off puts the window back against the left edge.
-    model.settings.alwaysCenterSingleColumn = false
-    let flush = model.projectScroller([output])[0]
-    check flush.placements[0].geometry.x < geometry.x
+    # A third does not fit, so the strip stops being centred and scrolls.
+    discard model.addWindow(output, focusableCapabilities(), SizeConstraints())
+    let three = model.projectScroller([output], outerGap = 8, innerGap = 8)[0]
+    check three.placements[0].geometry.x == 16
     model.validate()
+
+  test "a lone window is centred rather than left against the edge":
+    test "a lone window is centred rather than left against the edge":
+      var model = initPolicyModel()
+      check model.settings.alwaysCenterSingleColumn
+      let output = model.addOutput(Rect(width: 1000, height: 700))
+      let only = model.addWindow(output, focusableCapabilities(), SizeConstraints())
+      model.setFocus(output, only)
+
+      let projected = model.projectScroller([output])[0]
+      let geometry = projected.placements[0].geometry
+      check geometry.x == (1000 - geometry.width) div 2
+
+      # Turning it off puts the window back against the left edge.
+      model.settings.alwaysCenterSingleColumn = false
+      let flush = model.projectScroller([output])[0]
+      check flush.placements[0].geometry.x < geometry.x
+      model.validate()
 
   test "a layout that has no camera does not reset the one a scroller left":
     test "a layout that has no camera does not reset the one a scroller left":

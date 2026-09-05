@@ -179,15 +179,23 @@ proc projectScroller*(
     if focusedColumn >= 0:
       let columnX = positions[focusedColumn]
       let columnWidth = widths[focusedColumn]
-      # A lone column centres by behaving as though the mode were `always`,
-      # which is how niri expresses the same option.
-      let centering =
-        if model.settings.alwaysCenterSingleColumn and columns.len <= 1:
-          CenterFocusedColumn.always
+      # A strip that fits on screen is centred as a whole, rather than left
+      # against one edge with the space all on the other side.
+      #
+      # The condition is that the strip fits, not that it holds one column.
+      # Keying it to a lone column meant the centred offset stayed put when a
+      # second one opened: the focused column was still visible, so the reveal
+      # rule had no reason to move, and the strip sat in the middle of the
+      # screen with dead space beside it until focus happened to move.
+      let stripWidth =
+        if strip.positions.len > 0:
+          int64(strip.positions[^1]) + int64(strip.widths[^1])
         else:
-          model.settings.centerFocusedColumn
+          0'i64
+      let stripFits =
+        model.settings.alwaysCenterSingleColumn and stripWidth <= int64(usableWidth)
       targetOffset =
-        case centering
+        case model.settings.centerFocusedColumn
         of CenterFocusedColumn.always:
           scrollerCenteredOffset(usableWidth, columnX, columnWidth)
         of CenterFocusedColumn.never:
@@ -224,6 +232,12 @@ proc projectScroller*(
               )
             else:
               scrollerCenteredOffset(usableWidth, columnX, columnWidth)
+      if stripFits:
+        # Centre the strip, not the focused column. Centring the column would
+        # put a two-column strip that already fits back where a one-column
+        # strip belonged, which is the dead space this rule exists to remove.
+        targetOffset = int32(-((int64(usableWidth) - stripWidth) div 2))
+
     # A camera action asked for a position by name. It is resolved here
     # because this is the only place the strip geometry exists.
     if activeView in model.views:
