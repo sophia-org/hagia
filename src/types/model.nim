@@ -35,6 +35,7 @@ type
     frameTree
     notion
     splitTree
+    dwindle
 
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool

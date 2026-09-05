@@ -8,10 +8,18 @@ type
     tabbed
     stacking
 
+  TabTreePreselect* {.pure.} = enum
+    none
+    left
+    right
+    up
+    down
+
   TabTreeNode* = object
     id*, parent*: uint32
     pendingSplit*: bool
     mode*, lastSplit*: TabTreeMode
+    preselect*: TabTreePreselect
     weight*: Scale
     children*: seq[uint32]
     windows*: seq[WindowId]
@@ -58,6 +66,10 @@ type
     resizeDown
     group
     ungroup
+    preselectLeft
+    preselectRight
+    preselectUp
+    preselectDown
 
   TabTreePlacement* = object
     window*: WindowId

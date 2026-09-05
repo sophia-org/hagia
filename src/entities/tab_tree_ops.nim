@@ -99,6 +99,9 @@ proc validateTabTree*(tree: TabTree) =
       fail("invalid tab container")
     if n.lastSplit notin {TabTreeMode.horizontal, TabTreeMode.vertical}:
       fail("invalid remembered split mode")
+    if n.preselect != TabTreePreselect.none and
+        (n.mode != TabTreeMode.leaf or tree.frameStyle):
+      fail("preselect outside a split-tree leaf")
     if n.mode == TabTreeMode.leaf:
       if n.windows.len == 0 and n.active != nullWindowId:
         fail("empty leaf has an active member")
@@ -172,7 +175,53 @@ proc forgetTabWindow*(model: var PolicyModel, window: WindowId) =
             nullWindowId
     tree.compactTree()
 
-proc insertWindow(tree: var TabTree, window: WindowId) =
+proc nodeDepth(tree: TabTree, id: uint32): int =
+  var cursor = id
+  while tree.node(cursor).parent != 0:
+    cursor = tree.node(cursor).parent
+    inc result
+    if result > maxTabTreeDepth:
+      fail("tab tree exceeds maximum depth")
+
+proc replaceChild(tree: var TabTree, parent, oldId, newId: uint32)
+
+proc dwindleSplit(tree: var TabTree, target: uint32, window: WindowId) =
+  ## The dwindle rule: a new window splits the focused leaf in two rather than
+  ## joining its parent's row. Orientation alternates with depth — the spiral —
+  ## unless the leaf carries a preselect, which also chooses the side the new
+  ## window lands on and is spent by this one insert.
+  let preselect = tree.node(target).preselect
+  let mode =
+    case preselect
+    of TabTreePreselect.left, TabTreePreselect.right:
+      TabTreeMode.horizontal
+    of TabTreePreselect.up, TabTreePreselect.down:
+      TabTreeMode.vertical
+    of TabTreePreselect.none:
+      if tree.nodeDepth(target) mod 2 == 0:
+        TabTreeMode.horizontal
+      else:
+        TabTreeMode.vertical
+  let before = preselect in {TabTreePreselect.left, TabTreePreselect.up}
+  let parent = tree.node(target).parent
+  let wrapper = tree.addNode(mode, parent)
+  tree.nodes[tree.nodeIndex(wrapper)].weight = tree.node(target).weight
+  tree.replaceChild(parent, target, wrapper)
+  let leaf = tree.addNode(TabTreeMode.leaf, wrapper)
+  tree.nodes[tree.nodeIndex(target)].parent = wrapper
+  tree.nodes[tree.nodeIndex(target)].weight = scaleOne
+  tree.nodes[tree.nodeIndex(target)].preselect = TabTreePreselect.none
+  let wi = tree.nodeIndex(wrapper)
+  tree.nodes[wi].children =
+    if before:
+      @[leaf, target]
+    else:
+      @[target, leaf]
+  tree.nodes[wi].selectedChild = leaf
+  tree.nodes[tree.nodeIndex(leaf)].windows = @[window]
+  tree.nodes[tree.nodeIndex(leaf)].active = window
+
+proc insertWindow(tree: var TabTree, window: WindowId, dwindle = false) =
   var target = tree.focused
   if tree.nodeIndex(target) < 0:
     target = tree.root
@@ -181,6 +230,8 @@ proc insertWindow(tree: var TabTree, window: WindowId) =
   if tree.frameStyle or tree.node(target).windows.len == 0:
     tree.nodes[tree.nodeIndex(target)].windows.add(window)
     tree.nodes[tree.nodeIndex(target)].active = window
+  elif dwindle:
+    tree.dwindleSplit(target, window)
   else:
     var parent = tree.node(target).parent
     if parent == 0:
@@ -201,16 +252,18 @@ proc insertWindow(tree: var TabTree, window: WindowId) =
 proc tabLayoutActive*(model: PolicyModel, outputId: OutputId): bool =
   model.outputs[outputId].activeView in model.views and
     model.views[model.outputs[outputId].activeView].layout in
-    {LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree}
+    {LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree, LayoutMode.dwindle}
 
 proc syncTabTrees*(model: var PolicyModel) =
   for outputId in model.outputOrder:
     let output = model.outputs[outputId]
     let view = output.activeView
     let mode = model.views[view].layout
-    if mode notin {LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree}:
+    if mode notin {
+      LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree, LayoutMode.dwindle
+    }:
       continue
-    let frameStyle = mode != LayoutMode.splitTree
+    let frameStyle = mode in {LayoutMode.frameTree, LayoutMode.notion}
     if view notin model.tabTrees or model.tabTrees[view].frameStyle != frameStyle:
       var tree = TabTree(frameStyle: frameStyle)
       tree.root = tree.addNode(TabTreeMode.leaf)
@@ -231,7 +284,7 @@ proc syncTabTrees*(model: var PolicyModel) =
     tree.compactTree()
     for window in eligible:
       if tree.leafFor(window) == 0:
-        tree.insertWindow(window)
+        tree.insertWindow(window, dwindle = mode == LayoutMode.dwindle)
     if tree.representative(tree.focused) != output.focusedWindow and
         tree.representative(tree.focused) != nullWindowId:
       tree.selectWindow(output.focusedWindow)
@@ -510,6 +563,24 @@ proc tabTreeCommand*(
             TabTreeMode.tabbed
           else:
             TabTreeMode.horizontal
+  of TabTreeCommand.preselectLeft, TabTreeCommand.preselectRight,
+      TabTreeCommand.preselectUp, TabTreeCommand.preselectDown:
+    # A dwindle preselect aims the next insert. Repeating the same direction
+    # takes the aim back off, so a mispress is one keystroke to undo.
+    if tree.frameStyle:
+      return
+    var leaf = focused
+    while tree.node(leaf).mode != TabTreeMode.leaf:
+      leaf = tree.node(leaf).selectedChild
+    let direction =
+      case command
+      of TabTreeCommand.preselectLeft: TabTreePreselect.left
+      of TabTreeCommand.preselectRight: TabTreePreselect.right
+      of TabTreeCommand.preselectUp: TabTreePreselect.up
+      else: TabTreePreselect.down
+    let li = tree.nodeIndex(leaf)
+    tree.nodes[li].preselect =
+      if tree.nodes[li].preselect == direction: TabTreePreselect.none else: direction
   tree.compactTree()
   tree.validateTabTree()
   model.tabTrees[view] = tree

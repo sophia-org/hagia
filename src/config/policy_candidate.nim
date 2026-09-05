@@ -47,6 +47,8 @@ proc layoutMode(name: string): LayoutMode =
     LayoutMode.notion
   of "i3", "split-tree":
     LayoutMode.splitTree
+  of "dwindle":
+    LayoutMode.dwindle
   of "tgmix":
     LayoutMode.tgmix
   of "vertical-scroller":

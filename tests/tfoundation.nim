@@ -807,7 +807,7 @@ output {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 0
-    check report.outputProfile.count("\n  bind ") == 104
+    check report.outputProfile.count("\n  bind ") == 107
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
@@ -842,8 +842,37 @@ output {
       "bind Super+Shift+y \"policy:ungroup-window\"",
       "bind Super+Ctrl+y \"policy:focus-next-in-group\"",
       "bind Super+Alt+6 \"policy:layout-spiral\"",
+      "bind Super+Alt+3 \"policy:layout-dwindle\"",
+      "bind Super+Alt+j \"policy:dwindle-preselect-down\"",
+      "bind Super+Alt+k \"policy:dwindle-preselect-up\"",
     ]:
       check carried in report.outputProfile
+
+  test "every policy-authority Triad command is carried or names its refusal":
+    # The parity criterion the whole port effort pointed at: migrating Triad's
+    # recorded default excludes no policy command for lack of a capability.
+    # The exclusions that remain are structural facts of a flat profile, and
+    # each must say which fact: a chord already spent, a binding scoped to a
+    # shell mode Hagia does not model, or a pointer chord whose command
+    # belongs to another authority.
+    let fixture =
+      currentSourcePath().parentDir() / "fixtures" / "triad-default-bindings.kdl"
+    let report = readFile(fixture).migrateTriadProfile()
+    for item in report.items:
+      if item.kind != MigrationItemKind.physicalBinding:
+        continue
+      if item.authority != "policy":
+        continue
+      if item.disposition in
+          {MigrationDisposition.retained, MigrationDisposition.transformed}:
+        continue
+      check item.disposition == MigrationDisposition.excluded
+      check (
+        "duplicate shortcut identity" in item.result or
+        "contextual shell modes" in item.result or
+        "pointer binding cannot cross" in item.result or
+        "retains only move and resize pointer actions" in item.result
+      )
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":
     let directory = createTempDir("hagia-evidence-", "")

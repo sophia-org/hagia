@@ -110,8 +110,8 @@ physical input, and clean teardown.
   checkpoint persistence, and an opaque `Super+n` action. The installed
   two-output physical gate commits the cycle on both sides of a supervised
   restart and reconciles its nonempty checkpoint at connection epoch two.
-  Frames, tabs, BSP, split trees, and Janet layouts remain separate later
-  tranches.
+  Frames, tabs, BSP, and split trees have since landed as the tree family;
+  Janet layouts remain a separate later tranche.
 - [x] Add the bounded unified desktop profile foundation, provenance-bearing
   authority candidates, compiled fallback, offline CLI, and semantic Triad
   migration. Trusted Sophia startup now validates and stages all authority
@@ -256,8 +256,9 @@ authority is spatial policy becomes a Hagia action.** The rules for growing the
 catalog, and why the frozen wire never blocks it, are in
 [the action vocabulary](action-vocabulary.md). Progress is measured by
 `hagia config migrate-triad` over Triad's recorded default, pinned in
-`tests/tfoundation.nim`: 96 of its bindings now carry over, up from 40 at the
-freeze.
+`tests/tfoundation.nim`: 107 of its bindings now carry over, up from 40 at
+the freeze, and the parity test pins that no policy command is excluded for
+lack of a capability.
 
 ### Tier 1 — muscle memory, model-ready or near
 
@@ -344,11 +345,13 @@ move lands where the user saw the window.
 
 ### Tier 4 — layout power, large and coupled
 
-- [ ] The BSP substrate: `dwindle` and its four directional splits. This is
-  the last policy capability Triad has and Hagia does not. Unlike every other
-  layout ported so far it is not a function of the window order: it needs a
-  persistent split tree in the model, which windows insert into and which the
-  split keys preselect against. The tabbed layouts below use a separate bounded topology owner.
+- [x] The BSP substrate: `dwindle` and its four directional splits, landed on
+  the same persistent tree the tabbed layouts use. A new window splits the
+  focused leaf, orientation alternating with depth — the dwindle spiral —
+  and `dwindle-preselect-left/right/up/down` aim one insert, spent on use,
+  cancelled by repeating the same direction. Triad's `dwindle-split-*` were
+  aliases for exactly this BSP preselect, and the migration says so. This was
+  the last policy capability Triad had and Hagia did not.
 - [x] Native frame-tree/Notion and split-tree/i3 state, projection and descriptor
   bars through Sophia shell revision 2. See [tabbed layouts](tabbed-layouts.md).
   Physical multi-output, input, restart and fullscreen acceptance remains an

@@ -101,5 +101,5 @@ const
 const supportedLayoutNames* = [
   "scroller", "tile", "grid", "monocle", "vertical-scroller", "center-tile",
   "right-tile", "vertical-grid", "deck", "spiral", "tgmix", "frame-tree", "notion",
-  "i3", "split-tree",
+  "i3", "split-tree", "dwindle",
 ]

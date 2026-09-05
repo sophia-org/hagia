@@ -433,29 +433,40 @@ proc classifyTriadCommand*(command: string): CommandMigration =
           return commandMigration(
             "policy", MigrationDisposition.retained, "native tab tree action", command
           )
-      if command in ["frame-tree", "notion", "i3", "split-tree"]:
+      if command in ["frame-tree", "notion", "i3", "split-tree", "bsp-tree"]:
         return commandMigration(
           "policy",
           MigrationDisposition.transformed,
           "native tab tree layout",
-          if command == "split-tree":
+          case command
+          of "split-tree":
             "layout-i3"
+          of "bsp-tree":
+            "layout-dwindle"
           else:
             "layout-" & command,
         )
-    if name.startsWith("split-tree-") or name.startsWith("frame-") or name == "bsp-tree":
+    if name.startsWith("split-tree-") or name.startsWith("frame-"):
       return commandMigration(
         "policy", MigrationDisposition.excluded,
         "parameterized upstream layout commands require an explicit bounded action",
       )
-    if name in [
-      "dwindle", "dwindle-split-down", "dwindle-split-left", "dwindle-split-right",
-      "dwindle-split-up",
-    ]:
+    if name == "dwindle":
       return commandMigration(
-        "policy", MigrationDisposition.excluded,
-        "the persistent split tree these need is a later Hagia policy tranche; see docs/roadmap.md",
+        "policy", MigrationDisposition.transformed, "selectDwindleLayout policy action",
+        "layout-dwindle",
       )
+    if name.startsWith("dwindle-split-"):
+      let direction = name["dwindle-split-".len .. ^1]
+      if direction in ["left", "right", "up", "down"]:
+        # Triad routes these onto BSP preselect: they aim the next insert at
+        # the focused leaf rather than splitting an existing pair.
+        return commandMigration(
+          "policy",
+          MigrationDisposition.transformed,
+          "dwindlePreselect policy action; aims where the next window splits in",
+          "dwindle-preselect-" & direction,
+        )
     commandMigration(
       "unowned", MigrationDisposition.unsupported,
       "command has no classified retained authority",

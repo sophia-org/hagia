@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 5
+  result.schema = 6
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,12 +249,16 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-5\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-6\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
-  let legacy = payload.startsWith("HAGIA-POLICY-CHECKPOINT-4\n")
-  let prefix =
-    if legacy: "HAGIA-POLICY-CHECKPOINT-4\n" else: "HAGIA-POLICY-CHECKPOINT-5\n"
+  # Version 4 predates tab trees and version 5 predates dwindle preselects;
+  # both migrate forward by filling the fields they could not have written.
+  var version = 6
+  for legacy in [4, 5]:
+    if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
+      version = legacy
+  let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
   for superseded in ["1", "2", "3"]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & superseded & "\n"):
       fail(
@@ -266,12 +270,16 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   var dto: CheckpointV4Dto
   try:
     var node = payload[prefix.len .. ^1].parseJson()
-    if legacy:
+    if version == 4:
       node["tabTrees"] = newJArray()
+    if version == 5:
+      for item in node["tabTrees"]:
+        for treeNode in item["tree"]["nodes"]:
+          treeNode["preselect"] = toJson(TabTreePreselect.none)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
-  if dto.schema != (if legacy: 4 else: 5):
+  if dto.schema != uint32(version):
     fail("policy checkpoint schema is invalid")
   for item in dto.tabTrees:
     let view = ViewId(item.view)
@@ -853,6 +861,7 @@ proc projection*(
       of LayoutMode.frameTree: "Frames"
       of LayoutMode.notion: "Notion"
       of LayoutMode.splitTree: "i3"
+      of LayoutMode.dwindle: "Dwindle"
     var status = ProjectionOutputStatus(
       output: rawOutput,
       focusBits: (if outputState.focusedWindow != nullWindowId: 1'u16 else: 0'u16),

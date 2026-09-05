@@ -105,3 +105,63 @@ suite "Triad tab trees":
     check model.tabTrees[view].node(leaf).parent != before
     check model.projectLayout(@[output], 0, 0, 0)[0].placements.len == 4
     model.validate()
+
+  test "dwindle splits the focused leaf and winds inward by depth":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 800, height: 600))
+    var windows: seq[WindowId]
+    for _ in 0 ..< 4:
+      windows.add(model.addWindow(output, caps(), SizeConstraints()))
+    model.setFocus(output, windows[0])
+    model.setLayout(output, LayoutMode.dwindle)
+
+    # Each arrival halves what the previous window held: right half, then its
+    # bottom half, then that cell's right half.
+    let projected = model.projectLayout(@[output], 0, 0, 0)[0]
+    check projected.tabGroups.len == 0
+    check projected.placements.len == 4
+    var geometry = initTable[WindowId, Rect]()
+    for placement in projected.placements:
+      geometry[placement.window] = placement.geometry
+    check geometry[windows[0]] == Rect(width: 400, height: 600)
+    check geometry[windows[1]] == Rect(x: 400, y: 0, width: 400, height: 300)
+    check geometry[windows[2]] == Rect(x: 400, y: 300, width: 200, height: 300)
+    check geometry[windows[3]] == Rect(x: 600, y: 300, width: 200, height: 300)
+    model.validate()
+
+  test "a preselect aims one insert and repeating it takes the aim off":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 800, height: 600))
+    let first = model.addWindow(output, caps(), SizeConstraints())
+    model.setFocus(output, first)
+    model.setLayout(output, LayoutMode.dwindle)
+    discard model.projectLayout(@[output], 0, 0, 0)
+
+    # Aim up: the next window lands above instead of beside.
+    model.tabTreeCommand(output, TabTreeCommand.preselectUp)
+    let second = model.addWindow(output, caps(), SizeConstraints())
+    var projected = model.projectLayout(@[output], 0, 0, 0)[0]
+    var geometry = initTable[WindowId, Rect]()
+    for placement in projected.placements:
+      geometry[placement.window] = placement.geometry
+    check geometry[second] == Rect(width: 800, height: 300)
+    check geometry[first] == Rect(x: 0, y: 300, width: 800, height: 300)
+
+    # The aim was spent: a third window falls back to the depth rule, and at
+    # depth one that rule says vertical, carving the aimed cell in two.
+    model.setFocus(output, second)
+    let third = model.addWindow(output, caps(), SizeConstraints())
+    projected = model.projectLayout(@[output], 0, 0, 0)[0]
+    geometry.clear()
+    for placement in projected.placements:
+      geometry[placement.window] = placement.geometry
+    check geometry[second] == Rect(width: 800, height: 150)
+    check geometry[third] == Rect(x: 0, y: 150, width: 800, height: 150)
+
+    # Aiming and re-aiming the same way cancels: the model keeps no preselect.
+    model.tabTreeCommand(output, TabTreeCommand.preselectLeft)
+    model.tabTreeCommand(output, TabTreeCommand.preselectLeft)
+    let view = model.outputs[output].activeView
+    for node in model.tabTrees[view].nodes:
+      check node.preselect == TabTreePreselect.none
+    model.validate()

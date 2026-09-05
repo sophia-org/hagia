@@ -351,7 +351,7 @@ proc projectNative(
   case resolved
   of LayoutMode.scroller, LayoutMode.verticalScroller:
     raise newException(PolicyStateError, "scrolling layout entered native projection")
-  of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree:
+  of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree, LayoutMode.dwindle:
     raise newException(PolicyStateError, "tab tree entered stateless projection")
   of LayoutMode.tgmix:
     raise newException(PolicyStateError, "mixed layout resolved to itself")
@@ -624,7 +624,7 @@ proc projectLayout*(
       raise newException(PolicyStateError, "projection output does not exist")
     let mode = model.views[model.outputs[outputId].activeView].layout
     case mode
-    of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree:
+    of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree, LayoutMode.dwindle:
       result.add(model.projectTabbed(outputId, outerGap, innerGap))
     of LayoutMode.scroller:
       result.add(
