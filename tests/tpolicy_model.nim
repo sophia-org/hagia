@@ -532,6 +532,60 @@ suite "Hagia private policy model":
     check dynamicView notin model.views
     model.validate()
 
+  test "walking off the strip reaches the next display, or wraps without one":
+    ## The key that walks the strip has to mean something at its ends. With a
+    ## display on that side it hands over, which is the only way the same key
+    ## reaches the other monitor. With nothing there it wraps, which is what
+    ## it did before hand-off existed and what a lone display still expects.
+    var model = initPolicyModel()
+    let left = model.addOutput(Rect(width: 1600, height: 900))
+    let right = model.addOutput(Rect(x: 1600, width: 1600, height: 900))
+    for output in [left, right]:
+      model.views[model.outputs[output].activeView].layout = LayoutMode.scroller
+
+    var leftWindows: seq[WindowId]
+    for _ in 0 ..< 2:
+      leftWindows.add(
+        model.addWindow(left, focusableCapabilities(), SizeConstraints())
+      )
+    let rightWindow =
+      model.addWindow(right, focusableCapabilities(), SizeConstraints())
+
+    # On the left display's last column, stepping right hands over.
+    model.setFocus(left, leftWindows[^1])
+    model.applyAction(left, PolicyAction.focusColumnNext)
+    check model.activeOutput == right
+
+    # The right display is the outer edge, so the same step wraps in place.
+    model.setFocus(right, rightWindow)
+    model.applyAction(right, PolicyAction.focusColumnNext)
+    check model.activeOutput == right
+    check model.outputs[right].focusedWindow == rightWindow
+
+    # And stepping back off its left edge hands over the other way.
+    model.applyAction(right, PolicyAction.focusColumnPrevious)
+    check model.activeOutput == left
+    model.validate()
+
+  test "a lone display wraps at either end of the strip":
+    ## The regression guard for the change above: hand-off must not cost a
+    ## single-monitor desk the wrap it has always had.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 900))
+    model.views[model.outputs[output].activeView].layout = LayoutMode.scroller
+    var windows: seq[WindowId]
+    for _ in 0 ..< 3:
+      windows.add(
+        model.addWindow(output, focusableCapabilities(), SizeConstraints())
+      )
+
+    model.setFocus(output, windows[^1])
+    model.applyAction(output, PolicyAction.focusColumnNext)
+    check model.outputs[output].focusedWindow == windows[0]
+    model.applyAction(output, PolicyAction.focusColumnPrevious)
+    check model.outputs[output].focusedWindow == windows[^1]
+    model.validate()
+
   test "view actions switch visibility and move the focused window":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1200, height: 800))

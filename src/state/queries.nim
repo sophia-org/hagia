@@ -1,4 +1,4 @@
-import std/[options, sequtils, tables]
+import std/[algorithm, options, sequtils, tables]
 
 import ../types/[core, model]
 import ../policy/entity_store
@@ -296,3 +296,32 @@ proc scrollerStrip*(
 
 proc transpose*(rect: Rect): Rect =
   Rect(x: rect.y, y: rect.x, width: rect.height, height: rect.width)
+
+proc adjacentOutput*(
+    model: PolicyModel, outputId: OutputId, delta: int
+): OutputId =
+  ## The display beside this one, in the direction asked for.
+  ##
+  ## Ordered by where the outputs actually sit rather than by the order they
+  ## were discovered, because left and right are what the person in front of
+  ## them means. There is no wrap: past the last display there is no display,
+  ## and pretending otherwise is how walking right off one monitor lands you
+  ## back at the far edge of the same one.
+  result = nullOutputId
+  if outputId notin model.outputs:
+    return
+  var ordered: seq[OutputId]
+  for candidate in model.outputOrder:
+    if candidate in model.outputs:
+      ordered.add(candidate)
+  ordered.sort(
+    proc(left, right: OutputId): int =
+      cmp(model.outputs[left].bounds.x, model.outputs[right].bounds.x)
+  )
+  let index = ordered.find(outputId)
+  if index < 0:
+    return
+  let target = index + (if delta >= 0: 1 else: -1)
+  if target < 0 or target >= ordered.len:
+    return
+  result = ordered[target]

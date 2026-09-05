@@ -101,6 +101,22 @@ proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int
   if columnIndex < 0:
     model.focusRelative(outputId, delta)
     return
+  # Stepping past either end hands focus to the display on that side, when
+  # there is one. Wrapping made the other monitor unreachable with the same
+  # key that walks the strip, and sent the camera flying back across a strip
+  # the operator was walking along. niri hands off the same way, which is
+  # where the habit comes from.
+  let next = columnIndex + delta
+  if next < 0 or next >= columns.len:
+    let adjacent = model.adjacentOutput(outputId, delta)
+    if adjacent != nullOutputId and adjacent != outputId:
+      model.activeOutput = adjacent
+      if model.outputs[adjacent].focusedWindow == nullWindowId:
+        model.focusRelative(adjacent, 1)
+      return
+    # Nothing on that side, so the strip wraps as it always has. A single
+    # display keeps precisely the behaviour it had before hand-off existed;
+    # the outer edge of a multi-display arrangement behaves the same way.
   let target = columns[wrappedIndex(columnIndex, delta, columns.len)]
   model.setFocus(outputId, target[min(row, target.high)])
 
