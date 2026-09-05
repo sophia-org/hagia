@@ -379,8 +379,28 @@ move lands where the user saw the window.
 - [x] Floating placement defaults, as `floating-size`. Zero keeps the current whole-output behavior.
 - [ ] Sophia-stack installer wiring for `hagia config init` — sophia-stack's
   installer owns this, so it is out of scope for hagia tranches.
-- [ ] README names wallpaper and audio as queued session capabilities. With
-  lock and screenshot they wait on a session-operation slot registry in
-  sophia-stack's session authority; hagia's side is a whitelist entry and an
-  action each once slots exist. Record
-  them in the ledger's post-freeze process when they become real.
+### Blocked on Sophia's session vocabulary
+
+Lock, screenshot, wallpaper, and audio are the desktop capabilities the
+README names as queued. Nothing in Hagia blocks them, and neither does the
+wire:
+
+- Sophia advertises every session operation with its slot in each snapshot
+  (`SnapshotSessionOperation`, record kind 4, max 256 — Hagia uses four).
+  `sophia/policy_session.nim` resolves an action's slot to the advertised
+  operation and sends `SessionOperationRequest`. Adding a fifth operation
+  needs no revision and touches nothing frozen.
+- What is closed is Sophia's own vocabulary: `DesktopSessionShortcut` in
+  `crates/sophia-config/src/shortcut_candidate.rs` has exactly the five
+  variants whose `profile_name()` strings are Hagia's session whitelist in
+  `config/profile.nim`, and `WmActionBehavior` in `.../types.rs` is closed
+  the same way. Each capability also needs its behavior implemented, and
+  lock's is a security transition rather than a launch — which is why the
+  migration classifier already refuses `lock-session` for wanting "a
+  dedicated security transition capability".
+
+So the work is sophia-stack's, tracked in its `todo.md` under Native WM and
+shell product. Hagia's side per capability is one whitelist string in
+`config/profile.nim`, one appended action whose `sessionOperationSlot`
+returns the new slot, and a binding — a few lines, once the slot exists.
+Record each in the ledger's post-freeze process as it becomes real.
