@@ -560,6 +560,10 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   if snapshot.activeOutput == 0:
     fail("Sophia snapshot has no active output")
 
+  # The first complete snapshot may be a WM restart over existing windows.
+  # Only later admissions may replace the Engine's reconciled focus.
+  let established = adapter.activeOutputToLogical.len > 0
+  var newWindows: seq[WindowId]
   var previousActive: seq[(OutputHandle, OutputId)]
   for output, logical in adapter.activeOutputToLogical.pairs:
     previousActive.add((output, logical))
@@ -628,12 +632,10 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.surfaceFacts[window] = surface
     else:
       let rawHome =
-        if key in launchClassifications:
+        if key in launchClassifications or surface.currentOutput == 0:
           snapshot.activeOutput
-        elif surface.currentOutput != 0:
-          surface.currentOutput
         else:
-          snapshot.outputs[0].output
+          surface.currentOutput
       if rawHome notin adapter.outputToLogical:
         fail("surface home output is not present")
       let window = adapter.model.addWindow(
@@ -641,6 +643,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
         surface.capabilityBits.capabilities(),
         surface.constraints(),
       )
+      newWindows.add(window)
       adapter.surfaceToWindow[key] = window
       adapter.windowToSurface[window] = key
       adapter.surfaceFacts[window] = surface
@@ -726,6 +729,10 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
         adapter.model.setFocus(adapter.outputToLogical[output.output], window)
       except PolicyStateError:
         discard
+  if established:
+    adapter.model.focusNewWindows(
+      adapter.outputToLogical[snapshot.activeOutput], newWindows
+    )
   adapter.model.validate()
 
 proc projection*(

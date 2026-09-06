@@ -1,5 +1,26 @@
 # Hagia Roadmap
 
+## 2026-09-06: select newly admitted windows in the active view
+
+Normal use of Sophia `8b750b30` showed new terminals being admitted while the
+previous terminal remained focused. The scroller therefore kept its existing
+camera anchor. Reconciliation now passes newly admitted logical IDs to focus
+policy after applying scene focus. The newest eligible window in the active
+view receives focus, so the existing projection reveals it. Unassigned windows
+are placed on the active output, including when it is the second monitor.
+
+Initial snapshot synchronization preserves existing focus. Background views,
+other outputs, minimized or non-focusable windows, and popups do not steal
+active focus. Explicit request causes run afterward. Focus and camera changes
+remain candidates until Sophia commits them; rejected admission retries leave
+the previous state intact. The adapter retains only opaque identity mapping,
+while the selection rule belongs to `systems/focus.nim`.
+
+Offline regressions cover repeated admissions, camera containment, rejection
+and retry, initial and repeated snapshots, exclusion cases, and second-output
+placement. Physical acceptance remains pending; the live WM has not been
+reloaded.
+
 ## Current Position
 
 The September 5 scrolling audit is implemented against Niri `dd75865f` and

@@ -1,4 +1,4 @@
-import std/[sequtils, tables]
+import std/[options, sequtils, sets, tables]
 
 import ../types/[core, model]
 import ../policy/entity_store
@@ -9,6 +9,22 @@ import ./[placement]
 
 ## Focus movement across windows and outputs. Order comes from the queries
 ## layer; the move itself goes through focus_ops.
+
+proc focusNewWindows*(
+    model: var PolicyModel, outputId: OutputId, windows: openArray[WindowId]
+) =
+  ## First admission selects the newest eligible window in the active view.
+  ## Background views, other outputs, and non-focusable surfaces stay passive.
+  if windows.len == 0:
+    return
+  let eligible = model.eligibleWindows(outputId).toHashSet()
+  for index in countdown(windows.high, 0):
+    let windowId = windows[index]
+    let window = model.window(windowId)
+    if window.isSome and windowId in eligible and window.get().capabilities.focusable and
+        not window.get().minimized:
+      model.setFocus(outputId, windowId)
+      return
 
 proc focusOutputRelative*(model: var PolicyModel, delta: int) =
   if model.activeOutput notin model.outputs or model.outputOrder.len == 0:

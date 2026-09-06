@@ -2954,3 +2954,5 @@ suite "tab checkpoint compatibility":
     )
     let restored = restoreCheckpointPayload(adapter.checkpointPayload())
     check restored.checkpointPayload() == adapter.checkpointPayload()
+
+include support/admission_focus
