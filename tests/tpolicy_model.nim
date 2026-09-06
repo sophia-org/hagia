@@ -2369,6 +2369,63 @@ suite "Sophia snapshot adapter":
       discard "no banner here".dumpCheckpointJson()
 
 suite "Sophia policy session":
+  test "expanded windows stack above neighbors and restore tile order":
+    for action in [PolicyAction.toggleMaximized, PolicyAction.toggleFullscreen]:
+      for focused in [1'u32, 2'u32]:
+        let output = SnapshotOutput(
+          output: 10,
+          generation: 1,
+          width: 900,
+          height: 600,
+          workY: 40,
+          workWidth: 900,
+          workHeight: 560,
+          focusIndex: focused,
+          focusGeneration: 1,
+        )
+        var scene = snapshot(1, @[output], @[surface(1, 10), surface(2, 10)])
+        scene.actions =
+          @[SnapshotAction(action: action.raw(), name: action.profileName())]
+        var request = ProjectionRequest(
+          connectionEpoch: 7,
+          requestId: 1,
+          sceneGeneration: 1,
+          policyGeneration: 1,
+          affectedOutputs: @[10'u64],
+          cause: ProjectionCause(
+            kind: ProjectionCauseKind.action, activationSerial: 1, action: action.raw()
+          ),
+        )
+        var session = initPolicySession()
+        let expanded = session.prepare(scene, request, 1)
+        require expanded.outputs[0].placements.len == 2
+        let top = expanded.outputs[0].placements[^1]
+        check top.surfaceIndex == focused
+        check top.width == 900
+        check top.y == (if action == PolicyAction.toggleFullscreen: 0 else: 40)
+        check top.height == (if action == PolicyAction.toggleFullscreen: 600 else: 560)
+        check expanded.outputs[0].output.focusIndex == focused
+        session.settle(
+          ProjectionOutcome(
+            transaction: 1,
+            connectionEpoch: 7,
+            requestId: 1,
+            sceneGeneration: 1,
+            kind: ProjectionOutcomeKind.committed,
+          )
+        )
+        scene.generation = 2
+        scene.surfaces[int(focused) - 1].currentStateBits = top.presentationBits
+        request.sceneGeneration = 2
+        request.requestId = 2
+        request.policyGeneration = 2
+        request.cause.activationSerial = 2
+        let restored = session.prepare(scene, request, 2)
+        check restored.outputs[0].placements[0].surfaceIndex == 1
+        check restored.outputs[0].placements[1].surfaceIndex == 2
+        for placement in restored.outputs[0].placements:
+          check placement.presentationBits == 0
+
   test "fullscreen uses output bounds while ordinary scroller geometry uses work area":
     let output = SnapshotOutput(
       output: 10,

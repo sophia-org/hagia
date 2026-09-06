@@ -712,6 +712,32 @@ proc projectTabbed(
   let visible = result.placements.mapIt(it.window)
   prepared.selectFocus(output, visible, result)
 
+proc orderPresentationLayers(
+    model: PolicyModel, projection: var LogicalOutputProjection
+) =
+  # The wire consumes bottom-to-top placements. Enlarging a window without
+  # raising it leaves later tiles covering it. Preserve layout order within
+  # each layer and put focus last among equally elevated windows.
+  var layers: array[3, seq[LogicalPlacement]]
+  var focused: array[3, seq[LogicalPlacement]]
+  for placement in projection.placements:
+    let window = model.window(placement.window).get()
+    let layer =
+      if window.fullscreen:
+        2
+      elif window.maximized:
+        1
+      else:
+        0
+    if layer > 0 and placement.window == projection.focus:
+      focused[layer].add(placement)
+    else:
+      layers[layer].add(placement)
+  projection.placements.setLen(0)
+  for layer in 0 .. 2:
+    projection.placements.add(layers[layer])
+    projection.placements.add(focused[layer])
+
 proc projectLayout*(
     model: PolicyModel,
     affectedOutputs: openArray[OutputId],
@@ -739,3 +765,4 @@ proc projectLayout*(
         LayoutMode.rightTile, LayoutMode.verticalGrid, LayoutMode.deck,
         LayoutMode.spiral, LayoutMode.tgmix:
       result.add(model.projectNative(outputId, mode, outerGap, innerGap))
+    model.orderPresentationLayers(result[^1])

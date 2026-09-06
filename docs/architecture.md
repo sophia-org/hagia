@@ -94,6 +94,13 @@ scales and 64-bit intermediate arithmetic. All layout families emit final
 integer target geometry. Hagia does not animate, render, or retain client
 pixels.
 
+Placements are ordered bottom to top. After computing a layout, Hagia places
+maximized windows above ordinary windows and fullscreen windows above both.
+The focused window is last within its elevated layer; other relative order
+is stable. This keeps a neighbor from covering an expanded window while
+preserving the tile order restored when expansion is toggled off. Sophia
+validates and presents this order without choosing Hagia's stacking policy.
+
 ### The scroller
 
 The scroller follows niri, and the parts worth stating are the ones that are

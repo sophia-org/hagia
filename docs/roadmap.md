@@ -503,3 +503,12 @@ Native shortcut helper: the compiled default binds `Super+?` to the session's
 read-only reference sheet. Slash/question aliases and optional labels/groups
 are validated consistently with Sophia. JetBrains Mono presentation belongs
 to Sophia and shell policy to Narthex. Coordinated live acceptance is pending.
+
+### 2026-09-06 live stacking repair
+
+- [x] Order maximized and fullscreen windows above ordinary placements in the
+  pure logical projection. Super+F previously enlarged a window beneath its
+  later scrolling neighbor. Regression coverage checks either window, maximize
+  and fullscreen bounds, focus, and the restored tile order.
+- [ ] Accept the replacement WM in the live session: Super+F, Super+Shift+F,
+  and toggling back, with Super+M retaining column-width behavior.
