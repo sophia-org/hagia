@@ -18,8 +18,13 @@ while the selection rule belongs to `systems/focus.nim`.
 
 Offline regressions cover repeated admissions, camera containment, rejection
 and retry, initial and repeated snapshots, exclusion cases, and second-output
-placement. Physical acceptance remains pending; the live WM has not been
-reloaded.
+placement. The operator subsequently installed Sophia `05ef0eb8` with Hagia
+`12f7493` and confirmed that opening new windows in the scrolling layout moves
+the camera to them. Logs show three added terminals receiving focus and
+committed layout moves, with no runtime fatal at capture time. Evidence is
+retained in `/tmp/sophia-panel-camera-confirmed-05ef0eb8`. New-window camera
+following is accepted; second-output placement, vertical scrolling and close
+behavior remain separate normal-use checks.
 
 ## Current Position
 
