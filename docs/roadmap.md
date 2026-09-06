@@ -498,3 +498,8 @@ Subsystems, each needing an authority decision before any key:
   no consumer; it must either grow one or stop being accepted.
 - **Per-layout binding scopes** — Triad scopes bindings inside `layout "i3"`
   blocks; Hagia chords are global.
+
+Native shortcut helper: the compiled default binds `Super+?` to the session's
+read-only reference sheet. Slash/question aliases and optional labels/groups
+are validated consistently with Sophia. JetBrains Mono presentation belongs
+to Sophia and shell policy to Narthex. Coordinated live acceptance is pending.

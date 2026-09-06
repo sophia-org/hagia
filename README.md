@@ -119,3 +119,10 @@ their MIT terms are recorded in
 
 [Native tabbed layouts](docs/tabbed-layouts.md) add frame-tree, Notion and i3
 with persistent policy state and Sophia/Narthex descriptor bars.
+
+The default `Super+?` (`Super+Shift+/`) binding opens the native shell shortcut
+helper. Sophia publishes the active key/pointer catalog; Narthex supplies the
+UI and Sophia renders it in the shared JetBrains Mono default. Hagia remains
+the WM. Optional `label="..."` and `group="..."` properties on `bind` and
+`pointer-bind` customize catalog text and grouping. Startup help is configured
+privately in `~/.config/narthex/config.kdl`, not in Hagia's policy section.

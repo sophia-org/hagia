@@ -1,6 +1,7 @@
 import std/[algorithm, options, os, posix, sets, strutils, tables, tempfiles]
 
 import kdl
+from std/unicode import runes
 import nimcrypto/[hash, sha2]
 
 import ../types/[config_values, model]
@@ -209,9 +210,9 @@ proc shortcutTrigger(node: KdlNode): string =
   let parts = source.split('+')
   if parts.len == 0 or parts[^1].len == 0:
     fail("shortcut trigger is empty")
-  let trigger = parts[^1].toLowerAscii()
+  var trigger = parts[^1].toLowerAscii()
   for value in trigger:
-    if value notin {'a' .. 'z', '0' .. '9', '_', '-', '=', '?', ',', '.', '[', ']'}:
+    if value notin {'a' .. 'z', '0' .. '9', '_', '-', '=', '?', '/', ',', '.', '[', ']'}:
       fail("shortcut trigger contains unsupported characters")
   # A trigger Sophia cannot resolve to a keycode is refused here rather than
   # at login, where it fails the whole session after the profile has already
@@ -239,6 +240,11 @@ proc shortcutTrigger(node: KdlNode): string =
     fail("pointer shortcut must name left, middle, or right")
   if node.name == "bind" and source.isReservedDesktopShortcut():
     fail("reserved emergency chord cannot be overridden")
+  if trigger in ["?", "question"]:
+    modifiers = modifiers or 1'u8
+    trigger = "slash"
+  elif trigger == "/":
+    trigger = "slash"
   $modifiers & ":" & trigger
 
 proc validateShortcutSetting(node: KdlNode) =
@@ -251,8 +257,19 @@ proc validateShortcutSetting(node: KdlNode) =
         fail("shortcut profile identity contains unsupported characters")
     return
   if node.args.len != 2 or node.args[0].kind != KString or node.args[1].kind != KString or
-      node.props.len != 0 or node.children.len != 0:
+      node.children.len != 0:
     fail("shortcut binding requires trigger and target strings")
+  for key, value in node.props:
+    if key notin ["label", "group"] or value.kind != KString:
+      fail("shortcut property must be label or group string")
+    let text = value.kString()
+    let bound = if key == "label": 128 else: 64
+    if text.len == 0 or text.len > bound or text.contains({'\0' .. '\x1f', '\x7f'}):
+      fail("shortcut display metadata is invalid")
+    for rune in text.runes():
+      if int(rune) in 0x202a .. 0x202e or int(rune) in 0x2066 .. 0x2069 or
+          int(rune) in 127 .. 159:
+        fail("shortcut display metadata contains a control")
   discard node.shortcutTrigger()
   let target = node.args[1].kString()
   if target.len == 0 or target.len > 128 or target.strip() != target:
@@ -272,7 +289,7 @@ proc validateShortcutSetting(node: KdlNode) =
       fail("pointer shortcut cannot invoke a session capability")
     if command notin [
       "close-window", "logout", "spawn-terminal", "spawn-browser", "window-switcher",
-      "reload-profile", "restart-wm",
+      "reload-profile", "restart-wm", "shortcut-help",
     ]:
       fail("shortcut names an unknown session capability")
   else:

@@ -317,11 +317,11 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    # Ninety-three bindings, of which eighty-five name a policy action --
+    # Ninety-four entries (including the profile selector), of which eighty-five name a policy action --
     # three of those being the camera keys, which move the view without
-    # moving focus. The other eight are session capabilities Sophia carries
+    # moving focus. The other eight bindings are session capabilities Sophia carries
     # out, including the two that reload the profile and replace this process.
-    check shortcuts.values.len == 93
+    check shortcuts.values.len == 94
     check policyBindings == 85
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
@@ -1090,3 +1090,25 @@ suite "WM-owned profile validation":
       expect DesktopProfileError:
         let candidate = loadDesktopProfile(path).candidates[ProfileAuthority.policy]
         discard initPolicyAdapter(candidate)
+
+suite "native shortcut reference":
+  test "help aliases and presentation metadata align with Sophia":
+    let directory = createTempDir("hagia-help-profile-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    for chord in ["Super+?", "Super+Shift+/", "Super+Shift+slash", "Super+Question"]:
+      writeFile(
+        path,
+        "schema 1\nshortcut { profile \"help\"; bind \"" & chord &
+          "\" \"session:shortcut-help\" label=\"Keyboard shortcuts\" group=\"Session\"; }\n",
+      )
+      path.ownerOnly()
+      discard loadDesktopProfile(path)
+    writeFile(
+      path,
+      "schema 1\nshortcut { profile \"help\"; bind \"Super+?\" \"session:shortcut-help\"; bind \"Super+Shift+/\" \"session:shortcut-help\"; }\n",
+    )
+    expect DesktopProfileError:
+      path.ownerOnly()
+      discard loadDesktopProfile(path)
