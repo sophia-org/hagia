@@ -181,3 +181,4 @@ type PolicyAction* {.pure.} = enum
   centerColumn = 173
   centerVisibleColumns = 174
   expandColumnToAvailableWidth = 175
+  sessionApplicationLauncher = 176

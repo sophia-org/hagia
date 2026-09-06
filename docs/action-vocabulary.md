@@ -135,3 +135,11 @@ They stay registered because ordinals are append-only and a recorded profile
 may name them, but the shipped profile and the Triad migration both use the
 directional family instead. Six ordinals of 256 is a cheaper price than
 renumbering.
+
+## Native application launcher
+
+`sessionApplicationLauncher` is append-only ordinal 176 and maps to session
+operation slot 7, `application-launcher`. It opens the configured native shell
+menu. The reducer refuses it as a spatial action. Hagia receives no application
+catalog, command, query or launch grant. Bind `session:application-launcher` only
+after Sophia selects a catalog and a capable native shell.

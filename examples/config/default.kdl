@@ -62,6 +62,8 @@ shortcut {
   bind "Super+Alt+c" "policy:center-column"
   bind "Super+Alt+g" "policy:center-visible-columns"
   bind "Super+Alt+e" "policy:expand-column-to-available-width"
+  // With a session application-catalog selected and a revision-4 shell:
+  // bind "Super+Space" "session:application-launcher" label="Open applications" group="Session"
   bind "Super+Return" "session:spawn-terminal"
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"

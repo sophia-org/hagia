@@ -46,6 +46,8 @@ proc profileName*(action: PolicyAction): string =
     "reload-profile"
   of PolicyAction.sessionRestartWm:
     "restart-wm"
+  of PolicyAction.sessionApplicationLauncher:
+    "application-launcher"
   of PolicyAction.centerColumn:
     "center-column"
   of PolicyAction.centerVisibleColumns:
@@ -279,6 +281,7 @@ proc sessionOperationSlot*(action: PolicyAction): uint16 =
   of PolicyAction.sessionLogout: 4
   of PolicyAction.sessionReloadProfile: 5
   of PolicyAction.sessionRestartWm: 6
+  of PolicyAction.sessionApplicationLauncher: 7
   else: 0
 
 proc activateViewAction*(slot: int): PolicyAction =
@@ -357,7 +360,8 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.moveFocusedToViewSlot(output, ord(action) - ord(PolicyAction.moveToView1) + 1)
   of PolicyAction.sessionTerminal .. PolicyAction.sessionLogout,
       PolicyAction.sessionReloadProfile,
-      PolicyAction.sessionRestartWm:
+      PolicyAction.sessionRestartWm,
+      PolicyAction.sessionApplicationLauncher:
     raise newException(PolicyStateError, "session operation entered policy reduction")
   of PolicyAction.focusNextOutput:
     model.focusOutputRelative(1)

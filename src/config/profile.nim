@@ -289,7 +289,7 @@ proc validateShortcutSetting(node: KdlNode) =
       fail("pointer shortcut cannot invoke a session capability")
     if command notin [
       "close-window", "logout", "spawn-terminal", "spawn-browser", "window-switcher",
-      "reload-profile", "restart-wm", "shortcut-help",
+      "reload-profile", "restart-wm", "shortcut-help", "application-launcher",
     ]:
       fail("shortcut names an unknown session capability")
   else:
@@ -324,7 +324,7 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
     of ProfileAuthority.shortcut:
       node.name in ["profile", "bind", "pointer-bind"]
     of ProfileAuthority.session:
-      node.name in ["terminal", "browser", "logout", "startup"]
+      node.name in ["terminal", "browser", "logout", "startup", "application-catalog"]
     of ProfileAuthority.input:
       node.name in ["inherit-sophia", "keyboard", "pointer", "cursor"]
     of ProfileAuthority.output:
