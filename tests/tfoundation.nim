@@ -284,13 +284,272 @@ suite "Hagia foundation":
       expect DesktopProfileError:
         discard loadDesktopProfile(path)
 
+  test "one profile carries application commands beside the bindings that use them":
+    let directory = createTempDir("hagia-application-commands-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    # Both spellings of a command, both spellings of a target, and the older
+    # role reference, in one profile: the migration keeps writing the string
+    # form and an operator may write either.
+    writeFile(
+      path,
+      "schema 1\n" & "session {\n" &
+        "  application \"browser\" { exec \"brave-origin\" \"--flag\"; }\n" &
+        "  application \"work\" { use-core \"advanced\"; }\n" &
+        "  application \"org.example.tool\" { exec \"/usr/bin/tool\"; }\n" &
+        "  browser \"browser\"\n" & "}\n" & "shortcut {\n" & "  profile \"desktop\"\n" &
+        "  bind \"Super+b\" { launch \"browser\"; }\n" &
+        "  bind \"Super+e\" { exec \"thunar\"; }\n" &
+        "  bind \"Super+t\" \"application:work\"\n" &
+        "  bind \"Super+q\" \"session:close-window\"\n" &
+        "  bind \"Super+1\" \"policy:activate-view 1\"\n" & "}\n" &
+        "policy { layout \"scroller\"; inner-gap 4; }\n",
+    )
+    path.ownerOnly()
+    let profile = loadDesktopProfile(path)
+    check profile.candidates[ProfileAuthority.session].values.len == 4
+    check profile.candidates[ProfileAuthority.shortcut].values.len == 6
+
+    # The fragment the running WM consumes is the policy one, and it carries
+    # the layout it always did and no argv. Asserted against a populated
+    # candidate, because an empty one would satisfy any absence check.
+    let policy = profile.candidates[ProfileAuthority.policy]
+    check policy.values.len == 2
+    var policyText = ""
+    for value in policy.values:
+      policyText.add(value.encoded & "\n")
+    # KDL 2.0 leaves a string bare unless it needs quoting, so these are the
+    # exact encodings, not a paraphrase of them.
+    check policyText.contains("layout scroller")
+    check not policyText.contains("brave-origin")
+    check not policyText.contains("thunar")
+    check not policyText.contains("exec")
+    check not policyText.contains("launch")
+
+    # print-effective stays valid source: the block is rendered as a block, so
+    # the output can be read back by the same grammar that produced it.
+    let effective = profile.effectiveProfile()
+    check effective.contains("application browser { exec brave-origin --flag }")
+    check effective.contains("application org.example.tool { exec \"/usr/bin/tool\" }")
+    check effective.contains("bind Super+b { launch browser }")
+    check effective.contains("bind Super+e { exec thunar }")
+
+    # The bounds are inclusive: an executable plus exactly 32 arguments, one of
+    # them exactly as wide as a single argument may be.
+    var atTheBound = "schema 1\nsession { application \"a\" { exec \"tool\" \""
+    atTheBound.add("x".repeat(maxApplicationArgumentBytes))
+    atTheBound.add("\"")
+    for index in 1 ..< maxApplicationArguments:
+      atTheBound.add(" \"argument\"")
+    atTheBound.add("; }; }\n")
+    let boundedPath = directory / "bounded.kdl"
+    writeFile(boundedPath, atTheBound)
+    boundedPath.ownerOnly()
+    check loadDesktopProfile(boundedPath).candidates[ProfileAuthority.session].values.len ==
+      1
+
+  test "an application command states exactly one body and never a reserved name":
+    let directory = createTempDir("hagia-application-refusals-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    var manyApplications = "schema 1\nsession {\n"
+    for index in 0 .. maxSessionApplications:
+      manyApplications.add("  application \"app" & $index & "\" { exec \"tool\"; }\n")
+    manyApplications.add("}\n")
+    # One argument past the bound, which is the executable plus 32.
+    var manyArguments = "schema 1\nsession { application \"a\" { exec \"tool\""
+    for index in 0 .. maxApplicationArguments:
+      manyArguments.add(" \"argument\"")
+    manyArguments.add("; }; }\n")
+    # The bound is per element, so one oversized element is enough.
+    var wideArguments = "schema 1\nsession { application \"a\" { exec \"tool\" \""
+    wideArguments.add("x".repeat(maxApplicationArgumentBytes + 1))
+    wideArguments.add("\"; }; }\n")
+    # Declared plus inline share the registry, so neither alone exceeds it.
+    var jointRegistry = "schema 1\nsession {\n"
+    for index in 0 ..< maxSessionApplications:
+      jointRegistry.add("  application \"app" & $index & "\" { exec \"tool\"; }\n")
+    jointRegistry.add(
+      "}\nshortcut { profile \"d\"; bind \"Super+e\" { exec \"tool\"; }; }\n"
+    )
+    for source in [
+      # No body, two bodies, and an unknown body: each would have to be merged
+      # or guessed to mean anything.
+      "schema 1\nsession { application \"a\" { }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"one\"; exec \"two\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"one\"; use-core \"two\"; }; }\n",
+      "schema 1\nsession { application \"a\" { shell \"one\"; }; }\n",
+      "schema 1\nsession { application \"a\"; }\n",
+      # The lowering prefix belongs to Sophia, so a source profile cannot claim
+      # one -- as a declaration or as a reference.
+      "schema 1\nsession { application \"__shortcut_0\" { exec \"tool\"; }; }\n",
+      "schema 1\nsession { application \"a\" { use-core \"__shortcut_0\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\"; }; }\n" &
+        "shortcut { profile \"d\"; bind \"Super+b\" { launch \"__shortcut_0\"; }; }\n",
+      # An empty executable, and a relative path that would resolve against
+      # whatever directory the session happened to start in.
+      "schema 1\nsession { application \"a\" { exec \"\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"./program\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"sub/dir/program\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \".\"; }; }\n",
+      # A type annotation on the command node or on one of its arguments. The
+      # outer setting is not the only place an opaque tag can hide.
+      "schema 1\nsession { (opaque)application \"a\" { exec \"tool\"; }; }\n",
+      "schema 1\nsession { application (opaque)\"a\" { exec \"tool\"; }; }\n",
+      "schema 1\nsession { application \"a\" { (opaque)exec \"tool\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec (opaque)\"tool\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\" (opaque)\"arg\"; }; }\n",
+      "schema 1\nsession { application \"a\" { (opaque)use-core \"core\"; }; }\n",
+      "schema 1\nsession { application \"a\" { use-core (opaque)\"core\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\"; }; }\n" &
+        "shortcut { profile \"d\"; bind \"Super+b\" { (opaque)launch \"a\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\"; }; }\n" &
+        "shortcut { profile \"d\"; bind \"Super+b\" { launch (opaque)\"a\"; }; }\n",
+      # A C1 control, which is two bytes in UTF-8 and invisible to a byte test.
+      "schema 1\nsession { application \"a\" { exec \"tool\" \"a\\u{85}b\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\" \"a\\u{9f}b\"; }; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\" \"a\\u{7f}b\"; }; }\n",
+      # A launch must name an application this profile declares; resolving it
+      # against Sophia's core registry would be the implicit merge.
+      "schema 1\nshortcut { profile \"d\"; bind \"Super+b\" { launch \"absent\"; }; }\n",
+      # The same reference in the target-string spelling resolves identically,
+      # and a source profile cannot reach a generated block by either spelling.
+      "schema 1\nshortcut { profile \"d\"; bind \"Super+b\" \"application:absent\"; }\n",
+      "schema 1\nsession { application \"a\" { exec \"tool\"; }; }\n" &
+        "shortcut { profile \"d\"; bind \"Super+b\" \"application:__shortcut_0\"; }\n",
+      "schema 1\nshortcut { profile \"d\"; pointer-bind \"Super+left\" { exec \"tool\"; }; }\n",
+      "schema 1\nshortcut { profile \"d\"; pointer-bind \"Super+left\" \"application:a\"; }\n",
+      # An unknown block body, and a block carrying no trigger.
+      "schema 1\nshortcut { profile \"d\"; bind \"Super+b\" { spawn \"tool\"; }; }\n",
+      "schema 1\nshortcut { profile \"d\"; bind \"Super+b\" { launch \"a\"; exec \"b\"; }; }\n",
+      manyApplications,
+      manyArguments,
+      wideArguments,
+      jointRegistry,
+    ]:
+      writeFile(path, source)
+      path.ownerOnly()
+      expect DesktopProfileError:
+        discard loadDesktopProfile(path)
+
+  test "an encoded command block is valid source that re-encodes identically":
+    let directory = createTempDir("hagia-command-roundtrip-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(
+      path,
+      "schema 1\n" & "session {\n" &
+        "  application \"browser\" { exec \"brave-origin\" \"--flag\"; }\n" &
+        "  application \"quoted\" { exec \"/usr/bin/tool\" \"a b\" \"semi;colon\"; }\n" &
+        "  application \"core\" { use-core \"advanced\"; }\n" & "}\n" & "shortcut {\n" &
+        "  profile \"desktop\"\n" & "  bind \"Super+b\" { launch \"browser\"; }\n" &
+        "  bind \"Super+e\" { exec \"thunar\" \"--tab\"; }\n" & "}\n",
+    )
+    path.ownerOnly()
+    let first = loadDesktopProfile(path)
+
+    # Every encoded value is one parseable node, so nothing in the effective
+    # output is a Nim rendering rather than KDL.
+    for authority in ProfileAuthority:
+      for value in first.candidates[authority].values:
+        let document = parseKdl(value.encoded)
+        check document.len == 1
+
+    # Feeding the effective output back in reproduces the same encodings, which
+    # is what makes print-effective source rather than a report about source.
+    var restated = "schema 1\n"
+    for authority in [ProfileAuthority.session, ProfileAuthority.shortcut]:
+      restated.add($authority & " {\n")
+      for value in first.candidates[authority].values:
+        restated.add("  " & value.encoded & "\n")
+      restated.add("}\n")
+    let restatedPath = directory / "restated.kdl"
+    writeFile(restatedPath, restated)
+    restatedPath.ownerOnly()
+    let second = loadDesktopProfile(restatedPath)
+    for authority in [ProfileAuthority.session, ProfileAuthority.shortcut]:
+      check first.candidates[authority].values.len ==
+        second.candidates[authority].values.len
+      for index, value in first.candidates[authority].values:
+        check value.key == second.candidates[authority].values[index].key
+        check value.encoded == second.candidates[authority].values[index].encoded
+
+    # Recursion is by depth, not by one hardcoded level: a body nested deeper
+    # than the grammar admits is still encoded as KDL rather than as a Nim
+    # object, which is what the refusal below proves it reached.
+    let nested = directory / "nested.kdl"
+    writeFile(
+      nested,
+      "schema 1\nsession { application \"a\" { exec \"tool\" { deeper 1; }; }; }\n",
+    )
+    nested.ownerOnly()
+    expect DesktopProfileError:
+      discard loadDesktopProfile(nested)
+
+  test "a staged session candidate declares the applications lowering minted":
+    let directory = createTempDir("hagia-staged-session-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "session.profile.kdl"
+    let header =
+      "schema 1\nprofile-generation 4\nprofile-digest \"" & "0".repeat(64) & "\"\n"
+    # What Sophia writes after lowering an inline command: the declaration it
+    # minted, beside one the operator wrote.
+    writeFile(
+      path,
+      header & "session {\n" & "  application \"browser\" { exec \"brave-origin\"; }\n" &
+        "  application \"__shortcut_0\" { exec \"thunar\"; }\n" & "}\n",
+    )
+    path.ownerOnly()
+    let candidate = loadAuthorityCandidate(path, ProfileAuthority.session)
+    check candidate.authority == ProfileAuthority.session
+    check candidate.values.len == 2
+
+    # The same declaration in a source profile is refused, and a core reference
+    # stays source-like in either context.
+    let source = directory / "config.kdl"
+    for text in [
+      "schema 1\nsession { application \"__shortcut_0\" { exec \"thunar\"; }; }\n",
+      header & "session { application \"a\" { use-core \"__shortcut_0\"; }; }\n",
+    ]:
+      writeFile(source, text)
+      source.ownerOnly()
+      expect DesktopProfileError:
+        if text.startsWith("schema 1\nprofile-generation"):
+          discard loadAuthorityCandidate(source, ProfileAuthority.session)
+        else:
+          discard loadDesktopProfile(source)
+
+  test "a staged shortcut candidate carries the lowered application reference":
+    let directory = createTempDir("hagia-lowered-shortcut-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "shortcut.profile.kdl"
+    # What Sophia writes after lowering an inline command: the reserved name is
+    # accepted here because this is the form the server produces, not one an
+    # operator can author.
+    writeFile(
+      path,
+      "schema 1\nprofile-generation 3\nprofile-digest \"" & "0".repeat(64) & "\"\n" &
+        "shortcut { profile \"desktop\"; bind \"Super+e\" \"application:__shortcut_0\"; }\n",
+    )
+    path.ownerOnly()
+    let candidate = loadAuthorityCandidate(path, ProfileAuthority.shortcut)
+    check candidate.authority == ProfileAuthority.shortcut
+    check candidate.values.len == 2
+
   test "the compiled freeze profile names only implemented policy actions":
     check compiledDesktopProfile == trackedDefaultDesktopProfile
     check compiledDesktopProfile.contains("profile \"default\"")
     check compiledDesktopProfile.contains("panel 28")
-    check compiledDesktopProfile.contains(
-      "session {\n  terminal \"terminal\"\n  browser \"browser\"\n}"
-    )
+    check compiledDesktopProfile.contains("session {\n  terminal \"terminal\"\n")
+    check compiledDesktopProfile.contains("  browser \"browser\"\n")
+    # The worked examples stay commented, so seeding a profile never declares an
+    # application the operator did not ask for.
+    check not compiledDesktopProfile.contains("\n  application ")
     check not compiledDesktopProfile.contains("named \"")
     let directory = createTempDir("hagia-compiled-shortcuts-", "")
     defer:

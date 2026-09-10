@@ -27,6 +27,17 @@ proc unsupportedSetting*(
 ) =
   report.add(source, authority, MigrationDisposition.unsupported, reason)
 
+proc kdlQuoted*(value: string): string =
+  ## A KDL string literal. Only the quote and the backslash need escaping;
+  ## every other byte a migration preserves is refused earlier by the profile
+  ## validator, so nothing else can reach this.
+  result = "\""
+  for character in value:
+    if character in {'"', '\\'}:
+      result.add('\\')
+    result.add(character)
+  result.add('"')
+
 proc plainShape*(node: KdlNode): bool =
   node.props.len == 0 and node.children.len == 0
 

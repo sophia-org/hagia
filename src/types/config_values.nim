@@ -96,6 +96,17 @@ const
   maxProfileFiles* = 64
   maxProfileBytes* = 1_048_576'i64
   maxDesktopShortcutBindings* = 256
+  ## The registry is joint: declared applications and the ones Sophia mints for
+  ## inline commands share these 32 entries, because they share one namespace.
+  maxSessionApplications* = 32
+  maxApplicationArguments* = 32
+  maxApplicationArgumentBytes* = 4096
+  maxApplicationNameBytes* = 64
+  ## Sophia's lowering mints `__shortcut_<ordinal>` for an inline command. A
+  ## source profile may not declare or reference one, so a generated name can
+  ## never collide with a name the operator wrote; a staged candidate carries
+  ## them, so only the source spelling is refused.
+  generatedApplicationPrefix* = "__shortcut_"
   allProfileAuthorities* = {ProfileAuthority.policy .. ProfileAuthority.broker}
 
 const supportedLayoutNames* = [

@@ -229,6 +229,22 @@ shortcut {
 session {
   terminal "terminal"
   browser "browser"
+
+  // Ordinary launch commands live here, beside the bindings that use them.
+  // `exec` is an executable plus literal argv: a bare name is found on PATH,
+  // nothing is split on whitespace, and no shell is interposed.
+  //
+  // application "browser" { exec "brave-origin" "--flag"; }
+  //
+  // `use-core` references an advanced definition kept in Sophia's own
+  // configuration. The reference is explicit; nothing merges by name.
+  //
+  // application "work" { use-core "advanced"; }
+  //
+  // Then bind it in the shortcut section above, either by name or inline:
+  //
+  //   bind "Super+b" { launch "browser"; }
+  //   bind "Super+e" { exec "thunar"; }
 }
 
 input {

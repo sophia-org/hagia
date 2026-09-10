@@ -1,4 +1,4 @@
-import std/strutils
+import std/[options, os, strutils]
 
 import ../types/[migration, model, actions]
 import ../policy/actions
@@ -32,10 +32,50 @@ proc boundedWorkspaceCommand*(command, prefix: string): bool =
   except ValueError:
     result = false
 
+proc classifySpawnCommand(command: string): Option[CommandMigration] =
+  ## Triad spawns a command line; Hagia executes literal argv with no shell.
+  ## A single word is the same program under both readings, so it carries over
+  ## verbatim. Anything longer would have to be split, and the split depends on
+  ## quoting rules the source never recorded -- so it is refused by name rather
+  ## than guessed. No executable is recognised, mapped, or defaulted here.
+  let argument = command.commandArgument("spawn ")
+  if argument.len == 0:
+    return none(CommandMigration)
+  if argument.split({' ', '\t'}).len > 1:
+    return some(
+      commandMigration(
+        "session",
+        MigrationDisposition.excluded,
+        "spawn names a command line whose argument splitting the migration will not infer; " &
+          "restate it as an explicit exec command block",
+      )
+    )
+  if argument in [".", ".."] or (not argument.isAbsolute() and argument.contains('/')):
+    # The profile grammar admits a PATH name or an absolute path. A relative one
+    # would resolve against the session's working directory, so the migration
+    # refuses it rather than emitting a profile its own check would reject.
+    return some(
+      commandMigration(
+        "session",
+        MigrationDisposition.excluded,
+        "spawn names a relative program path, which a profile cannot state; " &
+          "restate it as a PATH name or an absolute path",
+      )
+    )
+  var migration = commandMigration(
+    "session", MigrationDisposition.transformed,
+    "literal exec command preserved from the source spawn", "exec",
+  )
+  migration.outputArgv = @[argument]
+  some(migration)
+
 proc classifyTriadCommand*(command: string): CommandMigration =
   ## The shortcut authority owns the physical match. This classification owns
   ## the distinct fact of which least-authority participant may execute the
   ## resulting semantic command.
+  let spawned = command.classifySpawnCommand()
+  if spawned.isSome():
+    return spawned.get()
   case command
   of "close-window":
     commandMigration(
@@ -50,16 +90,6 @@ proc classifyTriadCommand*(command: string): CommandMigration =
     commandMigration(
       "session", MigrationDisposition.transformed, "opaque terminal capability",
       "spawn-terminal",
-    )
-  of "spawn kitty":
-    commandMigration(
-      "session", MigrationDisposition.transformed, "declared terminal capability",
-      "spawn-terminal",
-    )
-  of "spawn helium":
-    commandMigration(
-      "session", MigrationDisposition.transformed, "declared browser capability",
-      "spawn-browser",
     )
   of "lock-session", "toggle-keyboard-shortcuts-inhibit":
     commandMigration(

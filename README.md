@@ -98,6 +98,57 @@ validation as delegated. On startup, Hagia builds the policy model before
 acknowledging profile activation, so a bad value cannot open Sophia's graphical
 gate. Sophia passes only the staged Policy fragment to the running WM.
 
+### Application commands
+
+Ordinary launch commands live in the same profile as the bindings that use
+them. A command is either named once and referenced, or written inline at the
+binding:
+
+```kdl
+session {
+  application "browser" { exec "brave-origin" "--flag"; }
+  application "work" { use-core "advanced"; }
+  browser "browser"
+}
+shortcut {
+  profile "desktop"
+  bind "Super+b" { launch "browser"; }
+  bind "Super+e" { exec "thunar"; }
+  bind "Super+q" "session:close-window"
+}
+```
+
+`exec` takes an executable followed by literal argv. Nothing is split on
+whitespace and no shell is interposed, so a word containing spaces or `&` is one
+argument and never a second command. The executable is either a bare name found
+on `PATH` or an absolute path; a relative path such as `./program` is refused,
+because it would resolve against whatever directory the session happened to
+start in. Each named application states exactly one `exec` or one `use-core` —
+two bodies would have to be merged, and a merge is the thing an operator cannot
+see. `use-core` names an advanced definition kept in Sophia's own configuration
+and referenced explicitly; advanced options never merge into a profile by
+matching names.
+
+A `launch` names an application this profile declares. It never falls back to
+Sophia's core registry, so a binding cannot reach a definition the profile does
+not state.
+
+Bounds are 32 applications, 32 arguments after the executable, and 4096 bytes
+per argument. The 32 applications are a joint registry: the ones written here
+and the ones Sophia mints for inline commands share it. Names beginning
+`__shortcut_` are reserved for exactly those generated entries, so a profile can
+neither declare nor reference one.
+
+Older string bindings (`bind "Super+b" "session:spawn-browser"`) and role
+references (`browser "browser"`) keep working unchanged.
+
+Hagia validates this grammar and never executes any of it. Commands belong to
+the session and shortcut sections; the Policy fragment the running WM receives
+carries no command and no argv, so the window manager cannot learn or launch a
+program. Migration preserves a `spawn` of a single executable as an inline
+`exec` and refuses a longer command line by name rather than guessing where its
+arguments divide.
+
 `examples/config/default.kdl` is the default and the exact compiled fallback;
 `hagia config init` seeds it into `~/.config/hagia/config.kdl` once and never
 overwrites an existing profile. Personal profiles stay user-owned; migration never overwrites an

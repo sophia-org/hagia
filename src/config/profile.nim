@@ -187,6 +187,87 @@ proc settingKey(authority: ProfileAuthority, node: KdlNode): string =
       fail(node.name & " requires an integer view slot")
     result.add("." & $node.args[0].kInt())
 
+proc hasControlCharacter(value: string): bool =
+  ## C0, DEL and C1. C1 is two bytes in UTF-8, so a byte-wise test misses it.
+  for rune in value.runes():
+    let point = int(rune)
+    if point < 0x20 or point == 0x7f or point in 0x80 .. 0x9f:
+      return true
+  false
+
+proc encodedSetting(node: KdlNode): string =
+  ## A setting's single-line source form. `inline` renders children through
+  ## Nim's object stringifier, not KDL, so a node with any is assembled here.
+  if node.children.len == 0:
+    return node.inline()
+  var head = node
+  head.children = @[]
+  result = head.inline()
+  result.add(" { ")
+  for index, child in node.children:
+    if index > 0:
+      result.add("; ")
+    result.add(child.encodedSetting())
+  result.add(" }")
+
+proc validateApplicationName(name: string, generated: bool) =
+  ## One identity rule for every spelling; only the reserved prefix differs.
+  if name.len == 0 or name.len > maxApplicationNameBytes:
+    fail("application identity length is invalid")
+  for value in name:
+    if value notin {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '-', '_', '.'}:
+      fail("application identity contains unsupported characters")
+  if not generated and name.startsWith(generatedApplicationPrefix):
+    fail("application identity uses the reserved lowering prefix")
+
+proc validateExecCommand(node: KdlNode) =
+  ## An executable followed by literal argv. Nothing is split and no shell is
+  ## interposed, so a word reaches `execve` unchanged.
+  if node.tag.isSome:
+    fail("exec cannot carry a type annotation")
+  if node.args.len == 0 or node.props.len != 0 or node.children.len != 0:
+    fail("exec requires an executable and literal arguments")
+  if node.args.len > maxApplicationArguments + 1:
+    fail("exec exceeds the bounded argument vector")
+  for index, argument in node.args:
+    if argument.kind != KString or argument.tag.isSome:
+      fail("exec arguments must be untyped strings")
+    let value = argument.kString()
+    if value.len > maxApplicationArgumentBytes:
+      fail("exec argument exceeds the bounded argument bytes")
+    if value.hasControlCharacter():
+      fail("exec argument contains a control character")
+    if index != 0:
+      continue
+    # A relative path would resolve against the session's working directory,
+    # which the profile does not state.
+    if value.len == 0 or value in [".", ".."] or
+        (not value.isAbsolute() and value.contains('/')):
+      fail("exec executable must be a PATH name or an absolute path")
+
+proc validateApplicationSetting(node: KdlNode, staged: bool) =
+  ## Exactly one body per named application; a merge is what an operator cannot
+  ## see. Only a staged candidate may declare a generated name: Sophia mints
+  ## those, so accepting one from source would let a profile claim it first.
+  if node.args.len != 1 or node.args[0].kind != KString or node.args[0].tag.isSome or
+      node.props.len != 0:
+    fail("session application requires a single untyped identity string")
+  node.args[0].kString().validateApplicationName(generated = staged)
+  if node.children.len != 1:
+    fail("session application requires exactly one exec or use-core body")
+  let body = node.children[0]
+  case body.name
+  of "exec":
+    body.validateExecCommand()
+  of "use-core":
+    if body.tag.isSome or body.args.len != 1 or body.args[0].kind != KString or
+        body.args[0].tag.isSome or body.props.len != 0 or body.children.len != 0:
+      fail("use-core requires a single untyped core application identity")
+    # A core reference is never a generated name, in either context.
+    body.args[0].kString().validateApplicationName(generated = false)
+  else:
+    fail("session application body must be exec or use-core")
+
 proc isReservedDesktopShortcut*(source: string): bool =
   let parts = source.split('+')
   if parts.len == 0 or parts[^1].toLowerAscii() != "backspace":
@@ -256,8 +337,13 @@ proc validateShortcutSetting(node: KdlNode) =
       if value notin {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '-', '_'}:
         fail("shortcut profile identity contains unsupported characters")
     return
-  if node.args.len != 2 or node.args[0].kind != KString or node.args[1].kind != KString or
-      node.children.len != 0:
+  # A command block is the source spelling; `authority:command` is what a
+  # staged candidate carries. Both are checked, so neither passes alone.
+  let commandBlock = node.children.len > 0
+  if commandBlock:
+    if node.args.len != 1 or node.args[0].kind != KString:
+      fail("shortcut command block requires a single trigger string")
+  elif node.args.len != 2 or node.args[0].kind != KString or node.args[1].kind != KString:
     fail("shortcut binding requires trigger and target strings")
   for key, value in node.props:
     if key notin ["label", "group"] or value.kind != KString:
@@ -271,6 +357,23 @@ proc validateShortcutSetting(node: KdlNode) =
           int(rune) in 127 .. 159:
         fail("shortcut display metadata contains a control")
   discard node.shortcutTrigger()
+  if commandBlock:
+    if node.name == "pointer-bind":
+      fail("pointer shortcut cannot invoke a session capability")
+    if node.children.len != 1:
+      fail("shortcut command block requires exactly one launch or exec body")
+    let body = node.children[0]
+    case body.name
+    of "launch":
+      if body.tag.isSome or body.args.len != 1 or body.args[0].kind != KString or
+          body.args[0].tag.isSome or body.props.len != 0 or body.children.len != 0:
+        fail("launch requires a single untyped application identity")
+      body.args[0].kString().validateApplicationName(generated = false)
+    of "exec":
+      body.validateExecCommand()
+    else:
+      fail("shortcut command block body must be launch or exec")
+    return
   let target = node.args[1].kString()
   if target.len == 0 or target.len > 128 or target.strip() != target:
     fail("shortcut target length is invalid")
@@ -292,6 +395,11 @@ proc validateShortcutSetting(node: KdlNode) =
       "reload-profile", "restart-wm", "shortcut-help", "application-launcher",
     ]:
       fail("shortcut names an unknown session capability")
+  of "application":
+    # The lowered spelling. Generated names are admissible only here.
+    if node.name == "pointer-bind":
+      fail("pointer shortcut cannot invoke a session capability")
+    command.validateApplicationName(generated = true)
   else:
     fail("shortcut target authority is unsupported")
 
@@ -301,7 +409,7 @@ proc candidateSettingKey(authority: ProfileAuthority, node: KdlNode): string =
   else:
     authority.settingKey(node)
 
-proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
+proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false) =
   if node.tag.isSome:
     fail("type annotations are unsupported in desktop profiles")
   if node.name in [
@@ -324,7 +432,9 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
     of ProfileAuthority.shortcut:
       node.name in ["profile", "bind", "pointer-bind"]
     of ProfileAuthority.session:
-      node.name in ["terminal", "browser", "logout", "startup", "application-catalog"]
+      node.name in [
+        "terminal", "browser", "logout", "startup", "application-catalog", "application"
+      ]
     of ProfileAuthority.input:
       node.name in ["inherit-sophia", "keyboard", "pointer", "cursor"]
     of ProfileAuthority.output:
@@ -335,6 +445,8 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode) =
     fail("unsupported " & $authority & " setting " & node.name)
   if node.args.len > 32 or node.props.len > 32 or node.children.len > 64:
     fail("desktop profile setting exceeds structural bounds")
+  if authority == ProfileAuthority.session and node.name == "application":
+    node.validateApplicationSetting(staged)
   if authority == ProfileAuthority.policy and node.name == "layout":
     if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")
@@ -413,6 +525,10 @@ proc partition(
   var schemaSeen = false
   var settings = initHashSet[string]()
   var shortcutBindings = 0
+  # Declared applications and inline commands share one namespace and bound.
+  var declaredApplications = initHashSet[string]()
+  var inlineCommands = 0
+  var applicationReferences: seq[string]
   for expanded in nodes:
     let node = expanded.node
     if node.name == "schema":
@@ -436,15 +552,44 @@ proc partition(
         inc shortcutBindings
         if shortcutBindings > maxDesktopShortcutBindings:
           fail("desktop profile contains more than 256 shortcut bindings")
+      if owner == ProfileAuthority.session and child.name == "application":
+        declaredApplications.incl(child.args[0].kString())
+      if owner == ProfileAuthority.shortcut and child.name == "bind":
+        if child.children.len == 1:
+          case child.children[0].name
+          of "exec":
+            inc inlineCommands
+          of "launch":
+            applicationReferences.add(child.children[0].args[0].kString())
+          else:
+            discard
+        elif child.args.len == 2 and child.args[1].kind == KString:
+          # The same reference as a target string; both spellings resolve.
+          let target = child.args[1].kString()
+          if target.startsWith("application:"):
+            applicationReferences.add(target["application:".len .. ^1])
       let key = owner.candidateSettingKey(child)
       if key in settings:
         fail("duplicate desktop profile setting " & key)
       settings.incl(key)
       result[owner].values.add(
-        ProfileValue(key: key, encoded: child.inline(), provenance: expanded.provenance)
+        ProfileValue(
+          key: key, encoded: child.encodedSetting(), provenance: expanded.provenance
+        )
       )
   if not schemaSeen:
     fail("desktop profile has no schema declaration")
+  if declaredApplications.len + inlineCommands > maxSessionApplications:
+    fail("desktop profile declares more than 32 session applications")
+  # A reference names this profile's own application. Falling back to Sophia's
+  # core registry would be the merge this grammar refuses. The generated prefix
+  # is refused outright: source cannot declare one, so such a reference could
+  # only alias another binding's inline block.
+  for reference in applicationReferences:
+    if reference.startsWith(generatedApplicationPrefix):
+      fail("shortcut references the reserved lowering prefix " & reference)
+    if reference notin declaredApplications:
+      fail("shortcut references an undeclared session application " & reference)
 
 proc loadDesktopProfile*(
     explicitPath = "", generation = 1'u64
@@ -494,6 +639,7 @@ proc loadAuthorityCandidate*(
   var authoritySeen = false
   var settings = initHashSet[string]()
   var shortcutBindings = 0
+  var sessionApplications = 0
   for ordinal, node in document:
     case node.name
     of "schema":
@@ -535,11 +681,15 @@ proc loadAuthorityCandidate*(
       authoritySeen = true
       result.authority = owner
       for child in node.children:
-        owner.validateSetting(child)
+        owner.validateSetting(child, staged = true)
         if owner == ProfileAuthority.shortcut and child.name in ["bind", "pointer-bind"]:
           inc shortcutBindings
           if shortcutBindings > maxDesktopShortcutBindings:
             fail("authority candidate contains more than 256 shortcut bindings")
+        if owner == ProfileAuthority.session and child.name == "application":
+          inc sessionApplications
+          if sessionApplications > maxSessionApplications:
+            fail("authority candidate contains more than 32 session applications")
         let key = owner.candidateSettingKey(child)
         if key in settings:
           fail("duplicate authority candidate setting " & key)
@@ -547,7 +697,7 @@ proc loadAuthorityCandidate*(
         result.values.add(
           ProfileValue(
             key: key,
-            encoded: child.inline(),
+            encoded: child.encodedSetting(),
             provenance: ValueProvenance(path: canonical, ordinal: ordinal + 1),
           )
         )

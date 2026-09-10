@@ -49,3 +49,7 @@ type
     disposition*: MigrationDisposition
     result*: string
     outputCommand*: string
+    ## Literal argv for a command the migration preserves verbatim. Set only
+    ## when the source named one executable and no arguments, because splitting
+    ## a longer command line would be inventing the quoting Triad never stated.
+    outputArgv*: seq[string]

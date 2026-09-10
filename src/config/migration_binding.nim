@@ -5,6 +5,7 @@ import kdl
 import ../types/migration
 
 import ./migration_command
+import ./migration_common
 import ./profile
 
 ## Physical binding collection: which Triad bindings carry over as physical
@@ -87,8 +88,18 @@ proc collectPhysicalBindings*(
         not crossesPointerAuthority and not unsupportedPointerAction and
         item.context == "global" and identity notin emitted:
       shortcutSettings.add(
-        "  " & settingName & " " & node.args[0].pretty() & " \"" & migration.authority &
-          ":" & migration.outputCommand & "\""
+        if migration.outputArgv.len > 0:
+          # A preserved literal command is emitted as a command block, so the
+          # argv stays a vector and never becomes a string something else must
+          # split back apart.
+          var body = ""
+          for argument in migration.outputArgv:
+            body.add(" " & argument.kdlQuoted())
+          "  " & settingName & " " & node.args[0].pretty() & " { " &
+            migration.outputCommand & body & "; }"
+        else:
+          "  " & settingName & " " & node.args[0].pretty() & " \"" & migration.authority &
+            ":" & migration.outputCommand & "\""
       )
       emitted.incl(identity)
     elif migration.outputCommand.len > 0 and item.context != "global":
