@@ -3,7 +3,7 @@ import std/[options, sequtils, sets, tables]
 import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[queries, values]
-import ../entities/[focus_ops, group_ops]
+import ../entities/[focus_ops, group_ops, output_ops]
 
 import ./[placement]
 
@@ -103,6 +103,20 @@ proc focusedPosition(
       return (columnIndex, row)
   (-1, -1)
 
+proc handOffToAdjacent(model: var PolicyModel, outputId: OutputId, delta: int) =
+  ## Step off the end of a strip onto the display on that side. An empty
+  ## neighbour is still somewhere to be, so the opposite arrow brings the
+  ## operator back; one that already remembers a window keeps it.
+  let adjacent = model.adjacentOutput(outputId, delta)
+  if adjacent == nullOutputId or adjacent == outputId:
+    return
+  let neighbour = model.output(adjacent)
+  if neighbour.isNone:
+    return
+  model.setActiveOutput(adjacent)
+  if neighbour.get().focusedWindow == nullWindowId:
+    model.focusRelative(adjacent, 1)
+
 proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int) =
   ## Move focus to the column beside this one. Columns are what the user sees
   ## as left and right, so this is the spatial counterpart to `focusRelative`,
@@ -111,6 +125,10 @@ proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int
     fail("focus output does not exist")
   let columns = model.visibleColumns(outputId)
   if columns.len == 0:
+    # Nothing here to step between, but the displays either side are still
+    # reachable. Returning early stranded focus on an empty monitor: the arrow
+    # that arrived could not be undone by its opposite.
+    model.handOffToAdjacent(outputId, delta)
     return
   let (columnIndex, row) =
     columns.focusedPosition(model.outputs[outputId].focusedWindow)
@@ -124,12 +142,7 @@ proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int
   # where the habit comes from.
   let next = columnIndex + delta
   if next < 0 or next >= columns.len:
-    let adjacent = model.adjacentOutput(outputId, delta)
-    if adjacent != nullOutputId and adjacent != outputId:
-      model.activeOutput = adjacent
-      if model.outputs[adjacent].focusedWindow == nullWindowId:
-        model.focusRelative(adjacent, 1)
-      return
+    model.handOffToAdjacent(outputId, delta)
     return
   let target = columns[next]
   # A column remembers its own active window; row matching is only the fallback.

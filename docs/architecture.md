@@ -134,8 +134,10 @@ column restores its opening focus and camera until navigation clears that
 context. Ordinary close chooses a surviving member or adjacent column;
 reconciliation preserves this fallback when the removal snapshot has no focus.
 Directional navigation stops at outer edges, retains adjacent-monitor handoff,
-and remembers each destination column's last focused member. Explicit cycling
-remains a separate wrapping action.
+and remembers each destination column's last focused member. Empty monitors
+remain traversable in either direction; entering one must not prevent returning
+with the opposite arrow. Handoff preserves each monitor's selected workspace
+and remembered focus. Explicit cycling remains a separate wrapping action.
 
 Checkpoint version 14 carries camera anchors, opening context, the
 focus-follows-mouse setting, and whether each floating position is a rule or a
