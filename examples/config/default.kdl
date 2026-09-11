@@ -16,8 +16,9 @@ policy {
   // observations, so a server too old to send them refuses the session rather
   // than ignoring the setting.
   focus-follows-mouse #false
-  outer-gap 0
-  inner-gap 0
+  // One gap around and between tiles; optional struts reserve extra space.
+  gaps 0
+  // struts { left 0; right 0; top 0; bottom 0; }
   // Horizontal scroller viewport bias in pixels; 0 keeps the focused column
   // centering rule untouched.
   viewport-offset 0
@@ -30,7 +31,7 @@ policy {
   // width it takes. Both are adjustable at runtime from the keys below.
   master-count 1
   master-ratio 50
-  // How far one press of increase-gaps or decrease-gaps moves both gaps.
+  // How far one press of increase-gaps or decrease-gaps changes gaps.
   gap-step 2
   // Scratchpad windows appear centered at this fraction of the output.
   scratchpad-size 70 60

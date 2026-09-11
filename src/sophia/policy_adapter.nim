@@ -259,7 +259,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 15
+  result.schema = 16
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -374,7 +374,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-15\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-16\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
@@ -384,9 +384,10 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # scroll axes, version 12 predates focus-follows-mouse, and version 13 stored
   # a floating rectangle without saying whether it was a rule or a decision;
   # version 14 predates the emitted maximize bit used to recognize scene echoes.
+  # Version 15 predates uniform gaps and explicit tiling struts.
   # Each migrates forward by filling the fields it could not have written.
-  var version = 15
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]:
+  var version = 16
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -490,6 +491,10 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
           for column in node["columns"]:
             if column["id"] == window["column"]:
               column["fullWidth"] = toJson(false)
+    if version <= 15:
+      node["settings"]["gapModel"] = toJson(GapModel.legacy)
+      node["settings"]["gaps"] = toJson(0'i32)
+      node["settings"]["struts"] = toJson(LayoutStruts())
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")

@@ -296,7 +296,7 @@ suite "dialog placement follows its parent":
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-13\n" & $payload)
     check restored.model().windows[dialog].floatingIntent == FloatingIntent.manual
     check restored.model().windows[dialog].floatingGeometry == stored
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-15\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-16\n")
 
   test "a parent that is wholly off the output takes its dialog with it":
     ## Partly visible is still visible -- the dialog is clamped and stays

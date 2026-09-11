@@ -3,6 +3,7 @@ import std/options
 import ../policy/entity_store
 import ../types/[core, model]
 import ../state/[model, queries, values]
+import ../entities/settings_ops
 import ../entities/window_ops
 import ../entities/tab_tree_ops
 
@@ -77,19 +78,15 @@ proc adjustMasterRatio*(model: var PolicyModel, delta: int) =
       adjusted
 
 proc adjustGaps*(model: var PolicyModel, delta: int) =
-  ## Widen or narrow both gaps together by the configured step. Adjusting gaps
+  ## Change ordinary spacing by the configured step, preserving struts. Adjusting gaps
   ## turns them back on, because asking for wider gaps while they are hidden
   ## otherwise does nothing visible.
   let step = int64(model.settings.gapStep) * int64(delta)
-  let outer = int64(model.settings.outerGap) + step
-  let inner = int64(model.settings.innerGap) + step
-  model.settings.outerGap = int32(max(0'i64, min(int64(maxGap), outer)))
-  model.settings.innerGap = int32(max(0'i64, min(int64(maxGap), inner)))
-  model.settings.gapsEnabled = true
+  model.adjustGapSizes(step)
 
 proc toggleGaps*(model: var PolicyModel) =
   ## Hide the configured gaps without forgetting them.
-  model.settings.gapsEnabled = not model.settings.gapsEnabled
+  model.setGapsEnabled(not model.settings.gapsEnabled)
 
 proc toggleColumnMaximized*(model: var PolicyModel, outputId: OutputId) =
   let output = model.output(outputId)

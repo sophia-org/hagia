@@ -83,6 +83,10 @@ proc transposedForVerticalScroller*(
   ## start from this same view of it, or one of them is reasoning about a
   ## strip that is not the one in front of the operator.
   result = model.clone()
+  let struts = model.settings.struts
+  result.settings.struts = LayoutStruts(
+    left: struts.top, right: struts.bottom, top: struts.left, bottom: struts.right
+  )
   result.outputs[outputId].bounds = result.outputs[outputId].bounds.transpose()
   # The vertical scroller scrolls along y, so it reads and seeds the y camera.
   # The transpose maps y onto the horizontal machinery, so the y offset goes
@@ -129,6 +133,15 @@ proc validate*(model: PolicyModel) =
       model.settings.viewportOffset < 0 or model.settings.layoutCycle.len == 0 or
       model.settings.layoutCycle.len > ord(high(LayoutMode)) + 1:
     fail("policy settings are invalid")
+  for gap in [
+    model.settings.gaps, model.settings.struts.left, model.settings.struts.right,
+    model.settings.struts.top, model.settings.struts.bottom,
+  ]:
+    if gap < 0 or gap > maxGap:
+      fail("policy gaps or struts exceed bounds")
+  if model.settings.gapModel == GapModel.legacy and
+      (model.settings.gaps != 0 or model.settings.struts != LayoutStruts()):
+    fail("legacy gaps cannot carry uniform gap settings")
   var seenLayouts = initHashSet[LayoutMode]()
   for layout in model.settings.layoutCycle:
     if layout in seenLayouts:

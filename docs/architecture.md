@@ -88,6 +88,14 @@ all sixteen protocol outputs without conflating identity with a tag mask. A wind
 is eligible when its home output matches and its tags intersect the active
 view. Sophia sees only the resulting ordered output projection.
 
+Tiling derives a work area from the output's panel-adjusted bounds and explicit
+struts. Uniform `gaps` reserves cross-axis padding in geometry and along-axis
+padding through the scroller camera, with no second horizontal inset. Legacy
+outer/inner profiles retain their former insets. Checkpoint version 16 stores
+the selected gap model, one uniform gap, and four struts; versions 4 through 15
+migrate to legacy settings. Gap actions change ordinary spacing only. Edge
+maximization and fullscreen bypass struts, retaining their original bounds.
+
 Columns are stable logical entities. Each view retains its native layout
 selection independently of dense storage order. Widths use bounded Q16.16
 scales and 64-bit intermediate arithmetic. All layout families emit final
@@ -125,7 +133,7 @@ The adapter retains the last emitted maximize bit per live generational surface,
 committing it with the candidate. A matching scene echo preserves private edge
 intent; a changed external maximize bit updates it. This prevents an inactive
 pane's ordinary presentation from erasing its retained edge preference. Private
-checkpoint version 15 carries that echo state. Older checkpoints infer it from
+checkpoint version 15 introduced that echo state. Older checkpoints infer it from
 observed presentation and resolve combined column/window maximization in favor
 of the edge presentation the previous implementation displayed.
 

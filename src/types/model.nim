@@ -161,9 +161,21 @@ type
     slot*: int
     layout*: LayoutMode
 
+  GapModel* {.pure.} = enum
+    legacy
+    uniform
+
+  LayoutStruts* = object
+    left*, right*, top*, bottom*: int32
+
   PolicySettings* = object
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
+    # Legacy profiles keep their two insets; uniform gaps reserve along-axis
+    # padding once, through the scroller camera, as niri does.
+    gapModel*: GapModel
+    gaps*: int32
+    struts*: LayoutStruts
     # What a column gets when it has never been given a width of its own.
     # niri calls this default-column-width; a scroller needs one because
     # column widths no longer follow from how many columns there are.

@@ -409,6 +409,26 @@ proc candidateSettingKey(authority: ProfileAuthority, node: KdlNode): string =
   else:
     authority.settingKey(node)
 
+proc validateGapSetting*(node: KdlNode) =
+  if node.tag.isSome or node.props.len != 0:
+    fail("policy " & node.name & " does not accept annotations or properties")
+  if node.name == "struts":
+    if node.args.len != 0 or node.children.len > 4:
+      fail("policy struts requires up to four named edges")
+    var seen = initHashSet[string]()
+    for edge in node.children:
+      if edge.name notin ["left", "right", "top", "bottom"] or edge.name in seen:
+        fail("policy struts has an unknown or duplicate edge")
+      seen.incl(edge.name)
+      edge.validateGapSetting()
+  else:
+    if node.args.len != 1 or node.children.len != 0 or
+        node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
+      fail("policy " & node.name & " requires one integer")
+    if node.args[0].tag.isSome or node.args[0].get(int) < 0 or
+        node.args[0].get(int) > maxGap:
+      fail("policy " & node.name & " is outside 0.." & $maxGap)
+
 proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false) =
   if node.tag.isSome:
     fail("type annotations are unsupported in desktop profiles")
@@ -421,11 +441,12 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
     case authority
     of ProfileAuthority.policy:
       node.name in [
-        "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap",
-        "viewport-offset", "master-count", "master-ratio", "gap-step", "view-name",
-        "view-layout", "column-width-presets", "scratchpad-size", "floating-size",
-        "default-column-width", "center-focused-column", "always-center-single-column",
-        "focus-follows-mouse", "default-row-height", "row-height-presets",
+        "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap", "gaps",
+        "struts", "viewport-offset", "master-count", "master-ratio", "gap-step",
+        "view-name", "view-layout", "column-width-presets", "scratchpad-size",
+        "floating-size", "default-column-width", "center-focused-column",
+        "always-center-single-column", "focus-follows-mouse", "default-row-height",
+        "row-height-presets",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
@@ -447,6 +468,8 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
     fail("desktop profile setting exceeds structural bounds")
   if authority == ProfileAuthority.session and node.name == "application":
     node.validateApplicationSetting(staged)
+  if authority == ProfileAuthority.policy and node.name in ["gaps", "struts"]:
+    node.validateGapSetting()
   if authority == ProfileAuthority.policy and node.name == "layout":
     if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")

@@ -57,11 +57,10 @@ proc migrateTriadProfile*(source: string): MigrationReport =
         case child.name
         of "gaps":
           if child.args.len == 1:
-            policySettings.add("  outer-gap " & child.args[0].pretty())
-            policySettings.add("  inner-gap " & child.args[0].pretty())
+            policySettings.add("  gaps " & child.args[0].pretty())
             result.add(
               "layout.gaps", "policy", MigrationDisposition.transformed,
-              "outer-gap and inner-gap",
+              "uniform gaps with no reserved edge previews",
             )
           else:
             result.add(

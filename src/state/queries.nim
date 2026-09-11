@@ -203,7 +203,10 @@ proc effectiveGaps*(model: PolicyModel): (int32, int32) =
   ## them without discarding what the profile configured, so the configured
   ## values stay readable and only their effect is suppressed.
   if model.settings.gapsEnabled:
-    (model.settings.outerGap, model.settings.innerGap)
+    if model.settings.gapModel == GapModel.uniform:
+      (model.settings.gaps, model.settings.gaps)
+    else:
+      (model.settings.outerGap, model.settings.innerGap)
   else:
     (0'i32, 0'i32)
 
@@ -256,6 +259,32 @@ proc scrollerColumnWidth*(
   if result < columnMinWidth:
     result = columnMinWidth
 
+proc layoutWorkArea*(model: PolicyModel, outputId: OutputId): Rect =
+  ## Struts reserve tiling space independently of ordinary gaps. Edge expansion
+  ## and fullscreen still use the original work area and physical bounds.
+  let output = model.output(outputId)
+  if output.isNone:
+    fail("layout output does not exist")
+  result = output.get().bounds
+  let struts = model.settings.struts
+  let width = int64(result.width) - int64(struts.left) - int64(struts.right)
+  let height = int64(result.height) - int64(struts.top) - int64(struts.bottom)
+  let x = int64(result.x) + int64(struts.left)
+  let y = int64(result.y) + int64(struts.top)
+  if width <= 0 or height <= 0:
+    fail("output struts consume the viewport")
+  if x > int64(high(int32)) or y > int64(high(int32)):
+    fail("output strut coordinates exceed bounds")
+  result = Rect(x: int32(x), y: int32(y), width: int32(width), height: int32(height))
+
+proc scrollerOuterGap*(model: PolicyModel, outerGap: int32): int32 =
+  ## The camera already reserves one gap along the scrolling axis. Legacy
+  ## profiles requested an additional inset; uniform gaps do not.
+  if model.settings.gapModel == GapModel.uniform:
+    0'i32
+  else:
+    max(0'i32, outerGap)
+
 proc scrollerStrip*(
     model: PolicyModel, outputId: OutputId, outerGap, innerGap: int32
 ): ScrollerStrip =
@@ -265,9 +294,9 @@ proc scrollerStrip*(
   let output = model.output(outputId)
   if output.isNone:
     raise newException(PolicyStateError, "projection output does not exist")
-  let safeOuterGap = max(0'i32, outerGap)
+  let safeOuterGap = model.scrollerOuterGap(outerGap)
   let safeInnerGap = max(0'i32, innerGap)
-  let inset = int64(output.get().bounds.width) - int64(safeOuterGap) * 2
+  let inset = int64(model.layoutWorkArea(outputId).width) - int64(safeOuterGap) * 2
   result.usableWidth =
     if inset <= 0:
       0'i32

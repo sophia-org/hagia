@@ -285,7 +285,8 @@ proc projectScroller*(
     physical: Rect = Rect(),
 ): seq[LogicalOutputProjection] =
   model.validate()
-  let safeOuterGap = max(0'i32, outerGap)
+  let safeOuterGap = model.scrollerOuterGap(outerGap)
+  let crossGap = max(0'i32, outerGap)
   let safeInnerGap = max(0'i32, innerGap)
   for outputId in affectedOutputs:
     let output = model.output(outputId)
@@ -305,9 +306,9 @@ proc projectScroller*(
       model.selectFocus(output.get(), eligible, projection)
       result.add(projection)
       continue
-    let bounds = output.get().bounds
+    let bounds = model.layoutWorkArea(outputId)
     let usableWidth = bounds.width.insetExtent(safeOuterGap)
-    let usableHeight = bounds.height.insetExtent(safeOuterGap)
+    let usableHeight = bounds.height.insetExtent(crossGap)
     if usableWidth == 0 or usableHeight == 0:
       raise newException(PolicyStateError, "output gaps consume the viewport")
 
@@ -468,12 +469,12 @@ proc projectScroller*(
       var totalScale = 0'u64
       for windowId in windows:
         totalScale += uint64(uint32(model.windows[windowId].heightScale))
-      var y = int64(bounds.y) + int64(safeOuterGap)
+      var y = int64(bounds.y) + int64(crossGap)
       for windowIndex, windowId in windows:
         let window = model.windows[windowId]
         let height =
           if windowIndex + 1 == windows.len:
-            int32(int64(bounds.y) + int64(safeOuterGap) + int64(usableHeight) - y)
+            int32(int64(bounds.y) + int64(crossGap) + int64(usableHeight) - y)
           else:
             int32(
               int64(stackHeight) * int64(uint32(window.heightScale)) div
@@ -639,7 +640,7 @@ proc projectNative(
   let eligible =
     model.eligibleWindows(outputId).filterIt(not model.windows[it].minimized)
   let tiled = model.tiledWindows(outputId, eligible)
-  let bounds = output.bounds.usableBounds(outerGap)
+  let bounds = model.layoutWorkArea(outputId).usableBounds(outerGap)
   let gap = max(0'i32, innerGap)
   result.output = outputId
   # A mixed layout is a rule about which layout to run, not a geometry of its
@@ -889,7 +890,7 @@ proc projectTabbed(
   let tree = prepared.tabTrees[output.activeView]
   let projected = tree.projectTabTree(
     output.activeView,
-    output.bounds.usableBounds(outerGap),
+    model.layoutWorkArea(outputId).usableBounds(outerGap),
     max(0'i32, innerGap),
     output.focusedWindow,
   )

@@ -83,6 +83,8 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
     raise newException(DesktopProfileError, "Hagia received a non-policy candidate")
   var settings = defaultPolicySettings
   var defaultLayout = LayoutMode.scroller
+  var legacyGaps = false
+  var hasStruts = false
   for value in candidate.values:
     case value.key
     of "policy.layout":
@@ -94,9 +96,33 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
       if settings.viewCount < 1 or settings.viewCount > 9:
         raise newException(DesktopProfileError, "policy view-count is outside 1..9")
     of "policy.outer-gap":
+      legacyGaps = true
       settings.outerGap = value.int32Value()
     of "policy.inner-gap":
+      legacyGaps = true
       settings.innerGap = value.int32Value()
+    of "policy.gaps":
+      let node = parseKdl(value.encoded)[0]
+      node.validateGapSetting()
+      settings.gapModel = GapModel.uniform
+      settings.gaps = value.int32Value()
+    of "policy.struts":
+      let node = parseKdl(value.encoded)[0]
+      node.validateGapSetting()
+      hasStruts = true
+      for edge in node.children:
+        let amount = int32(edge.args[0].get(int))
+        case edge.name
+        of "left":
+          settings.struts.left = amount
+        of "right":
+          settings.struts.right = amount
+        of "top":
+          settings.struts.top = amount
+        of "bottom":
+          settings.struts.bottom = amount
+        else:
+          discard # The shared grammar rejected unknown edges above.
     of "policy.viewport-offset":
       settings.viewportOffset = value.int32Value()
     of "policy.master-count":
@@ -200,6 +226,12 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
         )
       else:
         raise newException(DesktopProfileError, "unknown Hagia policy candidate value")
+  if legacyGaps and settings.gapModel == GapModel.uniform:
+    raise newException(
+      DesktopProfileError, "policy gaps cannot mix with outer-gap or inner-gap"
+    )
+  if hasStruts and settings.gapModel != GapModel.uniform:
+    raise newException(DesktopProfileError, "policy struts requires gaps")
   if settings.outerGap > maxGap or settings.innerGap > maxGap:
     raise newException(DesktopProfileError, "policy gaps exceed their bound")
   if settings.outerGap < 0 or settings.innerGap < 0 or settings.viewportOffset < 0:

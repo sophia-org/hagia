@@ -17,6 +17,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tedge-maximized" tests/tedge_maximized.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tgap-layout" tests/tgap_layout.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tpolicy-model" tests/tpolicy_model.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tfoundation" tests/tfoundation.nim

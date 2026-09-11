@@ -146,3 +146,14 @@ and translation membership. Its tests cover dialog visibility, both scrolling
 axes, output isolation, and restoration through F/M and navigation. Sophia's
 independent translation regression checks that hidden members return without
 sweeping across the newly exposed gap.
+
+
+The uniform-gap model reviews niri baseline
+`9e72e4917ca31baf4010496bf7f4aaf78d34d236`, specifically
+`resources/default-config.kdl` (gaps and struts) and
+`src/layout/scrolling.rs` (`compute_working_area`, `compute_new_view_offset`,
+and configuration updates). Hagia independently implements bounded integer
+struts, single along-axis camera padding, and transposed vertical geometry.
+Its tests use synthetic output sizes and retain the fit rule that leaves an
+already-visible column still, including when gaps shrink during a reload.
+No niri implementation, runtime, or dependency is copied.

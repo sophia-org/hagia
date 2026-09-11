@@ -301,3 +301,54 @@ suite "scroller reload across two outputs":
     writeFile(path, "not a checkpoint")
     expect PolicyCheckpointError:
       discard path.loadPolicyCheckpoint()
+
+  test "legacy to uniform migration and gap reload retain both outputs' column choices":
+    var session = committedMixedWidthSession()
+    let scene = reloadScene(9)
+    discard session.runCommittedCycle(scene, 9)
+    let committed = session.committedAdapter()
+    let left = committed.logicalOutput(10).get()
+    let right = committed.logicalOutput(20).get()
+    let before = committed.model()
+    var transaction = 10'u64
+    var atEight: PolicyProjection
+    for gap in [8, 9, 8]:
+      var restored =
+        restoreCheckpointPayload(session.committedAdapter().checkpointPayload())
+      restored.applyPolicyCandidate(
+        AuthorityCandidate(
+          authority: ProfileAuthority.policy,
+          generation: transaction,
+          digest: repeat('c', 64),
+          values: @[ProfileValue(key: "policy.gaps", encoded: "gaps " & $gap)],
+        )
+      )
+      session = initPolicySession(restored)
+      let projected = session.runCommittedCycle(scene, transaction)
+      inc transaction
+      check session.runCommittedCycle(scene, transaction) == projected
+      inc transaction
+      let after = session.committedAdapter().model()
+      for output in [left, right]:
+        check after.columnPreferences(output) == before.columnPreferences(output)
+        check after.outputs[output].focusedWindow == before.outputs[output].focusedWindow
+        check after.views[after.outputs[output].activeView].camera.column ==
+          before.views[before.outputs[output].activeView].camera.column
+      if transaction == 12:
+        atEight = projected
+      elif gap == 8:
+        # niri's fit rule keeps a column still when the smaller padding fits.
+        # The right camera retains its nine-pixel inset; pane sizes return to
+        # eight-pixel geometry without forcing an unnecessary camera move.
+        for outputIndex, output in projected.outputs:
+          for index, placement in output.placements:
+            let original = atEight.outputs[outputIndex].placements[index]
+            check placement.surfaceIndex == original.surfaceIndex
+            check placement.width == original.width
+            check placement.height == original.height
+            check placement.y == original.y
+            check placement.x == original.x + (if output.output.output == 20: 1 else: 0)
+      else:
+        check projected != atEight
+      check projected.leftEdge(20) == (if transaction == 12: 2568 else: 2569)
+      after.validate()

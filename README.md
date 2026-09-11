@@ -99,6 +99,35 @@ validation as delegated. On startup, Hagia builds the policy model before
 acknowledging profile activation, so a bad value cannot open Sophia's graphical
 gate. Sophia passes only the staged Policy fragment to the running WM.
 
+### Gaps and struts
+
+`gaps` uses niri's spacing model: one gap around the tiled area and between
+panes. The scroller camera supplies the gap along its scrolling axis, so
+half-width columns fit without an extra inset exposing the next pane.
+
+```kdl
+policy {
+  gaps 8
+  // Optional reserved space, in addition to gaps; omitted edges are zero.
+  // struts { left 16; right 16; top 0; bottom 0; }
+}
+```
+
+Side struts deliberately reveal neighboring columns; top and bottom struts add
+space inside Sophia's panel work area. Vertical scrolling swaps these roles.
+They reserve space for every tiled layout, while edge maximization uses the
+original work area and fullscreen uses the physical output. Gap adjustment and
+`toggle-gaps` leave struts unchanged. Ordinary scrolling can still show partial
+neighbors when widths or the camera position do not align with the screen.
+
+Gaps and each strut accept integers from 0 through 512 and must leave usable
+layout space. The default is zero. Older `outer-gap` and `inner-gap` profiles
+retain their existing geometry; replace both with `gaps` to adopt this model.
+The two forms cannot mix, and `struts` requires `gaps`. Triad migration emits
+the uniform form. Private checkpoint version 16 retains the selected model;
+restoring an older checkpoint preserves legacy spacing until a new profile
+chooses `gaps`.
+
 ### Focus follows the pointer
 
 Off by default, the way niri has it: crossing a window on the way to somewhere

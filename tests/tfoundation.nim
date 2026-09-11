@@ -152,7 +152,11 @@ suite "Hagia foundation":
     path.ownerOnly()
     let profile = loadDesktopProfile(path)
     model.applyPolicyCandidate(profile.candidates[ProfileAuthority.policy])
-    check model.settings == defaultPolicySettings
+    # New profiles opt into uniform gaps; the bare model retains the legacy
+    # zero-gap representation used by callers that pass explicit projection gaps.
+    var expected = defaultPolicySettings
+    expected.gapModel = GapModel.uniform
+    check model.settings == expected
     expect DesktopProfileError:
       model.applyPolicyCandidate(profile.candidates[ProfileAuthority.session])
 
