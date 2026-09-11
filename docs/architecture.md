@@ -248,7 +248,7 @@ the capability, final placements still work immediately.
 The vertical scroller is the same machine seen from ninety degrees away: it
 turns the output on its side and runs the horizontal code, then turns the
 result back. A column's width is therefore just the extent along whichever
-axis the view scrolls, and `default-row-height` and `row-height-presets` name
+axis the view scrolls, and `default-row-height` and `preset-row-heights` name
 that extent in vertical mode. Both inherit the column values when unset, so a
 profile that never mentions rows behaves as it always has. Anything that
 reasons about the strip -- the projection that draws it, an action asking what
@@ -257,6 +257,37 @@ strip would eventually disagree about where a column starts.
 
 `tests/tscroller_ops.nim` applies operation sequences and checks those
 invariants after each one, which is how niri tests the same layout.
+
+## Scroller Vocabulary
+
+The scroller takes niri's configuration vocabulary, because it already
+computes the same geometry and two names for one measurement would only
+invite them to drift. Everything niri does not model keeps the Triad names it
+was ported under. The seam is worth stating outright, since the two
+vocabularies sit in the same `policy` block:
+
+| | Keys |
+| --- | --- |
+| niri vocabulary, niri semantics | `gaps`, `struts`, `default-column-width`, `preset-column-widths`, `center-focused-column`, `always-center-single-column`, the `{ proportion N }` / `{ fixed N }` value grammar, and the `(working - gaps) * p - gaps` width formula |
+| niri vocabulary, divergent default | `center-focused-column` defaults to `on-overflow` where niri has `never`; `always-center-single-column` defaults on where niri has it off. Stating either key reproduces niri exactly, so the divergence only reaches a profile that states neither |
+| niri has it, Hagia does not | `preset-window-heights`, `default-column-display`, `empty-workspace-above-first` |
+| niri has it, deliberately not ported | `default-column-width { }`, meaning "size the surface at zero and let the client choose". See below |
+| Triad vocabulary, no niri counterpart | the tile, grid, monocle, deck, spiral and tree layouts, views and tags, scratchpads, `master-count`, `master-ratio`, `gap-step`, `default-row-height`, `preset-row-heights`, and the vertical scroller itself |
+
+`default-row-height` and `preset-row-heights` are on the Triad side of that
+seam, and are not niri's `preset-window-heights` under another name. niri's
+key sizes a window *inside* a column -- the cross axis -- which Hagia spells
+`WindowData.heightScale` and does not expose as a preset list. These two name
+the scroll-axis extent of a layout niri does not have.
+
+niri's empty `default-column-width { }` is refused rather than accepted and
+reinterpreted. It means "configure the surface at width zero, let the client
+pick, then learn the size from what it commits", and `projectLayout` is a
+pure function of the model that has to produce a concrete width: every column
+to the right of this one is positioned from it. Honouring it would make strip
+geometry a function of the last committed frame, which is the settlement
+direction inverted. A client resizing itself would move every column beside
+it.
 
 ## Recovery Direction
 

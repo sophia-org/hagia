@@ -367,7 +367,7 @@ move lands where the user saw the window.
   not. `deck` puts the focused window in the master area and gives every other
   window one shared rectangle, which the wire's bottom-to-top placement order
   already expresses.
-- [x] Column width presets, as `column-width-presets` plus
+- [x] Column width presets, as `preset-column-widths` plus
   `cycle-column-width` and its reverse. Triad's `set-column-width <value>`
   migrates onto the cycle: an absolute width is an argument, and actions
   carry none, so the widths live in the profile.
@@ -460,11 +460,17 @@ Single settings, each a policy key and a projection term:
 
 - `smart-gaps` — suppress gaps for a lone window.
 - ~~Separate row-height scales for the vertical scroller.~~ Done:
-  `default-row-height` and `row-height-presets` name the along-axis extent in
+  `default-row-height` and `preset-row-heights` name the along-axis extent in
   vertical mode and inherit the column values when unset, and each scroll
   axis keeps its own camera offset.
-- `default-window-width` / `default-window-height` — per-window proportions;
-  column width exists, the window inside it does not.
+- `preset-window-heights` — niri's preset list for the share a window takes
+  inside a column. Hagia steps `heightScale` but has no list to step through.
+  This is the one sizing key niri has and Hagia does not; `default-row-height`
+  is a different measurement and does not cover it.
+- ~~`default-window-width` / `default-window-height`.~~ Dropped: niri has
+  neither by design. Windows in a column already fill it by weight, so a
+  global default height would mean nothing, and the width of the column is
+  what `default-column-width` already names.
 - floating `x-ratio`, `y-ratio`, `min-width`, `min-height` — only the size
   pair exists today.
 - spiral `ratio`, `main-pane`, `clockwise` — the layout ships, its tuning

@@ -157,3 +157,17 @@ struts, single along-axis camera padding, and transposed vertical geometry.
 Its tests use synthetic output sizes and retain the fit rule that leaves an
 already-visible column still, including when gaps shrink during a reload.
 No niri implementation, runtime, or dependency is copied.
+
+
+The column and row size vocabulary reviews the same niri baseline,
+specifically `niri-config/src/layout.rs` (`PresetSize`, `DefaultPresetSize`,
+`Struts`, and the `Layout` defaults) and `src/layout/scrolling.rs`
+(`resolve_preset_size`, `resolve_column_width`, and the preset cycle's
+comparison of resolved widths), alongside `src/layout/workspace.rs` for the
+absence of a global default window height. Hagia independently implements a
+flat extent record carrying a Q16.16 proportion or whole pixels, its own
+bounds, its own checkpoint migration from the percentages it replaces, and
+the negative struts niri permits. It does not port niri's per-column preset
+index, and refuses the empty `default-column-width` niri accepts, because
+Hagia's projection cannot learn a width from a committed frame. No niri
+implementation, runtime, or dependency is copied.
