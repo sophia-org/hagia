@@ -11,6 +11,7 @@ type
     window*: WindowId
     geometry*: Rect
     requestedWidth*, requestedHeight*: int32
+    maximized*: bool ## Effective presentation, separate from retained window intent.
 
   LogicalOutputProjection* = object
     tabGroups*: seq[TabTreeGroup]

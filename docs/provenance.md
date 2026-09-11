@@ -128,3 +128,13 @@ metadata rule, or Triad project history is imported. Hagia reuses the shared
 configuration model or live-reload runtime. Future source-level ports must
 retain the applicable Triad MIT notice and name the source files and baseline
 here.
+
+The edge-maximization repair reviews Triad's `src/systems/presentation_policy.nim`,
+`src/systems/layout_projection.nim`, `src/systems/window_state.nim`,
+`src/entities/column_ops.nim`, and `tests/tcore_presentation_overview.nim` at
+`fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9`. Hagia adopts focused-family edge
+presentation and its distinction from full column width in scrolling layouts.
+Its independent regressions cover navigation, dialog owners, both scroll axes,
+F/M transitions, committed scene echoes, rejection, and checkpoint migration.
+The snapshot echo handling is Hagia-specific; no River presentation state or
+protocol code is imported.

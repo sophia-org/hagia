@@ -156,6 +156,29 @@ proc parentedDialogIsVisible(
     inc depth
   true
 
+proc maximizedFocusRoot(
+    model: PolicyModel, output: OutputData, eligible: openArray[WindowId]
+): WindowId =
+  var current = output.focusedWindow
+  for _ in 0 ..< maxFamilyDepth:
+    let window = model.window(current)
+    if window.isNone or current notin eligible:
+      return nullWindowId
+    let parent = window.get().parent
+    if parent == nullWindowId:
+      if current != output.focusedWindow or not window.get().floating:
+        return current
+      # An independent floating window overlays the last tiled focus; a
+      # parented dialog instead retains only its own parent's expansion.
+      for index in countdown(output.focusHistory.high, 0):
+        let candidate = output.focusHistory[index]
+        let previous = model.window(candidate)
+        if previous.isSome and candidate in eligible and not previous.get().floating:
+          return candidate
+      return nullWindowId
+    current = parent
+  nullWindowId
+
 proc appendFloating(
     model: PolicyModel,
     outputId: OutputId,
@@ -169,13 +192,26 @@ proc appendFloating(
   # centred on a parent that is about to be expanded, or hidden because that
   # parent was off screen before it was, would both be answering a question
   # about geometry nobody ends up with.
-  let bounds = model.outputs[outputId].bounds
+  let output = model.output(outputId).get()
+  let bounds = output.bounds
+  let scrolling =
+    model.view(output.activeView).get().layout in
+    {LayoutMode.scroller, LayoutMode.verticalScroller}
+  let maximizedRoot = model.maximizedFocusRoot(output, eligible)
   let elevated = if physical.width > 0 and physical.height > 0: physical else: bounds
   for placement in projection.placements.mitems:
-    let window = model.windows[placement.window]
+    let window = model.window(placement.window).get()
+    let column = model.column(window.column)
+    placement.maximized =
+      window.maximized and (
+        not scrolling or (
+          placement.window == maximizedRoot and
+          (column.isNone or not column.get().fullWidth)
+        )
+      )
     if window.fullscreen:
       placement.geometry = elevated
-    elif window.maximized:
+    elif placement.maximized:
       placement.geometry = bounds
   var placed = initTable[WindowId, Rect]()
   for placement in projection.placements:
@@ -209,6 +245,7 @@ proc appendFloating(
       LogicalPlacement(
         window: windowId,
         geometry: geometry,
+        maximized: window.maximized,
         requestedWidth:
           geometry.width.clamp(window.constraints.minWidth, window.constraints.maxWidth),
         requestedHeight: geometry.height.clamp(
@@ -867,17 +904,17 @@ proc orderPresentationLayers(
   # each layer and put focus last among equally elevated windows.
   var layers: array[3, seq[LogicalPlacement]]
   var focused: array[3, seq[LogicalPlacement]]
-  var hasMaximized = false
-  var fullscreen = initHashSet[WindowId]()
+  let hasEdgePresentation = projection.placements.anyIt(it.maximized)
   for placement in projection.placements:
     let window = model.window(placement.window).get()
-    hasMaximized = hasMaximized or window.maximized
-    if window.fullscreen:
-      fullscreen.incl(placement.window)
     let layer =
       if window.fullscreen:
         2
-      elif window.maximized:
+      elif placement.maximized or (
+        hasEdgePresentation and window.floating and placement.window == projection.focus
+      ):
+        # A focused independent float overlays the retained tiled expansion.
+        # Ordinary tiled navigation instead suspends that expansion above.
         1
       else:
         0
@@ -895,7 +932,6 @@ proc orderPresentationLayers(
   # parent that owns an open dialog must not put the parent over its own
   # dialog, which is the one arrangement that makes the dialog unreachable.
   var children = initTable[WindowId, seq[LogicalPlacement]]()
-  var parents = initTable[WindowId, WindowId]()
   var roots: seq[LogicalPlacement]
   var present = initHashSet[WindowId]()
   for placement in ordered:
@@ -909,36 +945,8 @@ proc orderPresentationLayers(
         nullWindowId
     if parent != nullWindowId and parent in present:
       children.mgetOrPut(parent, @[]).add(placement)
-      parents[placement.window] = parent
     else:
       roots.add(placement)
-
-  # A background maximized window must not hide the next navigation target.
-  # Raise its whole family so a focused dialog keeps its parent beneath it.
-  # Fullscreen families retain their separate elevation; without maximization,
-  # the layout's ordinary order remains unchanged.
-  if hasMaximized:
-    var focusedRoot = projection.focus
-    for _ in 0 ..< maxFamilyDepth:
-      let parent = parents.getOrDefault(focusedRoot, nullWindowId)
-      if parent == nullWindowId:
-        break
-      focusedRoot = parent
-    if focusedRoot notin fullscreen:
-      var focusIndex = -1
-      for index, root in roots:
-        if root.window == focusedRoot:
-          focusIndex = index
-          break
-      if focusIndex >= 0:
-        let focusedFamily = roots[focusIndex]
-        roots.delete(focusIndex)
-        var destination = roots.len
-        for index, root in roots:
-          if root.window in fullscreen:
-            destination = index
-            break
-        roots.insert(focusedFamily, destination)
 
   # Siblings stack by how recently each was focused, oldest first, so the one
   # last worked in is the one on top.

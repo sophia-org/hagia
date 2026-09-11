@@ -296,7 +296,7 @@ suite "dialog placement follows its parent":
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-13\n" & $payload)
     check restored.model().windows[dialog].floatingIntent == FloatingIntent.manual
     check restored.model().windows[dialog].floatingGeometry == stored
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-14\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-15\n")
 
   test "a parent that is wholly off the output takes its dialog with it":
     ## Partly visible is still visible -- the dialog is clamped and stays
@@ -521,11 +521,9 @@ suite "dialog final geometry and visibility":
     check visible.placementFor(child).isSome
     check visible.placementFor(nested).isSome
 
-suite "navigating out from under a maximized window":
-  ## A maximized window covers the whole work area and sits above ordinary
-  ## ones, which is right while it holds focus. When focus moves elsewhere the
-  ## window it moved to has to become visible, or the arrow that moved it looks
-  ## like it did nothing. Nothing unmaximizes: only the order changes.
+suite "edge presentation follows window families":
+  ## Edge expansion is presentation for the focused family. Its retained
+  ## preference survives navigation, while background panes return to the strip.
 
   proc order(model: PolicyModel, output: OutputId): seq[WindowId] =
     ## Bottom-to-top, which is the order the wire consumes.
@@ -537,9 +535,9 @@ suite "navigating out from under a maximized window":
       result.add(model.addWindow(output, dialogCaps(), SizeConstraints()))
       model.setFocus(output, result[^1])
 
-  test "focus leaving a maximized window raises what it moved to":
+  test "focus leaving an edge-maximized window restores its strip geometry":
     ## Whichever column was expanded -- first, middle, or last -- and back
-    ## again, so the raise is not an artifact of strip position.
+    ## again, so expansion is not an artifact of strip position.
     for expanded in 0 .. 2:
       var model = initPolicyModel()
       let output = model.addOutput(Rect(width: 1600, height: 1000))
@@ -557,11 +555,9 @@ suite "navigating out from under a maximized window":
           continue
         model.setFocus(output, windows[other])
         projection = model.projectLayout([output], 8, 8)[0]
-        check projection.stackIndex(windows[other]) >
-          projection.stackIndex(windows[expanded])
-        # Still maximized, still the same rectangle: only the order moved.
+        check not projection.placementFor(windows[expanded]).get().maximized
         check model.windows[windows[expanded]].maximized
-        check projection.placementFor(windows[expanded]).get().geometry ==
+        check projection.placementFor(windows[expanded]).get().geometry !=
           expandedGeometry
 
       # And through the key the operator actually presses. The neighbour is
@@ -573,7 +569,9 @@ suite "navigating out from under a maximized window":
       model.focusColumnRelative(output, delta)
       check model.outputs[output].focusedWindow == neighbour
       projection = model.projectLayout([output], 8, 8)[0]
-      check projection.stackIndex(neighbour) > projection.stackIndex(windows[expanded])
+      check not projection.placementFor(windows[expanded]).get().maximized
+      let target = projection.placementFor(neighbour).get().geometry
+      check target.x >= 0 and target.x + target.width <= 1600
 
       # Back again, and the expanded window leads once more.
       model.focusColumnRelative(output, -delta)
@@ -582,9 +580,7 @@ suite "navigating out from under a maximized window":
       check projection.stackIndex(windows[expanded]) == projection.placements.high
       model.validate()
 
-  test "a focused dialog rises with its parent past an unrelated maximized window":
-    ## Raising the focused window alone would leave an ordinary parent behind
-    ## the maximized one while its own dialog floated over the top.
+  test "a focused dialog leaves an unrelated maximized window in the strip":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1600, height: 1000))
     let expanded = model.addWindow(output, dialogCaps(), SizeConstraints())
@@ -599,6 +595,8 @@ suite "navigating out from under a maximized window":
     check projection.stackIndex(parent) > projection.stackIndex(expanded)
     check projection.stackIndex(dialog) > projection.stackIndex(parent)
     check model.windows[expanded].maximized
+    check not projection.placementFor(expanded).get().maximized
+    check projection.placementFor(expanded).get().geometry.width < 1600
     model.validate()
 
   test "a focused dialog of a maximized parent leads another maximized window":
@@ -625,7 +623,30 @@ suite "navigating out from under a maximized window":
       check projection.stackIndex(dialog) > projection.stackIndex(owner)
       check model.windows[background].maximized
       check model.windows[owner].maximized
+      check projection.placementFor(owner).get().maximized
+      check projection.placementFor(owner).get().geometry ==
+        Rect(width: 1600, height: 1000)
+      check not projection.placementFor(background).get().maximized
+      check projection.placementFor(background).get().geometry.width < 1600
       model.validate()
+
+  test "an independent focused floating window remains above retained edge presentation":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let parent = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFocus(output, parent)
+    model.applyAction(output, PolicyAction.toggleMaximized)
+    let overlay = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFloatingGeometry(
+      output, overlay, Rect(x: 40, y: 40, width: 300, height: 200)
+    )
+    model.setFocus(output, overlay)
+    let projection = model.projectLayout([output], 8, 8)[0]
+    check projection.placementFor(parent).get().maximized
+    check projection.placementFor(parent).get().geometry ==
+      Rect(width: 1600, height: 1000)
+    check projection.stackIndex(overlay) > projection.stackIndex(parent)
+    model.validate()
 
   test "a fullscreen window keeps the screen whatever else holds focus":
     ## Fullscreen is an explicit claim on the display, not a focus-following
@@ -667,7 +688,7 @@ suite "navigating out from under a maximized window":
     model.validate()
 
   test "without a maximized window the order is the one the layout made":
-    ## The raise is conditional. With nothing expanded, focus must not reshuffle
+    ## With nothing expanded, focus must not reshuffle
     ## the strip -- including floating windows, which all share one layer.
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1600, height: 1000))

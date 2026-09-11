@@ -293,6 +293,11 @@ proc setWindowPresentation*(
       if model.outputs[outputId].focusedWindow == id:
         model.outputs[outputId].focusedWindow = nullWindowId
 
+proc setColumnFullWidth*(model: var PolicyModel, id: ColumnId, enabled: bool) =
+  if id notin model.columns:
+    fail("column does not exist")
+  model.columns[id].fullWidth = enabled
+
 proc setColumnWidthScale*(model: var PolicyModel, id: ColumnId, scale: Scale) =
   if id notin model.columns:
     fail("column does not exist")

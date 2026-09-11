@@ -36,6 +36,9 @@ type
     dormantOutputToLogical: Table[OutputHandle, OutputId]
     logicalToOutput: Table[OutputId, OutputHandle]
     surfaceFacts: Table[WindowId, SnapshotSurface]
+    # Last emitted maximize bit, promoted with the candidate on commit. An
+    # echo of suspended presentation must not clear private maximize intent.
+    presentedMaximized: Table[WindowId, bool]
 
   TagRelationDto = object
     owner: uint32
@@ -45,6 +48,7 @@ type
     key: uint64
     window: uint32
     facts: SnapshotSurface
+    presentedMaximized: bool
 
   OutputDto = object
     output: uint64
@@ -125,6 +129,8 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
     result.logicalToOutput[key] = value
   for key, value in adapter.surfaceFacts.pairs:
     result.surfaceFacts[key] = value
+  for key, value in adapter.presentedMaximized.pairs:
+    result.presentedMaximized[key] = value
   # Carried so a token keeps meaning the same place across cycles. A candidate
   # that is never committed is dropped whole, and the tokens it minted go with
   # it rather than leaking into the next attempt.
@@ -253,7 +259,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 14
+  result.schema = 15
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -335,7 +341,12 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   result.scratchpadTag = uint32(adapter.model.scratchpadTag)
   for key, window in adapter.surfaceToWindow.pairs:
     result.surfaces.add(
-      SurfaceDto(key: key, window: uint32(window), facts: adapter.surfaceFacts[window])
+      SurfaceDto(
+        key: key,
+        window: uint32(window),
+        facts: adapter.surfaceFacts[window],
+        presentedMaximized: adapter.presentedMaximized[window],
+      )
     )
   result.surfaces.sort(
     proc(left, right: SurfaceDto): int =
@@ -363,7 +374,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-14\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-15\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
@@ -372,9 +383,10 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # maximised column as a width, version 9 shared one camera across both
   # scroll axes, version 12 predates focus-follows-mouse, and version 13 stored
   # a floating rectangle without saying whether it was a rule or a decision;
-  # each migrates forward by filling the fields it could not have written.
-  var version = 14
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+  # version 14 predates the emitted maximize bit used to recognize scene echoes.
+  # Each migrates forward by filling the fields it could not have written.
+  var version = 15
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -466,6 +478,18 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       for entry in node["scratchpadRestore"]:
         if not entry["restore"].hasKey("floatingIntent"):
           entry["restore"]["floatingIntent"] = toJson(FloatingIntent.manual)
+    if version <= 14:
+      for surface in node["surfaces"]:
+        if not surface.hasKey("presentedMaximized"):
+          surface["presentedMaximized"] =
+            toJson((surface["facts"]["currentStateBits"].getInt() and 2) != 0)
+      # The old implementation permitted both modes and presented window
+      # maximization. Preserve that visible choice while migrating its state.
+      for window in node["windows"]:
+        if window["maximized"].getBool():
+          for column in node["columns"]:
+            if column["id"] == window["column"]:
+              column["fullWidth"] = toJson(false)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -536,6 +560,7 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     result.surfaceToWindow[surface.key] = window
     result.windowToSurface[window] = surface.key
     result.surfaceFacts[window] = surface.facts
+    result.presentedMaximized[window] = surface.presentedMaximized
   for output in dto.activeOutputs:
     let handle = (output: output.output, generation: output.generation)
     let logical = OutputId(output.logical)
@@ -550,6 +575,7 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   if result.surfaceToWindow.len > maxSurfaces or
       result.surfaceToWindow.len != result.windowToSurface.len or
       result.surfaceToWindow.len != result.surfaceFacts.len or
+      result.surfaceToWindow.len != result.presentedMaximized.len or
       result.surfaceToWindow.len != result.model.windows.len or
       result.activeOutputToLogical.len > maxOutputs or
       result.activeOutputToLogical.len != result.outputToLogical.len or
@@ -796,7 +822,14 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.model.updateWindowFacts(
         window, surface.capabilityBits.capabilities(), surface.constraints()
       )
-      adapter.model.applyPresentation(window, surface.currentStateBits)
+      let presented = (surface.currentStateBits and 2) != 0
+      var intentBits = surface.currentStateBits
+      if presented == adapter.presentedMaximized[window] and
+          (surface.currentStateBits and 5) == 0:
+        let retained = adapter.model.window(window).get().maximized
+        intentBits = (intentBits and not 2'u16) or (if retained: 2'u16 else: 0'u16)
+      adapter.model.applyPresentation(window, intentBits)
+      adapter.presentedMaximized[window] = presented
       if surface.currentOutput != 0:
         adapter.model.adoptWindowOutput(
           window, adapter.outputToLogical[surface.currentOutput]
@@ -820,6 +853,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
       adapter.windowToSurface[window] = key
       adapter.surfaceFacts[window] = surface
       adapter.model.applyPresentation(window, surface.currentStateBits)
+      adapter.presentedMaximized[window] = (surface.currentStateBits and 2) != 0
       if key in launchClassifications:
         let classification = launchClassifications[key]
         # Hagia's retained daily-driver vocabulary maps classes 1..9 to its
@@ -862,6 +896,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     adapter.surfaceToWindow.del(key)
     adapter.windowToSurface.del(window)
     adapter.surfaceFacts.del(window)
+    adapter.presentedMaximized.del(window)
 
   # Resolve reduced transient ownership only after every live Sophia handle has
   # a stable logical identity. No generational handle crosses this boundary.
@@ -1003,7 +1038,7 @@ proc projection*(
         group.x = -logical.viewportOffset
       for placement in logical.placements:
         let window = adapter.model.windows[placement.window]
-        if not window.floating and not window.fullscreen and not window.maximized:
+        if not window.floating and not window.fullscreen and not placement.maximized:
           let key = adapter.windowToSurface[placement.window]
           group.members.add(
             ProjectionTabMember(
@@ -1024,17 +1059,18 @@ proc projection*(
       var presentationBits = 0'u16
       if window.fullscreen:
         presentationBits = presentationBits or (1'u16 shl 0)
-      if window.maximized:
+      if placement.maximized:
         presentationBits = presentationBits or (1'u16 shl 1)
+      adapter.presentedMaximized[placement.window] = placement.maximized
       let requestedWidth =
-        if window.fullscreen or window.maximized:
+        if window.fullscreen or placement.maximized:
           constrainedExtent(
             geometry.width, surface.minWidth, surface.maxWidth, surface.exactWidth
           )
         else:
           placement.requestedWidth
       let requestedHeight =
-        if window.fullscreen or window.maximized:
+        if window.fullscreen or placement.maximized:
           constrainedExtent(
             geometry.height, surface.minHeight, surface.maxHeight, surface.exactHeight
           )
@@ -1084,6 +1120,7 @@ proc projection*(
           presentationBits: 1'u16 shl 2,
         )
       )
+      adapter.presentedMaximized[windowId] = false
       inc projection.output.placementCount
     var fullscreen = false
     for placement in projection.placements:

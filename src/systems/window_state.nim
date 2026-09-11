@@ -1,4 +1,4 @@
-import std/sequtils
+import std/[options, sequtils]
 
 import ../types/[core, model]
 import ../policy/entity_store
@@ -26,17 +26,26 @@ proc toggleFocusedFullscreen*(model: var PolicyModel) =
     model.windows[windowId].minimized = false
 
 proc toggleFocusedMaximized*(model: var PolicyModel) =
-  let outputId = model.activeOutput
-  if outputId notin model.outputs:
+  let output = model.output(model.activeOutput)
+  if output.isNone:
     fail("maximize output does not exist")
-  let windowId = model.outputs[outputId].focusedWindow
-  if windowId == nullWindowId:
+  let window = model.window(output.get().focusedWindow)
+  if window.isNone:
     return
-  let enabled = not model.windows[windowId].maximized
-  model.windows[windowId].maximized = enabled
-  if enabled:
-    model.windows[windowId].fullscreen = false
-    model.windows[windowId].minimized = false
+  let current = window.get()
+  let column = model.column(current.column)
+  # F switches an M-sized column to edge presentation rather than layering
+  # two maximize modes. The column's saved proportional width is retained.
+  var enabled = not current.maximized
+  if column.isSome and column.get().fullWidth:
+    model.setColumnFullWidth(current.column, false)
+    enabled = true
+  model.setWindowPresentation(
+    current.id,
+    if enabled: false else: current.fullscreen,
+    enabled,
+    if enabled: false else: current.minimized,
+  )
 
 proc minimizeFocused*(model: var PolicyModel) =
   let outputId = model.activeOutput

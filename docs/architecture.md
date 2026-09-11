@@ -94,16 +94,29 @@ scales and 64-bit intermediate arithmetic. All layout families emit final
 integer target geometry. Hagia does not animate, render, or retain client
 pixels.
 
-Placements are ordered bottom to top. After computing a layout, Hagia places
-maximized windows above ordinary windows and fullscreen windows above both.
-The focused window is last within its elevated layer. When a maximized window
-is present, the focused window's whole parent/dialog family is raised above
-background maximized families, below unrelated fullscreen families. Navigation
-therefore reveals its target without clearing the background window's maximized
-state or changing its work-area geometry. Dialogs stay above their parents.
-Without maximization, ordinary layout order is unchanged, including the tile
-order restored when expansion is toggled off. Sophia validates and presents
-this order without choosing Hagia's stacking policy.
+Placements are ordered bottom to top. In scrolling layouts, edge maximization
+retains a private preference while deriving expansion from the output's focused
+tiled window or dialog family. Moving focus to another column restores the
+background pane's ordinary strip geometry and camera translation membership;
+returning focus restores expansion to the work-area edges. An independent
+floating overlay preserves the last tiled focus's expansion. Column maximization
+instead uses full column width with configured gaps, suppressing edge expansion
+without replacing the saved proportional width. Selecting edge maximization
+from column maximization clears the column mode. Fullscreen remains a separate
+presentation at physical output bounds.
+
+Effective maximized placements sit above ordinary placements; fullscreen sits
+above both. Dialogs stay above their parents. Ordinary layout order is preserved
+when expansion is suspended or disabled. Sophia validates and presents this
+order without choosing Hagia's stacking policy.
+
+The adapter retains the last emitted maximize bit per live generational surface,
+committing it with the candidate. A matching scene echo preserves private edge
+intent; a changed external maximize bit updates it. This prevents an inactive
+pane's ordinary presentation from erasing its retained edge preference. Private
+checkpoint version 15 carries that echo state. Older checkpoints infer it from
+observed presentation and resolve combined column/window maximization in favor
+of the edge presentation the previous implementation displayed.
 
 ### The scroller
 

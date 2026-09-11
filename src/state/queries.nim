@@ -14,6 +14,12 @@ proc nextTagSlot*(model: PolicyModel): uint32 =
 proc outputIds*(model: PolicyModel): seq[OutputId] =
   model.outputOrder
 
+proc column*(model: PolicyModel, id: ColumnId): Option[ColumnData] =
+  if id in model.columns:
+    some(model.columns[id])
+  else:
+    none(ColumnData)
+
 proc windowIds*(model: PolicyModel): seq[WindowId] =
   model.windowOrder
 

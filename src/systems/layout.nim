@@ -1,3 +1,5 @@
+import std/options
+
 import ../policy/entity_store
 import ../types/[core, model]
 import ../state/[model, queries, values]
@@ -90,19 +92,16 @@ proc toggleGaps*(model: var PolicyModel) =
   model.settings.gapsEnabled = not model.settings.gapsEnabled
 
 proc toggleColumnMaximized*(model: var PolicyModel, outputId: OutputId) =
-  ## Give the focused column the whole width, or hand it back to the share a
-  ## layout would choose. This is a decision about a column; `toggleMaximized`
-  ## is a decision about one window, and the two are not the same key.
-  if outputId notin model.outputs:
+  let output = model.output(outputId)
+  if output.isNone:
     fail("column maximize output does not exist")
-  let windowId = model.outputs[outputId].focusedWindow
-  if windowId == nullWindowId:
+  let window = model.window(output.get().focusedWindow)
+  if window.isNone:
     return
-  let columnId = model.windows[windowId].column
-  # A flag, not a width. Overwriting the width made maximising a one-way door:
-  # it could only be undone by pressing the same key on the same column before
-  # focus moved, and nothing else ever returned a column to its own width.
-  model.columns[columnId].fullWidth = not model.columns[columnId].fullWidth
+  let column = model.column(window.get().column)
+  if column.isNone:
+    fail("column maximize column does not exist")
+  model.setColumnFullWidth(column.get().id, not column.get().fullWidth)
 
 proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: int) =
   ## Step the focused column through the configured width presets.
