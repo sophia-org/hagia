@@ -41,7 +41,14 @@ cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- 
     "$build_dir/hagia-policy-proof" "$build_dir/session" all
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
     "$build_dir/hagia-policy-proof" "$build_dir/session-restart" restart
-SOPHIA_HAGIA_BIN="$build_dir/hagia" \
+# These tests build a session config without naming a desktop profile, so
+# discovery reaches whatever is in the developer's own XDG config and fails on
+# a shortcut that a bare test session has no capability for. Give the command
+# an empty config root so it sees compiled defaults, the way Sophia isolates
+# its own workspace tests. The Hagia binary under test is still the real build.
+mkdir -p "$build_dir/config"
+chmod 700 "$build_dir/config"
+XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     cargo test --offline -q -p sophia-session --features atomic-scanout-live \
     hagia_pregraphics_profile_admission_
 

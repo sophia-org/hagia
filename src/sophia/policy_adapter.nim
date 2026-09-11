@@ -733,6 +733,12 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     adapter.model.focusNewWindows(
       adapter.outputToLogical[snapshot.activeOutput], newWindows
     )
+  # Sophia names the active output and restoring focus must not move it.
+  # `setFocus` makes its own output active, so without this the last output
+  # carrying focus in the snapshot decides where the next action lands -- on a
+  # two-output desktop where both remember a focused window, that is the wrong
+  # one. The handle was proved live when it was first established above.
+  adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
   adapter.model.validate()
 
 proc projection*(

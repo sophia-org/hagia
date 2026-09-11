@@ -3013,3 +3013,5 @@ suite "tab checkpoint compatibility":
     check restored.checkpointPayload() == adapter.checkpointPayload()
 
 include support/admission_focus
+
+include support/scroller_reload
