@@ -1,4 +1,7 @@
-import std/[json, net, options, os, posix, sets, strutils, tables, tempfiles, unittest]
+import
+  std/[
+    json, net, options, os, posix, sequtils, sets, strutils, tables, tempfiles, unittest
+  ]
 
 import config/[policy_candidate, profile]
 import types/config_values
@@ -1661,7 +1664,8 @@ suite "Hagia private policy model":
     check model.columns[column].fullWidth
     check model.columns[column].widthScale == autoScale
     check not model.windows[first].maximized
-    check model.projectLayout([output])[0].placements[0].geometry.width == 1000
+    check model.projectLayout([output])[0].placements.filterIt(it.window == first)[0].geometry.width ==
+      1000
     model.applyAction(output, PolicyAction.maximizeColumn)
     check not model.columns[column].fullWidth
     check model.columns[column].widthScale == autoScale

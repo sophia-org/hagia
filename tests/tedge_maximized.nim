@@ -261,3 +261,60 @@ suite "edge maximization follows scrolling focus":
     let restored = session.step(scene, id, PolicyAction.toggleMaximized.raw())
     check restored.placement(1).width == ordinary.width
     check not session.maximizedIntent()
+
+  test "F to M keeps the expanded column above its moving neighbor":
+    var session = edgeSession()
+    var scene = sceneFixture()
+    var id = 1'u64
+    let ordinary = session.step(scene, id)
+    let expanded = session.step(scene, id, PolicyAction.toggleMaximized.raw())
+    check expanded.outputs[0].placements[^1].surfaceIndex == 1
+    let column = session.step(scene, id, PolicyAction.maximizeColumn.raw())
+    # The neighbor's unchanged size lets Engine animate its old position
+    # outward. It overlaps the newly committed full-width pane until settled.
+    let oldNeighbor = expanded.placement(2)
+    let pane = column.placement(1)
+    check oldNeighbor.x < pane.x + pane.width
+    check oldNeighbor.x + oldNeighbor.width > pane.x
+    check column.placement(2).x >= pane.x + pane.width
+    check column.placement(2).width == oldNeighbor.width
+    check column.outputs[0].placements[^1].surfaceIndex == 1
+    check pane.x > 0
+    check pane.x + pane.width < 1600
+    check pane.presentationBits == 0
+    check column.translated(1)
+    let redraw = session.step(scene, id)
+    check redraw.outputs[0].placements[^1].surfaceIndex == 1
+    let neighbor = session.step(scene, id, PolicyAction.focusColumnNext.raw())
+    check neighbor.outputs[0].output.focusIndex == 2
+    check neighbor.placement(2).x >= 0
+    check neighbor.placement(2).x + neighbor.placement(2).width <= 1600
+    check neighbor.outputs[0].placements[0].surfaceIndex == 1
+    let returned = session.step(scene, id, PolicyAction.focusColumnPrevious.raw())
+    check returned.outputs[0].placements[^1].surfaceIndex == 1
+    # Clear M, then retained F intent: ordinary ordering must come back.
+    discard session.step(scene, id, PolicyAction.maximizeColumn.raw())
+    let restored = session.step(scene, id, PolicyAction.toggleMaximized.raw())
+    for index, placement in ordinary.outputs[0].placements:
+      check restored.outputs[0].placements[index].surfaceIndex == placement.surfaceIndex
+
+  test "direct M raises the focused column in either scrolling axis":
+    for mode in [LayoutMode.scroller, LayoutMode.verticalScroller]:
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(x: -1600, y: 32, width: 1600, height: 968))
+      var windows: seq[WindowId]
+      for _ in 0 .. 2:
+        windows.add(
+          model.addWindow(
+            output, WindowCapabilities(focusable: true), SizeConstraints()
+          )
+        )
+        model.setFocus(output, windows[^1])
+      model.setLayout(output, mode)
+      for focused in windows:
+        model.setFocus(output, focused)
+        model.applyAction(output, PolicyAction.maximizeColumn)
+        let projected = model.projectLayout([output], 8, 8)[0]
+        check projected.placements[^1].window == focused
+        check not projected.placements[^1].maximized
+        model.applyAction(output, PolicyAction.maximizeColumn)

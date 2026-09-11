@@ -105,9 +105,14 @@ without replacing the saved proportional width. Selecting edge maximization
 from column maximization clears the column mode. Fullscreen remains a separate
 presentation at physical output bounds.
 
-Effective maximized placements sit above ordinary placements; fullscreen sits
-above both. Dialogs stay above their parents. Ordinary layout order is preserved
-when expansion is suspended or disabled. Sophia validates and presents this
+Effective edge-maximized placements and the focused full-width column's pane
+sit above ordinary placements; fullscreen sits above both. Column elevation
+follows the same focused family as edge expansion, so F-to-M retains protection
+while neighboring columns animate toward their new positions. It changes only
+stacking: column geometry keeps its gaps, ordinary presentation bit, and camera
+membership. Moving focus to another tiled family releases column elevation.
+Dialogs stay above their parents. Ordinary layout order is preserved when
+neither edge nor column presentation is active. Sophia validates and presents this
 order without choosing Hagia's stacking policy.
 
 The adapter retains the last emitted maximize bit per live generational surface,

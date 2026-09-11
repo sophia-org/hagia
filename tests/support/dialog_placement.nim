@@ -703,3 +703,29 @@ suite "edge presentation follows window families":
       model.setFocus(output, window)
       check model.order(output) == settled
     model.validate()
+
+  test "full-width column elevation follows dialogs and independent floating focus":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let windows = model.stripOf(output, 3)
+    let owner = windows[0]
+    model.setFocus(output, owner)
+    model.applyAction(output, PolicyAction.maximizeColumn)
+    let dialog = model.dialogOn(output, owner, 300, 200)
+    model.setFocus(output, dialog)
+    let projected = model.projectLayout([output], 8, 8)[0]
+    check not projected.placementFor(owner).get().maximized
+    check projected.stackIndex(owner) > projected.stackIndex(windows[2])
+    check projected.stackIndex(dialog) > projected.stackIndex(owner)
+    let overlay = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFloatingGeometry(
+      output, overlay, Rect(x: 40, y: 40, width: 300, height: 200)
+    )
+    model.setFocus(output, overlay)
+    let floating = model.projectLayout([output], 8, 8)[0]
+    check floating.stackIndex(owner) > floating.stackIndex(windows[2])
+    check floating.stackIndex(overlay) > floating.stackIndex(dialog)
+    model.setFocus(output, windows[1])
+    let navigated = model.projectLayout([output], 8, 8)[0]
+    check navigated.stackIndex(owner) < navigated.stackIndex(windows[1])
+    model.validate()

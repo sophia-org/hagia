@@ -156,7 +156,7 @@ proc parentedDialogIsVisible(
     inc depth
   true
 
-proc maximizedFocusRoot(
+proc presentationFocusRoot(
     model: PolicyModel, output: OutputData, eligible: openArray[WindowId]
 ): WindowId =
   var current = output.focusedWindow
@@ -197,7 +197,7 @@ proc appendFloating(
   let scrolling =
     model.view(output.activeView).get().layout in
     {LayoutMode.scroller, LayoutMode.verticalScroller}
-  let maximizedRoot = model.maximizedFocusRoot(output, eligible)
+  let maximizedRoot = model.presentationFocusRoot(output, eligible)
   let elevated = if physical.width > 0 and physical.height > 0: physical else: bounds
   for placement in projection.placements.mitems:
     let window = model.window(placement.window).get()
@@ -904,17 +904,31 @@ proc orderPresentationLayers(
   # each layer and put focus last among equally elevated windows.
   var layers: array[3, seq[LogicalPlacement]]
   var focused: array[3, seq[LogicalPlacement]]
-  let hasEdgePresentation = projection.placements.anyIt(it.maximized)
+  let output = model.output(projection.output).get()
+  var expandedColumnRoot = nullWindowId
+  if model.view(output.activeView).get().layout in
+      {LayoutMode.scroller, LayoutMode.verticalScroller}:
+    let root =
+      model.presentationFocusRoot(output, projection.placements.mapIt(it.window))
+    let window = model.window(root)
+    if window.isSome and not window.get().floating:
+      let column = model.column(window.get().column)
+      if column.isSome and column.get().fullWidth:
+        expandedColumnRoot = root
+  let hasExpandedPresentation =
+    expandedColumnRoot != nullWindowId or projection.placements.anyIt(it.maximized)
   for placement in projection.placements:
     let window = model.window(placement.window).get()
     let layer =
       if window.fullscreen:
         2
-      elif placement.maximized or (
-        hasEdgePresentation and window.floating and placement.window == projection.focus
+      elif placement.maximized or placement.window == expandedColumnRoot or (
+        hasExpandedPresentation and window.floating and
+        placement.window == projection.focus
       ):
-        # A focused independent float overlays the retained tiled expansion.
-        # Ordinary tiled navigation instead suspends that expansion above.
+        # A full-width column needs the same protection as edge expansion:
+        # unchanged-size neighbors animate out of its newly committed bounds.
+        # Navigation releases this elevation with the focused family.
         1
       else:
         0
