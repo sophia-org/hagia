@@ -262,7 +262,7 @@ suite "edge maximization follows scrolling focus":
     check restored.placement(1).width == ordinary.width
     check not session.maximizedIntent()
 
-  test "F to M keeps the expanded column above its moving neighbor":
+  test "F hides neighbors and M restores them without retained hidden motion":
     var session = edgeSession()
     var scene = sceneFixture()
     var id = 1'u64
@@ -270,14 +270,12 @@ suite "edge maximization follows scrolling focus":
     let expanded = session.step(scene, id, PolicyAction.toggleMaximized.raw())
     check expanded.outputs[0].placements[^1].surfaceIndex == 1
     let column = session.step(scene, id, PolicyAction.maximizeColumn.raw())
-    # The neighbor's unchanged size lets Engine animate its old position
-    # outward. It overlaps the newly committed full-width pane until settled.
-    let oldNeighbor = expanded.placement(2)
+    check expanded.outputs[0].placements.len == 1
+    check expanded.translationGroups.len == 0
+    check session.committedAdapter.model.windowIds().len == 3
     let pane = column.placement(1)
-    check oldNeighbor.x < pane.x + pane.width
-    check oldNeighbor.x + oldNeighbor.width > pane.x
+    check column.outputs[0].placements.len == 3
     check column.placement(2).x >= pane.x + pane.width
-    check column.placement(2).width == oldNeighbor.width
     check column.outputs[0].placements[^1].surfaceIndex == 1
     check pane.x > 0
     check pane.x + pane.width < 1600

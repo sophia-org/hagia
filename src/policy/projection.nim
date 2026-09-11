@@ -213,6 +213,13 @@ proc appendFloating(
       placement.geometry = elevated
     elif placement.maximized:
       placement.geometry = bounds
+  # Edge presentation replaces the tiled strip, as in Triad. Keeping hidden
+  # neighbors presented lets their old animation positions leak into the gap
+  # when column mode returns. Canonical columns and camera intent stay intact.
+  if scrolling and projection.placements.anyIt(it.maximized):
+    projection.placements.keepItIf(
+      it.maximized or model.window(it.window).get().fullscreen
+    )
   var placed = initTable[WindowId, Rect]()
   for placement in projection.placements:
     placed[placement.window] = placement.geometry

@@ -138,3 +138,11 @@ Its independent regressions cover navigation, dialog owners, both scroll axes,
 F/M transitions, committed scene echoes, rejection, and checkpoint migration.
 The snapshot echo handling is Hagia-specific; no River presentation state or
 protocol code is imported.
+
+The edge-gap follow-up also adopts Triad's replacement of tiled render
+instructions while edge expansion is active, before adding floating windows.
+Hagia keeps hidden windows in canonical policy state but omits their placements
+and translation membership. Its tests cover dialog visibility, both scrolling
+axes, output isolation, and restoration through F/M and navigation. Sophia's
+independent translation regression checks that hidden members return without
+sweeping across the newly exposed gap.

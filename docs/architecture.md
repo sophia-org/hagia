@@ -96,9 +96,15 @@ pixels.
 
 Placements are ordered bottom to top. In scrolling layouts, edge maximization
 retains a private preference while deriving expansion from the output's focused
-tiled window or dialog family. Moving focus to another column restores the
-background pane's ordinary strip geometry and camera translation membership;
-returning focus restores expansion to the work-area edges. An independent
+tiled window or dialog family. While a tiled pane has effective edge expansion,
+ordinary background tiled placements and their dialogs leave the presented
+layout. Their canonical windows, columns, widths, and camera intent remain.
+Fullscreen placements retain their separate rule; independent floating overlays
+remain available. Moving focus to another column restores the strip placements
+and the background pane's ordinary geometry and camera translation membership;
+returning focus restores expansion to the work-area edges. Leaving edge mode
+therefore admits newly presented neighbors at their current layout positions,
+without replaying motion from behind the expanded pane into the new gaps. An independent
 floating overlay preserves the last tiled focus's expansion. Column maximization
 instead uses full column width with configured gaps, suppressing edge expansion
 without replacing the saved proportional width. Selecting edge maximization

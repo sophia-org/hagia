@@ -2377,7 +2377,7 @@ suite "Sophia snapshot adapter":
       discard "no banner here".dumpCheckpointJson()
 
 suite "Sophia policy session":
-  test "expanded windows stack above neighbors and restore tile order":
+  test "edge-only presentation and fullscreen layering restore tile order":
     for action in [PolicyAction.toggleMaximized, PolicyAction.toggleFullscreen]:
       for focused in [1'u32, 2'u32]:
         let output = SnapshotOutput(
@@ -2406,7 +2406,8 @@ suite "Sophia policy session":
         )
         var session = initPolicySession()
         let expanded = session.prepare(scene, request, 1)
-        require expanded.outputs[0].placements.len == 2
+        require expanded.outputs[0].placements.len ==
+          (if action == PolicyAction.toggleMaximized: 1 else: 2)
         let top = expanded.outputs[0].placements[^1]
         check top.surfaceIndex == focused
         check top.width == 900
@@ -2429,6 +2430,7 @@ suite "Sophia policy session":
         request.policyGeneration = 2
         request.cause.activationSerial = 2
         let restored = session.prepare(scene, request, 2)
+        require restored.outputs[0].placements.len == 2
         check restored.outputs[0].placements[0].surfaceIndex == 1
         check restored.outputs[0].placements[1].surfaceIndex == 2
         for placement in restored.outputs[0].placements:

@@ -626,8 +626,7 @@ suite "edge presentation follows window families":
       check projection.placementFor(owner).get().maximized
       check projection.placementFor(owner).get().geometry ==
         Rect(width: 1600, height: 1000)
-      check not projection.placementFor(background).get().maximized
-      check projection.placementFor(background).get().geometry.width < 1600
+      check projection.placementFor(background).isNone
       model.validate()
 
   test "an independent focused floating window remains above retained edge presentation":
@@ -729,3 +728,30 @@ suite "edge presentation follows window families":
     let navigated = model.projectLayout([output], 8, 8)[0]
     check navigated.stackIndex(owner) < navigated.stackIndex(windows[1])
     model.validate()
+
+  test "edge visibility hides unrelated tiled families only on its own output":
+    for mode in [LayoutMode.scroller, LayoutMode.verticalScroller]:
+      var model = initPolicyModel()
+      let left = model.addOutput(Rect(width: 1600, height: 1000))
+      let right = model.addOutput(Rect(x: 1600, width: 1200, height: 900))
+      let owner = model.addWindow(left, dialogCaps(), SizeConstraints())
+      model.setFocus(left, owner)
+      let hidden = model.addWindow(left, dialogCaps(), SizeConstraints())
+      let hiddenDialog = model.dialogOn(left, hidden, 300, 200)
+      let otherOutput = model.addWindow(right, dialogCaps(), SizeConstraints())
+      model.setLayout(left, mode)
+      model.setFocus(left, owner)
+      model.applyAction(left, PolicyAction.toggleMaximized)
+      let projections = model.projectLayout([left, right], 8, 8)
+      check projections[0].placementFor(owner).isSome
+      check projections[0].placementFor(hidden).isNone
+      check projections[0].placementFor(hiddenDialog).isNone
+      check projections[1].placementFor(otherOutput).isSome
+      check model.window(hidden).isSome
+      check model.window(hiddenDialog).isSome
+      model.setFocus(left, hidden)
+      let returned = model.projectLayout([left], 8, 8)[0]
+      check returned.placementFor(owner).isSome
+      check returned.placementFor(hidden).isSome
+      check returned.placementFor(hiddenDialog).isSome
+      model.validate()
