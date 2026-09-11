@@ -8,7 +8,15 @@
 ## dialog, the rule is spent and the rectangle is theirs.
 
 proc dialogCaps(): WindowCapabilities =
-  WindowCapabilities(movable: true, resizable: true, focusable: true, closable: true)
+  WindowCapabilities(
+    movable: true,
+    resizable: true,
+    focusable: true,
+    closable: true,
+    # Without this `toggle-fullscreen` is refused and a test that expected a
+    # fullscreen window quietly measures an ordinary one.
+    fullscreenable: true,
+  )
 
 proc dialogOn(
     model: var PolicyModel,
@@ -512,3 +520,165 @@ suite "dialog final geometry and visibility":
     check visible.placementFor(parent).isSome
     check visible.placementFor(child).isSome
     check visible.placementFor(nested).isSome
+
+suite "navigating out from under a maximized window":
+  ## A maximized window covers the whole work area and sits above ordinary
+  ## ones, which is right while it holds focus. When focus moves elsewhere the
+  ## window it moved to has to become visible, or the arrow that moved it looks
+  ## like it did nothing. Nothing unmaximizes: only the order changes.
+
+  proc order(model: PolicyModel, output: OutputId): seq[WindowId] =
+    ## Bottom-to-top, which is the order the wire consumes.
+    for placement in model.projectLayout([output], 8, 8)[0].placements:
+      result.add(placement.window)
+
+  proc stripOf(model: var PolicyModel, output: OutputId, count: int): seq[WindowId] =
+    for _ in 0 ..< count:
+      result.add(model.addWindow(output, dialogCaps(), SizeConstraints()))
+      model.setFocus(output, result[^1])
+
+  test "focus leaving a maximized window raises what it moved to":
+    ## Whichever column was expanded -- first, middle, or last -- and back
+    ## again, so the raise is not an artifact of strip position.
+    for expanded in 0 .. 2:
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 1600, height: 1000))
+      let windows = model.stripOf(output, 3)
+      model.setFocus(output, windows[expanded])
+      model.applyAction(output, PolicyAction.toggleMaximized)
+      check model.windows[windows[expanded]].maximized
+
+      var projection = model.projectLayout([output], 8, 8)[0]
+      let expandedGeometry = projection.placementFor(windows[expanded]).get().geometry
+      check projection.stackIndex(windows[expanded]) == projection.placements.high
+
+      for other in 0 .. 2:
+        if other == expanded:
+          continue
+        model.setFocus(output, windows[other])
+        projection = model.projectLayout([output], 8, 8)[0]
+        check projection.stackIndex(windows[other]) >
+          projection.stackIndex(windows[expanded])
+        # Still maximized, still the same rectangle: only the order moved.
+        check model.windows[windows[expanded]].maximized
+        check projection.placementFor(windows[expanded]).get().geometry ==
+          expandedGeometry
+
+      # And through the key the operator actually presses. The neighbour is
+      # named rather than read back, so a navigation action that moved nothing
+      # fails here instead of being accepted as "focus did not change".
+      model.setFocus(output, windows[expanded])
+      let delta = if expanded == windows.high: -1 else: 1
+      let neighbour = windows[expanded + delta]
+      model.focusColumnRelative(output, delta)
+      check model.outputs[output].focusedWindow == neighbour
+      projection = model.projectLayout([output], 8, 8)[0]
+      check projection.stackIndex(neighbour) > projection.stackIndex(windows[expanded])
+
+      # Back again, and the expanded window leads once more.
+      model.focusColumnRelative(output, -delta)
+      check model.outputs[output].focusedWindow == windows[expanded]
+      projection = model.projectLayout([output], 8, 8)[0]
+      check projection.stackIndex(windows[expanded]) == projection.placements.high
+      model.validate()
+
+  test "a focused dialog rises with its parent past an unrelated maximized window":
+    ## Raising the focused window alone would leave an ordinary parent behind
+    ## the maximized one while its own dialog floated over the top.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let expanded = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFocus(output, expanded)
+    model.applyAction(output, PolicyAction.toggleMaximized)
+    let parent = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFocus(output, parent)
+    let dialog = model.dialogOn(output, parent, 300, 200)
+    model.setFocus(output, dialog)
+
+    let projection = model.projectLayout([output], 8, 8)[0]
+    check projection.stackIndex(parent) > projection.stackIndex(expanded)
+    check projection.stackIndex(dialog) > projection.stackIndex(parent)
+    check model.windows[expanded].maximized
+    model.validate()
+
+  test "a focused dialog of a maximized parent leads another maximized window":
+    ## Run with the dialog's owner created first and created last. Created
+    ## last it would lead on strip order alone, which would let the old
+    ## ordering pass without ever raising the family.
+    for ownerFirst in [true, false]:
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 1600, height: 1000))
+      var owner, background: WindowId
+      for index in 0 .. 1:
+        let window = model.addWindow(output, dialogCaps(), SizeConstraints())
+        model.setFocus(output, window)
+        model.applyAction(output, PolicyAction.toggleMaximized)
+        if (index == 0) == ownerFirst:
+          owner = window
+        else:
+          background = window
+      let dialog = model.dialogOn(output, owner, 300, 200)
+      model.setFocus(output, dialog)
+
+      let projection = model.projectLayout([output], 8, 8)[0]
+      check projection.stackIndex(owner) > projection.stackIndex(background)
+      check projection.stackIndex(dialog) > projection.stackIndex(owner)
+      check model.windows[background].maximized
+      check model.windows[owner].maximized
+      model.validate()
+
+  test "a fullscreen window keeps the screen whatever else holds focus":
+    ## Fullscreen is an explicit claim on the display, not a focus-following
+    ## elevation, and it stays above a focused ordinary window.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let windows = model.stripOf(output, 3)
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.toggleFullscreen)
+    model.setFocus(output, windows[1])
+    model.applyAction(output, PolicyAction.toggleMaximized)
+    let dialog = model.dialogOn(output, windows[0], 300, 200)
+    check model.windows[windows[0]].fullscreen
+    check model.windows[windows[1]].maximized
+
+    # An ordinary window takes focus. It rises past the maximized one and
+    # stays under the fullscreen claim and the dialog that belongs to it.
+    model.setFocus(output, windows[2])
+    let projection = model.projectLayout([output], 8, 8)[0]
+    check projection.stackIndex(windows[2]) > projection.stackIndex(windows[1])
+    check projection.stackIndex(windows[0]) > projection.stackIndex(windows[2])
+    check projection.stackIndex(dialog) > projection.stackIndex(windows[0])
+    model.validate()
+
+  test "unmaximizing restores the ordinary tile order":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let windows = model.stripOf(output, 3)
+    model.setFocus(output, windows[0])
+    let before = model.order(output)
+
+    model.applyAction(output, PolicyAction.toggleMaximized)
+    model.setFocus(output, windows[2])
+    model.setFocus(output, windows[0])
+    model.applyAction(output, PolicyAction.toggleMaximized)
+    check not model.windows[windows[0]].maximized
+
+    check model.order(output) == before
+    model.validate()
+
+  test "without a maximized window the order is the one the layout made":
+    ## The raise is conditional. With nothing expanded, focus must not reshuffle
+    ## the strip -- including floating windows, which all share one layer.
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    let windows = model.stripOf(output, 3)
+    let floating = model.addWindow(output, dialogCaps(), SizeConstraints())
+    model.setFloatingGeometry(
+      output, floating, Rect(x: 40, y: 40, width: 300, height: 200)
+    )
+    model.setFocus(output, windows[0])
+    let settled = model.order(output)
+    for window in windows:
+      model.setFocus(output, window)
+      check model.order(output) == settled
+    model.validate()

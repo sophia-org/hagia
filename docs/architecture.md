@@ -96,10 +96,14 @@ pixels.
 
 Placements are ordered bottom to top. After computing a layout, Hagia places
 maximized windows above ordinary windows and fullscreen windows above both.
-The focused window is last within its elevated layer; other relative order
-is stable. This keeps a neighbor from covering an expanded window while
-preserving the tile order restored when expansion is toggled off. Sophia
-validates and presents this order without choosing Hagia's stacking policy.
+The focused window is last within its elevated layer. When a maximized window
+is present, the focused window's whole parent/dialog family is raised above
+background maximized families, below unrelated fullscreen families. Navigation
+therefore reveals its target without clearing the background window's maximized
+state or changing its work-area geometry. Dialogs stay above their parents.
+Without maximization, ordinary layout order is unchanged, including the tile
+order restored when expansion is toggled off. Sophia validates and presents
+this order without choosing Hagia's stacking policy.
 
 ### The scroller
 

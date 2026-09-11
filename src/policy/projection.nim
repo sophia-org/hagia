@@ -867,8 +867,13 @@ proc orderPresentationLayers(
   # each layer and put focus last among equally elevated windows.
   var layers: array[3, seq[LogicalPlacement]]
   var focused: array[3, seq[LogicalPlacement]]
+  var hasMaximized = false
+  var fullscreen = initHashSet[WindowId]()
   for placement in projection.placements:
     let window = model.window(placement.window).get()
+    hasMaximized = hasMaximized or window.maximized
+    if window.fullscreen:
+      fullscreen.incl(placement.window)
     let layer =
       if window.fullscreen:
         2
@@ -890,6 +895,7 @@ proc orderPresentationLayers(
   # parent that owns an open dialog must not put the parent over its own
   # dialog, which is the one arrangement that makes the dialog unreachable.
   var children = initTable[WindowId, seq[LogicalPlacement]]()
+  var parents = initTable[WindowId, WindowId]()
   var roots: seq[LogicalPlacement]
   var present = initHashSet[WindowId]()
   for placement in ordered:
@@ -903,8 +909,36 @@ proc orderPresentationLayers(
         nullWindowId
     if parent != nullWindowId and parent in present:
       children.mgetOrPut(parent, @[]).add(placement)
+      parents[placement.window] = parent
     else:
       roots.add(placement)
+
+  # A background maximized window must not hide the next navigation target.
+  # Raise its whole family so a focused dialog keeps its parent beneath it.
+  # Fullscreen families retain their separate elevation; without maximization,
+  # the layout's ordinary order remains unchanged.
+  if hasMaximized:
+    var focusedRoot = projection.focus
+    for _ in 0 ..< maxFamilyDepth:
+      let parent = parents.getOrDefault(focusedRoot, nullWindowId)
+      if parent == nullWindowId:
+        break
+      focusedRoot = parent
+    if focusedRoot notin fullscreen:
+      var focusIndex = -1
+      for index, root in roots:
+        if root.window == focusedRoot:
+          focusIndex = index
+          break
+      if focusIndex >= 0:
+        let focusedFamily = roots[focusIndex]
+        roots.delete(focusIndex)
+        var destination = roots.len
+        for index, root in roots:
+          if root.window in fullscreen:
+            destination = index
+            break
+        roots.insert(focusedFamily, destination)
 
   # Siblings stack by how recently each was focused, oldest first, so the one
   # last worked in is the one on top.
