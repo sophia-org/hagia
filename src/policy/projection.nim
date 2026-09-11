@@ -1,4 +1,4 @@
-import std/[math, options, sequtils, tables]
+import std/[algorithm, math, options, sequtils, sets, tables]
 
 import ../types/[core, model, projection]
 import ./[entity_store, state]
@@ -59,24 +59,159 @@ proc insetExtent(extent, gap: int32): int32 =
     return high(int32)
   int32(value)
 
+proc centeredOnParent(
+    bounds: Rect, constraints: SizeConstraints, size, parentRect: Rect
+): Rect =
+  ## A dialog sits in the middle of its parent and inside the output.
+  ##
+  ## The size is the client's and only the position follows, so a parent that
+  ## scrolled, maximised, or went fullscreen carries its dialog along without a
+  ## second pass and without anything being stored between cycles.
+  result = size
+  result.width = size.width.clamp(constraints.minWidth, constraints.maxWidth)
+  result.height = size.height.clamp(constraints.minHeight, constraints.maxHeight)
+  # Shrink to the screen before positioning: a dialog wider than the output can
+  # never be both centred and whole. A minimum that does not fit is honoured
+  # anyway -- the client cannot draw smaller, so overhang is the truthful
+  # answer and the clamp below keeps its top-left corner reachable.
+  if result.width > bounds.width:
+    result.width = max(constraints.minWidth, bounds.width)
+  if result.height > bounds.height:
+    result.height = max(constraints.minHeight, bounds.height)
+  result.x = parentRect.x + (parentRect.width - result.width) div 2
+  result.y = parentRect.y + (parentRect.height - result.height) div 2
+  # Written out rather than clamped, because the clamp in this module reads
+  # zero as unbounded and an output legitimately starts at zero.
+  if result.x < bounds.x:
+    result.x = bounds.x
+  elif result.x + result.width > bounds.x + bounds.width:
+    result.x = max(bounds.x, bounds.x + bounds.width - result.width)
+  if result.y < bounds.y:
+    result.y = bounds.y
+  elif result.y + result.height > bounds.y + bounds.height:
+    result.y = max(bounds.y, bounds.y + bounds.height - result.height)
+
+proc overlaps(first, second: Rect): bool =
+  first.width > 0 and first.height > 0 and second.width > 0 and second.height > 0 and
+    first.x < second.x + second.width and second.x < first.x + first.width and
+    first.y < second.y + second.height and second.y < first.y + first.height
+
+proc resolveFloating(
+    model: PolicyModel,
+    bounds: Rect,
+    placed: Table[WindowId, Rect],
+    resolved: var Table[WindowId, Rect],
+    windowId: WindowId,
+    depth: int,
+): Rect =
+  ## Where a floating window ends up this cycle. Nested dialogs resolve through
+  ## their parents, which is why this recurses rather than reading a table: a
+  ## dialog on a dialog on a scrolled column has no stored answer.
+  if windowId in resolved:
+    return resolved[windowId]
+  let window = model.windows[windowId]
+  result = window.floatingGeometry
+  if depth > 0 and window.floatingIntent == FloatingIntent.automatic and
+      window.kind == WindowKind.dialog and window.parent in model.windows:
+    var parentRect = Rect()
+    if window.parent in placed:
+      parentRect = placed[window.parent]
+    elif model.windows[window.parent].floating:
+      parentRect =
+        model.resolveFloating(bounds, placed, resolved, window.parent, depth - 1)
+    if parentRect.width > 0 and parentRect.height > 0:
+      result = bounds.centeredOnParent(window.constraints, result, parentRect)
+  resolved[windowId] = result
+
+proc parentedDialogIsVisible(
+    model: PolicyModel,
+    bounds: Rect,
+    placed: Table[WindowId, Rect],
+    resolved: var Table[WindowId, Rect],
+    eligible: openArray[WindowId],
+    windowId: WindowId,
+): bool =
+  ## A dialog shows while the window it belongs to does. Focus is not part of
+  ## this: a dialog left open while the operator works elsewhere on the same
+  ## screen stays where they left it, and only its parent leaving takes it.
+  var ancestor = model.windows[windowId].parent
+  var depth = 0
+  while depth < maxFamilyDepth:
+    if model.windows[windowId].kind != WindowKind.dialog or ancestor notin model.windows:
+      return true
+    let parent = model.windows[ancestor]
+    if parent.minimized or ancestor notin eligible:
+      return false
+    var parentRect = Rect()
+    if ancestor in placed:
+      parentRect = placed[ancestor]
+    elif parent.floating:
+      parentRect =
+        model.resolveFloating(bounds, placed, resolved, ancestor, maxFamilyDepth)
+    if not parentRect.overlaps(bounds):
+      return false
+    if parent.kind != WindowKind.dialog or parent.parent notin model.windows:
+      return true
+    ancestor = parent.parent
+    inc depth
+  true
+
 proc appendFloating(
     model: PolicyModel,
     outputId: OutputId,
     eligible: openArray[WindowId],
     projection: var LogicalOutputProjection,
+    physical: Rect = Rect(),
 ) =
+  # Every tiled placement for this cycle is already in the projection, so a
+  # parent's final rectangle is available here without storing it or waiting a
+  # cycle for it. Elevated windows take their final rectangle first: a dialog
+  # centred on a parent that is about to be expanded, or hidden because that
+  # parent was off screen before it was, would both be answering a question
+  # about geometry nobody ends up with.
+  let bounds = model.outputs[outputId].bounds
+  let elevated = if physical.width > 0 and physical.height > 0: physical else: bounds
+  for placement in projection.placements.mitems:
+    let window = model.windows[placement.window]
+    if window.fullscreen:
+      placement.geometry = elevated
+    elif window.maximized:
+      placement.geometry = bounds
+  var placed = initTable[WindowId, Rect]()
+  for placement in projection.placements:
+    placed[placement.window] = placement.geometry
+  var resolved = initTable[WindowId, Rect]()
+  # An elevated floating parent has one answer whatever order it is reached in.
+  # Seeded up front, and into both tables, so a child admitted before its
+  # parent cannot resolve against the rectangle the parent used to have.
   for windowId in eligible:
     let window = model.windows[windowId]
     if not window.floating:
       continue
+    if window.fullscreen:
+      placed[windowId] = elevated
+      resolved[windowId] = elevated
+    elif window.maximized:
+      placed[windowId] = bounds
+      resolved[windowId] = bounds
+  for windowId in eligible:
+    let window = model.windows[windowId]
+    if not window.floating:
+      continue
+    if not model.parentedDialogIsVisible(bounds, placed, resolved, eligible, windowId):
+      continue
+    # Elevated windows were seeded above, so this returns their final
+    # rectangle rather than re-centring them on a parent.
+    let geometry =
+      model.resolveFloating(bounds, placed, resolved, windowId, maxFamilyDepth)
+    placed[windowId] = geometry
     projection.placements.add(
       LogicalPlacement(
         window: windowId,
-        geometry: window.floatingGeometry,
-        requestedWidth: window.floatingGeometry.width.clamp(
-          window.constraints.minWidth, window.constraints.maxWidth
-        ),
-        requestedHeight: window.floatingGeometry.height.clamp(
+        geometry: geometry,
+        requestedWidth:
+          geometry.width.clamp(window.constraints.minWidth, window.constraints.maxWidth),
+        requestedHeight: geometry.height.clamp(
           window.constraints.minHeight, window.constraints.maxHeight
         ),
       )
@@ -103,6 +238,7 @@ proc projectScroller*(
     outerGap: int32 = 0,
     innerGap: int32 = 0,
     viewportOffset: int32 = 0,
+    physical: Rect = Rect(),
 ): seq[LogicalOutputProjection] =
   model.validate()
   let safeOuterGap = max(0'i32, outerGap)
@@ -121,7 +257,7 @@ proc projectScroller*(
 
     var projection = LogicalOutputProjection(output: outputId)
     if columns.len == 0:
-      model.appendFloating(outputId, eligible, projection)
+      model.appendFloating(outputId, eligible, projection, physical)
       model.selectFocus(output.get(), eligible, projection)
       result.add(projection)
       continue
@@ -311,7 +447,7 @@ proc projectScroller*(
           )
         )
         y += int64(height) + int64(safeInnerGap)
-    model.appendFloating(outputId, eligible, projection)
+    model.appendFloating(outputId, eligible, projection, physical)
     model.selectFocus(output.get(), eligible, projection)
     result.add(projection)
 
@@ -449,7 +585,11 @@ proc spiralSplit(area: Rect, side: int, ratio: Scale, gap: int32): (Rect, Rect) 
       )
 
 proc projectNative(
-    model: PolicyModel, outputId: OutputId, mode: LayoutMode, outerGap, innerGap: int32
+    model: PolicyModel,
+    outputId: OutputId,
+    mode: LayoutMode,
+    outerGap, innerGap: int32,
+    physical = Rect(),
 ): LogicalOutputProjection =
   let output = model.outputs[outputId]
   let eligible =
@@ -674,23 +814,30 @@ proc projectNative(
         else:
           tiled[0]
       model.appendPlacement(selected, bounds, result)
-  model.appendFloating(outputId, eligible, result)
+  model.appendFloating(outputId, eligible, result, physical)
   var visible: seq[WindowId]
   for placement in result.placements:
     visible.add(placement.window)
   model.selectFocus(output, visible, result)
 
 proc projectVerticalScroller(
-    model: PolicyModel, outputId: OutputId, outerGap, innerGap, viewportOffset: int32
+    model: PolicyModel,
+    outputId: OutputId,
+    outerGap, innerGap, viewportOffset: int32,
+    physical = Rect(),
 ): LogicalOutputProjection =
   let transposed = model.transposedForVerticalScroller(outputId)
-  result = transposed.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]
+  # The strip is turned on its side, and so is the display it is measured
+  # against, or a fullscreen window would be given the wrong axis.
+  result = transposed.projectScroller(
+    [outputId], outerGap, innerGap, viewportOffset, physical.transpose()
+  )[0]
   for placement in result.placements.mitems:
     placement.geometry = placement.geometry.transpose()
     swap(placement.requestedWidth, placement.requestedHeight)
 
 proc projectTabbed(
-    model: PolicyModel, outputId: OutputId, outerGap, innerGap: int32
+    model: PolicyModel, outputId: OutputId, outerGap, innerGap: int32, physical = Rect()
 ): LogicalOutputProjection =
   var prepared = model.clone()
   prepared.syncTabTrees()
@@ -708,7 +855,7 @@ proc projectTabbed(
     prepared.appendPlacement(placement.window, placement.geometry, result)
   let eligible =
     prepared.eligibleWindows(outputId).filterIt(not prepared.windows[it].minimized)
-  prepared.appendFloating(outputId, eligible, result)
+  prepared.appendFloating(outputId, eligible, result, physical)
   let visible = result.placements.mapIt(it.window)
   prepared.selectFocus(output, visible, result)
 
@@ -733,10 +880,65 @@ proc orderPresentationLayers(
       focused[layer].add(placement)
     else:
       layers[layer].add(placement)
-  projection.placements.setLen(0)
+  var ordered: seq[LogicalPlacement]
   for layer in 0 .. 2:
-    projection.placements.add(layers[layer])
-    projection.placements.add(focused[layer])
+    ordered.add(layers[layer])
+    ordered.add(focused[layer])
+
+  # A dialog belongs directly above the window it is for, whatever layer that
+  # window ended up in. Family order outranks the focus raise above: raising a
+  # parent that owns an open dialog must not put the parent over its own
+  # dialog, which is the one arrangement that makes the dialog unreachable.
+  var children = initTable[WindowId, seq[LogicalPlacement]]()
+  var roots: seq[LogicalPlacement]
+  var present = initHashSet[WindowId]()
+  for placement in ordered:
+    present.incl(placement.window)
+  for placement in ordered:
+    let window = model.window(placement.window)
+    let parent =
+      if window.isSome:
+        window.get().parent
+      else:
+        nullWindowId
+    if parent != nullWindowId and parent in present:
+      children.mgetOrPut(parent, @[]).add(placement)
+    else:
+      roots.add(placement)
+
+  # Siblings stack by how recently each was focused, oldest first, so the one
+  # last worked in is the one on top.
+  let history = model.outputs[projection.output].focusHistory
+  proc recency(window: WindowId): int =
+    result = history.find(window)
+    if result < 0:
+      result = low(int)
+
+  projection.placements.setLen(0)
+  # Walked with an explicit stack: a root is emitted, then its family directly
+  # above it, then the next root.
+  var pending: seq[(LogicalPlacement, int)]
+  for index in countdown(roots.high, 0):
+    pending.add((roots[index], maxFamilyDepth))
+  while pending.len > 0:
+    let (placement, depth) = pending.pop()
+    projection.placements.add(placement)
+    if placement.window notin children:
+      continue
+    if depth <= 0:
+      # Deeper than the bound walks. The order stops being refined, but every
+      # placement still reaches the projection: dropping one would take a
+      # window off the screen to tidy a stack.
+      for child in children[placement.window]:
+        pending.add((child, 0))
+      continue
+    var family = children[placement.window]
+    family.sort(
+      proc(left, right: LogicalPlacement): int =
+        cmp(recency(left.window), recency(right.window))
+    )
+    for index in countdown(family.high, 0):
+      pending.add((family[index], depth - 1))
 
 proc projectLayout*(
     model: PolicyModel,
@@ -744,25 +946,34 @@ proc projectLayout*(
     outerGap: int32 = 0,
     innerGap: int32 = 0,
     viewportOffset: int32 = 0,
+    physicalBounds: openArray[(OutputId, Rect)] = [],
 ): seq[LogicalOutputProjection] =
   model.validate()
   for outputId in affectedOutputs:
     if outputId notin model.outputs:
       raise newException(PolicyStateError, "projection output does not exist")
     let mode = model.views[model.outputs[outputId].activeView].layout
+    var physical = Rect()
+    for (candidate, rect) in physicalBounds:
+      if candidate == outputId:
+        physical = rect
     case mode
     of LayoutMode.frameTree, LayoutMode.notion, LayoutMode.splitTree, LayoutMode.dwindle:
-      result.add(model.projectTabbed(outputId, outerGap, innerGap))
+      result.add(model.projectTabbed(outputId, outerGap, innerGap, physical))
     of LayoutMode.scroller:
       result.add(
-        model.projectScroller([outputId], outerGap, innerGap, viewportOffset)[0]
+        model.projectScroller([outputId], outerGap, innerGap, viewportOffset, physical)[
+          0
+        ]
       )
     of LayoutMode.verticalScroller:
       result.add(
-        model.projectVerticalScroller(outputId, outerGap, innerGap, viewportOffset)
+        model.projectVerticalScroller(
+          outputId, outerGap, innerGap, viewportOffset, physical
+        )
       )
     of LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle, LayoutMode.centerTile,
         LayoutMode.rightTile, LayoutMode.verticalGrid, LayoutMode.deck,
         LayoutMode.spiral, LayoutMode.tgmix:
-      result.add(model.projectNative(outputId, mode, outerGap, innerGap))
+      result.add(model.projectNative(outputId, mode, outerGap, innerGap, physical))
     model.orderPresentationLayers(result[^1])

@@ -106,6 +106,16 @@ type
     slot*: uint16
     targetBits*: uint16
 
+  LaunchOriginRecord* = object
+    ## One opaque launch context, in either direction. Outbound it names a
+    ## window whose place a launch could inherit; inbound it names the first
+    ## surface of a child and the context frozen when that child connected.
+    ## Index zero is a valid surface, so presence is carried by the generation.
+    surfaceIndex*: uint32
+    surfaceGeneration*: uint32
+    epoch*: uint64
+    token*: uint64
+
   SnapshotSurfaceClassification* = object
     surfaceIndex*: uint32
     surfaceGeneration*: uint32
@@ -153,6 +163,14 @@ type
     presentationBits*: uint16
 
 const
+  ## Optional capability: launch origin. Hagia publishes an opaque context
+  ## token for each live managed window it could place a launch against, and
+  ## Sophia echoes the one it froze when a child connected. Negotiated whenever
+  ## both sides support it; there is no profile setting, because a token that
+  ## is never echoed costs nothing and the placement it enables is what an
+  ## operator already expects.
+  capabilityLaunchOrigin* = 1'u64 shl 14
+
   ## Optional capability: Sophia may send `pointerFocus` projection causes.
   ## Requested only when the profile turns focus-follows-mouse on, so a server
   ## that selects it is telling the codec those causes are expected.
@@ -161,6 +179,8 @@ const
   ## Snapshot record discriminator and the capability bit the codec reads to
   ## decide whether a surface may take focus.
   snapshotSurfaceClassificationRecordKind* = 0xFF00'u16
+  projectionLaunchContextRecordKind* = 0xFF05'u16
+  snapshotLaunchOriginRecordKind* = 0xFF06'u16
   surfaceFocusable* = 1'u16 shl 2
 
   frameHeaderLen* = 24
@@ -173,6 +193,8 @@ const
   snapshotSurfaceSize* = 80
   snapshotActionSize* = 140
   snapshotSurfaceClassificationSize* = 16
+  launchOriginRecordSize* = 24
+  maxLaunchOriginRecords* = 1024
   snapshotSessionOperationSize* = 12
   projectionOutputSize* = 24
   projectionPlacementSize* = 60

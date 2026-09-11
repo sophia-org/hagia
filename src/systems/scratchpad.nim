@@ -42,6 +42,7 @@ proc showScratchpad*(model: var PolicyModel, outputId: OutputId, windowId: Windo
   model.windows[windowId].floatingGeometry = centeredGeometry(
     bounds, model.windows[windowId].constraints, scratchWidth, scratchHeight
   )
+  model.windows[windowId].floatingIntent = FloatingIntent.manual
   model.visibleScratchpad = windowId
   if model.windows[windowId].capabilities.focusable:
     model.setFocus(outputId, windowId)
@@ -77,6 +78,7 @@ proc restoreScratchpad*(model: var PolicyModel, windowId: WindowId) =
   model.windowTags[windowId] = restore.tags
   model.windows[windowId].floating = restore.floating
   model.windows[windowId].floatingGeometry = restore.floatingGeometry
+  model.windows[windowId].floatingIntent = restore.floatingIntent
   model.windows[windowId].fullscreen = restore.fullscreen
   model.windows[windowId].maximized = restore.maximized
   model.windows[windowId].minimized = restore.minimized

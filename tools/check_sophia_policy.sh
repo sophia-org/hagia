@@ -71,5 +71,23 @@ XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     cargo test --offline -q -p sophia-runtime --test policy_transport \
     hagia_pointer_focus_
 
+# Launch origin over a real X socket: the child connects, its ancestry is
+# resolved by Sophia, and the freshly built Hagia places it where its launcher
+# lives. A filter that matches nothing exits zero, so the paired case is named
+# in a listing first; without that this step could pass while covering nothing.
+origin_listing=$(XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
+    cargo test --offline -q -p sophia-session --features native-session --lib \
+    launch_origin_socket -- --list)
+case "$origin_listing" in
+    *hagia_real_x_child_origin_survives_monitor_switch_and_rejection*) ;;
+    *)
+        echo "shared gate lost the paired launch-origin case" >&2
+        exit 1
+        ;;
+esac
+XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
+    cargo test --offline -q -p sophia-session --features native-session --lib \
+    launch_origin_socket
+
 printf '%s\n' \
     'hagia_policy_behavior_corpus schema=4 status=complete revision=3 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true reconnect_restart=true preserved_commit=true'

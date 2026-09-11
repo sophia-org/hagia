@@ -390,6 +390,19 @@ proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOpe
   result.slot = bytes.u16At(8)
   result.targetBits = bytes.u16At(10)
 
+proc encodeLaunchOriginRecord*(record: LaunchOriginRecord): seq[byte] =
+  result.addU32(record.surfaceIndex)
+  result.addU32(record.surfaceGeneration)
+  result.addU64(record.epoch)
+  result.addU64(record.token)
+
+proc decodeLaunchOriginRecord*(bytes: openArray[byte]): LaunchOriginRecord =
+  bytes.requireExact(launchOriginRecordSize)
+  result.surfaceIndex = bytes.u32At(0)
+  result.surfaceGeneration = bytes.u32At(4)
+  result.epoch = bytes.u64At(8)
+  result.token = bytes.u64At(16)
+
 proc decodeSnapshotSurfaceClassification*(
     bytes: openArray[byte]
 ): SnapshotSurfaceClassification =

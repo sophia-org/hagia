@@ -63,6 +63,17 @@ type
     splitTree
     dwindle
 
+  FloatingIntent* {.pure.} = enum
+    ## Where a floating window's position comes from.
+    ##
+    ## `automatic` is a rule still to be evaluated -- a dialog sits on its
+    ## parent, wherever the parent has ended up this cycle -- and `manual` is a
+    ## position the operator chose, which nothing may recompute. The two have
+    ## to be stored apart because the rectangle they produce looks the same,
+    ## and guessing from the rectangle is how a dragged dialog springs back.
+    automatic
+    manual
+
   WindowCapabilities* = object
     movable*, resizable*, focusable*, closable*, fullscreenable*: bool
 
@@ -76,6 +87,9 @@ type
     heightScale*: Scale
     floating*: bool
     floatingGeometry*: Rect
+    ## Whether `floatingGeometry`'s position is a rule or a decision. The size
+    ## is stored either way; only the position is derived.
+    floatingIntent*: FloatingIntent
     fullscreen*: bool
     maximized*: bool
     minimized*: bool
@@ -214,6 +228,7 @@ type
     output*: OutputId
     floating*: bool
     floatingGeometry*: Rect
+    floatingIntent*: FloatingIntent
     fullscreen*: bool
     maximized*: bool
     minimized*: bool
@@ -256,6 +271,9 @@ const
   maxViewNameBytes* = 32
   maxMasterCount* = 9
   maxGap* = 512
+  ## How far a dialog chain is walked when focus falls back through it. Trees
+  ## are shallow; the bound is what makes the walk terminate regardless.
+  maxFamilyDepth* = 8
   # A master area narrower than a tenth or wider than nine tenths stops being
   # a master area, so the ratio is bounded rather than merely positive.
   minMasterRatio* = Scale(6554)

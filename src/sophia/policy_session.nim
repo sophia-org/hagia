@@ -128,6 +128,12 @@ proc prepare*(
     )
   ).model
   var candidate = session.committed.clone()
+  # The token space belongs to this connection, and the epoch is authenticated
+  # above. Settling it before reconciliation lets a current-epoch echo whose
+  # token has been evicted -- or whose cache a configuration reload rebuilt --
+  # fall back to ordinary placement, while anything from another epoch is still
+  # refused.
+  candidate.synchronizeLaunchEpoch(request.connectionEpoch)
   candidate.reconcile(snapshot)
   let operation = snapshot.operationFor(request)
   if operation.isNone:

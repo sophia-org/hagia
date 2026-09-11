@@ -32,11 +32,30 @@ proc adoptWindowOutput*(
     model.windows[windowId].column = target
   model.windows[windowId].homeOutput = outputId
   model.windows[windowId].preferredOutput = outputId
-  model.windows[windowId].floating = false
-  model.windows[windowId].floatingGeometry = Rect()
+  model.clearWindowFloating(windowId)
   let activeView = model.outputs[outputId].activeView
   model.windowTags[windowId] =
     model.windowTagIds(windowId).unionTags(model.viewTagIds(activeView))
+
+proc placeLaunchOrigin*(
+    model: var PolicyModel, windowId: WindowId, outputId: OutputId, tags: seq[TagId]
+) =
+  ## Open where the window that launched this one lives, without going there.
+  ## Active output, active view, and focus are left exactly as they are: a
+  ## launch that moved the operator would be a launch that interrupted them,
+  ## and the window is found later rather than thrown in front of them now.
+  if windowId notin model.windows or outputId notin model.outputs or tags.len == 0:
+    return
+  # A token outlives the place it names. A dynamic workspace can be pruned once
+  # its last window leaves, so the tags a context was minted against may be
+  # gone by the time a child arrives holding it. That is an ordinary placement,
+  # not a failure: membership in a tag that no longer exists would not survive
+  # validation.
+  for tag in tags:
+    if tag notin model.tags:
+      return
+  model.adoptWindowOutput(windowId, outputId)
+  model.setWindowOriginTags(windowId, tags)
 
 proc placeTransient*(
     model: var PolicyModel,
@@ -62,4 +81,4 @@ proc placeTransient*(
     geometry.y = parentGeometry.y + (parentGeometry.height - geometry.height) div 2
     geometry.x = geometry.x.clamp(bounds.x, bounds.x + bounds.width - geometry.width)
     geometry.y = geometry.y.clamp(bounds.y, bounds.y + bounds.height - geometry.height)
-  model.windows[windowId].floatingGeometry = geometry
+  model.setWindowTransientGeometry(windowId, geometry)

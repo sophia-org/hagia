@@ -8,6 +8,7 @@ import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]
 import ../types/wm_v1
 import ../types/session
+import ./policy_codec
 import ./snapshot_convert
 import ../types/tab_tree
 import ../entities/tab_tree_ops
@@ -24,6 +25,14 @@ type
     windowToSurface: Table[WindowId, uint64]
     outputToLogical: Table[uint64, OutputId]
     activeOutputToLogical: Table[OutputHandle, OutputId]
+    # Launch contexts. Session-local and deliberately absent from the
+    # checkpoint: a token means nothing to a later connection, and reviving one
+    # would point a launch at a place the operator has since rearranged.
+    launchTokens: Table[uint64, LaunchDestination]
+    launchDestinationTokens: Table[string, uint64]
+    launchTokenOrder: seq[uint64]
+    launchTokenCounter: uint64
+    launchEpoch: uint64
     dormantOutputToLogical: Table[OutputHandle, OutputId]
     logicalToOutput: Table[OutputId, OutputHandle]
     surfaceFacts: Table[WindowId, SnapshotSurface]
@@ -116,6 +125,111 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
     result.logicalToOutput[key] = value
   for key, value in adapter.surfaceFacts.pairs:
     result.surfaceFacts[key] = value
+  # Carried so a token keeps meaning the same place across cycles. A candidate
+  # that is never committed is dropped whole, and the tokens it minted go with
+  # it rather than leaking into the next attempt.
+  for key, value in adapter.launchTokens.pairs:
+    result.launchTokens[key] = value
+  for key, value in adapter.launchDestinationTokens.pairs:
+    result.launchDestinationTokens[key] = value
+  result.launchTokenOrder = adapter.launchTokenOrder
+  result.launchTokenCounter = adapter.launchTokenCounter
+  result.launchEpoch = adapter.launchEpoch
+
+proc destinationKey(destination: LaunchDestination): string =
+  result = $int(destination.output)
+  for tag in destination.tags:
+    result.add('.')
+    result.add($int(tag))
+
+proc liveLogicalOutputs(adapter: PolicyAdapter): HashSet[OutputId] =
+  ## Only outputs a live handle currently maps to. A dormant output stays in
+  ## the model so its windows can return to it, but a launch must not be placed
+  ## somewhere the operator cannot see.
+  for logical in adapter.activeOutputToLogical.values:
+    result.incl(logical)
+
+proc launchToken(
+    adapter: var PolicyAdapter,
+    destination: LaunchDestination,
+    protected: HashSet[string],
+): uint64 =
+  ## One token per destination, not per window: several windows sharing a place
+  ## share its context, which is what keeps the cache bounded by places rather
+  ## than by how many windows are open.
+  let key = destination.destinationKey()
+  if key in adapter.launchDestinationTokens:
+    return adapter.launchDestinationTokens[key]
+  adapter.launchTokenCounter += 1
+  result = adapter.launchTokenCounter
+  adapter.launchTokens[result] = destination
+  adapter.launchDestinationTokens[key] = result
+  adapter.launchTokenOrder.add(result)
+  # Evict the oldest token no place currently in use needs. Evicting a live one
+  # would hand Sophia a context that resolves to nothing on the very pass that
+  # published it, and then mint the same destination again next cycle.
+  var index = 0
+  while adapter.launchTokenOrder.len > maxLaunchOriginRecords and
+      index < adapter.launchTokenOrder.len:
+    let candidate = adapter.launchTokenOrder[index]
+    let key =
+      if candidate in adapter.launchTokens:
+        adapter.launchTokens[candidate].destinationKey()
+      else:
+        ""
+    if key.len == 0 or key notin protected:
+      adapter.launchTokenOrder.delete(index)
+      if candidate in adapter.launchTokens:
+        adapter.launchDestinationTokens.del(key)
+        adapter.launchTokens.del(candidate)
+    else:
+      inc index
+
+proc launchContexts(
+    adapter: var PolicyAdapter, epoch: uint64
+): seq[LaunchOriginRecord] =
+  ## A context for every live managed top-level, hidden ones included. A window
+  ## on a view the operator has since left is exactly the case this exists for:
+  ## the child still belongs where its launcher lives.
+  let live = adapter.liveLogicalOutputs()
+  var sources: seq[(uint64, LaunchDestination)]
+  var protected = initHashSet[string]()
+  for window in adapter.model.windowOrder:
+    if sources.len >= maxLaunchOriginRecords:
+      break
+    let data = adapter.model.windows[window]
+    if data.kind != WindowKind.toplevel or data.parent != nullWindowId or
+        window notin adapter.windowToSurface or data.homeOutput notin live:
+      continue
+    let tags = adapter.model.windowTagIds(window)
+    if tags.len == 0:
+      continue
+    let destination = LaunchDestination(output: data.homeOutput, tags: tags)
+    protected.incl(destination.destinationKey())
+    sources.add((adapter.windowToSurface[window], destination))
+  # Every destination this pass publishes is known before any is minted, so
+  # eviction cannot take one the same pass is about to hand out.
+  for (key, destination) in sources:
+    result.add(
+      LaunchOriginRecord(
+        surfaceIndex: uint32(key and 0xffffffff'u64),
+        surfaceGeneration: uint32(key shr 32),
+        epoch: epoch,
+        token: adapter.launchToken(destination, protected),
+      )
+    )
+
+proc synchronizeLaunchEpoch*(adapter: var PolicyAdapter, epoch: uint64) =
+  ## A new connection is a new token space. Anything minted under the old one
+  ## is cleared rather than reused, so a stale echo resolves to nothing and the
+  ## window it names is placed ordinarily.
+  if adapter.launchEpoch == epoch:
+    return
+  adapter.launchEpoch = epoch
+  adapter.launchTokens.clear()
+  adapter.launchDestinationTokens.clear()
+  adapter.launchTokenOrder.setLen(0)
+  adapter.launchTokenCounter = 0
 
 proc logicalWindow*(
     adapter: PolicyAdapter, surfaceIndex, surfaceGeneration: uint32
@@ -139,7 +253,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 13
+  result.schema = 14
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,17 +363,18 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-13\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-14\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
   # version 6 predates named views and placement sizing, version 7 predates
   # the scroller camera and the default column width, version 8 stored a
   # maximised column as a width, version 9 shared one camera across both
-  # scroll axes, and version 12 predates focus-follows-mouse; each migrates
-  # forward by filling the fields it could not have written.
-  var version = 13
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12]:
+  # scroll axes, version 12 predates focus-follows-mouse, and version 13 stored
+  # a floating rectangle without saying whether it was a rule or a decision;
+  # each migrates forward by filling the fields it could not have written.
+  var version = 14
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -337,6 +452,20 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       # Off is what a profile written before this key existed was getting, and
       # it is the default the key itself carries.
       node["settings"]["focusFollowsMouse"] = toJson(false)
+    if version <= 13:
+      # Every stored rectangle is treated as the operator's. A version-13
+      # payload cannot say which positions were automatic, and re-deriving one
+      # the operator had dragged would move a window they placed; leaving a
+      # genuinely automatic dialog where it is only costs it a later follow.
+      # Only where the field is absent: a payload relabelled to an older
+      # version still carries what it wrote, and a migration fills gaps rather
+      # than overwriting answers.
+      for windowNode in node["windows"]:
+        if not windowNode.hasKey("floatingIntent"):
+          windowNode["floatingIntent"] = toJson(FloatingIntent.manual)
+      for entry in node["scratchpadRestore"]:
+        if not entry["restore"].hasKey("floatingIntent"):
+          entry["restore"]["floatingIntent"] = toJson(FloatingIntent.manual)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -616,6 +745,22 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     fail("Sophia snapshot active output is not live")
   adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
 
+  # An echo is only meaningful against the token space this connection minted.
+  # Before this adapter has published anything -- a fresh process, or one
+  # restored from a checkpoint, which carries no tokens -- every echo is by
+  # definition stale. Stale is ordinary placement, not a protocol failure:
+  # refusing the cycle would drop the connection over a window that simply
+  # opens where it otherwise would have.
+  # The session synchronises the token epoch from the authenticated request
+  # before this runs, so a current-epoch echo whose token the cache no longer
+  # holds falls back to ordinary placement while a malformed or cross-epoch
+  # record is still refused.
+  snapshot.launchOrigins.validateLaunchOrigins(adapter.launchEpoch)
+  var launchOrigins = initTable[uint64, uint64]()
+  for record in snapshot.launchOrigins:
+    launchOrigins[surfaceKey(record.surfaceIndex, record.surfaceGeneration)] =
+      record.token
+
   var launchClassifications = initTable[uint64, uint64]()
   for classification in snapshot.classifications:
     launchClassifications[
@@ -685,6 +830,23 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
           adapter.model.placeWindowInViewSlot(
             window, adapter.outputToLogical[snapshot.activeOutput], int(classification)
           )
+      elif key in launchOrigins:
+        # After an explicit class and before ordinary placement. A transient
+        # owner is not resolved yet at this point in the pass: the loop below
+        # re-places any surface that turns out to have one, overwriting both
+        # the output and the tags set here, so a dialog never keeps its
+        # launcher's membership.
+        #
+        # A token the cache no longer holds, or one naming an output no live
+        # handle maps to, resolves to nothing and the window opens where it
+        # otherwise would have.
+        let token = launchOrigins[key]
+        if token in adapter.launchTokens:
+          let destination = adapter.launchTokens[token]
+          if destination.output in adapter.liveLogicalOutputs():
+            adapter.model.placeLaunchOrigin(
+              window, destination.output, destination.tags
+            )
 
   var removedSurfaces: seq[uint64]
   for key in adapter.surfaceToWindow.keys:
@@ -784,9 +946,29 @@ proc projection*(
       fail("projection request names an unknown output")
     affected.add(adapter.outputToLogical[output])
 
+  adapter.synchronizeLaunchEpoch(request.connectionEpoch)
+  result.launchContexts = adapter.launchContexts(request.connectionEpoch)
   let (outerGap, innerGap) = adapter.model.effectiveGaps()
+  # Fullscreen is the one placement that needs the physical display rather than
+  # the work area, and the logical model does not hold it. Handing it to the
+  # projection keeps the rectangle a dialog centres on and the rectangle its
+  # parent is given the same one; correcting it here afterwards would not.
+  var physicalBounds: seq[(OutputId, Rect)]
+  for candidate in snapshot.outputs:
+    if candidate.output in adapter.outputToLogical:
+      physicalBounds.add(
+        (
+          adapter.outputToLogical[candidate.output],
+          Rect(
+            x: candidate.x,
+            y: candidate.y,
+            width: candidate.width,
+            height: candidate.height,
+          ),
+        )
+      )
   for logical in adapter.model.projectLayout(
-    affected, outerGap, innerGap, adapter.model.settings.viewportOffset
+    affected, outerGap, innerGap, adapter.model.settings.viewportOffset, physicalBounds
   ):
     # The camera the projection settled on is where this view now sits, so it
     # is written back before the next projection reads it. Without this the
@@ -837,16 +1019,8 @@ proc projection*(
         fail("logical window has no current Sophia facts")
       let surface = adapter.surfaceFacts[placement.window]
       let window = adapter.model.windows[placement.window]
-      var geometry = placement.geometry
-      if window.fullscreen:
-        geometry = Rect(
-          x: outputSnapshot.x,
-          y: outputSnapshot.y,
-          width: outputSnapshot.width,
-          height: outputSnapshot.height,
-        )
-      elif window.maximized:
-        geometry = outputSnapshot.bounds()
+      # Settled inside the projection, where a dialog could still see it.
+      let geometry = placement.geometry
       var presentationBits = 0'u16
       if window.fullscreen:
         presentationBits = presentationBits or (1'u16 shl 0)

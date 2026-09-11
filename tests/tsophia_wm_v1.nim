@@ -129,12 +129,20 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 13
+  check lines.len == 15
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
     let bytes = fields[1].decodeHex()
     case fields[0]
+    of "projection_launch_context", "snapshot_launch_origin":
+      # One fixed layout in both directions. Index zero is a valid surface, so
+      # the generation is what says a context is present at all.
+      let record = bytes.decodeLaunchOriginRecord()
+      check record.surfaceIndex == 3
+      check record.surfaceGeneration == 1
+      check record.epoch == 1
+      check record.token == 1
     of "snapshot_output":
       check bytes.decodeSnapshotOutput().output == 1
     of "snapshot_surface":

@@ -113,7 +113,8 @@ proc negotiatePolicy(
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
-      optional or capabilityTabGroups or capabilityTranslationGroups
+      optional or capabilityTabGroups or capabilityTranslationGroups or
+      capabilityLaunchOrigin
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -240,6 +241,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   var actions: seq[SnapshotAction]
   var sessionOperations: seq[SnapshotSessionOperation]
   var classifications: seq[SnapshotSurfaceClassification]
+  var launchOrigins: seq[LaunchOriginRecord]
   for ordinal in 0 ..< chunkCount:
     let chunk = client.receiveFrame(MessageKind.snapshotChunk)
     if chunk.transaction != begin.transaction or
@@ -293,23 +295,41 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   var nextOrdinal = chunkCount
   var finish = client.receiveFrame()
   while finish.kind == MessageKind.snapshotChunk:
-    if (client.capabilities and capabilityLaunchPlacement) == 0 or
-        finish.transaction != begin.transaction or
+    let recordKind = finish.payload.u16At(10)
+    let admitted =
+      (
+        recordKind == snapshotSurfaceClassificationRecordKind and
+        (client.capabilities and capabilityLaunchPlacement) != 0
+      ) or (
+        recordKind == snapshotLaunchOriginRecordKind and
+        (client.capabilities and capabilityLaunchOrigin) != 0
+      )
+    if not admitted or finish.transaction != begin.transaction or
         finish.payload.u64At(0) != client.connectionEpoch or
-        int(finish.payload.u16At(8)) != nextOrdinal or
-        finish.payload.u16At(10) != snapshotSurfaceClassificationRecordKind:
+        int(finish.payload.u16At(8)) != nextOrdinal:
       fail("policy snapshot extension identity is invalid")
     let itemCount = int(finish.payload.u32At(12))
-    if itemCount == 0 or
-        finish.payload.len != 16 + itemCount * snapshotSurfaceClassificationSize or
-        classifications.len + itemCount > maxSurfaces:
-      fail("policy surface-classification chunk count is invalid")
-    for index in 0 ..< itemCount:
-      classifications.add(
-        finish.payload
-          .recordBytes(index, snapshotSurfaceClassificationSize)
-          .decodeSnapshotSurfaceClassification()
-      )
+    if recordKind == snapshotSurfaceClassificationRecordKind:
+      if itemCount == 0 or
+          finish.payload.len != 16 + itemCount * snapshotSurfaceClassificationSize or
+          classifications.len + itemCount > maxSurfaces:
+        fail("policy surface-classification chunk count is invalid")
+      for index in 0 ..< itemCount:
+        classifications.add(
+          finish.payload
+            .recordBytes(index, snapshotSurfaceClassificationSize)
+            .decodeSnapshotSurfaceClassification()
+        )
+    else:
+      if itemCount == 0 or finish.payload.len != 16 + itemCount * launchOriginRecordSize or
+          launchOrigins.len + itemCount > maxLaunchOriginRecords:
+        fail("policy launch origin chunk count is invalid")
+      for index in 0 ..< itemCount:
+        launchOrigins.add(
+          finish.payload
+            .recordBytes(index, launchOriginRecordSize)
+            .decodeLaunchOriginRecord()
+        )
     inc nextOrdinal
     finish = client.receiveFrame()
   if finish.kind != MessageKind.snapshotEnd:
@@ -329,6 +349,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
     actions: actions,
     sessionOperations: sessionOperations,
     classifications: classifications,
+    launchOrigins: launchOrigins,
   )
   result.validateSnapshot()
 
@@ -539,6 +560,36 @@ proc sendProjection(
         )
         inc extensionOrdinal
         start = finish
+
+  # Launch contexts. Published on every projection; Sophia only trusts the ones
+  # that belong to a cycle it committed.
+  if (client.capabilities and capabilityLaunchOrigin) != 0 and
+      projection.launchContexts.len > 0:
+    if projection.launchContexts.len > maxLaunchOriginRecords:
+      fail("too many launch contexts")
+    var data: seq[byte]
+    for record in projection.launchContexts:
+      data.add(record.encodeLaunchOriginRecord())
+    let limit =
+      (client.maxChunkBytes div launchOriginRecordSize) * launchOriginRecordSize
+    if limit == 0:
+      fail("negotiated launch context chunk limit is too small")
+    var start = 0
+    while start < data.len:
+      let finish = min(start + limit, data.len)
+      var payload: seq[byte]
+      payload.addU64(client.connectionEpoch)
+      payload.addU16(extensionOrdinal)
+      payload.addU16(projectionLaunchContextRecordKind)
+      payload.addU32(uint32((finish - start) div launchOriginRecordSize))
+      payload.add(data[start ..< finish])
+      client.sendFrame(
+        Frame(
+          kind: MessageKind.projectionChunk, transaction: transaction, payload: payload
+        )
+      )
+      inc extensionOrdinal
+      start = finish
 
   var endPayload: seq[byte]
   endPayload.addU64(client.connectionEpoch)

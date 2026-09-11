@@ -56,11 +56,58 @@ proc addWindow*(
         model.views[view].openingOffset = model.views[view].viewportOffset
         model.views[view].openingOffsetY = model.views[view].viewportOffsetY
 
+proc familyFocusFallback(
+    model: PolicyModel, outputId: OutputId, closing, parent: WindowId
+): WindowId =
+  ## Where focus goes when a dialog closes: the most recently used dialog still
+  ## open on the same window, then the window it belongs to, then that window's
+  ## own parent. Nothing outside the family is eligible here, because a dialog
+  ## closing must not pull focus off whatever else the operator left open.
+  if parent notin model.windows:
+    return nullWindowId
+  let eligible = model.eligibleWindows(outputId)
+  proc showing(candidate: WindowId): bool =
+    ## A dialog hidden by something above it in its family is not a place to
+    ## put focus: choosing it would leave the operator typing into a window
+    ## the projection is not drawing.
+    var ancestor = model.windows[candidate].parent
+    var depth = 0
+    while ancestor in model.windows and depth < maxFamilyDepth:
+      if model.windows[ancestor].minimized or ancestor notin eligible:
+        return false
+      ancestor = model.windows[ancestor].parent
+      inc depth
+    true
+
+  proc usable(candidate: WindowId): bool =
+    candidate != closing and candidate in model.windows and candidate in eligible and
+      not model.windows[candidate].minimized and
+      model.windows[candidate].capabilities.focusable and
+      model.windows[candidate].homeOutput == outputId and candidate.showing()
+
+  let history = model.outputs[outputId].focusHistory
+  for index in countdown(history.high, 0):
+    let candidate = history[index]
+    if candidate.usable() and model.windows[candidate].parent == parent and
+        model.windows[candidate].kind == WindowKind.dialog:
+      return candidate
+  var ancestor = parent
+  var depth = 0
+  while ancestor in model.windows and depth < maxFamilyDepth:
+    if ancestor.usable():
+      return ancestor
+    ancestor = model.windows[ancestor].parent
+    inc depth
+  nullWindowId
+
 proc removeWindow*(model: var PolicyModel, id: WindowId) =
   if id notin model.windows:
     return
   model.forgetTabWindow(id)
   let column = model.windows[id].column
+  # Read before the relations below are unpicked.
+  let closingParent = model.windows[id].parent
+  let closingKind = model.windows[id].kind
   model.scratchpadOrder.keepItIf(it != id)
   model.scratchpadRestore.del(id)
   if model.visibleScratchpad == id:
@@ -75,6 +122,25 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
   for windowId in model.windowOrder:
     if windowId != id and model.windows[windowId].parent == id:
       model.windows[windowId].parent = nullWindowId
+  # A dialog hands focus back inside its own family first. Only when the family
+  # has nothing left does the ordinary column fallback below decide.
+  if closingKind == WindowKind.dialog and closingParent != nullWindowId:
+    for outputId in model.outputOrder:
+      if model.outputs[outputId].focusedWindow != id:
+        continue
+      let heir = model.familyFocusFallback(outputId, id, closingParent)
+      if heir != nullWindowId:
+        # `setFocus` makes its output active. Closing a dialog on a monitor the
+        # operator is not looking at must leave that alone: the output keeps
+        # its own focus record, and the active one stays where it was.
+        let active = model.activeOutput
+        model.setFocus(outputId, heir)
+        # Assigned rather than routed through `setActiveOutput`, which lives in
+        # the sibling output entity module; this is the entity layer, the value
+        # was read from the model a line ago, and it is checked before use.
+        if active in model.outputs:
+          model.activeOutput = active
+
   # Closing the freshly opened column returns to its opening context. Other
   # removals leave a surviving focused column anchored by the next projection.
   for outputId in model.outputOrder:
@@ -156,6 +222,40 @@ proc updateWindowFacts*(
   model.windows[id].capabilities = capabilities
   model.windows[id].constraints = constraints
 
+proc clearWindowFloating*(model: var PolicyModel, windowId: WindowId) =
+  ## Tiling a window drops both the rectangle it floated at and the rule that
+  ## produced it. Keeping the rule would re-derive a position for a window that
+  ## no longer has one.
+  if windowId notin model.windows:
+    return
+  model.windows[windowId].floating = false
+  model.windows[windowId].floatingGeometry = Rect()
+  model.windows[windowId].floatingIntent = FloatingIntent.automatic
+
+proc setWindowTransientGeometry*(
+    model: var PolicyModel, windowId: WindowId, geometry: Rect
+) =
+  ## Place a dialog against its parent, honouring a position the operator has
+  ## already chosen. A pinned dialog still adopts the size this admission asks
+  ## for, which is the part the client owns.
+  if windowId notin model.windows:
+    return
+  if model.windows[windowId].floatingIntent == FloatingIntent.automatic:
+    model.windows[windowId].floatingGeometry = geometry
+  else:
+    model.windows[windowId].floatingGeometry.width = geometry.width
+    model.windows[windowId].floatingGeometry.height = geometry.height
+
+proc setWindowOriginTags*(
+    model: var PolicyModel, windowId: WindowId, tags: seq[TagId]
+) =
+  ## The one place launch-origin membership is written. A launch inherits the
+  ## source's tags outright rather than merging: it opens where that window
+  ## lives, not wherever the operator happens to be looking.
+  if windowId notin model.windows or tags.len == 0:
+    return
+  model.windowTags[windowId] = tags
+
 proc setWindowRelation*(
     model: var PolicyModel, id: WindowId, kind: WindowKind, parent: WindowId
 ) =
@@ -222,6 +322,7 @@ proc setFloatingGeometry*(
     fail("floating interaction target is immutable")
   model.windows[windowId].floating = true
   model.windows[windowId].floatingGeometry = geometry
+  model.windows[windowId].floatingIntent = FloatingIntent.manual
   if model.windows[windowId].capabilities.focusable:
     model.setFocus(outputId, windowId)
 
@@ -254,6 +355,7 @@ proc moveWindowToScratchpad*(model: var PolicyModel, windowId: WindowId) =
       output: window.homeOutput,
       floating: window.floating,
       floatingGeometry: window.floatingGeometry,
+      floatingIntent: window.floatingIntent,
       fullscreen: window.fullscreen,
       maximized: window.maximized,
       minimized: window.minimized,
@@ -273,6 +375,7 @@ proc moveWindowToScratchpad*(model: var PolicyModel, windowId: WindowId) =
   model.windows[windowId].floatingGeometry = centeredGeometry(
     bounds, model.windows[windowId].constraints, scratchWidth, scratchHeight
   )
+  model.windows[windowId].floatingIntent = FloatingIntent.manual
   if model.visibleScratchpad == windowId:
     model.visibleScratchpad = nullWindowId
   for outputId in model.outputOrder:

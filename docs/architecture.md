@@ -137,10 +137,70 @@ Directional navigation stops at outer edges, retains adjacent-monitor handoff,
 and remembers each destination column's last focused member. Explicit cycling
 remains a separate wrapping action.
 
-Checkpoint version 13 carries camera anchors, opening context, and the
-focus-follows-mouse setting; versions 4 through 11 migrate with empty anchors
-and version 12 migrates with the setting off, which is what a session written
-before it existed was running. As with all policy state, a candidate
+Checkpoint version 14 carries camera anchors, opening context, the
+focus-follows-mouse setting, and whether each floating position is a rule or a
+decision; versions 4 through 11 migrate with empty anchors, version 12 migrates
+with the setting off, and version 13 migrates with every stored floating
+position treated as the operator's, because it cannot say which were not.
+
+### Launch origin
+
+An application launched from another one opens where the launcher lives, even
+when the operator has moved on before the window appears. Hagia publishes an
+opaque token for every live managed top-level, hidden ones included, standing
+for the place that window occupies rather than for the window itself; windows
+sharing a place share a token, which bounds the cache by places. Sophia freezes
+one when a child connects, resolving process ancestry itself, and echoes it
+back when the child's first surface is admitted. Hagia never learns a PID, a
+title, or what launched what — only that a surface carries a token it minted.
+
+Optional capability bit 14, negotiated whenever both sides support it; there is
+no profile setting, because a token that is never echoed costs nothing.
+`ProjectionLaunchContext` (kind `0xff05`) travels outbound and
+`SnapshotLaunchOrigin` (kind `0xff06`) inbound, as uncounted extension records
+of twenty-four bytes, at most 1024 each, gated in both directions. A record is
+refused unless its epoch is this connection's, its generation and token are
+nonzero, and no surface appears twice; index zero is a valid surface and the
+all-ones index is not.
+
+Placement order on a first admission is restored state, then a transient owner,
+then an explicit class, then origin, then ordinary. A launch places on the
+logical output and tags the token names and does nothing else: the active
+output, the active view, and focus all stay where they are. An unknown or
+evicted token, an output no live handle maps to, or tags a pruned workspace has
+taken with it all resolve to nothing and the window opens where it otherwise
+would have. Tokens are session-local and never checkpointed — a new connection
+clears the space, so a token from a previous one cannot point a launch at a
+place the operator has since rearranged.
+
+### Dialogs
+
+A dialog's position is a rule rather than a rectangle. It sits centred on the
+window it belongs to, evaluated inside the projection that placed that window,
+so a parent that scrolled, maximised, or went fullscreen carries its dialog in
+the same cycle with nothing stored between cycles and nothing arriving a frame
+late. The size is the client's; only the position follows. Centring is clamped
+to the output, so a parent scrolled most of the way off screen leaves its
+dialog at the edge rather than following it out of reach.
+
+Moving or resizing a dialog spends the rule: the position becomes the
+operator's and nothing recomputes it, including a later parent move. That
+distinction is stored, because the two cases produce rectangles that look
+identical and guessing from the rectangle is how a dragged dialog springs back.
+
+A dialog shows while the window it belongs to does. A minimized parent, a
+parent whose view is not active, or one that has left the output takes its
+dialogs with it. Focus does not: a dialog left open while the operator works in
+an unrelated window on the same screen stays where they left it.
+
+Dialogs stack directly above the window they belong to, whatever layer that
+window is in, and family order outranks the focus raise -- raising a parent
+must not put it over its own dialog. Siblings stack by how recently each was
+focused. Closing a focused dialog hands focus to the most recently used dialog
+still open on the same parent, then to the nearest ancestor still eligible, and
+only then to the ordinary column fallback; nothing in the background is
+selected. Utilities keep independent placement, and popup surfaces stay outside
+WM policy entirely. As with all policy state, a candidate
 is promoted only after Engine commit. Hagia does not run animation clocks:
 optional `translation_groups` capability bit 12 submits one opaque group per
 scrolling view and final translation alongside ordinary placements. Sophia

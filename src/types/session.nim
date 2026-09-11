@@ -1,3 +1,4 @@
+import ./core
 import ./wm_v1
 
 ## Passive records for one unidirectional settlement round: the snapshot Hagia
@@ -21,6 +22,7 @@ type
     actions*: seq[SnapshotAction]
     sessionOperations*: seq[SnapshotSessionOperation]
     classifications*: seq[SnapshotSurfaceClassification]
+    launchOrigins*: seq[LaunchOriginRecord]
 
   ProjectionCauseKind* {.pure.} = enum
     sceneChanged = 0
@@ -98,6 +100,15 @@ type
     outputStatuses*: seq[ProjectionOutputStatus]
     tabGroups*: seq[ProjectionTabGroup]
     translationGroups*: seq[ProjectionTranslationGroup]
+    launchContexts*: seq[LaunchOriginRecord]
+
+  LaunchDestination* = object
+    ## Where a launch context points: a logical output and the tag set a window
+    ## opened against it should carry. Deliberately not a window -- the source
+    ## may close before the child appears, and the place it occupied is what the
+    ## child inherits.
+    output*: OutputId
+    tags*: seq[TagId]
 
   ProjectionOutcome* = object
     transaction*: uint64

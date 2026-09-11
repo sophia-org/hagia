@@ -2235,11 +2235,11 @@ suite "Sophia snapshot adapter":
       ]:
         view.delete(field)
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $payload)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-13\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-14\n")
     var corrupt = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     corrupt["views"][0]["openingOffset"] = %int64(low(int32))
     expect PolicyStateError:
-      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-13\n" & $corrupt)
+      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-14\n" & $corrupt)
 
   test "a private checkpoint remains a candidate until complete reconciliation":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2361,9 +2361,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 13
+    check parseJson(printed)["schema"].getInt() == 14
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-13\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-14\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2919,7 +2919,7 @@ suite "tab checkpoint compatibility":
       viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-13\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-14\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2940,7 +2940,7 @@ suite "tab checkpoint compatibility":
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-13\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-14\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
@@ -2966,7 +2966,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-13\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-14\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -3021,3 +3021,7 @@ include support/admission_focus
 include support/scroller_reload
 
 include support/pointer_focus_policy
+
+include support/dialog_placement
+
+include support/launch_origin
