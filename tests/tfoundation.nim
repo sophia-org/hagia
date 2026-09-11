@@ -152,10 +152,13 @@ suite "Hagia foundation":
     path.ownerOnly()
     let profile = loadDesktopProfile(path)
     model.applyPolicyCandidate(profile.candidates[ProfileAuthority.policy])
-    # New profiles opt into uniform gaps; the bare model retains the legacy
-    # zero-gap representation used by callers that pass explicit projection gaps.
+    # New profiles opt into uniform gaps and the spacing the example ships;
+    # the bare model retains the legacy zero-gap representation used by callers
+    # that pass explicit projection gaps, and a legacy model may not carry a
+    # uniform gap at all.
     var expected = defaultPolicySettings
     expected.gapModel = GapModel.uniform
+    expected.gaps = defaultGaps
     check model.settings == expected
     expect DesktopProfileError:
       model.applyPolicyCandidate(profile.candidates[ProfileAuthority.session])
@@ -1304,8 +1307,8 @@ suite "WM-owned profile validation":
       removeDir(directory)
     let path = directory / "config.kdl"
     for policy in [
-      "scratchpad-size 10 100; floating-size 0 10; column-width-presets 5 95;",
-      "scratchpad-size 70 60; floating-size 100 0; column-width-presets 33 50 67;",
+      "scratchpad-size 10 100; floating-size 0 10; preset-column-widths { proportion 0.05; proportion 0.95; };",
+      "scratchpad-size 70 60; floating-size 100 0; preset-column-widths { proportion 0.33; fixed 1280; };",
       "view-name 1 \"code\"; view-name 2 \"web\"; view-layout 1 \"dwindle\"; view-layout 2 \"split-tree\";",
     ]:
       writeFile(path, "schema 1\npolicy { " & policy & " }\n")
@@ -1328,12 +1331,26 @@ suite "WM-owned profile validation":
       "scratchpad-size 70;",
       "floating-size 1 0;",
       "floating-size -1 60;",
-      "column-width-presets;",
-      "column-width-presets 4 50;",
-      "column-width-presets 50 96;",
-      "column-width-presets 5 10 15 20 25 30 35 40 45;",
-      "column-width-presets \"50\";",
-      "column-width-presets 50 extra=1;",
+      # The retired spelling is refused by name, so a profile still using it is
+      # told what replaced it rather than that nobody recognises the key.
+      "column-width-presets 33 50 67;",
+      "row-height-presets 25 40;",
+      "preset-column-widths;",
+      "preset-column-widths 33 50 67;",
+      "preset-column-widths { };",
+      "preset-column-widths { percent 50; };",
+      "preset-column-widths { proportion 0.0; };",
+      "preset-column-widths { proportion 0.01; };",
+      "preset-column-widths { proportion 11.0; };",
+      "preset-column-widths { proportion \"0.5\"; };",
+      "preset-column-widths { proportion 0.5 0.6; };",
+      "preset-column-widths { fixed 0; };",
+      "preset-column-widths { fixed -10; };",
+      "preset-column-widths { fixed 99999; };",
+      "preset-column-widths { proportion 0.1; proportion 0.2; proportion 0.3; proportion 0.4; proportion 0.5; proportion 0.6; proportion 0.7; proportion 0.8; proportion 0.9; };",
+      "default-column-width 50;",
+      "default-column-width { };",
+      "default-column-width { proportion 0.5; fixed 100; };",
       "view-name 0 \"code\";",
       "view-name 10 \"code\";",
       "view-name 1 \" code\";",

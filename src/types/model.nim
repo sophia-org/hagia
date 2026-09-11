@@ -303,6 +303,10 @@ const
   defaultColumnWidth* =
     LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(32768))
   defaultGapStep* = 2'i32
+  ## One gap around and between tiles, which is what niri ships. The legacy
+  ## outer/inner pair is unaffected: it only applies under `GapModel.legacy`,
+  ## and a model that never read a profile stays there.
+  defaultGaps* = 16'i32
   defaultLayoutCycle* = @[
     LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
     LayoutMode.verticalScroller,

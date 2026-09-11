@@ -4,7 +4,7 @@ import
     tempfiles, unittest,
   ]
 
-import config/[policy_candidate, profile]
+import config/profile
 import types/config_values
 import policy/[actions, entity_store, projection, state]
 import types/[actions, core, model, projection, session, wm_v1]

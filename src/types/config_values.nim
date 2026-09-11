@@ -4,6 +4,14 @@ import std/tables
 ## coordinator, and the policy candidate builder. Parsing, digesting, and the
 ## activation transition live in `src/config`; nothing here reads a file.
 
+const retiredPolicySettings* = [
+  ("column-width-presets", "preset-column-widths"),
+  ("row-height-presets", "preset-row-heights"),
+]
+## Policy settings that changed spelling. A profile naming one of these gets
+## told what replaced it rather than the generic refusal for a key nobody
+## recognises, because the two read very differently to whoever wrote it.
+
 type
   ProfileAuthority* {.pure.} = enum
     policy

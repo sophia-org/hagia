@@ -19,6 +19,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tgap-layout" tests/tgap_layout.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tcolumn-sizing" tests/tcolumn_sizing.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tpolicy-model" tests/tpolicy_model.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tfoundation" tests/tfoundation.nim
@@ -38,6 +40,22 @@ printf 'schema 1\npolicy { outer-gap 513; }\n' >"$build_dir/invalid-policy.kdl"
 chmod 600 "$build_dir/invalid-policy.kdl"
 if "$build_dir/hagia" config check --config="$build_dir/invalid-policy.kdl"; then
     echo "Hagia config check accepted invalid policy geometry" >&2
+    exit 1
+fi
+# The size vocabulary reaches the CLI through the same validator, so the CLI
+# path covers it too rather than only the in-process tests above.
+printf 'schema 1\npolicy { default-column-width { fixed 99999; } }\n' \
+    >"$build_dir/invalid-size.kdl"
+chmod 600 "$build_dir/invalid-size.kdl"
+if "$build_dir/hagia" config check --config="$build_dir/invalid-size.kdl"; then
+    echo "Hagia config check accepted an out-of-range column size" >&2
+    exit 1
+fi
+printf 'schema 1\npolicy { column-width-presets 33 50 67; }\n' \
+    >"$build_dir/retired-size.kdl"
+chmod 600 "$build_dir/retired-size.kdl"
+if "$build_dir/hagia" config check --config="$build_dir/retired-size.kdl"; then
+    echo "Hagia config check accepted a retired policy spelling" >&2
     exit 1
 fi
 cd "$SOPHIA_STACK_ROOT"

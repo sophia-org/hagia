@@ -348,7 +348,7 @@ proc classifyTriadCommand*(command: string): CommandMigration =
   of "switch-proportion-preset":
     commandMigration(
       "policy", MigrationDisposition.transformed,
-      "cycleColumnWidth policy action over the profile's column-width-presets",
+      "cycleColumnWidth policy action over the profile's preset-column-widths",
       "cycle-column-width",
     )
   of "consume-window":
@@ -447,7 +447,7 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       # live in the profile and one key steps through them.
       return commandMigration(
         "policy", MigrationDisposition.transformed,
-        "cycleColumnWidth policy action; the width belongs in column-width-presets",
+        "cycleColumnWidth policy action; the width belongs in preset-column-widths",
         "cycle-column-width",
       )
     if command.startsWith("spawn "):

@@ -2,7 +2,8 @@ import std/[algorithm, sequtils, strutils]
 
 import kdl
 
-import ../types/[config_values, model]
+import ../types/[config_values, core, model]
+import ./migration_common
 import ../state/values
 import ./profile
 
@@ -74,6 +75,22 @@ proc layoutCycleValue(value: ProfileValue): seq[LayoutMode] =
       raise newException(DesktopProfileError, "policy layout-cycle has duplicates")
     result.add(layout)
 
+proc extentValue(node: KdlNode): LayoutExtent =
+  ## One `{ proportion N }` or `{ fixed N }` child as an extent. The grammar
+  ## is checked before this runs, so the shape here is known good.
+  let child = node.children[0]
+  if child.name == "fixed":
+    return fixedExtent(int32(child.args[0].kInt()))
+  var value: float64
+  discard child.args[0].number(value)
+  proportionExtent(scaleFromProportion(value))
+
+proc extentListValue(node: KdlNode): seq[LayoutExtent] =
+  for child in node.children:
+    var one = node
+    one.children = @[child]
+    result.add(one.extentValue())
+
 proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
   ## The settings a policy fragment states, with no model to put them in.
   ## Negotiation needs one of these values before any model exists, and a
@@ -139,34 +156,23 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
         raise newException(DesktopProfileError, "policy master-ratio is outside 10..90")
       settings.masterRatio = scaleFromRatio(uint32(percent), 100)
     of "policy.default-column-width":
-      # A percentage, like master-ratio, because a profile is read by people.
-      # This is what a column gets when it has never been given a width, and a
-      # scroller needs it: column widths no longer follow from how many
-      # columns there are.
-      let percent = value.integerValue()
-      if percent < 10 or percent > 100:
-        raise newException(
-          DesktopProfileError, "policy default-column-width is outside 10..100"
-        )
-      settings.defaultColumnWidth =
-        proportionExtent(scaleFromRatio(uint32(percent), 100))
+      # What a column gets when it has never been given a width, which a
+      # scroller needs: column widths no longer follow from how many columns
+      # there are. niri states the value the same way.
+      let node = parseKdl(value.encoded)[0]
+      node.validateExtentSetting(1)
+      settings.defaultColumnWidth = node.extentValue()
     of "policy.default-row-height":
       # The vertical scroller's along-axis default. Unset inherits
       # default-column-width, so a profile that never mentions rows behaves
       # as it always has.
-      let percent = value.integerValue()
-      if percent < 10 or percent > 100:
-        raise newException(
-          DesktopProfileError, "policy default-row-height is outside 10..100"
-        )
-      settings.defaultRowHeight = proportionExtent(scaleFromRatio(uint32(percent), 100))
-    of "policy.row-height-presets":
       let node = parseKdl(value.encoded)[0]
-      settings.presetRowHeights = @[]
-      for argument in node.args:
-        settings.presetRowHeights.add(
-          proportionExtent(scaleFromRatio(uint32(argument.get(int)), 100))
-        )
+      node.validateExtentSetting(1)
+      settings.defaultRowHeight = node.extentValue()
+    of "policy.preset-row-heights":
+      let node = parseKdl(value.encoded)[0]
+      node.validateExtentSetting(maxSizePresets)
+      settings.presetRowHeights = node.extentListValue()
     of "policy.always-center-single-column":
       let node = parseKdl(value.encoded)[0]
       if node.args.len != 1 or node.args[0].kind != KBool:
@@ -196,13 +202,10 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
             DesktopProfileError,
             "policy center-focused-column expects never, always, or on-overflow",
           )
-    of "policy.column-width-presets":
+    of "policy.preset-column-widths":
       let node = parseKdl(value.encoded)[0]
-      settings.presetColumnWidths = @[]
-      for argument in node.args:
-        settings.presetColumnWidths.add(
-          proportionExtent(scaleFromRatio(uint32(argument.get(int)), 100))
-        )
+      node.validateExtentSetting(maxSizePresets)
+      settings.presetColumnWidths = node.extentListValue()
     of "policy.scratchpad-size":
       let node = parseKdl(value.encoded)[0]
       settings.scratchpadWidthPercent = int32(node.args[0].get(int))

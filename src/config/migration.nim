@@ -67,7 +67,31 @@ proc migrateTriadProfile*(source: string): MigrationReport =
               "layout.gaps", "policy", MigrationDisposition.unsupported,
               "invalid argument shape",
             )
-        of "center-focused-column", "default-column-width":
+        of "default-column-width":
+          # Triad already stated this the way niri does, and Hagia now takes
+          # the same grammar, so a width someone configured survives the
+          # migration instead of being dropped for the compiled default.
+          var emitted = ""
+          try:
+            child.validateExtentSetting(1)
+            let size = child.children[0]
+            emitted =
+              "  default-column-width { " & size.name & " " & size.args[0].pretty() &
+              "; }"
+          except DesktopProfileError:
+            discard
+          if emitted.len > 0:
+            policySettings.add(emitted)
+            result.add(
+              "layout.default-column-width", "policy", MigrationDisposition.transformed,
+              "the size vocabulary Hagia now shares with niri",
+            )
+          else:
+            result.add(
+              "layout.default-column-width", "policy", MigrationDisposition.unsupported,
+              "invalid size shape",
+            )
+        of "center-focused-column":
           result.add(
             "layout." & child.name,
             "policy",

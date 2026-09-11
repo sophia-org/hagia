@@ -1,4 +1,4 @@
-import std/[options, unittest]
+import std/unittest
 import policy/[actions, entity_store, projection, state]
 import types/[actions, core, model]
 

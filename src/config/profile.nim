@@ -4,7 +4,8 @@ import kdl
 from std/unicode import runes
 import nimcrypto/[hash, sha2]
 
-import ../types/[config_values, model]
+import ../types/[config_values, core, model]
+import ./migration_common
 
 type
   DesktopProfileError* = object of CatchableError
@@ -429,6 +430,48 @@ proc validateGapSetting*(node: KdlNode) =
         node.args[0].get(int) > maxGap:
       fail("policy " & node.name & " is outside 0.." & $maxGap)
 
+proc validateExtentSetting*(node: KdlNode, maxChildren: int) =
+  ## One configured size, or a list of them. niri states these as
+  ## `{ proportion 0.5 }` or `{ fixed 1280 }`: a proportion is a share of the
+  ## room a column can occupy and rescales with the output, where a fixed
+  ## extent is logical pixels and does not.
+  if node.tag.isSome or node.props.len != 0:
+    fail("policy " & node.name & " does not accept annotations or properties")
+  if node.args.len != 0:
+    fail(
+      "policy " & node.name &
+        " now takes a { proportion N } or { fixed N } child, not a percentage"
+    )
+  if node.children.len < 1 or node.children.len > maxChildren:
+    fail("policy " & node.name & " requires one to " & $maxChildren & " sizes")
+  for child in node.children:
+    if child.name notin ["proportion", "fixed"]:
+      fail("policy " & node.name & " sizes must be proportion or fixed")
+    if child.tag.isSome or child.props.len != 0 or child.children.len != 0 or
+        child.args.len != 1 or child.args[0].tag.isSome:
+      fail("policy " & node.name & " " & child.name & " requires one plain value")
+    if child.name == "fixed":
+      if child.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
+        fail("policy " & node.name & " fixed requires whole pixels")
+      let pixels = child.args[0].kInt()
+      if pixels < 1 or pixels > maxFixedExtent:
+        fail("policy " & node.name & " fixed is outside 1.." & $maxFixedExtent)
+    else:
+      # Bounded on the value as written rather than on the scale it converts
+      # to, because the conversion saturates and would accept a request far
+      # outside the range by silently clamping it.
+      var value: float64
+      if not child.args[0].number(value):
+        fail("policy " & node.name & " proportion requires a finite number")
+      # Compared after scaling, and allowing the one quantum the conversion
+      # truncates: the smallest bound is 3277/65536, so `proportion 0.05` is a
+      # hair under it and refusing what the documented minimum spells would be
+      # a bound nobody could write.
+      let requested = value * float64(uint32(scaleOne))
+      if requested < float64(uint32(minimumScale)) - 1.0 or
+          requested > float64(uint32(maximumScale)):
+        fail("policy " & node.name & " proportion is outside 0.05..10")
+
 proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false) =
   if node.tag.isSome:
     fail("type annotations are unsupported in desktop profiles")
@@ -443,10 +486,10 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
       node.name in [
         "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap", "gaps",
         "struts", "viewport-offset", "master-count", "master-ratio", "gap-step",
-        "view-name", "view-layout", "column-width-presets", "scratchpad-size",
+        "view-name", "view-layout", "preset-column-widths", "scratchpad-size",
         "floating-size", "default-column-width", "center-focused-column",
         "always-center-single-column", "focus-follows-mouse", "default-row-height",
-        "row-height-presets",
+        "preset-row-heights",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
@@ -462,6 +505,13 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
       node.name in ["inherit-sophia", "named"]
     of ProfileAuthority.broker:
       node.name in ["enabled", "capability"]
+  if not supported and authority == ProfileAuthority.policy:
+    for retired in retiredPolicySettings:
+      if node.name == retired[0]:
+        fail(
+          "policy " & retired[0] & " is now " & retired[1] &
+            ", taking proportion or fixed children"
+        )
   if not supported:
     fail("unsupported " & $authority & " setting " & node.name)
   if node.args.len > 32 or node.props.len > 32 or node.children.len > 64:
@@ -470,6 +520,12 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
     node.validateApplicationSetting(staged)
   if authority == ProfileAuthority.policy and node.name in ["gaps", "struts"]:
     node.validateGapSetting()
+  if authority == ProfileAuthority.policy and
+      node.name in ["default-column-width", "default-row-height"]:
+    node.validateExtentSetting(1)
+  if authority == ProfileAuthority.policy and
+      node.name in ["preset-column-widths", "preset-row-heights"]:
+    node.validateExtentSetting(maxSizePresets)
   if authority == ProfileAuthority.policy and node.name == "layout":
     if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")
@@ -495,15 +551,6 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
       fail("policy view-layout slot is outside 1..9")
     if node.args[1].kString() notin supportedLayoutNames:
       fail("policy view-layout names an unsupported layout")
-  if authority == ProfileAuthority.policy and
-      node.name in ["column-width-presets", "row-height-presets"]:
-    if node.args.len < 1 or node.args.len > maxSizePresets or node.props.len != 0 or
-        node.children.len != 0:
-      fail("policy " & node.name & " requires one to eight percentages")
-    for argument in node.args:
-      if argument.kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or argument.kInt() < 5 or
-          argument.kInt() > 95:
-        fail("policy " & node.name & " values must be 5..95 percent")
   if authority == ProfileAuthority.policy and
       node.name in ["scratchpad-size", "floating-size"]:
     if node.args.len != 2 or node.props.len != 0 or node.children.len != 0:

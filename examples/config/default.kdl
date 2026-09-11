@@ -17,7 +17,8 @@ policy {
   // than ignoring the setting.
   focus-follows-mouse #false
   // One gap around and between tiles; optional struts reserve extra space.
-  gaps 0
+  // 16 is what niri ships. Set it to 0 for no spacing at all.
+  gaps 16
   // struts { left 0; right 0; top 0; bottom 0; }
   // Horizontal scroller viewport bias in pixels; 0 keeps the focused column
   // centering rule untouched.
@@ -25,8 +26,12 @@ policy {
   // The vertical scroller's along-axis default, and the presets its cycle key
   // steps through. Both inherit the column values when left out, which is why
   // they are commented here: this profile behaves the same either way.
-  // default-row-height 40
-  // row-height-presets 25 40 60
+  //
+  // These two are Triad vocabulary. niri has no vertical scroller, so its
+  // preset-window-heights is a different measurement -- the share a window
+  // takes inside a column -- and is not what these name.
+  // default-row-height { proportion 0.4; }
+  // preset-row-heights { proportion 0.25; proportion 0.4; proportion 0.6; }
   // Tile master area: how many windows share it, and what percentage of the
   // width it takes. Both are adjustable at runtime from the keys below.
   master-count 1
@@ -35,8 +40,20 @@ policy {
   gap-step 2
   // Scratchpad windows appear centered at this fraction of the output.
   scratchpad-size 70 60
-  // cycle-column-width steps the focused column through these percentages.
-  column-width-presets 33 50 67
+  // What a column gets when it has never been given a width, and the sizes
+  // cycle-column-width steps it through. A proportion is a share of the room
+  // a column can occupy and rescales when the output does; a fixed size is
+  // logical pixels and does not, e.g. { fixed 1280 }.
+  default-column-width { proportion 0.5; }
+  preset-column-widths { proportion 0.33; proportion 0.5; proportion 0.67; }
+  // Which camera rule the focused column obeys: never, always, or on-overflow.
+  // niri defaults to never; Hagia defaults to on-overflow so the focused
+  // column is always reachable. Stating the key reproduces niri exactly.
+  center-focused-column "on-overflow"
+  // Centre a lone column whatever the rule above says. niri defaults this off;
+  // Hagia defaults it on, because one window at half width sitting against the
+  // left edge with the rest of the screen empty reads as a bug, not a setting.
+  always-center-single-column #true
   // Freshly floated windows take the whole output; set percentages to size
   // them instead, e.g. floating-size 60 60.
   // floating-size 0 0
