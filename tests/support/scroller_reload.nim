@@ -105,12 +105,12 @@ proc runCommittedCycle(
 
 proc columnPreferences(
     model: PolicyModel, output: OutputId
-): seq[(ColumnId, Scale, bool)] =
+): seq[(ColumnId, LayoutExtent, bool)] =
   ## The strip's order and what each column asked for. A reload may move where
   ## these land; it may not change what they are.
   for columnId in model.tiledColumnIds(output):
     result.add(
-      (columnId, model.columns[columnId].widthScale, model.columns[columnId].fullWidth)
+      (columnId, model.columns[columnId].width, model.columns[columnId].fullWidth)
     )
 
 proc committedMixedWidthSession(): PolicySession =

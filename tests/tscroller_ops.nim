@@ -211,11 +211,12 @@ suite "scroller operation sequences":
         model.validate()
         validateScroller(model, outputId, 0'u64, step, growFocusedColumn)
       let column = model.window(model.outputs[outputId].focusedWindow).get().column
-      let reached = model.columns[column].widthScale
+      let reached = model.columns[column].width
+      check reached.kind == LayoutExtentKind.proportion
       if direction == PolicyAction.growColumn:
-        check reached == maximumScale
+        check reached.scale == maximumScale
       else:
-        check reached == minimumScale
+        check reached.scale == minimumScale
 
   test "opening many windows keeps every column reachable":
     test "opening many windows keeps every column reachable":

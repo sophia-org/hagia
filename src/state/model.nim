@@ -96,12 +96,14 @@ proc transposedForVerticalScroller*(
     result.views[cameraView].viewportOffset = result.views[cameraView].viewportOffsetY
     result.views[cameraView].camera = result.views[cameraView].cameraY
   # Likewise the along-axis default: the machine reads it as a column width,
-  # and along this axis a column width is a row height.
-  result.settings.defaultColumnWidthPercent =
-    if model.settings.defaultRowHeightPercent == 0:
-      model.settings.defaultColumnWidthPercent
+  # and along this axis a column width is a row height. A fixed extent is
+  # axis-agnostic pixels, so an inherited `fixed 720` column default means 720
+  # pixels tall here; stating a `default-row-height` is the way out of that.
+  result.settings.defaultColumnWidth =
+    if model.settings.defaultRowHeight.kind == LayoutExtentKind.automatic:
+      model.settings.defaultColumnWidth
     else:
-      model.settings.defaultRowHeightPercent
+      model.settings.defaultRowHeight
   for windowId in result.windowOrder:
     if result.windows[windowId].homeOutput != outputId:
       continue
@@ -265,12 +267,8 @@ proc validate*(model: PolicyModel) =
   for columnId in model.columnOrder:
     let column = model.columns[columnId]
     if column.id != columnId or column.homeOutput notin model.outputs or
-        column.preferredOutput == nullOutputId or column.windows.len == 0 or (
-      column.widthScale != autoScale and (
-        uint32(column.widthScale) < uint32(minimumScale) or
-        uint32(column.widthScale) > uint32(maximumScale)
-      )
-    ):
+        column.preferredOutput == nullOutputId or column.windows.len == 0 or
+        not column.width.isBoundedExtent():
       fail("policy column is invalid")
     for windowId in column.windows:
       if windowId notin model.windows or windowId in seenWindows or

@@ -1,6 +1,7 @@
 import
   std/[
-    json, net, options, os, posix, sequtils, sets, strutils, tables, tempfiles, unittest
+    json, jsonutils, net, options, os, posix, sequtils, sets, strutils, tables,
+    tempfiles, unittest,
   ]
 
 import config/[policy_candidate, profile]
@@ -835,10 +836,11 @@ suite "Hagia private policy model":
     let inherited = model.projectLayout([output])[0]
     check inherited.placements[0].geometry.height == 500
 
-    model.settings.defaultRowHeightPercent = 40
+    model.settings.defaultRowHeight = proportionExtent(scaleFromRatio(40, 100))
     let chosen = model.projectLayout([output])[0]
-    # 399 rather than 400: a percentage becomes a Q16.16 scale, and 40% of
-    # 65536 truncates. The scroller has always rounded this way.
+    # 399 rather than 400: a proportion is a Q16.16 scale, and two fifths of
+    # 65536 truncates. The scroller has always rounded this way, and the
+    # percentage this key used to take resolved through the same conversion.
     check chosen.placements[0].geometry.height == 399
     # The column default is untouched, so the horizontal scroller is too.
     model.views[view].layout = LayoutMode.scroller
@@ -853,26 +855,29 @@ suite "Hagia private policy model":
     let column = model.window(window).get().column
     let view = model.outputs[output].activeView
     model.views[view].layout = LayoutMode.verticalScroller
-    model.settings.defaultRowHeightPercent = 40
-    model.settings.rowHeightPresets = @[20'i32, 60]
+    model.settings.defaultRowHeight = proportionExtent(scaleFromRatio(40, 100))
+    model.settings.presetRowHeights = @[
+      proportionExtent(scaleFromRatio(20, 100)),
+      proportionExtent(scaleFromRatio(60, 100)),
+    ]
 
     # Grow steps from the row default, not the column's.
     model.applyAction(output, PolicyAction.growColumn)
-    check model.columns[column].widthScale ==
-      Scale(uint32(scaleFromRatio(40, 100)) + 3276)
+    check model.columns[column].width ==
+      proportionExtent(Scale(uint32(scaleFromRatio(40, 100)) + 3276))
 
     # The cycle uses the row presets: from 40%, forwards finds 60%.
     model.setColumnWidthScale(column, autoScale)
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(60, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(60, 100))
 
     # An empty row list inherits the column presets. The search still starts
     # from what the row is showing, so from the 40% row default the first
     # column preset wider than it is 50%.
-    model.settings.rowHeightPresets = @[]
+    model.settings.presetRowHeights = @[]
     model.setColumnWidthScale(column, autoScale)
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(50, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(50, 100))
     model.validate()
 
   test "expanding a row measures the space below it, not beside it":
@@ -1058,7 +1063,7 @@ suite "Hagia private policy model":
     let column = model.window(first).get().column
     model.setFocus(output, first)
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    let chosen = model.columns[column].widthScale
+    let chosen = model.columns[column].width
 
     model.applyAction(output, PolicyAction.maximizeColumn)
     check model.columns[column].fullWidth
@@ -1067,7 +1072,7 @@ suite "Hagia private policy model":
     model.applyAction(output, PolicyAction.maximizeColumn)
 
     check not model.columns[column].fullWidth
-    check model.columns[column].widthScale == chosen
+    check model.columns[column].width == chosen
     model.validate()
 
   test "a column width is bounded at both ends":
@@ -1104,11 +1109,11 @@ suite "Hagia private policy model":
     # default -- not from full width. Reading `autoScale` as 1.0 made one
     # press jump a half-width column past the whole viewport.
     model.applyAction(output, PolicyAction.growColumn)
-    check model.columns[column].widthScale == Scale(32768 + 3276)
+    check model.columns[column].width == proportionExtent(Scale(32768 + 3276))
 
     for _ in 0 ..< 400:
       model.applyAction(output, PolicyAction.growColumn)
-    check model.columns[column].widthScale == maximumScale
+    check model.columns[column].width == proportionExtent(maximumScale)
     model.validate()
 
   test "native layout cycle projects tile grid monocle and vertical scroller":
@@ -1662,13 +1667,13 @@ suite "Hagia private policy model":
     # which is what makes this reversible after focus has moved elsewhere.
     model.applyAction(output, PolicyAction.maximizeColumn)
     check model.columns[column].fullWidth
-    check model.columns[column].widthScale == autoScale
+    check model.columns[column].width == automaticExtent
     check not model.windows[first].maximized
     check model.projectLayout([output])[0].placements.filterIt(it.window == first)[0].geometry.width ==
       1000
     model.applyAction(output, PolicyAction.maximizeColumn)
     check not model.columns[column].fullWidth
-    check model.columns[column].widthScale == autoScale
+    check model.columns[column].width == automaticExtent
     model.validate()
 
   test "the tile variants place the master where their names say":
@@ -1889,7 +1894,12 @@ suite "Hagia private policy model":
     let window = model.addWindow(output, focusableCapabilities(), SizeConstraints())
     model.setFocus(output, window)
     let column = model.window(window).get().column
-    check model.settings.columnWidthPresets == @[33'i32, 50, 67]
+    check model.settings.presetColumnWidths ==
+      @[
+        proportionExtent(scaleFromRatio(33, 100)),
+        proportionExtent(scaleFromRatio(50, 100)),
+        proportionExtent(scaleFromRatio(67, 100)),
+      ]
 
     # An auto-width column is on no preset, but it is showing the configured
     # default of 50%, so the key steps from what is on screen: forwards to the
@@ -1897,13 +1907,13 @@ suite "Hagia private policy model":
     # by equality instead restarted from the end of the list, which is the one
     # place this key should feel continuous.
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(67, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(67, 100))
     model.applyAction(output, PolicyAction.cycleColumnWidth)
-    check model.columns[column].widthScale == scaleFromRatio(33, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(33, 100))
     model.applyAction(output, PolicyAction.cycleColumnWidthBack)
-    check model.columns[column].widthScale == scaleFromRatio(67, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(67, 100))
     model.applyAction(output, PolicyAction.cycleColumnWidthBack)
-    check model.columns[column].widthScale == scaleFromRatio(50, 100)
+    check model.columns[column].width == proportionExtent(scaleFromRatio(50, 100))
     model.validate()
 
   test "scratchpad and floating sizes come from the profile":
@@ -2239,11 +2249,11 @@ suite "Sophia snapshot adapter":
       ]:
         view.delete(field)
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $payload)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-16\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
     var corrupt = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     corrupt["views"][0]["openingOffset"] = %int64(low(int32))
     expect PolicyStateError:
-      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-16\n" & $corrupt)
+      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-17\n" & $corrupt)
 
   test "a private checkpoint remains a candidate until complete reconciliation":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2365,9 +2375,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 16
+    check parseJson(printed)["schema"].getInt() == 17
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-16\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-17\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2915,9 +2925,9 @@ suite "tab checkpoint compatibility":
     payload["schema"] = %4
     payload.delete("tabTrees")
     for grown in [
-      "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
+      "viewNames", "viewLayouts", "presetColumnWidths", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
-      "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn",
+      "defaultColumnWidth", "centerFocusedColumn", "alwaysCenterSingleColumn",
     ]:
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:
@@ -2925,7 +2935,7 @@ suite "tab checkpoint compatibility":
       viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-16\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2940,17 +2950,21 @@ suite "tab checkpoint compatibility":
     payload["settings"].delete("alwaysCenterSingleColumn")
     for columnNode in payload["columns"]:
       columnNode.delete("fullWidth")
+      columnNode.delete("width")
       columnNode["widthScale"] = %int(scaleOne)
     for viewNode in payload["views"]:
       viewNode.delete("viewportOffsetY")
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-16\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
-      check columnNode["widthScale"].getInt() == int(autoScale)
+      # The v8 rung cleared the width it read as a maximise, and the v16 rung
+      # then carried that sentinel across into the extent vocabulary.
+      check not columnNode.hasKey("widthScale")
+      check columnNode["width"].jsonTo(LayoutExtent) == automaticExtent
 
   test "version 7 migrates forward, its views gaining a resting camera":
     test "version 7 migrates forward, its views gaining a resting camera":
@@ -2964,7 +2978,7 @@ suite "tab checkpoint compatibility":
       var payload = parseJson(adapter.checkpointPayload().dumpCheckpointJson())
       payload["schema"] = %7
       for grown in [
-        "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn"
+        "defaultColumnWidth", "centerFocusedColumn", "alwaysCenterSingleColumn"
       ]:
         payload["settings"].delete(grown)
       for viewNode in payload["views"]:
@@ -2972,7 +2986,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-16\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2994,9 +3008,9 @@ suite "tab checkpoint compatibility":
       for treeNode in item["tree"]["nodes"]:
         treeNode.delete("preselect")
     for grown in [
-      "viewNames", "viewLayouts", "columnWidthPresets", "scratchpadWidthPercent",
+      "viewNames", "viewLayouts", "presetColumnWidths", "scratchpadWidthPercent",
       "scratchpadHeightPercent", "floatingWidthPercent", "floatingHeightPercent",
-      "defaultColumnWidthPercent", "centerFocusedColumn", "alwaysCenterSingleColumn",
+      "defaultColumnWidth", "centerFocusedColumn", "alwaysCenterSingleColumn",
     ]:
       payload["settings"].delete(grown)
     for viewNode in payload["views"]:

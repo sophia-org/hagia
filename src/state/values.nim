@@ -1,3 +1,5 @@
+import std/math
+
 import ../types/core
 
 ## Pure value helpers over passive types. Nothing here reads or writes a
@@ -33,6 +35,69 @@ proc scaleFromRatio*(numerator, denominator: uint32): Scale =
   if raw > uint64(high(uint32)):
     return Scale(high(uint32))
   Scale(uint32(raw))
+
+proc scaleFromProportion*(value: float): Scale =
+  ## A profile proportion as Q16.16, truncating exactly as `scaleFromRatio`
+  ## does, so `proportion 0.33` and the percent `33` it replaces resolve to the
+  ## same column. Saturates at the bounds; refusing an out-of-range value is
+  ## the profile layer's job, because only it can say where it came from.
+  if classify(value) notin {fcNormal, fcSubnormal, fcZero}:
+    fail("layout proportion is not a finite number")
+  let raw = value * float(uint32(scaleOne))
+  if raw <= float(uint32(minimumScale)):
+    return minimumScale
+  if raw >= float(uint32(maximumScale)):
+    return maximumScale
+  Scale(uint32(raw))
+
+proc proportionExtent*(scale: Scale): LayoutExtent =
+  ## A proportion stated as an extent. Built by hand this reads as three facts
+  ## where it is one, and the kind and the populated field have to agree.
+  LayoutExtent(kind: LayoutExtentKind.proportion, scale: scale)
+
+proc fixedExtent*(pixels: int32): LayoutExtent =
+  ## Logical pixels stated as an extent.
+  LayoutExtent(kind: LayoutExtentKind.fixed, pixels: pixels)
+
+proc extentPixels*(extent: LayoutExtent, proportionBase, gap: int32): int32 =
+  ## What an extent asks for, in pixels. A proportion is of the room a column
+  ## can occupy less the gap it carries; niri computes the same way. A fixed
+  ## extent is already a size and takes neither the base nor the gap, which is
+  ## the whole of what makes it fixed.
+  ##
+  ## `automatic` is a caller error: it means a column that never chose a width
+  ## reached the arithmetic without the configured default being substituted.
+  case extent.kind
+  of LayoutExtentKind.automatic:
+    fail("layout extent was never resolved against a configured default")
+  of LayoutExtentKind.proportion:
+    max(1'i32, proportionBase.scaledExtent(extent.scale) - gap)
+  of LayoutExtentKind.fixed:
+    max(1'i32, extent.pixels)
+
+proc isBoundedExtent*(extent: LayoutExtent): bool =
+  ## Whether an extent is one the layout can use. `automatic` always is: it
+  ## means the configured default stands in. A proportion is bounded because a
+  ## width is a preference rather than a licence to put every other column out
+  ## of reach; a fixed extent is bounded because the strip coordinates have to
+  ## stay inside the int32 the wire carries.
+  case extent.kind
+  of LayoutExtentKind.automatic:
+    true
+  of LayoutExtentKind.proportion:
+    uint32(extent.scale) >= uint32(minimumScale) and
+      uint32(extent.scale) <= uint32(maximumScale)
+  of LayoutExtentKind.fixed:
+    extent.pixels >= 1 and extent.pixels <= maxFixedExtent
+
+proc scaleForWidth*(proportionBase, gap, width: int32): Scale =
+  ## The proportion that produces this width: the inverse of `extentPixels`,
+  ## and the one owner of that arithmetic. It was open-coded where a column
+  ## expands into its neighbours' space, and stepping a fixed column needs it
+  ## too, because a step is proportional and has to start somewhere.
+  let base = max(1'i32, proportionBase)
+  let raw = (int64(width) + int64(gap)) * int64(uint32(scaleOne)) div int64(base)
+  Scale(uint32(max(int64(uint32(minimumScale)), min(int64(uint32(maximumScale)), raw))))
 
 proc intersects*(left, right: TagMask): bool =
   (uint64(left) and uint64(right)) != 0

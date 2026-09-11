@@ -101,10 +101,14 @@ type
     homeOutput*: OutputId
     preferredOutput*: OutputId
     windows*: seq[WindowId]
-    widthScale*: Scale
+    ## What this column asks for along the scrolling axis. A proportion
+    ## rescales with the output; a fixed extent does not, which is the whole
+    ## of what makes it fixed. `automatic` means the column never chose, and
+    ## resolves to the configured default wherever it is read.
+    width*: LayoutExtent
     ## Whether this column is showing at full width. It is a flag rather than
-    ## a width because maximising must be reversible: overwriting widthScale
-    ## loses the width the column had, and it can only be recovered by
+    ## a width because maximising must be reversible: overwriting the width
+    ## loses the one the column had, and it can only be recovered by
     ## pressing the same key on the same column before focus moves. niri keeps
     ## the same pair, and setting a width clears the flag.
     fullWidth*: bool
@@ -179,17 +183,22 @@ type
     # What a column gets when it has never been given a width of its own.
     # niri calls this default-column-width; a scroller needs one because
     # column widths no longer follow from how many columns there are.
-    defaultColumnWidthPercent*: int32
+    defaultColumnWidth*: LayoutExtent
     # never | always | on-overflow. Which of these the camera obeys when the
     # focused column moves, mirroring niri's center-focused-column.
     centerFocusedColumn*: CenterFocusedColumn
-    ## What a vertical-scroller row gets when it never chose a height, as a
-    ## percentage, and the presets its cycle key steps through. Zero and empty
-    ## mean inherit the column values: the vertical scroller is the same
-    ## machine along y, so its extent-along-the-axis default is the column
-    ## width's unless a profile says otherwise.
-    defaultRowHeightPercent*: int32
-    rowHeightPresets*: seq[int32]
+    ## What a vertical-scroller row gets when it never chose a height, and the
+    ## presets its cycle key steps through. `automatic` and empty mean inherit
+    ## the column values: the vertical scroller is the same machine along y, so
+    ## its extent-along-the-axis default is the column width's unless a profile
+    ## says otherwise.
+    ##
+    ## These two are Triad vocabulary, not niri's. niri has no vertical
+    ## scroller, so its `preset-window-heights` is a different measurement --
+    ## the cross-axis share of a window inside a column, which Hagia spells
+    ## `WindowData.heightScale` and does not expose as a preset list.
+    defaultRowHeight*: LayoutExtent
+    presetRowHeights*: seq[LayoutExtent]
     ## Centre a lone column whatever the rule above says. A single window at
     ## its configured proportion otherwise sits against the left edge with the
     ## rest of the screen empty, which reads as a mistake rather than a
@@ -208,7 +217,7 @@ type
     gapsEnabled*: bool
     viewNames*: seq[ViewSlotName]
     viewLayouts*: seq[ViewSlotLayout]
-    columnWidthPresets*: seq[int32]
+    presetColumnWidths*: seq[LayoutExtent]
     scratchpadWidthPercent*, scratchpadHeightPercent*: int32
     floatingWidthPercent*, floatingHeightPercent*: int32
 
@@ -279,7 +288,7 @@ const
   maxScratchpads* = 64
   maxNamedScratchpadSlots* = 4
   maxGroupMembers* = 32
-  maxColumnWidthPresets* = 8
+  maxSizePresets* = 8
   maxViewNameBytes* = 32
   maxMasterCount* = 9
   maxGap* = 512
@@ -291,7 +300,8 @@ const
   minMasterRatio* = Scale(6554)
   maxMasterRatio* = Scale(58982)
   defaultMasterRatio* = Scale(32768)
-  defaultColumnWidthPercent* = 50'i32
+  defaultColumnWidth* =
+    LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(32768))
   defaultGapStep* = 2'i32
   defaultLayoutCycle* = @[
     LayoutMode.scroller, LayoutMode.tile, LayoutMode.grid, LayoutMode.monocle,
@@ -306,11 +316,18 @@ const
     gapsEnabled: true,
     scratchpadWidthPercent: 70,
     scratchpadHeightPercent: 60,
-    columnWidthPresets: @[33'i32, 50, 67],
-    defaultColumnWidthPercent: defaultColumnWidthPercent,
+    # The percentages these replace, as the exact Q16.16 scales the percent
+    # resolver produced, so nothing on screen moves for a profile that states
+    # neither key.
+    presetColumnWidths: @[
+      LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(21626)),
+      LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(32768)),
+      LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(43909)),
+    ],
+    defaultColumnWidth: defaultColumnWidth,
     centerFocusedColumn: CenterFocusedColumn.onOverflow,
     alwaysCenterSingleColumn: true,
-    defaultRowHeightPercent: 0,
-    rowHeightPresets: @[],
+    defaultRowHeight: automaticExtent,
+    presetRowHeights: @[],
     focusFollowsMouse: false,
   )

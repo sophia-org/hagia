@@ -78,17 +78,19 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       model.settings.outerGap < 0 or model.settings.outerGap > maxGap or
       model.settings.innerGap < 0 or model.settings.innerGap > maxGap:
     fail("policy layout settings candidate is outside its bounds")
-  if model.settings.columnWidthPresets.len > maxColumnWidthPresets or
-      model.settings.rowHeightPresets.len > maxColumnWidthPresets:
-    fail("policy width presets exceed their bound")
-  for preset in model.settings.columnWidthPresets & model.settings.rowHeightPresets:
-    if preset < 5 or preset > 95:
-      fail("policy width preset is outside 5..95 percent")
-  if model.settings.defaultRowHeightPercent != 0 and (
-    model.settings.defaultRowHeightPercent < 10 or
-    model.settings.defaultRowHeightPercent > 100
-  ):
-    fail("policy default row height is outside 10..100 percent")
+  if model.settings.presetColumnWidths.len > maxSizePresets or
+      model.settings.presetRowHeights.len > maxSizePresets:
+    fail("policy size presets exceed their bound")
+  for preset in model.settings.presetColumnWidths & model.settings.presetRowHeights:
+    if preset.kind == LayoutExtentKind.automatic or not preset.isBoundedExtent():
+      fail("policy size preset is outside its bounds")
+  # A default that was never chosen leaves columns with nothing to fall back
+  # to, so it is refused here rather than failing later inside the strip.
+  if model.settings.defaultColumnWidth.kind == LayoutExtentKind.automatic or
+      not model.settings.defaultColumnWidth.isBoundedExtent():
+    fail("policy default column width is outside its bounds")
+  if not model.settings.defaultRowHeight.isBoundedExtent():
+    fail("policy default row height is outside its bounds")
   for pair in [
     (
       model.settings.scratchpadWidthPercent, model.settings.scratchpadHeightPercent,

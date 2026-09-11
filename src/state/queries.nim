@@ -161,42 +161,42 @@ proc visibleColumns*(model: PolicyModel, outputId: OutputId): seq[seq[WindowId]]
     if windows.len > 0:
       result.add(windows)
 
-proc defaultColumnScale*(model: PolicyModel): Scale =
-  ## What a column that never chose a width is showing. `autoScale` is a
+proc defaultColumnExtent*(model: PolicyModel): LayoutExtent =
+  ## What a column that never chose a width is showing. `automatic` is a
   ## sentinel meaning "never chosen", so anything that steps or compares a
   ## width has to resolve it first or it will reason about a column that is
   ## not the one on screen.
-  scaleFromRatio(uint32(model.settings.defaultColumnWidthPercent), 100)
+  model.settings.defaultColumnWidth
 
-proc defaultRowScale*(model: PolicyModel): Scale =
+proc defaultRowExtent*(model: PolicyModel): LayoutExtent =
   ## What a vertical-scroller row that never chose a height is showing.
   ## Unset inherits the column default, so a profile that never mentions rows
   ## behaves exactly as it did before the key existed.
-  if model.settings.defaultRowHeightPercent == 0:
-    model.defaultColumnScale()
+  if model.settings.defaultRowHeight.kind == LayoutExtentKind.automatic:
+    model.defaultColumnExtent()
   else:
-    scaleFromRatio(uint32(model.settings.defaultRowHeightPercent), 100)
+    model.settings.defaultRowHeight
 
 proc scrollsVertically*(model: PolicyModel, outputId: OutputId): bool =
   outputId in model.outputs and model.outputs[outputId].activeView in model.views and
     model.views[model.outputs[outputId].activeView].layout == LayoutMode.verticalScroller
 
-proc alongAxisDefaultScale*(model: PolicyModel, outputId: OutputId): Scale =
+proc alongAxisDefaultExtent*(model: PolicyModel, outputId: OutputId): LayoutExtent =
   ## The default extent along whichever axis this view scrolls. A column's
   ## width and a row's height are the same measurement seen from two
   ## directions, so the sizing keys have to ask which direction they are in.
   if model.scrollsVertically(outputId):
-    model.defaultRowScale()
+    model.defaultRowExtent()
   else:
-    model.defaultColumnScale()
+    model.defaultColumnExtent()
 
-proc alongAxisPresets*(model: PolicyModel, outputId: OutputId): seq[int32] =
+proc alongAxisPresets*(model: PolicyModel, outputId: OutputId): seq[LayoutExtent] =
   ## The presets the cycle key steps through, by axis. An empty row list
   ## inherits the column presets for the same reason the default does.
-  if model.scrollsVertically(outputId) and model.settings.rowHeightPresets.len > 0:
-    model.settings.rowHeightPresets
+  if model.scrollsVertically(outputId) and model.settings.presetRowHeights.len > 0:
+    model.settings.presetRowHeights
   else:
-    model.settings.columnWidthPresets
+    model.settings.presetColumnWidths
 
 proc effectiveGaps*(model: PolicyModel): (int32, int32) =
   ## The outer and inner gaps a projection should use. `toggle-gaps` hides
@@ -225,26 +225,43 @@ proc placementSize*(bounds: Rect, widthPercent, heightPercent: int32): (int32, i
       bounds.height
   (max(1'i32, width), max(1'i32, height))
 
+proc columnRequestedWidth*(
+    column: ColumnData, whenAutomatic: LayoutExtent, proportionBase, innerGap: int32
+): int32 =
+  ## What a column asks for, before any client says it cannot. Full width is a
+  ## flag the column carries, not a width it was given, so the width it chose
+  ## survives being maximised and comes back when the flag clears.
+  ##
+  ## `whenAutomatic` is the caller's business rather than this proc's, because
+  ## the caller is the one that knows which axis it is on: along a vertical
+  ## scroller the default a column falls back to is the row height.
+  ##
+  ## Kept apart from the clamped width below because the preset cycle has to
+  ## compare against what was asked for: a column holding a client with a
+  ## minimum shows the clamped width, which matches no preset, and the key
+  ## would stop feeling continuous for exactly the clients that need it most.
+  let extent =
+    if column.fullWidth:
+      proportionExtent(scaleOne)
+    elif column.width.kind == LayoutExtentKind.automatic:
+      whenAutomatic
+    else:
+      column.width
+  extent.extentPixels(proportionBase, innerGap)
+
 proc scrollerColumnWidth*(
     model: PolicyModel,
     column: ColumnData,
     windows: openArray[WindowId],
     proportionBase, innerGap: int32,
 ): int32 =
-  ## One column's width. Full width is a flag the column carries, not a width
-  ## it was given, so the width it chose survives being maximised and comes
-  ## back when the flag clears.
-  let scale =
-    if column.fullWidth:
-      scaleOne
-    elif column.widthScale == autoScale:
-      model.defaultColumnScale()
-    else:
-      column.widthScale
-  result = max(1'i32, proportionBase.scaledExtent(scale) - innerGap)
+  ## One column's width, as the strip will lay it out.
+  result =
+    columnRequestedWidth(column, model.defaultColumnExtent(), proportionBase, innerGap)
   # A client that cannot be narrower than some size gets a column that fits
-  # it. A proportion is a preference; a minimum is a fact, and a column
-  # narrower than its window would leave the window overflowing it.
+  # it. A proportion is a preference and a fixed extent a stronger one, but a
+  # minimum is a fact, and a column narrower than its window would leave the
+  # window overflowing it -- so the clamp applies to both kinds alike.
   var columnMinWidth = 0'i32
   var columnMaxWidth = 0'i32
   for windowId in windows:

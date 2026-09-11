@@ -29,6 +29,26 @@ proc setLayout*(model: var PolicyModel, outputId: OutputId, layout: LayoutMode) 
   model.views[model.outputs[outputId].activeView].layout = layout
   model.syncTabTrees()
 
+proc alongAxisGeometry(
+    model: PolicyModel, outputId: OutputId
+): tuple[strip: ScrollerStrip, proportionBase, innerGap: int32, vertical: bool] =
+  ## The strip the operator is actually looking at, plus the base a proportion
+  ## is taken of.
+  ##
+  ## A vertical scroller is the same machine turned on its side, so this reads
+  ## the strip through the same transpose the projection lays out. Reading the
+  ## untransposed model would measure widths on a view that scrolls by height,
+  ## and every caller here would then reason about space that is not there.
+  let (outerGap, innerGap) = model.effectiveGaps()
+  let vertical = model.scrollsVertically(outputId)
+  let viewed =
+    if vertical:
+      model.transposedForVerticalScroller(outputId)
+    else:
+      model
+  let strip = viewed.scrollerStrip(outputId, outerGap, innerGap)
+  (strip, max(1'i32, strip.usableWidth - innerGap), innerGap, vertical)
+
 proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:
     fail("column output does not exist")
@@ -36,17 +56,34 @@ proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int
   if window == nullWindowId:
     return
   let column = model.windows[window].column
-  # A column that never chose a width is showing the configured default, so
-  # that is where the first step starts from. Setting a width also stops the
-  # column being full width; the two are separate facts and this one is now
-  # explicit.
-  model.setColumnWidthScale(
-    column,
-    adjustedScale(
-      model.columns[column].widthScale, delta, model.alongAxisDefaultScale(outputId)
-    ),
-  )
-  model.columns[column].fullWidth = false
+  # A step is proportional, so a column holding fixed pixels converts on the
+  # first press, as niri does for an adjust-proportion. Either way the step
+  # starts from what the column is showing: reading an unset width as 1.0
+  # instead once jumped a half-width column past the whole viewport. Setting a
+  # width also stops the column being full width; the two are separate facts
+  # and this one is now explicit.
+  let resolved =
+    if model.columns[column].fullWidth:
+      proportionExtent(scaleOne)
+    elif model.columns[column].width.kind == LayoutExtentKind.automatic:
+      model.alongAxisDefaultExtent(outputId)
+    else:
+      model.columns[column].width
+  let current =
+    if resolved.kind == LayoutExtentKind.proportion:
+      # Already a proportion, so step it as one. Resolving to pixels and back
+      # would round the width the column has to the nearest one the strip can
+      # state, and a key held down would drift.
+      resolved.scale
+    else:
+      let geometry = model.alongAxisGeometry(outputId)
+      scaleForWidth(
+        geometry.proportionBase,
+        geometry.innerGap,
+        resolved.extentPixels(geometry.proportionBase, geometry.innerGap),
+      )
+  model.setColumnWidthScale(column, adjustedScale(current, delta, current))
+  model.setColumnFullWidth(column, false)
 
 proc adjustFocusedWindow*(model: var PolicyModel, outputId: OutputId, delta: int) =
   if outputId notin model.outputs:
@@ -118,34 +155,38 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
   if windowId == nullWindowId:
     return
   let columnId = model.windows[windowId].column
-  var scales: seq[Scale]
-  for percent in model.alongAxisPresets(outputId):
-    scales.add(scaleFromRatio(uint32(percent), 100))
-  let showing =
-    if model.columns[columnId].fullWidth:
-      scaleOne
-    elif model.columns[columnId].widthScale == autoScale:
-      model.alongAxisDefaultScale(outputId)
-    else:
-      model.columns[columnId].widthScale
-  let current = scales.find(showing)
+  let geometry = model.alongAxisGeometry(outputId)
+  let presets = model.alongAxisPresets(outputId)
+  var resolved: seq[int32]
+  for preset in presets:
+    resolved.add(preset.extentPixels(geometry.proportionBase, geometry.innerGap))
+  # Pixels rather than scales, because a proportion and a fixed extent share
+  # no common scale to compare in. niri places a column the same way.
+  let showing = columnRequestedWidth(
+    model.columns[columnId],
+    model.alongAxisDefaultExtent(outputId),
+    geometry.proportionBase,
+    geometry.innerGap,
+  )
+  let current = resolved.find(showing)
   var target: int
   if current >= 0:
-    target = wrappedIndex(current, delta, scales.len)
+    target = wrappedIndex(current, delta, resolved.len)
   elif delta >= 0:
     target = 0
-    for index, scale in scales:
-      if uint32(scale) > uint32(showing):
+    for index, width in resolved:
+      if width > showing:
         target = index
         break
   else:
-    target = scales.high
-    for index in countdown(scales.high, 0):
-      if uint32(scales[index]) < uint32(showing):
+    target = resolved.high
+    for index in countdown(resolved.high, 0):
+      if resolved[index] < showing:
         target = index
         break
-  model.setColumnWidthScale(columnId, scales[target])
-  model.columns[columnId].fullWidth = false
+  # Stored as written, so a fixed preset stays fixed.
+  model.setColumnWidthExtent(columnId, presets[target])
+  model.setColumnFullWidth(columnId, false)
 
 proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   ## Grow the focused column into the space its neighbours are not using.
@@ -164,23 +205,14 @@ proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   let columnId = model.windows[windowId].column
   if model.columns[columnId].fullWidth:
     return
-  let (outerGap, innerGap) = model.effectiveGaps()
-  # A vertical scroller is the same machine turned on its side, so this reads
-  # the strip through the same transpose the projection lays out. Reading the
-  # untransposed model here would measure widths on a view that scrolls by
-  # height, and grow the column into space that is not there.
-  let vertical = model.scrollsVertically(outputId)
-  let viewed =
-    if vertical:
-      model.transposedForVerticalScroller(outputId)
-    else:
-      model
-  let strip = viewed.scrollerStrip(outputId, outerGap, innerGap)
+  let geometry = model.alongAxisGeometry(outputId)
+  let strip = geometry.strip
+  let innerGap = geometry.innerGap
   if strip.focused < 0:
     return
   let activeView = model.outputs[outputId].activeView
   let offset =
-    if vertical:
+    if geometry.vertical:
       model.views[activeView].viewportOffsetY
     else:
       model.views[activeView].viewportOffset
@@ -207,14 +239,10 @@ proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   if available <= 0:
     return
   let grown = int64(strip.widths[strip.focused]) + available
-  let proportionBase = max(1'i32, strip.usableWidth - innerGap)
-  # Back out the scale that produces this width, since a width is stored as a
-  # proportion of the room a column can occupy.
-  let raw =
-    (grown + int64(innerGap)) * int64(uint32(scaleOne)) div int64(proportionBase)
-  model.setColumnWidthScale(
-    columnId,
-    Scale(
-      uint32(max(int64(uint32(minimumScale)), min(int64(uint32(maximumScale)), raw)))
-    ),
+  # Recorded as pixels, the way niri records it. A column expanded into its
+  # neighbours' space was given a width in pixels; rounding that through a
+  # proportion only to resolve it back loses exactly the width that was asked
+  # for, and makes the column rescale on an output change it had no part in.
+  model.setColumnWidthExtent(
+    columnId, fixedExtent(int32(max(1'i64, min(int64(maxFixedExtent), grown))))
   )

@@ -23,6 +23,23 @@ type
     minWidth*, minHeight*: int32
     maxWidth*, maxHeight*: int32
 
+  LayoutExtentKind* {.pure.} = enum
+    automatic ## Never chosen; the caller substitutes a configured default.
+    proportion ## A fraction of the room a column can occupy, as Q16.16.
+    fixed ## Logical pixels.
+
+  LayoutExtent* = object
+    ## How much of an axis something asks for. niri models the same choice as
+    ## `PresetSize::{Proportion, Fixed}`; `automatic` is Hagia's "never chosen"
+    ## sentinel, which the scroller used to spell `autoScale`.
+    ##
+    ## Flat rather than a variant: the checkpoint is `jsonutils`-encoded with
+    ## exact key matching, and a variant's key set changes with its
+    ## discriminant, which a version-ladder step cannot fill blind.
+    kind*: LayoutExtentKind
+    scale*: Scale ## Meaningful when `kind == proportion`.
+    pixels*: int32 ## Meaningful when `kind == fixed`.
+
   EntityStore*[Id, T] = object
     ## Dense entity storage. Logical identity and semantic order live outside the
     ## dense slot so swap-and-pop removal cannot change policy behavior.
@@ -49,6 +66,10 @@ const
   emptyTagMask* = TagMask(0)
   autoScale* = Scale(0)
   scaleOne* = Scale(1'u32 shl 16)
+  automaticExtent* = LayoutExtent()
+  ## The widest a fixed extent may be. Far past any display, and small
+  ## enough that a strip of them stays inside the int32 the wire carries.
+  maxFixedExtent* = 16384'i32
   minimumScale* = Scale(3277)
   ## Ten times the room a column can occupy. A width is a preference, so it is
   ## bounded rather than free: past this the strip coordinates stop meaning

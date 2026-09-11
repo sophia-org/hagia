@@ -259,7 +259,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 16
+  result.schema = 17
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -374,7 +374,13 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-16\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-17\n" & $adapter.checkpointDto().toJson()
+
+proc migratedProportion(percent: int): JsonNode =
+  ## A checkpointed percentage as the proportion the percent resolver produced
+  ## for it, so a payload written before proportions existed restores to the
+  ## pixels it had rather than the nearest ones the new vocabulary can state.
+  toJson(proportionExtent(scaleFromRatio(uint32(max(0, percent)), 100)))
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
@@ -384,10 +390,12 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # scroll axes, version 12 predates focus-follows-mouse, and version 13 stored
   # a floating rectangle without saying whether it was a rule or a decision;
   # version 14 predates the emitted maximize bit used to recognize scene echoes.
-  # Version 15 predates uniform gaps and explicit tiling struts.
+  # Version 15 predates uniform gaps and explicit tiling struts, and version
+  # 16 stated column widths and their defaults as integer percentages, before
+  # proportions and fixed pixels.
   # Each migrates forward by filling the fields it could not have written.
-  var version = 16
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]:
+  var version = 17
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -411,8 +419,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     if version <= 6:
       node["settings"]["viewNames"] = newJArray()
       node["settings"]["viewLayouts"] = newJArray()
-      node["settings"]["columnWidthPresets"] =
-        toJson(defaultPolicySettings.columnWidthPresets)
+      node["settings"]["presetColumnWidths"] =
+        toJson(defaultPolicySettings.presetColumnWidths)
       node["settings"]["scratchpadWidthPercent"] =
         toJson(defaultPolicySettings.scratchpadWidthPercent)
       node["settings"]["scratchpadHeightPercent"] =
@@ -426,8 +434,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       # leave it.
       for viewNode in node["views"]:
         viewNode["viewportOffset"] = toJson(0'i32)
-      node["settings"]["defaultColumnWidthPercent"] =
-        toJson(defaultPolicySettings.defaultColumnWidthPercent)
+      node["settings"]["defaultColumnWidth"] =
+        toJson(defaultPolicySettings.defaultColumnWidth)
       node["settings"]["centerFocusedColumn"] =
         toJson(defaultPolicySettings.centerFocusedColumn)
     if version <= 8:
@@ -439,6 +447,13 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       # width -- and reading it as maximised is the recoverable answer: the
       # key that maximised it can put it back, where a width has no way home.
       for columnNode in node["columns"]:
+        # A payload relabelled to this version from a newer one already states
+        # its width as an extent; only a genuine v8 column carries the scale
+        # this reads, and only it needs the flag derived from one.
+        if not columnNode.hasKey("widthScale"):
+          if not columnNode.hasKey("fullWidth"):
+            columnNode["fullWidth"] = toJson(false)
+          continue
         let maximized = columnNode["widthScale"].getInt() == int(scaleOne)
         columnNode["fullWidth"] = toJson(maximized)
         if maximized:
@@ -451,8 +466,9 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     if version <= 10:
       # Zero and empty mean inherit the column values, which is what a
       # profile written before these keys existed was getting anyway.
-      node["settings"]["defaultRowHeightPercent"] = toJson(0'i32)
-      node["settings"]["rowHeightPresets"] = newJArray()
+      node["settings"]["defaultRowHeight"] =
+        toJson(defaultPolicySettings.defaultRowHeight)
+      node["settings"]["presetRowHeights"] = newJArray()
     if version <= 11:
       for viewNode in node["views"]:
         viewNode["camera"] = toJson(CameraAnchor())
@@ -495,6 +511,63 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
       node["settings"]["gapModel"] = toJson(GapModel.legacy)
       node["settings"]["gaps"] = toJson(0'i32)
       node["settings"]["struts"] = toJson(LayoutStruts())
+    if version <= 16:
+      # Percentages become proportions through exactly the conversion the old
+      # resolver used, so a restored strip lands on the same pixels rather than
+      # the nearest new ones. Fixed pixels cannot appear in such a payload:
+      # nothing able to write one could have written this version.
+      #
+      # Only where the old field is present, because a payload relabelled to an
+      # older version still carries what it wrote and a rung above may already
+      # have supplied the current spelling. The fills afterwards are what make
+      # the rung total: the DTO matches keys exactly, so every field has to
+      # exist by the end of it however the payload got here.
+      let settings = node["settings"]
+      if settings.hasKey("defaultColumnWidthPercent"):
+        settings["defaultColumnWidth"] =
+          migratedProportion(settings["defaultColumnWidthPercent"].getInt())
+        settings.delete("defaultColumnWidthPercent")
+      if settings.hasKey("defaultRowHeightPercent"):
+        let percent = settings["defaultRowHeightPercent"].getInt()
+        # Zero was the sentinel for "inherit the column default", which an
+        # extent spells `automatic` and which is still the zero value.
+        settings["defaultRowHeight"] =
+          if percent == 0:
+            toJson(automaticExtent)
+          else:
+            migratedProportion(percent)
+        settings.delete("defaultRowHeightPercent")
+      for pair in [
+        ("columnWidthPresets", "presetColumnWidths"),
+        ("rowHeightPresets", "presetRowHeights"),
+      ]:
+        if settings.hasKey(pair[0]):
+          var presets = newJArray()
+          for preset in settings[pair[0]]:
+            presets.add(migratedProportion(preset.getInt()))
+          settings[pair[1]] = presets
+          settings.delete(pair[0])
+      if not settings.hasKey("defaultColumnWidth"):
+        settings["defaultColumnWidth"] =
+          toJson(defaultPolicySettings.defaultColumnWidth)
+      if not settings.hasKey("defaultRowHeight"):
+        settings["defaultRowHeight"] = toJson(defaultPolicySettings.defaultRowHeight)
+      if not settings.hasKey("presetColumnWidths"):
+        settings["presetColumnWidths"] =
+          toJson(defaultPolicySettings.presetColumnWidths)
+      if not settings.hasKey("presetRowHeights"):
+        settings["presetRowHeights"] = newJArray()
+      for columnNode in node["columns"]:
+        if columnNode.hasKey("widthScale"):
+          let raw = uint32(columnNode["widthScale"].getInt())
+          columnNode["width"] =
+            if raw == uint32(autoScale):
+              toJson(automaticExtent)
+            else:
+              toJson(proportionExtent(Scale(raw)))
+          columnNode.delete("widthScale")
+        elif not columnNode.hasKey("width"):
+          columnNode["width"] = toJson(automaticExtent)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")

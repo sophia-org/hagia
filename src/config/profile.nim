@@ -497,7 +497,7 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
       fail("policy view-layout names an unsupported layout")
   if authority == ProfileAuthority.policy and
       node.name in ["column-width-presets", "row-height-presets"]:
-    if node.args.len < 1 or node.args.len > maxColumnWidthPresets or node.props.len != 0 or
+    if node.args.len < 1 or node.args.len > maxSizePresets or node.props.len != 0 or
         node.children.len != 0:
       fail("policy " & node.name & " requires one to eight percentages")
     for argument in node.args:

@@ -298,14 +298,32 @@ proc setColumnFullWidth*(model: var PolicyModel, id: ColumnId, enabled: bool) =
     fail("column does not exist")
   model.columns[id].fullWidth = enabled
 
+proc setColumnWidthExtent*(model: var PolicyModel, id: ColumnId, extent: LayoutExtent) =
+  ## The one bounded setter for a column width, of either kind. `automatic`
+  ## returns the column to the configured default, which is what a reload and
+  ## a checkpoint restore need.
+  if id notin model.columns:
+    fail("column does not exist")
+  if not extent.isBoundedExtent():
+    fail("column width is outside Hagia's bounds")
+  model.columns[id].width = extent
+
 proc setColumnWidthScale*(model: var PolicyModel, id: ColumnId, scale: Scale) =
+  ## Set a column width as a proportion. Stepping and centring are always
+  ## proportional, so they come through here rather than building an extent.
   if id notin model.columns:
     fail("column does not exist")
   if scale != autoScale and uint32(scale) < uint32(minimumScale):
     fail("column scale is too small")
   if uint32(scale) > uint32(maximumScale):
     fail("column scale is too large")
-  model.columns[id].widthScale = scale
+  model.setColumnWidthExtent(
+    id,
+    if scale == autoScale:
+      automaticExtent
+    else:
+      proportionExtent(scale),
+  )
 
 proc setWindowHeightScale*(model: var PolicyModel, id: WindowId, scale: Scale) =
   if id notin model.windows:

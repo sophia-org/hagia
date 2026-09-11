@@ -24,10 +24,10 @@ proc adoptWindowOutput*(
     model.columns[source].homeOutput = outputId
     model.columns[source].preferredOutput = outputId
   else:
-    let scale = model.columns[source].widthScale
+    let width = model.columns[source].width
     model.columns[source].windows.keepItIf(it != windowId)
     let target = model.addColumn(outputId)
-    model.columns[target].widthScale = scale
+    model.setColumnWidthExtent(target, width)
     model.columns[target].windows.add(windowId)
     model.windows[windowId].column = target
   model.windows[windowId].homeOutput = outputId
