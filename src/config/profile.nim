@@ -410,7 +410,13 @@ proc candidateSettingKey(authority: ProfileAuthority, node: KdlNode): string =
   else:
     authority.settingKey(node)
 
-proc validateGapSetting*(node: KdlNode) =
+proc validateGapSetting*(node: KdlNode, allowNegative = false) =
+  ## `allowNegative` is set only for a strut edge. A gap is spacing and cannot
+  ## be less than none, but a strut is a reservation, and niri lets one be
+  ## negative so a layout can have gaps between tiles without one at each
+  ## screen edge -- `gaps 16; struts { left -16; right -16 }`. The spelling is
+  ## already byte-identical to niri's, so refusing the value it takes is the
+  ## worst kind of divergence: the same key meaning something narrower.
   if node.tag.isSome or node.props.len != 0:
     fail("policy " & node.name & " does not accept annotations or properties")
   if node.name == "struts":
@@ -421,14 +427,19 @@ proc validateGapSetting*(node: KdlNode) =
       if edge.name notin ["left", "right", "top", "bottom"] or edge.name in seen:
         fail("policy struts has an unknown or duplicate edge")
       seen.incl(edge.name)
-      edge.validateGapSetting()
+      edge.validateGapSetting(allowNegative = true)
   else:
     if node.args.len != 1 or node.children.len != 0 or
         node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
       fail("policy " & node.name & " requires one integer")
-    if node.args[0].tag.isSome or node.args[0].get(int) < 0 or
+    let lowest =
+      if allowNegative:
+        -maxGap
+      else:
+        0
+    if node.args[0].tag.isSome or node.args[0].get(int) < lowest or
         node.args[0].get(int) > maxGap:
-      fail("policy " & node.name & " is outside 0.." & $maxGap)
+      fail("policy " & node.name & " is outside " & $lowest & ".." & $maxGap)
 
 proc validateExtentSetting*(node: KdlNode, maxChildren: int) =
   ## One configured size, or a list of them. niri states these as

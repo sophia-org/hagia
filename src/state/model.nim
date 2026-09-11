@@ -135,11 +135,16 @@ proc validate*(model: PolicyModel) =
       model.settings.viewportOffset < 0 or model.settings.layoutCycle.len == 0 or
       model.settings.layoutCycle.len > ord(high(LayoutMode)) + 1:
     fail("policy settings are invalid")
-  for gap in [
-    model.settings.gaps, model.settings.struts.left, model.settings.struts.right,
-    model.settings.struts.top, model.settings.struts.bottom,
+  if model.settings.gaps < 0 or model.settings.gaps > maxGap:
+    fail("policy gaps or struts exceed bounds")
+  # A strut may be negative: that is how a layout asks for gaps between tiles
+  # without one at each screen edge. `layoutWorkArea` is what keeps the grown
+  # area honest, and refuses one that has outgrown the coordinates.
+  for strut in [
+    model.settings.struts.left, model.settings.struts.right, model.settings.struts.top,
+    model.settings.struts.bottom,
   ]:
-    if gap < 0 or gap > maxGap:
+    if strut < -maxGap or strut > maxGap:
       fail("policy gaps or struts exceed bounds")
   if model.settings.gapModel == GapModel.legacy and
       (model.settings.gaps != 0 or model.settings.struts != LayoutStruts()):

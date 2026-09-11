@@ -290,7 +290,11 @@ proc layoutWorkArea*(model: PolicyModel, outputId: OutputId): Rect =
   let y = int64(result.y) + int64(struts.top)
   if width <= 0 or height <= 0:
     fail("output struts consume the viewport")
-  if x > int64(high(int32)) or y > int64(high(int32)):
+  # A negative strut grows the work area past the output, which is what asks
+  # for gaps between tiles and none at the screen edge. It may not grow past
+  # what the coordinates can carry.
+  if width > int64(high(int32)) or height > int64(high(int32)) or x > int64(high(int32)) or
+      y > int64(high(int32)) or x < int64(low(int32)) or y < int64(low(int32)):
     fail("output strut coordinates exceed bounds")
   result = Rect(x: int32(x), y: int32(y), width: int32(width), height: int32(height))
 

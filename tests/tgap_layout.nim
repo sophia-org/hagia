@@ -157,7 +157,7 @@ suite "uniform gaps and explicit struts":
       "gaps -1;", "gaps 513;", "gaps 2147483648;", "gaps 1.5;", "gaps \"8\";",
       "gaps 8 extra=1;", "gaps 8 { left 1; }", "gaps 8; gaps 9;",
       "gaps 8; outer-gap 8;", "inner-gap 8; gaps 8;", "struts { left 8; }",
-      "gaps 8; struts 8;", "gaps 8; struts { left -1; }",
+      "gaps 8; struts 8;", "gaps 8; struts { left -513; }",
       "gaps 8; struts { left 513; }", "gaps 8; struts { left 8; left 9; }",
       "gaps 8; struts { sideways 1; }", "gaps 8; struts { left 8 extra=1; }",
       "gaps 8; struts { left 8 { top 1; } }",
@@ -170,6 +170,39 @@ suite "uniform gaps and explicit struts":
     let settings = loadDesktopProfile(path).candidates[ProfileAuthority.policy].policyCandidateSettings()
     check settings.gaps == 8
     check settings.struts == LayoutStruts(left: 8, bottom: 20)
+
+  test "negative struts give gaps between tiles and none at the screen edge":
+    ## The uniform model puts one gap at each edge of the screen as well as
+    ## between columns. niri's way out is a strut that gives the space back,
+    ## and the key is spelled identically here, so it takes the same value.
+    let directory = createTempDir("hagia-negative-strut-", "")
+    defer:
+      removeDir(directory)
+    let path = directory / "config.kdl"
+    writeFile(path, "schema 1\npolicy { gaps 16; struts { left -16; right -16; }; }\n")
+    setFilePermissions(path, {fpUserRead, fpUserWrite})
+    let settings = loadDesktopProfile(path).candidates[ProfileAuthority.policy].policyCandidateSettings()
+    check settings.struts == LayoutStruts(left: -16, right: -16)
+
+    var model = stripModel(Rect(width: 2560, height: 1440))
+    model.settings = settings
+    let layout = model.projected()
+    # The first column starts at the physical edge rather than one gap in,
+    # while the columns still carry their gap between them.
+    check layout.geometry(1).x == 0
+    check layout.geometry(2).x == layout.geometry(1).x + layout.geometry(1).width + 16
+    model.validate()
+
+  test "a strut that consumes the viewport still fails closed":
+    ## Struts are bounded at one screen's worth of spacing either way, so it
+    ## takes a small output to exhaust one -- but the refusal is what makes a
+    ## negative strut safe to allow, so it is pinned rather than assumed.
+    var model = stripModel(Rect(width: 900, height: 900))
+    model.settings.gapModel = GapModel.uniform
+    model.settings.gaps = 8
+    model.settings.struts = LayoutStruts(left: 512, right: 512)
+    expect PolicyStateError:
+      discard model.projected()
 
   test "Triad gap migration emits the uniform model":
     let migrated = migrateTriadProfile("layout { gaps 8; }")
