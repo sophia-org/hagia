@@ -137,8 +137,10 @@ Directional navigation stops at outer edges, retains adjacent-monitor handoff,
 and remembers each destination column's last focused member. Explicit cycling
 remains a separate wrapping action.
 
-Checkpoint version 12 carries camera anchors and opening context; versions
-4 through 11 migrate with empty anchors. As with all policy state, a candidate
+Checkpoint version 13 carries camera anchors, opening context, and the
+focus-follows-mouse setting; versions 4 through 11 migrate with empty anchors
+and version 12 migrates with the setting off, which is what a session written
+before it existed was running. As with all policy state, a candidate
 is promoted only after Engine commit. Hagia does not run animation clocks:
 optional `translation_groups` capability bit 12 submits one opaque group per
 scrolling view and final translation alongside ordinary placements. Sophia

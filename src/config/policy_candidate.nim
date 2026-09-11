@@ -74,7 +74,10 @@ proc layoutCycleValue(value: ProfileValue): seq[LayoutMode] =
       raise newException(DesktopProfileError, "policy layout-cycle has duplicates")
     result.add(layout)
 
-proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate) =
+proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
+  ## The settings a policy fragment states, with no model to put them in.
+  ## Negotiation needs one of these values before any model exists, and a
+  ## second parser for that one value would be a second owner of the grammar.
   if candidate.authority != ProfileAuthority.policy or candidate.generation == 0 or
       candidate.digest.len != 64 or not candidate.digest.allCharsInSet(HexDigits):
     raise newException(DesktopProfileError, "Hagia received a non-policy candidate")
@@ -140,6 +143,11 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
       if node.args.len != 1 or node.args[0].kind != KBool:
         raise newException(DesktopProfileError, value.key & " requires #true or #false")
       settings.alwaysCenterSingleColumn = node.args[0].kBool()
+    of "policy.focus-follows-mouse":
+      let node = parseKdl(value.encoded)[0]
+      if node.args.len != 1 or node.args[0].kind != KBool:
+        raise newException(DesktopProfileError, value.key & " requires #true or #false")
+      settings.focusFollowsMouse = node.args[0].kBool()
     of "policy.center-focused-column":
       let node = parseKdl(value.encoded)[0]
       if node.args.len != 1 or node.args[0].kind != KString:
@@ -207,4 +215,7 @@ proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate
     proc(left, right: ViewSlotLayout): int =
       cmp(left.slot, right.slot)
   )
-  model.settings = settings
+  settings
+
+proc applyPolicyCandidate*(model: var PolicyModel, candidate: AuthorityCandidate) =
+  model.settings = candidate.policyCandidateSettings()

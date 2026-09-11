@@ -27,7 +27,8 @@ validation, atomic commit, supervision, and scanout; Hagia only ever proposes.
 The policy surface: stable logical IDs, nine shared tag slots with
 output-local views, deterministic fixed-point scrolling columns, atomic
 cross-output movement, bounded focus and minimize histories, output reconnect
-affinity, scratchpads, window groups, and reduced pointer move/resize. Fifteen
+affinity, scratchpads, window groups, optional focus-follows-mouse, and
+reduced pointer move/resize. Fifteen
 native layouts ship — the scroller pair, the tile family, grid and vertical
 grid, monocle, deck, spiral, mixed, and the tree family (frame-tree, Notion,
 i3, dwindle) — with a five-layout cycle across nine views by default, and
@@ -97,6 +98,37 @@ Sophia's paired check validates the session envelope and reports policy
 validation as delegated. On startup, Hagia builds the policy model before
 acknowledging profile activation, so a bad value cannot open Sophia's graphical
 gate. Sophia passes only the staged Policy fragment to the running WM.
+
+### Focus follows the pointer
+
+Off by default, the way niri has it: crossing a window on the way to somewhere
+else should not take focus with it.
+
+```kdl
+policy {
+  focus-follows-mouse #true
+}
+```
+
+Turned on, focus follows the pointer between windows and onto a monitor holding
+no window at all — the empty monitor becomes the active one, so the next window
+opens there and the shortcut helper and launcher appear there, while each output
+goes on remembering which window it had focused.
+
+Hagia never sees pointer motion. Sophia hit-tests the pixels it has actually
+presented and reports which output the pointer settled on and, when there is
+one, which window; Hagia decides whether that may take focus and refuses a
+target that is not focusable, is minimized, or is not on the output named. A
+window moving under a stationary pointer — a layout animation, a reload — is not
+motion and does not move focus.
+
+The setting is read at startup, so turning it on or off takes effect when the
+profile is reloaded and the window manager restarts; the session's windows,
+widths, focus, and camera survive that as they always do. Because it asks
+Sophia for observations it would otherwise never send, a `#true` profile against
+a Sophia too old to send them fails at startup with a message naming the
+setting, rather than starting a session that quietly ignores it. Leaving it off
+asks for nothing and works against any supported Sophia.
 
 ### Application commands
 

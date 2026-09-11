@@ -52,5 +52,24 @@ XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     cargo test --offline -q -p sophia-session --features atomic-scanout-live \
     hagia_pregraphics_profile_admission_
 
+# Pointer focus runs the real compiled Hagia over a socket: it negotiates with
+# the setting off and on, sends Engine-authored empty-output and window-hover
+# observations on the actual wire, and drives stage/commit plus timeout retry.
+# Only owned offline processes, so it belongs in the ordinary gate.
+cargo test --offline -q -p sophia-runtime --test policy_transport \
+    hagia_pointer_focus_ -- --list >"$build_dir/pointer-tests"
+for test in \
+    hagia_pointer_focus_real_socket_commits_rejects_and_retries \
+    hagia_pointer_focus_old_server_reports_the_setting_before_admission
+do
+    grep -Fqx "pointer_focus_hagia::$test: test" "$build_dir/pointer-tests" || {
+        echo "missing paired pointer-focus test: $test" >&2
+        exit 1
+    }
+done
+XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
+    cargo test --offline -q -p sophia-runtime --test policy_transport \
+    hagia_pointer_focus_
+
 printf '%s\n' \
     'hagia_policy_behavior_corpus schema=4 status=complete revision=3 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true reconnect_restart=true preserved_commit=true'

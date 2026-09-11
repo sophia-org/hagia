@@ -27,6 +27,12 @@ type
     action = 1
     focus = 2
     interaction = 3
+    ## The pointer settled on a different target. `action` carries the output
+    ## the pointer is over; the target pair names a window on it, or is zero
+    ## when the pointer crossed onto an output holding none. Sent only after
+    ## `pointer_focus` is negotiated, so an unnegotiated one is a protocol
+    ## error rather than something to ignore.
+    pointerFocus = 4
 
   InteractionPhase* {.pure.} = enum
     none = 0

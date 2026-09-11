@@ -169,6 +169,12 @@ type
     ## rest of the screen empty, which reads as a mistake rather than a
     ## setting. niri offers the same and defaults it off; this defaults on.
     alwaysCenterSingleColumn*: bool
+    ## Move focus to whatever the pointer is over, including an output holding
+    ## no window. Off by default, as niri has it: a pointer that crosses a
+    ## window on its way somewhere else should not take focus with it unless
+    ## the operator asked for that. Hagia owns the preference; Sophia owns the
+    ## hit test and sends an observation only when this is on.
+    focusFollowsMouse*: bool
     layoutCycle*: seq[LayoutMode]
     masterCount*: int
     masterRatio*: Scale
@@ -276,4 +282,5 @@ const
     alwaysCenterSingleColumn: true,
     defaultRowHeightPercent: 0,
     rowHeightPresets: @[],
+    focusFollowsMouse: false,
   )

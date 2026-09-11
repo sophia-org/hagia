@@ -139,7 +139,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 12
+  result.schema = 13
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -249,17 +249,17 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-12\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-13\n" & $adapter.checkpointDto().toJson()
 
 proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # Version 4 predates tab trees, version 5 predates dwindle preselects,
   # version 6 predates named views and placement sizing, version 7 predates
   # the scroller camera and the default column width, version 8 stored a
-  # maximised column as a width, and version 9 shared one camera across both
-  # scroll axes; each migrates forward by filling the fields it could not
-  # have written.
-  var version = 12
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11]:
+  # maximised column as a width, version 9 shared one camera across both
+  # scroll axes, and version 12 predates focus-follows-mouse; each migrates
+  # forward by filling the fields it could not have written.
+  var version = 13
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -333,6 +333,10 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
         viewNode["openingFocus"] = toJson(nullWindowId)
         viewNode["openingOffset"] = toJson(0'i32)
         viewNode["openingOffsetY"] = toJson(0'i32)
+    if version <= 12:
+      # Off is what a profile written before this key existed was getting, and
+      # it is the default the key itself carries.
+      node["settings"]["focusFollowsMouse"] = toJson(false)
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -484,6 +488,29 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
       kind: PolicyMsgKind.focus,
       output: adapter.model.windows[window].homeOutput,
       focusWindow: window,
+    )
+  of ProjectionCauseKind.pointerFocus:
+    # The Engine hit-tests its own presented pixels and reports what the
+    # pointer settled on. Policy never sees motion, so this arm only resolves
+    # the opaque identities and lets the reducer decide whether the profile
+    # asked for any of it.
+    if request.cause.action notin adapter.outputToLogical:
+      fail("policy pointer-focus cause names an unknown output")
+    let pointerOutput = adapter.outputToLogical[request.cause.action]
+    var pointerWindow = nullWindowId
+    if request.cause.targetGeneration != 0:
+      let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
+      if key notin adapter.surfaceToWindow:
+        fail("policy pointer-focus cause names an unknown surface")
+      pointerWindow = adapter.surfaceToWindow[key]
+      # A target that has moved output since the observation was taken would
+      # otherwise focus a window the pointer is no longer over.
+      if adapter.model.windows[pointerWindow].homeOutput != pointerOutput:
+        fail("policy pointer-focus target does not live on the named output")
+    message = PolicyMsg(
+      kind: PolicyMsgKind.pointerFocus,
+      output: pointerOutput,
+      pointerWindow: pointerWindow,
     )
   of ProjectionCauseKind.interaction:
     let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)

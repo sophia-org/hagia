@@ -2,6 +2,7 @@ import ./wm_translation
 import ./wm_tab_groups
 import std/[net, options, os, sets]
 
+import ../config/policy_candidate
 import ../types/[actions, config_values, handoff, session, wm_v1]
 import ../types/observability
 import ../observability
@@ -70,8 +71,21 @@ proc sendFrame(client: PolicyClient, frame: Frame) =
     fail("policy projection chunk exceeds the negotiated limit")
   client.socket.send(frame.encodeFrame().toBinaryString())
 
+proc requestsPointerFocus(candidate: AuthorityCandidate): bool =
+  ## Negotiation happens before the candidate is validated for real, and an
+  ## invalid profile must still reach the stage that rejects it by name rather
+  ## than dying at connect. One that will not parse asks for nothing; the
+  ## rejection it has coming arrives moments later, from the path that owns it.
+  try:
+    candidate.policyCandidateSettings().focusFollowsMouse
+  except CatchableError:
+    false
+
 proc negotiatePolicy(
-    socket: Socket, requestConfiguration: bool, requestProfileActivation = false
+    socket: Socket,
+    requestConfiguration: bool,
+    requestProfileActivation = false,
+    requestPointerFocus = false,
 ): PolicyClient =
   result = PolicyClient(
     socket: socket,
@@ -91,6 +105,11 @@ proc negotiatePolicy(
       0'u64
   if requestProfileActivation:
     optional = optional or capabilityProfileActivation
+  # Asked for only when the profile turns focus-follows-mouse on. A server told
+  # nothing sends nothing, so the default costs no cycle at all rather than one
+  # per pointer crossing that the reducer would discard.
+  if requestPointerFocus:
+    optional = optional or capabilityPointerFocus
   payload.addU64(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
@@ -106,6 +125,10 @@ proc negotiatePolicy(
     capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement
   if (result.capabilities and requiredCapabilities) != requiredCapabilities:
     fail("Sophia omitted a required policy capability")
+  # Before the generic optional mask, which would otherwise answer a missing
+  # pointer-focus bit with a message about native configuration.
+  if requestPointerFocus and (result.capabilities and capabilityPointerFocus) == 0:
+    fail("Sophia omitted pointer focus, which this profile's focus-follows-mouse needs")
   if requestConfiguration and (result.capabilities and optional) != optional:
     fail("Sophia omitted native policy configuration")
   if requestProfileActivation and
@@ -122,10 +145,13 @@ proc negotiatePolicy(
   injectConfiguredFault("negotiated")
 
 proc connectPolicy(
-    path: string, requestConfiguration: bool, requestProfileActivation = false
+    path: string,
+    requestConfiguration: bool,
+    requestProfileActivation = false,
+    requestPointerFocus = false,
 ): PolicyClient =
   path.connectWhenReady().negotiatePolicy(
-    requestConfiguration, requestProfileActivation
+    requestConfiguration, requestProfileActivation, requestPointerFocus
   )
 
 proc settleProfileCommand(
@@ -308,7 +334,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
 
 proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
   client.receiveFrame(MessageKind.projectionRequest).decodeProjectionRequest(
-    client.connectionEpoch
+    client.connectionEpoch, client.capabilities
   )
 
 proc allocateTransaction(client: PolicyClient): uint64 =
@@ -825,7 +851,9 @@ proc runPolicySession*(path: string) =
   path.connectPolicy(true).runPolicySession(true)
 
 proc runPolicySession*(path: string, candidate: AuthorityCandidate) =
-  path.connectPolicy(true).runPolicySession(true, some(candidate))
+  path.connectPolicy(true, false, candidate.requestsPointerFocus()).runPolicySession(
+    true, some(candidate)
+  )
 
 proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidate) =
   try:
@@ -842,7 +870,9 @@ proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidat
 
 proc runProfileActivatedPolicySession*(path: string, candidate: AuthorityCandidate) =
   ## Reuses the authenticated connection only after exact Active settlement.
-  path.connectPolicy(true, true).runActivatedPolicyClient(candidate)
+  path
+    .connectPolicy(true, true, candidate.requestsPointerFocus())
+    .runActivatedPolicyClient(candidate)
 
 proc runPolicySessionOnSocket*(socket: Socket) =
   socket.negotiatePolicy(false).runPolicySession(false)
@@ -852,4 +882,6 @@ proc runProfileActivatedPolicySessionOnSocket*(
 ) =
   ## Socket-injected conformance entry point with production-equivalent
   ## activation and configuration ordering.
-  socket.negotiatePolicy(true, true).runActivatedPolicyClient(candidate)
+  socket
+    .negotiatePolicy(true, true, candidate.requestsPointerFocus())
+    .runActivatedPolicyClient(candidate)

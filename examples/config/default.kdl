@@ -10,6 +10,12 @@ policy {
   // right-tile, vertical-grid, deck, spiral, and tgmix.
   layout-cycle "scroller" "tile" "grid" "monocle" "vertical-scroller"
   view-count 9
+  // Move focus to whatever the pointer is over, including a monitor holding no
+  // window. Off, as niri has it: crossing a window on the way somewhere else
+  // should not take focus with it. Turning this on asks Sophia for pointer
+  // observations, so a server too old to send them refuses the session rather
+  // than ignoring the setting.
+  focus-follows-mouse #false
   outer-gap 0
   inner-gap 0
   // Horizontal scroller viewport bias in pixels; 0 keeps the focused column

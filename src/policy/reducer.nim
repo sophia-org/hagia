@@ -19,6 +19,16 @@ proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
     result.candidate.setActiveOutput(message.output)
     result.candidate.setFocus(message.output, message.focusWindow)
     result.candidate.focusTabWindow(message.output, message.focusWindow)
+  of PolicyMsgKind.pointerFocus:
+    # Disabled is a no-op, not a rejection: the observation is well formed and
+    # the operator simply did not ask for it. Leaving the candidate untouched
+    # keeps the active output, the focused window, and the camera exactly where
+    # the last committed cycle put them.
+    if result.candidate.settings.focusFollowsMouse:
+      result.candidate.setActiveOutput(message.output)
+      if message.pointerWindow != nullWindowId:
+        result.candidate.setFocus(message.output, message.pointerWindow)
+        result.candidate.focusTabWindow(message.output, message.pointerWindow)
   of PolicyMsgKind.interaction:
     let window = result.candidate.window(message.interactionWindow)
     if window.isNone or window.get().homeOutput != message.output:

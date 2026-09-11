@@ -153,6 +153,11 @@ type
     presentationBits*: uint16
 
 const
+  ## Optional capability: Sophia may send `pointerFocus` projection causes.
+  ## Requested only when the profile turns focus-follows-mouse on, so a server
+  ## that selects it is telling the codec those causes are expected.
+  capabilityPointerFocus* = 1'u64 shl 13
+
   ## Snapshot record discriminator and the capability bit the codec reads to
   ## decide whether a surface may take focus.
   snapshotSurfaceClassificationRecordKind* = 0xFF00'u16

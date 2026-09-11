@@ -1371,3 +1371,71 @@ suite "native shortcut reference":
     expect DesktopProfileError:
       path.ownerOnly()
       discard loadDesktopProfile(path)
+
+suite "focus-follows-mouse profile setting":
+  ## Hagia owns the preference. Sophia is told only whether to send pointer
+  ## observations at all, so the grammar has to be exact about what was asked.
+  test "a profile states it explicitly either way and defaults off":
+    let directory = createTempDir("hagia-focus-follows-", "")
+    defer:
+      removeDir(directory)
+    let digest = repeat('d', 64)
+    for (written, expected) in [("#true", true), ("#false", false)]:
+      let path = directory / ("policy-" & written[1 .. ^1] & ".kdl")
+      writeFile(
+        path,
+        "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+          "\"\npolicy { focus-follows-mouse " & written & "; }\n",
+      )
+      path.ownerOnly()
+      let candidate = loadAuthorityCandidate(path, ProfileAuthority.policy)
+      check candidate.policyCandidateSettings().focusFollowsMouse == expected
+      var model = initPolicyModel()
+      model.applyPolicyCandidate(candidate)
+      check model.settings.focusFollowsMouse == expected
+
+    # A profile that never mentions it gets niri's answer.
+    let silent = directory / "policy-silent.kdl"
+    writeFile(
+      silent,
+      "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+        "\"\npolicy { view-count 4; }\n",
+    )
+    silent.ownerOnly()
+    check not loadAuthorityCandidate(silent, ProfileAuthority.policy)
+      .policyCandidateSettings().focusFollowsMouse
+
+  test "a malformed or repeated value fails closed":
+    let directory = createTempDir("hagia-focus-follows-bad-", "")
+    defer:
+      removeDir(directory)
+    let digest = repeat('d', 64)
+    # Not a boolean: a string that reads like one is still not one, and a
+    # profile that meant #true should be told so rather than silently ignored.
+    for body in [
+      "focus-follows-mouse \"true\"", "focus-follows-mouse",
+      "focus-follows-mouse #true #false",
+    ]:
+      let path = directory / "policy.kdl"
+      writeFile(
+        path,
+        "schema 1\nprofile-generation 9\nprofile-digest \"" & digest & "\"\npolicy { " &
+          body & "; }\n",
+      )
+      path.ownerOnly()
+      # Whichever layer notices first refuses it: a value that is not a boolean
+      # never reaches policy, and one the grammar accepts is rejected there.
+      expect DesktopProfileError, KdlParserError:
+        discard loadAuthorityCandidate(path, ProfileAuthority.policy)
+          .policyCandidateSettings()
+
+    # Stated twice, the profile loader refuses it before policy sees it.
+    let repeated = directory / "repeated.kdl"
+    writeFile(
+      repeated,
+      "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+        "\"\npolicy { focus-follows-mouse #true; focus-follows-mouse #false; }\n",
+    )
+    repeated.ownerOnly()
+    expect DesktopProfileError:
+      discard loadAuthorityCandidate(repeated, ProfileAuthority.policy)

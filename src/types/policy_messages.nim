@@ -10,6 +10,7 @@ type
     action
     focus
     interaction
+    pointerFocus
 
   PolicyInteractionKind* {.pure.} = enum
     move
@@ -24,6 +25,10 @@ type
       action*: PolicyAction
     of PolicyMsgKind.focus:
       focusWindow*: WindowId
+    of PolicyMsgKind.pointerFocus:
+      ## `nullWindowId` when the pointer crossed onto an output with no window
+      ## under it, which still moves the active output and nothing else.
+      pointerWindow*: WindowId
     of PolicyMsgKind.interaction:
       interactionWindow*: WindowId
       interactionKind*: PolicyInteractionKind

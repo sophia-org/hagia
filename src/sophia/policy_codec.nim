@@ -102,8 +102,11 @@ proc validateSnapshot*(snapshot: PolicySnapshot) =
 ## Assemble into local scratch state; callers see a snapshot only after every
 ## identity, ordinal, record total, and terminal frame agrees.
 proc decodeProjectionRequest*(
-    frame: Frame, expectedConnectionEpoch: uint64
+    frame: Frame, expectedConnectionEpoch: uint64, selectedCapabilities: uint64 = 0
 ): ProjectionRequest =
+  ## `selectedCapabilities` is what negotiation actually chose. It defaults to
+  ## none so a caller that never negotiated cannot be handed a cause it did not
+  ## agree to receive.
   if frame.kind != MessageKind.projectionRequest:
     fail("policy projection request has the wrong message kind")
   result.connectionEpoch = frame.payload.u64At(0)
@@ -167,6 +170,22 @@ proc decodeProjectionRequest*(
         result.cause.x != 0 or result.cause.y != 0 or result.cause.width != 0 or
         result.cause.height != 0:
       fail("policy focus cause is invalid")
+  of ProjectionCauseKind.pointerFocus:
+    if (selectedCapabilities and capabilityPointerFocus) == 0:
+      fail("policy pointer-focus cause arrived without its negotiated capability")
+    # The output rides the action slot. The target is absent only when both
+    # halves are zero: a surface identity is valid at index zero as long as its
+    # generation is not, so generation is what says a target is present, and an
+    # index without one is the malformed case. The all-ones index is not a
+    # surface identity either, so it is refused with the rest.
+    if result.cause.interactionPhase != InteractionPhase.none or
+        result.cause.interactionKind != InteractionKind.none or
+        result.cause.interactionAxis != InteractionAxis.none or
+        result.cause.activationSerial != 0 or result.cause.action == 0 or
+        (result.cause.targetIndex != 0 and result.cause.targetGeneration == 0) or
+        result.cause.targetIndex == high(uint32) or result.cause.x != 0 or
+        result.cause.y != 0 or result.cause.width != 0 or result.cause.height != 0:
+      fail("policy pointer-focus cause is invalid")
   of ProjectionCauseKind.interaction:
     if result.cause.interactionPhase == InteractionPhase.none or
         result.cause.interactionKind == InteractionKind.none or
@@ -189,6 +208,11 @@ proc decodeProjectionRequest*(
       fail("policy interaction kind is invalid")
   for index in 0 ..< outputCount:
     result.affectedOutputs.add(frame.payload.u64At(84 + index * 8))
+  # The output a pointer observation names has to be one this cycle may change,
+  # or the projection would answer for an output the request never covered.
+  if result.cause.kind == ProjectionCauseKind.pointerFocus and
+      result.cause.action notin result.affectedOutputs:
+    fail("policy pointer-focus cause names an unaffected output")
 
 proc addAction*(payload: var seq[byte], action: PolicyAction) =
   let name = action.profileName()
