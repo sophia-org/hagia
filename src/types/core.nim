@@ -29,8 +29,8 @@ type
     fixed ## Logical pixels.
 
   LayoutExtent* = object
-    ## How much of an axis something asks for. niri models the same choice as
-    ## `PresetSize::{Proportion, Fixed}`; `automatic` is Hagia's "never chosen"
+    ## How much of an axis something asks for: a share of the room a column
+    ## can occupy, or logical pixels. `automatic` is the "never chosen"
     ## sentinel, which the scroller used to spell `autoScale`.
     ##
     ## Flat rather than a variant: the checkpoint is `jsonutils`-encoded with

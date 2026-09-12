@@ -158,7 +158,7 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
     of "policy.default-column-width":
       # What a column gets when it has never been given a width, which a
       # scroller needs: column widths no longer follow from how many columns
-      # there are. niri states the value the same way.
+      # there are.
       let node = parseKdl(value.encoded)[0]
       node.validateExtentSetting(1)
       settings.defaultColumnWidth = node.extentValue()

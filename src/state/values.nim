@@ -61,7 +61,7 @@ proc fixedExtent*(pixels: int32): LayoutExtent =
 
 proc extentPixels*(extent: LayoutExtent, proportionBase, gap: int32): int32 =
   ## What an extent asks for, in pixels. A proportion is of the room a column
-  ## can occupy less the gap it carries; niri computes the same way. A fixed
+  ## can occupy less the gap it carries. A fixed
   ## extent is already a size and takes neither the base nor the gap, which is
   ## the whole of what makes it fixed.
   ##

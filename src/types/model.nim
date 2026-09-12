@@ -21,7 +21,7 @@ type
     unknown
 
   ## Which rule the scroller camera follows when the focused column moves,
-  ## mirroring niri's center-focused-column. `onOverflow` centers only when
+  ## `onOverflow` centers only when
   ## the focused column and the one it came from cannot share the screen;
   ## otherwise the camera scrolls the shortest distance that reveals it.
   ## What a camera action asked for, if anything.
@@ -109,8 +109,8 @@ type
     ## Whether this column is showing at full width. It is a flag rather than
     ## a width because maximising must be reversible: overwriting the width
     ## loses the one the column had, and it can only be recovered by
-    ## pressing the same key on the same column before focus moves. niri keeps
-    ## the same pair, and setting a width clears the flag.
+    ## pressing the same key on the same column before focus moves. Setting a
+    ## width clears the flag.
     fullWidth*: bool
 
   CameraAnchor* = object
@@ -123,7 +123,7 @@ type
     layout*: LayoutMode
     # Where the scroller camera sits on this view, in virtual strip
     # coordinates. It lives here rather than in settings because it is
-    # position, not preference: niri keeps one per workspace so a view stays
+    # position, not preference: one per workspace keeps a view
     # where it was scrolled to while another view is visited and returned to.
     # It may be negative, which is how a column narrower than the screen sits
     # centred with space to its left.
@@ -176,16 +176,16 @@ type
     viewCount*: int
     outerGap*, innerGap*, viewportOffset*: int32
     # Legacy profiles keep their two insets; uniform gaps reserve along-axis
-    # padding once, through the scroller camera, as niri does.
+    # padding once, through the scroller camera.
     gapModel*: GapModel
     gaps*: int32
     struts*: LayoutStruts
     # What a column gets when it has never been given a width of its own.
-    # niri calls this default-column-width; a scroller needs one because
+    # `default-column-width` names it; a scroller needs one because
     # column widths no longer follow from how many columns there are.
     defaultColumnWidth*: LayoutExtent
     # never | always | on-overflow. Which of these the camera obeys when the
-    # focused column moves, mirroring niri's center-focused-column.
+    # focused column moves.
     centerFocusedColumn*: CenterFocusedColumn
     ## What a vertical-scroller row gets when it never chose a height, and the
     ## presets its cycle key steps through. `automatic` and empty mean inherit
@@ -193,19 +193,19 @@ type
     ## its extent-along-the-axis default is the column width's unless a profile
     ## says otherwise.
     ##
-    ## These two are Triad vocabulary, not niri's. niri has no vertical
-    ## scroller, so its `preset-window-heights` is a different measurement --
-    ## the cross-axis share of a window inside a column, which Hagia spells
-    ## `WindowData.heightScale` and does not expose as a preset list.
+    ## These two are Triad vocabulary. They name the scroll-axis extent of a
+    ## vertical scroller, which is not the cross-axis share of a window inside
+    ## a column -- Hagia spells that `WindowData.heightScale` and does not
+    ## expose it as a preset list.
     defaultRowHeight*: LayoutExtent
     presetRowHeights*: seq[LayoutExtent]
     ## Centre a lone column whatever the rule above says. A single window at
     ## its configured proportion otherwise sits against the left edge with the
     ## rest of the screen empty, which reads as a mistake rather than a
-    ## setting. niri offers the same and defaults it off; this defaults on.
+    ## setting. On by default.
     alwaysCenterSingleColumn*: bool
     ## Move focus to whatever the pointer is over, including an output holding
-    ## no window. Off by default, as niri has it: a pointer that crosses a
+    ## no window. Off by default: a pointer that crosses a
     ## window on its way somewhere else should not take focus with it unless
     ## the operator asked for that. Hagia owns the preference; Sophia owns the
     ## hit test and sends an observation only when this is on.
@@ -303,7 +303,7 @@ const
   defaultColumnWidth* =
     LayoutExtent(kind: LayoutExtentKind.proportion, scale: Scale(32768))
   defaultGapStep* = 2'i32
-  ## One gap around and between tiles, which is what niri ships. The legacy
+  ## One gap around and between tiles. The legacy
   ## outer/inner pair is unaffected: it only applies under `GapModel.legacy`,
   ## and a model that never read a profile stays there.
   defaultGaps* = 16'i32

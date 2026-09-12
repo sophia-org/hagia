@@ -329,7 +329,7 @@ proc scrollerStrip*(
   if result.usableWidth == 0:
     raise newException(PolicyStateError, "output gaps consume the viewport")
   # A proportion is of the space a column can actually occupy, which is the
-  # viewport less the gap it carries. niri computes the same way:
+  # viewport less the gap it carries:
   # (working - gaps) * proportion - gaps.
   let proportionBase = max(1'i32, result.usableWidth - safeInnerGap)
   let eligible =

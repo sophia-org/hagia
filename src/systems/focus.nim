@@ -138,8 +138,7 @@ proc focusColumnRelative*(model: var PolicyModel, outputId: OutputId, delta: int
   # Stepping past either end hands focus to the display on that side, when
   # there is one. Wrapping made the other monitor unreachable with the same
   # key that walks the strip, and sent the camera flying back across a strip
-  # the operator was walking along. niri hands off the same way, which is
-  # where the habit comes from.
+  # the operator was walking along.
   let next = columnIndex + delta
   if next < 0 or next >= columns.len:
     model.handOffToAdjacent(outputId, delta)

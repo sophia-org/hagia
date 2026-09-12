@@ -412,11 +412,9 @@ proc candidateSettingKey(authority: ProfileAuthority, node: KdlNode): string =
 
 proc validateGapSetting*(node: KdlNode, allowNegative = false) =
   ## `allowNegative` is set only for a strut edge. A gap is spacing and cannot
-  ## be less than none, but a strut is a reservation, and niri lets one be
-  ## negative so a layout can have gaps between tiles without one at each
-  ## screen edge -- `gaps 16; struts { left -16; right -16 }`. The spelling is
-  ## already byte-identical to niri's, so refusing the value it takes is the
-  ## worst kind of divergence: the same key meaning something narrower.
+  ## be less than none, but a strut is a reservation, and a negative one is
+  ## how a layout asks for gaps between tiles without one at each screen edge
+  ## -- `gaps 16; struts { left -16; right -16 }`.
   if node.tag.isSome or node.props.len != 0:
     fail("policy " & node.name & " does not accept annotations or properties")
   if node.name == "struts":
@@ -442,10 +440,10 @@ proc validateGapSetting*(node: KdlNode, allowNegative = false) =
       fail("policy " & node.name & " is outside " & $lowest & ".." & $maxGap)
 
 proc validateExtentSetting*(node: KdlNode, maxChildren: int) =
-  ## One configured size, or a list of them. niri states these as
-  ## `{ proportion 0.5 }` or `{ fixed 1280 }`: a proportion is a share of the
-  ## room a column can occupy and rescales with the output, where a fixed
-  ## extent is logical pixels and does not.
+  ## One configured size, or a list of them, stated as `{ proportion 0.5 }`
+  ## or `{ fixed 1280 }`: a proportion is a share of the room a column can
+  ## occupy and rescales with the output, where a fixed extent is logical
+  ## pixels and does not.
   if node.tag.isSome or node.props.len != 0:
     fail("policy " & node.name & " does not accept annotations or properties")
   if node.args.len != 0:

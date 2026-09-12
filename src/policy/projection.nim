@@ -15,7 +15,7 @@ proc clamp(value, minimum, maximum: int32): int32 =
 proc scrollerViewOffset*(
     currentOffset, viewWidth, columnX, columnWidth, gap: int32
 ): int32 =
-  ## Where the camera goes so a column is on screen, following niri's rule
+  ## Where the camera goes so a column is on screen, following the rule
   ## rather than centring on every move.
   ##
   ## Three cases, in order. A column wider than the screen is left-aligned,

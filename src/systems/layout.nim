@@ -57,7 +57,7 @@ proc adjustFocusedColumn*(model: var PolicyModel, outputId: OutputId, delta: int
     return
   let column = model.windows[window].column
   # A step is proportional, so a column holding fixed pixels converts on the
-  # first press, as niri does for an adjust-proportion. Either way the step
+  # first press. Either way the step
   # starts from what the column is showing: reading an unset width as 1.0
   # instead once jumped a half-width column past the whole viewport. Setting a
   # width also stops the column being full width; the two are separate facts
@@ -145,8 +145,8 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
   ## backwards to the last one narrower. Matching by equality instead meant a
   ## column that had been grown, shrunk, maximised, or simply never given a
   ## width matched nothing and restarted from the end of the list, which is
-  ## the one place the key should feel continuous. niri resolves it the same
-  ## way. No presets configured means no key to press.
+  ## the one place the key should feel continuous. No presets configured
+  ## means no key to press.
   if outputId notin model.outputs:
     fail("column preset output does not exist")
   if model.alongAxisPresets(outputId).len == 0:
@@ -161,7 +161,7 @@ proc cycleColumnWidthPreset*(model: var PolicyModel, outputId: OutputId, delta: 
   for preset in presets:
     resolved.add(preset.extentPixels(geometry.proportionBase, geometry.innerGap))
   # Pixels rather than scales, because a proportion and a fixed extent share
-  # no common scale to compare in. niri places a column the same way.
+  # no common scale to compare in.
   let showing = columnRequestedWidth(
     model.columns[columnId],
     model.alongAxisDefaultExtent(outputId),
@@ -196,7 +196,7 @@ proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   ## under the operator for no visible reason. A column already at full width
   ## has nothing to expand into, and one with nothing beside it toggles full
   ## width instead, so the key always does something and always has a way
-  ## back. niri resolves it the same way.
+  ## back.
   if outputId notin model.outputs:
     fail("column expand output does not exist")
   let windowId = model.outputs[outputId].focusedWindow
@@ -239,7 +239,7 @@ proc expandFocusedColumn*(model: var PolicyModel, outputId: OutputId) =
   if available <= 0:
     return
   let grown = int64(strip.widths[strip.focused]) + available
-  # Recorded as pixels, the way niri records it. A column expanded into its
+  # Recorded as pixels. A column expanded into its
   # neighbours' space was given a width in pixels; rounding that through a
   # proportion only to resolve it back loses exactly the width that was asked
   # for, and makes the column rescale on an output change it had no part in.

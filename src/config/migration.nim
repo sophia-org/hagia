@@ -68,8 +68,8 @@ proc migrateTriadProfile*(source: string): MigrationReport =
               "invalid argument shape",
             )
         of "default-column-width":
-          # Triad already stated this the way niri does, and Hagia now takes
-          # the same grammar, so a width someone configured survives the
+          # Triad already stated this as a proportion, and Hagia now takes the
+          # same grammar, so a width someone configured survives the
           # migration instead of being dropped for the compiled default.
           var emitted = ""
           try:
@@ -84,7 +84,7 @@ proc migrateTriadProfile*(source: string): MigrationReport =
             policySettings.add(emitted)
             result.add(
               "layout.default-column-width", "policy", MigrationDisposition.transformed,
-              "the size vocabulary Hagia now shares with niri",
+              "the size vocabulary Hagia now takes",
             )
           else:
             result.add(
