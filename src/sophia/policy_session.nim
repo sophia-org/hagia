@@ -56,7 +56,8 @@ proc pendingOperation*(session: PolicySession): Option[SessionOperationIntent] =
 proc operationFor(
     snapshot: PolicySnapshot, request: ProjectionRequest
 ): Option[SessionOperationIntent] =
-  if request.cause.kind != ProjectionCauseKind.action:
+  if request.cause.kind notin
+      {ProjectionCauseKind.action, ProjectionCauseKind.outputAction}:
     return none(SessionOperationIntent)
   var operationSlot = 0'u16
   var actionKnown = false
@@ -88,7 +89,10 @@ proc operationFor(
   var targetIndex, targetGeneration: uint32
   if (selected.get().targetBits and 1) != 0:
     for output in snapshot.outputs:
-      if output.output == snapshot.activeOutput:
+      if output.output == (
+        if request.cause.kind == ProjectionCauseKind.outputAction: request.cause.output
+        else: snapshot.activeOutput
+      ):
         targetIndex = output.focusIndex
         targetGeneration = output.focusGeneration
         break
@@ -135,6 +139,8 @@ proc prepare*(
   # refused.
   candidate.synchronizeLaunchEpoch(request.connectionEpoch)
   candidate.reconcile(snapshot)
+  if request.cause.kind == ProjectionCauseKind.outputAction:
+    discard candidate.targetOutputAction(request)
   let operation = snapshot.operationFor(request)
   if operation.isNone:
     candidate.applyCause(request)

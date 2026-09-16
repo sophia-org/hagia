@@ -35,6 +35,7 @@ type
     ## `pointer_focus` is negotiated, so an unnegotiated one is a protocol
     ## error rather than something to ignore.
     pointerFocus = 4
+    outputAction = 5
 
   InteractionPhase* {.pure.} = enum
     none = 0
@@ -60,6 +61,7 @@ type
     interactionPhase*: InteractionPhase
     interactionKind*: InteractionKind
     interactionAxis*: InteractionAxis
+    output*, outputGeneration*: uint64
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32

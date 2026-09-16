@@ -220,7 +220,15 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
         raise
           newException(DesktopProfileError, "policy gap-step is outside 1.." & $maxGap)
     else:
-      if value.key.startsWith("policy.view-name."):
+      if value.key.startsWith("policy.workspace."):
+        let node = parseKdl(value.encoded)[0]
+        settings.workspaceAssignments.add(
+          WorkspaceAssignment(
+            number: node.args[0].get(int),
+            outputKey: uint64(node.props["output-key"].get(int64)),
+          )
+        )
+      elif value.key.startsWith("policy.view-name."):
         let node = parseKdl(value.encoded)[0]
         settings.viewNames.add(
           ViewSlotName(slot: node.args[0].get(int), name: node.args[1].get(string))
@@ -247,6 +255,10 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
       newException(DesktopProfileError, "policy geometry settings must be nonnegative")
   settings.layoutCycle.keepItIf(it != defaultLayout)
   settings.layoutCycle.insert(defaultLayout, 0)
+  settings.workspaceAssignments.sort(
+    proc(left, right: WorkspaceAssignment): int =
+      cmp(left.number, right.number)
+  )
   settings.viewNames.sort(
     proc(left, right: ViewSlotName): int =
       cmp(left.slot, right.slot)

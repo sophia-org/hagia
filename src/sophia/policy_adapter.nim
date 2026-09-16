@@ -1,5 +1,6 @@
 import std/[algorithm, json, jsonutils, options, sets, strutils, tables]
 
+import ../types/actions
 import ../types/config_values
 import ../config/policy_candidate
 import ../types/observability
@@ -11,7 +12,7 @@ import ../types/session
 import ./policy_codec
 import ./snapshot_convert
 import ../types/tab_tree
-import ../entities/tab_tree_ops
+import ../entities/[tab_tree_ops, workspace_assignment]
 
 export PolicyAdapterError
 
@@ -109,6 +110,11 @@ proc initPolicyAdapter*(candidate: AuthorityCandidate): PolicyAdapter =
 proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate) =
   var prepared = adapter.model.clone()
   prepared.applyPolicyCandidate(candidate)
+  if adapter.model.settings.workspaceAssignments.len > 0 and
+      adapter.model.settings.workspaceAssignments !=
+      prepared.settings.workspaceAssignments and
+      (adapter.model.outputOrder.len > 0 or adapter.model.affinityOrder.len > 0):
+    fail("changing established workspace assignments requires an explicit migration")
   prepared.reconcilePolicySettings()
   prepared.validate()
   adapter.model = prepared
@@ -259,7 +265,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 17
+  result.schema = 18
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -374,7 +380,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-17\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-18\n" & $adapter.checkpointDto().toJson()
 
 proc migratedProportion(percent: int): JsonNode =
   ## A checkpointed percentage as the proportion the percent resolver produced
@@ -394,8 +400,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # 16 stated column widths and their defaults as integer percentages, before
   # proportions and fixed pixels.
   # Each migrates forward by filling the fields it could not have written.
-  var version = 17
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]:
+  var version = 18
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -568,6 +574,12 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
           columnNode.delete("widthScale")
         elif not columnNode.hasKey("width"):
           columnNode["width"] = toJson(automaticExtent)
+    if version <= 17:
+      node["settings"]["workspaceAssignments"] = newJArray()
+      for output in node["outputs"]:
+        output["policyKey"] = %0
+      for affinity in node["affinities"]:
+        affinity["policyKey"] = %0
     dto = node.jsonTo(CheckpointV4Dto)
   except CatchableError:
     fail("policy checkpoint payload is malformed")
@@ -693,6 +705,26 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
     if not found:
       fail("policy checkpoint output affinity has no opaque handle")
 
+proc targetOutputAction*(
+    adapter: var PolicyAdapter, request: ProjectionRequest
+): OutputId =
+  if request.cause.kind != ProjectionCauseKind.outputAction:
+    fail("expected explicit output action")
+  if request.cause.output notin adapter.outputToLogical or
+      request.cause.activationSerial == 0 or request.cause.action == 0:
+    fail("targeted policy action is invalid")
+  let target = adapter.outputToLogical[request.cause.output]
+  if adapter.logicalToOutput[target].generation != request.cause.outputGeneration:
+    fail("targeted policy action output was replaced")
+  if adapter.model.settings.workspaceAssignments.len > 0 and
+      request.cause.action in
+      uint64(ord(PolicyAction.activateView1)) .. uint64(ord(PolicyAction.activateView9)):
+    let number = int(request.cause.action) - ord(PolicyAction.activateView1) + 1
+    if adapter.model.workspaceHost(number)[0] != target:
+      fail("targeted workspace action belongs to another output")
+  adapter.model.setActiveOutput(target)
+  target
+
 proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   if request.affectedOutputs.len == 0:
     fail("policy cause has no affected output")
@@ -704,6 +736,13 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   case request.cause.kind
   of ProjectionCauseKind.sceneChanged:
     discard
+  of ProjectionCauseKind.outputAction:
+    let target = adapter.targetOutputAction(request)
+    message = PolicyMsg(
+      kind: PolicyMsgKind.action,
+      output: target,
+      action: request.cause.action.policyAction(),
+    )
   of ProjectionCauseKind.action:
     if request.cause.activationSerial == 0 or not request.cause.action.isPolicyAction():
       fail("policy action cause is invalid")
@@ -828,23 +867,59 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   for output, logical in adapter.activeOutputToLogical.pairs:
     previousActive.add((output, logical))
   var liveOutputs = initHashSet[OutputHandle]()
+  var liveLogical = initHashSet[OutputId]()
+  var liveKeys = initHashSet[uint64]()
+  let assigned = adapter.model.settings.workspaceAssignments.len > 0
+  var oldActive = adapter.activeOutputToLogical
+  var oldDormant = adapter.dormantOutputToLogical
+  var nextActive = initTable[OutputHandle, OutputId]()
+  var nextRaw = initTable[uint64, OutputId]()
   for output in snapshot.outputs:
     let current = output.handle()
+    if current in liveOutputs or output.output in nextRaw:
+      fail("snapshot repeats an output")
     liveOutputs.incl(current)
-    var logical: OutputId
-    if current in adapter.activeOutputToLogical:
-      logical = adapter.activeOutputToLogical[current]
-      adapter.model.updateOutput(logical, output.bounds())
-    elif current in adapter.dormantOutputToLogical:
-      logical = adapter.dormantOutputToLogical[current]
+    if assigned:
+      if output.policyKey == 0 or output.policyKey in liveKeys:
+        fail("assigned snapshot requires unique output policy keys")
+      liveKeys.incl(output.policyKey)
+    var logical = nullOutputId
+    var dormant = none(OutputHandle)
+    for handle, id in oldActive.pairs:
+      let key = adapter.model.outputs[id].policyKey
+      if (assigned and key != 0 and key == output.policyKey) or
+          (handle == current and (not assigned or key == 0)):
+        if logical != nullOutputId:
+          fail("live output affinity is ambiguous")
+        logical = id
+    for handle, id in oldDormant.pairs:
+      let key = adapter.model.affinities[id].policyKey
+      if (assigned and key != 0 and key == output.policyKey) or
+          (handle == current and (not assigned or key == 0)):
+        if logical != nullOutputId:
+          fail("saved output affinity is ambiguous")
+        logical = id
+        dormant = some(handle)
+    if logical in liveLogical:
+      fail("two outputs claim the same policy owner")
+    if logical == nullOutputId:
+      logical = adapter.model.addOutput(
+        output.bounds(), (if assigned: output.policyKey else: 0)
+      )
+    elif dormant.isSome:
       adapter.model.restoreOutput(logical, output.bounds())
-      adapter.dormantOutputToLogical.del(current)
+      adapter.dormantOutputToLogical.del(dormant.get())
     else:
-      logical = adapter.model.addOutput(output.bounds())
-      adapter.model.ensureViewCount(logical, adapter.model.settings.viewCount)
-    adapter.activeOutputToLogical[current] = logical
-    adapter.outputToLogical[output.output] = logical
+      adapter.model.updateOutput(logical, output.bounds())
+    if assigned:
+      adapter.model.bindOutputPolicyKey(logical, output.policyKey)
+    adapter.model.ensureViewCount(logical, adapter.model.settings.viewCount)
+    liveLogical.incl(logical)
+    nextActive[current] = logical
+    nextRaw[output.output] = logical
     adapter.logicalToOutput[logical] = current
+  adapter.activeOutputToLogical = nextActive
+  adapter.outputToLogical = nextRaw
   if snapshot.activeOutput notin adapter.outputToLogical:
     fail("Sophia snapshot active output is not live")
   adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
@@ -874,10 +949,9 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   let fallback = adapter.outputToLogical[snapshot.outputs[0].output]
   for item in previousActive:
     let (output, logical) = item
-    if output in liveOutputs:
+    if logical in liveLogical:
       continue
     let evicted = adapter.model.removeOutput(logical, fallback)
-    adapter.activeOutputToLogical.del(output)
     adapter.dormantOutputToLogical[output] = logical
     if output.output in adapter.outputToLogical and
         adapter.outputToLogical[output.output] == logical:
@@ -1257,7 +1331,13 @@ proc projection*(
       # A configured workspace name labels the indicator; the slot number is
       # the fallback and stays the wire identity either way — a name is not
       # an identity.
-      var labelText = $(index + 1)
+      var number = index + 1
+      if adapter.model.settings.workspaceAssignments.len > 0:
+        let tags = adapter.model.viewTagIds(viewId)
+        if tags.len != 1:
+          fail("assigned workspace indicator is ambiguous")
+        number = int(adapter.model.tags[tags[0]].slot)
+      var labelText = $number
       for tagId in adapter.model.viewTagIds(viewId):
         if adapter.model.tags[tagId].name.len > 0:
           labelText = adapter.model.tags[tagId].name
@@ -1268,7 +1348,8 @@ proc projection*(
         output: rawOutput,
         slot: uint32(index),
         indicator: uint64(uint32(viewId)),
-        action: (index + 1).activateViewAction().raw(),
+        action: (if number in 1 .. 9: number.activateViewAction().raw()
+        else: 0),
         stateBits: stateBits,
         labelLen: uint16(labelText.len),
       )

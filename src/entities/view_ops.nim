@@ -56,6 +56,12 @@ proc removeView*(model: var PolicyModel, viewId: ViewId) =
 proc ensureViewCount*(model: var PolicyModel, outputId: OutputId, count: int) =
   if outputId notin model.outputs or count < 1 or count > 9:
     fail("view profile is outside Hagia's bounded range")
+  if model.settings.workspaceAssignments.len > 0:
+    for assignment in model.settings.workspaceAssignments:
+      if assignment.outputKey == model.outputs[outputId].policyKey and
+          model.profileViewForSlot(outputId, uint32(assignment.number)) == nullViewId:
+        discard model.addView(outputId, [model.profileTag(uint32(assignment.number))])
+    return
   for slot in 1'u32 .. uint32(count):
     if model.profileViewForSlot(outputId, slot) == nullViewId:
       discard model.addView(outputId, [model.profileTag(slot)])

@@ -2249,11 +2249,11 @@ suite "Sophia snapshot adapter":
       ]:
         view.delete(field)
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-11\n" & $payload)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-18\n")
     var corrupt = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     corrupt["views"][0]["openingOffset"] = %int64(low(int32))
     expect PolicyStateError:
-      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-17\n" & $corrupt)
+      discard restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-18\n" & $corrupt)
 
   test "a private checkpoint remains a candidate until complete reconciliation":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -2375,9 +2375,9 @@ suite "Sophia snapshot adapter":
     # restore path accepts, otherwise the dump describes something the running
     # session would never load.
     let printed = loaded.get().checkpointPayload().dumpCheckpointJson()
-    check parseJson(printed)["schema"].getInt() == 17
+    check parseJson(printed)["schema"].getInt() == 18
     let reparsed =
-      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-17\n" & $parseJson(printed))
+      restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-18\n" & $parseJson(printed))
     check reparsed.logicalWindow(1, 1) == logicalWindow
 
     writeFile(path, "not a checkpoint")
@@ -2935,7 +2935,7 @@ suite "tab checkpoint compatibility":
       viewNode.delete("viewportOffsetY")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-4\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-18\n")
 
   test "version 8 migrates forward, a maximized column becoming a flagged one":
     ## Version 8 stored "maximized" as a width, so the width the column had
@@ -2957,7 +2957,7 @@ suite "tab checkpoint compatibility":
 
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-8\n" & $payload)
     check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-18\n")
     let migrated = parseJson(restored.checkpointPayload().dumpCheckpointJson())
     for columnNode in migrated["columns"]:
       check columnNode["fullWidth"].getBool()
@@ -2986,7 +2986,7 @@ suite "tab checkpoint compatibility":
 
       let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-7\n" & $payload)
       check restored.logicalWindow(1, 1) == adapter.logicalWindow(1, 1)
-      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-17\n")
+      check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-18\n")
 
   test "version 5 migrates forward, its trees gaining an empty preselect":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
@@ -3045,3 +3045,180 @@ include support/pointer_focus_policy
 include support/dialog_placement
 
 include support/launch_origin
+
+proc assignedCandidate(): AuthorityCandidate =
+  result = AuthorityCandidate(
+    authority: ProfileAuthority.policy,
+    generation: 1,
+    digest: repeat('a', 64),
+    values: @[ProfileValue(key: "policy.view-count", encoded: "view-count 3")],
+  )
+  for number in 1 .. 6:
+    result.values.add(
+      ProfileValue(
+        key: "policy.workspace." & $number,
+        encoded: "workspace " & $number & " output-key=" & $(if number <= 3: 1 else: 2),
+      )
+    )
+
+proc assignedScene(generation: uint64): PolicySnapshot =
+  snapshot(
+    generation,
+    @[
+      SnapshotOutput(output: 10, generation: 1, policyKey: 1, width: 1000, height: 700),
+      SnapshotOutput(output: 20, generation: 1, policyKey: 2, width: 1000, height: 700),
+    ],
+    @[],
+  )
+
+proc workspaceAction(
+    scene: PolicySnapshot, number: int, output = 0'u64
+): ProjectionRequest =
+  result = ProjectionRequest(
+    connectionEpoch: 7,
+    requestId: 1,
+    sceneGeneration: scene.generation,
+    policyGeneration: 1,
+    affectedOutputs: @[10'u64, 20'u64],
+    cause: ProjectionCause(
+      kind: ProjectionCauseKind.action,
+      activationSerial: 1,
+      action: number.activateViewAction().raw(),
+    ),
+  )
+  if output != 0:
+    result.cause.kind = ProjectionCauseKind.outputAction
+    result.cause.output = output
+    result.cause.outputGeneration = 1
+
+suite "configured global workspace ownership":
+  test "DP2 click and keyboard target the owning output independently of active output":
+    var adapter = initPolicyAdapter(assignedCandidate())
+    let scene = assignedScene(1)
+    adapter.reconcile(scene)
+    let left = adapter.logicalOutput(10).get()
+    let right = adapter.logicalOutput(20).get()
+    let firstLeft = adapter.model().outputs[left].activeView
+    let request = workspaceAction(scene, 5, 20)
+    adapter.applyCause(request)
+    check adapter.model().activeOutput == right
+    check adapter.model().outputs[left].activeView == firstLeft
+    check adapter.model().viewTagMask(adapter.model().outputs[right].activeView) ==
+      tagForSlot(5)
+    let projection = adapter.projection(scene, request)
+    check projection.indicators.filterIt(it.output == 10).mapIt(char(it.label[0])) ==
+      @['1', '2', '3']
+    check projection.indicators.filterIt(it.output == 20).mapIt(char(it.label[0])) ==
+      @['4', '5', '6']
+    check projection.indicators
+      .filterIt(it.output == 20 and (it.stateBits and 1) != 0)
+      .mapIt(it.action) == @[15'u64]
+    adapter.applyCause(workspaceAction(scene, 2))
+    check adapter.model().activeOutput == left
+    check adapter.model().viewTagMask(adapter.model().outputs[left].activeView) ==
+      tagForSlot(2)
+    adapter.model().validate()
+
+  test "target mismatch and replaced generation refuse without changing the committed session":
+    var adapter = initPolicyAdapter(assignedCandidate())
+    let scene = assignedScene(1)
+    adapter.reconcile(scene)
+    var session = initPolicySession(adapter)
+    let original = session.committedAdapter().checkpointPayload()
+    expect PolicyAdapterError:
+      discard session.prepare(scene, workspaceAction(scene, 5, 10), 1)
+    check session.committedAdapter().checkpointPayload() == original
+    var stale = workspaceAction(scene, 5, 20)
+    stale.cause.outputGeneration = 2
+    expect PolicyAdapterError:
+      discard session.prepare(scene, stale, 2)
+    check session.committedAdapter().checkpointPayload() == original
+
+  test "checkpoint survives reversed handles and unplug replug with stable view identity":
+    var adapter = initPolicyAdapter(assignedCandidate())
+    var scene = assignedScene(1)
+    adapter.reconcile(scene)
+    let left = adapter.logicalOutput(10).get()
+    let right = adapter.logicalOutput(20).get()
+    let savedViews = adapter.model().outputs[right].views
+    adapter = restoreCheckpointPayload(adapter.checkpointPayload())
+    scene.generation = 2
+    scene.outputs[0].output = 20
+    scene.outputs[1].output = 10
+    scene.activeOutput = 20
+    adapter.reconcile(scene)
+    check adapter.logicalOutput(20).get() == left
+    check adapter.logicalOutput(10).get() == right
+    check adapter.model().outputs[right].views == savedViews
+    scene.generation = 3
+    scene.outputs.setLen(1)
+    adapter.reconcile(scene)
+    check adapter.model().affinity(right).isSome
+    check savedViews.allIt(it in adapter.model().outputs[left].views)
+    scene.generation = 4
+    scene.outputs.add(
+      SnapshotOutput(output: 99, generation: 9, policyKey: 2, width: 1000, height: 700)
+    )
+    adapter.reconcile(scene)
+    check adapter.logicalOutput(99).get() == right
+    check adapter.model().outputs[right].views == savedViews
+    adapter.model().validate()
+
+  test "cold single monitor keeps its global numbers and duplicate keys refuse":
+    var adapter = initPolicyAdapter(assignedCandidate())
+    var scene = assignedScene(1)
+    scene.outputs.delete(0)
+    scene.activeOutput = 20
+    adapter.reconcile(scene)
+    let right = adapter.logicalOutput(20).get()
+    check adapter.model().outputs[right].views.mapIt(adapter.model().viewTagMask(it)) ==
+      @[tagForSlot(4), tagForSlot(5), tagForSlot(6)]
+    var session = initPolicySession(adapter)
+    scene = assignedScene(2)
+    scene.outputs[1].policyKey = 1
+    expect PolicyAdapterError:
+      discard session.prepare(scene, workspaceAction(scene, 1), 1)
+
+  test "legacy checkpoint migration preserves view and window identity":
+    var adapter = initPolicyAdapter(
+      AuthorityCandidate(
+        authority: ProfileAuthority.policy,
+        generation: 1,
+        digest: repeat('a', 64),
+        values: @[ProfileValue(key: "policy.view-count", encoded: "view-count 3")],
+      )
+    )
+    var scene = assignedScene(1)
+    scene.surfaces = @[surface(1, 20)]
+    adapter.reconcile(scene)
+    let right = adapter.logicalOutput(20).get()
+    let views = adapter.model().outputs[right].views
+    let window = adapter.logicalWindow(1, 1).get()
+    adapter.applyPolicyCandidate(assignedCandidate())
+    scene.generation = 2
+    adapter.reconcile(scene)
+    check adapter.model().outputs[right].views == views
+    check adapter.logicalWindow(1, 1).get() == window
+    check adapter.model().windowTagMask(window) == tagForSlot(4)
+    adapter.model().validate()
+
+  test "output targeting also selects session-operation surface authority":
+    var scene = assignedScene(1)
+    scene.surfaces = @[surface(1, 10), surface(2, 20)]
+    scene.outputs[0].focusIndex = 1
+    scene.outputs[0].focusGeneration = 1
+    scene.outputs[1].focusIndex = 2
+    scene.outputs[1].focusGeneration = 1
+    scene.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
+    scene.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    var request = workspaceAction(scene, 5, 20)
+    request.cause.action = 31
+    var session = initPolicySession(initPolicyAdapter(assignedCandidate()))
+    let projection = session.prepare(scene, request, 1)
+    check projection.activeOutput == 20
+    let operation = session.pendingOperation().get()
+    check operation.operation == 700
+    check operation.targetIndex == 2
+    check operation.targetGeneration == 1

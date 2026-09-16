@@ -31,6 +31,7 @@ type
     profileActive = 50
     profileRollback = 51
     profileRolledBack = 52
+    outputActionRequest = 53
 
   Frame* = object
     kind*: MessageKind
@@ -61,6 +62,7 @@ type
     ## was seen at. A reused id with a new generation is a different output.
 
   SnapshotOutput* = object
+    policyKey*: uint64
     output*: uint64
     generation*: uint64
     focusIndex*: uint32
@@ -170,6 +172,9 @@ const
   ## is never echoed costs nothing and the placement it enables is what an
   ## operator already expects.
   capabilityLaunchOrigin* = 1'u64 shl 14
+  capabilityOutputActions* = 1'u64 shl 15
+  capabilityOutputPolicyKeys* = 1'u64 shl 16
+  snapshotOutputPolicyKeyRecordKind* = 65287'u16
 
   ## Optional capability: Sophia may send `pointerFocus` projection causes.
   ## Requested only when the profile turns focus-follows-mouse on, so a server

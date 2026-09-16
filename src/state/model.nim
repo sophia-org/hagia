@@ -149,6 +149,23 @@ proc validate*(model: PolicyModel) =
   if model.settings.gapModel == GapModel.legacy and
       (model.settings.gaps != 0 or model.settings.struts != LayoutStruts()):
     fail("legacy gaps cannot carry uniform gap settings")
+  var assignedNumbers = initHashSet[int]()
+  for assignment in model.settings.workspaceAssignments:
+    if assignment.number < 1 or assignment.number > 9 or assignment.outputKey == 0 or
+        assignment.number in assignedNumbers:
+      fail("workspace assignments are invalid")
+    assignedNumbers.incl(assignment.number)
+  var assignedKeys = initHashSet[uint64]()
+  for _, output in model.outputs.pairs:
+    if output.policyKey != 0:
+      if output.policyKey in assignedKeys:
+        fail("live output policy keys are ambiguous")
+      assignedKeys.incl(output.policyKey)
+  for _, affinity in model.affinities.pairs:
+    if affinity.policyKey != 0:
+      if affinity.policyKey in assignedKeys:
+        fail("saved output policy keys are ambiguous")
+      assignedKeys.incl(affinity.policyKey)
   var seenLayouts = initHashSet[LayoutMode]()
   for layout in model.settings.layoutCycle:
     if layout in seenLayouts:

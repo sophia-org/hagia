@@ -99,7 +99,11 @@ proc nextDynamicWorkspaceSlot*(model: PolicyModel): uint32 =
   if first > maxWorkspaceTagSlot:
     return 0
   for slot in first .. maxWorkspaceTagSlot:
-    if model.tagIdForSlot(slot) == nullTagId:
+    var reserved = false
+    for assignment in model.settings.workspaceAssignments:
+      if uint32(assignment.number) == slot:
+        reserved = true
+    if not reserved and model.tagIdForSlot(slot) == nullTagId:
       return slot
 
 proc profileViewForSlot*(model: PolicyModel, outputId: OutputId, slot: uint32): ViewId =

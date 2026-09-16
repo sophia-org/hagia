@@ -114,7 +114,7 @@ proc negotiatePolicy(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
       optional or capabilityTabGroups or capabilityTranslationGroups or
-      capabilityLaunchOrigin
+      capabilityOutputActions or capabilityOutputPolicyKeys or capabilityLaunchOrigin
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -303,13 +303,34 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
       ) or (
         recordKind == snapshotLaunchOriginRecordKind and
         (client.capabilities and capabilityLaunchOrigin) != 0
+      ) or (
+        recordKind == snapshotOutputPolicyKeyRecordKind and
+        (client.capabilities and capabilityOutputPolicyKeys) != 0
       )
     if not admitted or finish.transaction != begin.transaction or
         finish.payload.u64At(0) != client.connectionEpoch or
         int(finish.payload.u16At(8)) != nextOrdinal:
       fail("policy snapshot extension identity is invalid")
     let itemCount = int(finish.payload.u32At(12))
-    if recordKind == snapshotSurfaceClassificationRecordKind:
+    if recordKind == snapshotOutputPolicyKeyRecordKind:
+      if itemCount == 0 or itemCount > maxOutputs or
+          finish.payload.len != 16 + itemCount * 24:
+        fail("output policy key count is invalid")
+      for index in 0 ..< itemCount:
+        let at = 16 + index * 24
+        let output = finish.payload.u64At(at)
+        let generation = finish.payload.u64At(at + 8)
+        let key = finish.payload.u64At(at + 16)
+        var found = -1
+        for i, item in outputs:
+          if key == 0 or item.policyKey == key:
+            fail("output policy key is null or repeated")
+          if item.output == output and item.generation == generation:
+            found = i
+        if found < 0 or outputs[found].policyKey != 0:
+          fail("output policy key names an unknown or repeated output")
+        outputs[found].policyKey = key
+    elif recordKind == snapshotSurfaceClassificationRecordKind:
       if itemCount == 0 or
           finish.payload.len != 16 + itemCount * snapshotSurfaceClassificationSize or
           classifications.len + itemCount > maxSurfaces:
@@ -354,7 +375,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   result.validateSnapshot()
 
 proc receiveProjectionRequest(client: PolicyClient): ProjectionRequest =
-  client.receiveFrame(MessageKind.projectionRequest).decodeProjectionRequest(
+  client.receiveFrame().decodeProjectionRequest(
     client.connectionEpoch, client.capabilities
   )
 
@@ -715,6 +736,11 @@ proc runPolicySession(
     policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
     preparedAdapter: Option[PolicyAdapter] = none(PolicyAdapter),
 ) =
+  if policyCandidate.isSome and
+      policyCandidate.get().policyCandidateSettings().workspaceAssignments.len > 0 and
+      (client.capabilities and (capabilityOutputActions or capabilityOutputPolicyKeys)) !=
+      (capabilityOutputActions or capabilityOutputPolicyKeys):
+    fail("assigned workspaces require output_actions and output_policy_keys")
   installPolicySignals()
   let tracePath = getEnv("HAGIA_POLICY_TRACE")
   let privateCheckpoint = checkpointPath()
@@ -910,6 +936,13 @@ proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidat
   try:
     # Active permits Sophia to open its graphical gate. Build the actual
     # policy first, so a value-level rejection cannot arrive after that promise.
+    if candidate.policyCandidateSettings().workspaceAssignments.len > 0 and
+        (
+          client.capabilities and (
+            capabilityOutputActions or capabilityOutputPolicyKeys
+          )
+        ) != (capabilityOutputActions or capabilityOutputPolicyKeys):
+      fail("assigned workspaces require output_actions and output_policy_keys")
     let prepared = initPolicyAdapter(candidate)
     if client.activateProfileCandidate(candidate) !=
         StartupProfileHandoffDisposition.activated:

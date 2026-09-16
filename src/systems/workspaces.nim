@@ -3,7 +3,7 @@ import std/[options, sets]
 import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[id_gen, queries, values]
-import ../entities/[focus_ops, output_ops, tag_ops, view_ops]
+import ../entities/[focus_ops, output_ops, tag_ops, view_ops, workspace_assignment]
 
 import ./placement
 
@@ -102,17 +102,24 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       if (value == 0 and not pair[2]) or value < 0 or
           (value != 0 and (value < 10 or value > 100)):
         fail("policy placement size percentage is outside its bounds")
+  model.settings.validateWorkspaceAssignments()
   var namedSlots = initHashSet[int]()
   for entry in model.settings.viewNames:
-    if entry.slot < 1 or entry.slot > model.settings.viewCount or
-        entry.slot in namedSlots or entry.name.len == 0 or
+    if entry.slot < 1 or
+        entry.slot > (
+          if model.settings.workspaceAssignments.len > 0: 9
+          else: model.settings.viewCount
+        ) or entry.slot in namedSlots or entry.name.len == 0 or
         entry.name.len > maxViewNameBytes:
       fail("policy view name candidate is invalid")
     namedSlots.incl(entry.slot)
   var layoutSlots = initHashSet[int]()
   for entry in model.settings.viewLayouts:
-    if entry.slot < 1 or entry.slot > model.settings.viewCount or
-        entry.slot in layoutSlots:
+    if entry.slot < 1 or
+        entry.slot > (
+          if model.settings.workspaceAssignments.len > 0: 9
+          else: model.settings.viewCount
+        ) or entry.slot in layoutSlots:
       fail("policy view layout candidate is invalid")
     layoutSlots.incl(entry.slot)
   for viewId in model.views.ids:
@@ -120,6 +127,16 @@ proc reconcilePolicySettings*(model: var PolicyModel) =
       model.views[viewId].layout = model.settings.layoutCycle[0]
   let outputs = model.outputOrder
   for outputId in outputs:
+    if model.settings.workspaceAssignments.len > 0:
+      if model.outputs[outputId].policyKey == 0:
+        continue # The next authenticated snapshot supplies the stable key.
+      model.ensureViewCount(outputId, model.settings.viewCount)
+      for entry in model.settings.viewNames:
+        let viewId = model.profileViewForSlot(outputId, uint32(entry.slot))
+        if viewId != nullViewId:
+          for tagId in model.viewTagIds(viewId):
+            model.setWorkspaceName(tagId, entry.name)
+      continue
     for slot in 1'u32 .. uint32(model.settings.viewCount):
       if model.profileViewForSlot(outputId, slot) == nullViewId:
         let created = model.addView(outputId, [model.profileTag(slot)])
@@ -185,11 +202,31 @@ proc activateViewRelative*(model: var PolicyModel, outputId: OutputId, delta: in
   model.activateView(outputId, views[wrappedIndex(current, delta, views.len)])
 
 proc activateViewSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
+  if model.settings.workspaceAssignments.len > 0:
+    let (owner, view) = model.workspaceHost(slot)
+    if owner == nullOutputId:
+      fail("workspace has no live host")
+    model.setActiveOutput(owner)
+    model.activateView(owner, view)
+    return
   if outputId notin model.outputs or slot < 1 or slot > model.outputs[outputId].views.len:
     fail("view slot is outside the active profile")
   model.activateView(outputId, model.outputs[outputId].views[slot - 1])
 
 proc moveFocusedToViewSlot*(model: var PolicyModel, outputId: OutputId, slot: int) =
+  if model.settings.workspaceAssignments.len > 0:
+    let (owner, view) = model.workspaceHost(slot)
+    if owner == nullOutputId or outputId notin model.outputs:
+      fail("workspace has no live host")
+    let window = model.outputs[outputId].focusedWindow
+    if window == nullWindowId:
+      return
+    model.adoptWindowOutput(window, owner)
+    model.setWindowTagIds(window, model.viewTagIds(view))
+    model.setActiveOutput(owner)
+    model.activateView(owner, view)
+    model.setFocus(owner, window)
+    return
   if outputId notin model.outputs or slot < 1 or slot > model.outputs[outputId].views.len:
     fail("view slot is outside the active profile")
   let window = model.outputs[outputId].focusedWindow
@@ -205,6 +242,13 @@ proc placeWindowInViewSlot*(
 ) =
   ## Policy-local interpretation of an opaque launch class. Placement changes
   ## membership only; it does not switch the user's active view.
+  if model.settings.workspaceAssignments.len > 0:
+    let (owner, view) = model.workspaceHost(slot)
+    if owner == nullOutputId:
+      fail("launch workspace has no live host")
+    model.adoptWindowOutput(windowId, owner)
+    model.setWindowTagIds(windowId, model.viewTagIds(view))
+    return
   if windowId notin model.windows or outputId notin model.outputs or slot < 1 or
       slot > model.outputs[outputId].views.len:
     fail("launch placement view slot is outside the active profile")
@@ -221,7 +265,7 @@ proc addDynamicWorkspace*(
     fail("workspace name is invalid")
   discard model.pruneDynamicWorkspaces()
   let slot = model.nextDynamicWorkspaceSlot()
-  if slot == 0:
+  if slot == 0 or (model.settings.workspaceAssignments.len > 0 and slot > 9):
     fail("dynamic workspace slots are exhausted")
   let tagId = TagId(nextRaw(model.counters.tags, "tag"))
   model.tags[tagId] = TagData(id: tagId, slot: slot, kind: TagKind.dynamic, name: name)

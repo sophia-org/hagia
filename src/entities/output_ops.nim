@@ -8,13 +8,22 @@ import ./[tag_ops, view_ops]
 
 ## Output lifecycle, focus assignment, and reconnect affinity.
 
-proc addOutput*(model: var PolicyModel, bounds: Rect): OutputId =
+proc addOutput*(model: var PolicyModel, bounds: Rect, policyKey = 0'u64): OutputId =
   if bounds.width <= 0 or bounds.height <= 0:
     fail("output bounds must be positive")
   result = model.allocateOutputId()
-  model.outputs[result] = OutputData(id: result, bounds: bounds)
+  model.outputs[result] = OutputData(id: result, bounds: bounds, policyKey: policyKey)
   model.outputOrder.add(result)
-  let viewId = model.addView(result, [model.profileTag(1)])
+  var first = 1'u32
+  if model.settings.workspaceAssignments.len > 0:
+    first = 0
+    for assignment in model.settings.workspaceAssignments:
+      if assignment.outputKey == policyKey and
+          (first == 0 or uint32(assignment.number) < first):
+        first = uint32(assignment.number)
+    if first == 0:
+      fail("output has no configured workspace assignment")
+  let viewId = model.addView(result, [model.profileTag(first)])
   model.outputs[result].activeView = viewId
   if model.activeOutput == nullOutputId:
     model.activeOutput = result
@@ -58,6 +67,7 @@ proc removeOutput*(model: var PolicyModel, id, fallback: OutputId): Option[Outpu
   inc model.counters.disconnects
   model.affinities[id] = OutputAffinity(
     output: id,
+    policyKey: removed.policyKey,
     views: removed.views,
     activeView: removed.activeView,
     focusedWindow: removed.focusedWindow,
@@ -66,8 +76,9 @@ proc removeOutput*(model: var PolicyModel, id, fallback: OutputId): Option[Outpu
   model.affinityOrder.keepItIf(it != id)
   model.affinityOrder.add(id)
   let fallbackView = model.outputs[fallback].activeView
-  model.viewTags[fallbackView] =
-    model.viewTagIds(fallbackView).unionTags(model.viewTagIds(removed.activeView))
+  if model.settings.workspaceAssignments.len == 0:
+    model.viewTags[fallbackView] =
+      model.viewTagIds(fallbackView).unionTags(model.viewTagIds(removed.activeView))
   for viewId in removed.views:
     if viewId notin model.outputs[fallback].views:
       model.outputs[fallback].views.add(viewId)
@@ -101,6 +112,12 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
     for outputId in model.outputOrder:
       model.outputs[outputId].views.keepItIf(it != viewId)
     views.add(viewId)
+  for outputId in model.outputOrder:
+    if model.outputs[outputId].activeView notin model.outputs[outputId].views:
+      if model.outputs[outputId].views.len == 0:
+        fail("restored output left its fallback without a view")
+      model.outputs[outputId].activeView = model.outputs[outputId].views[0]
+      model.outputs[outputId].focusedWindow = nullWindowId
   if views.len == 0:
     let viewId = model.allocateViewId()
     model.views[viewId] =
@@ -112,8 +129,13 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
       saved.activeView
     else:
       views[0]
-  model.outputs[id] =
-    OutputData(id: id, bounds: bounds, views: views, activeView: activeView)
+  model.outputs[id] = OutputData(
+    id: id,
+    policyKey: saved.policyKey,
+    bounds: bounds,
+    views: views,
+    activeView: activeView,
+  )
   model.outputOrder.add(id)
   for windowId in model.windowOrder:
     if model.windows[windowId].preferredOutput == id:

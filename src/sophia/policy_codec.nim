@@ -107,6 +107,36 @@ proc decodeProjectionRequest*(
   ## `selectedCapabilities` is what negotiation actually chose. It defaults to
   ## none so a caller that never negotiated cannot be handed a cause it did not
   ## agree to receive.
+  if frame.kind == MessageKind.outputActionRequest:
+    if (selectedCapabilities and capabilityOutputActions) == 0:
+      fail("targeted output action was not negotiated")
+    result.connectionEpoch = frame.payload.u64At(0)
+    result.requestId = frame.payload.u64At(8)
+    result.sceneGeneration = frame.payload.u64At(16)
+    result.policyGeneration = frame.payload.u64At(24)
+    result.cause = ProjectionCause(
+      kind: ProjectionCauseKind.outputAction,
+      activationSerial: frame.payload.u64At(32),
+      action: frame.payload.u64At(40),
+      output: frame.payload.u64At(48),
+      outputGeneration: frame.payload.u64At(56),
+    )
+    let count = int(frame.payload.u16At(64))
+    if result.connectionEpoch != expectedConnectionEpoch or result.connectionEpoch == 0 or
+        result.requestId == 0 or result.sceneGeneration == 0 or
+        result.policyGeneration == 0 or result.cause.activationSerial == 0 or
+        result.cause.action == 0 or result.cause.output == 0 or
+        result.cause.outputGeneration == 0 or count < 1 or count > maxOutputs or
+        frame.payload.len != 68 + count * 8 or frame.payload.u16At(66) != 0:
+      fail("targeted output action identity is invalid")
+    for index in 0 ..< count:
+      let output = frame.payload.u64At(68 + index * 8)
+      if output == 0 or output in result.affectedOutputs:
+        fail("targeted output action coverage is invalid")
+      result.affectedOutputs.add(output)
+    if result.cause.output notin result.affectedOutputs:
+      fail("targeted output action is outside projection coverage")
+    return
   if frame.kind != MessageKind.projectionRequest:
     fail("policy projection request has the wrong message kind")
   result.connectionEpoch = frame.payload.u64At(0)
@@ -143,6 +173,8 @@ proc decodeProjectionRequest*(
       outputCount > maxOutputs:
     fail("policy projection request is invalid")
   case result.cause.kind
+  of ProjectionCauseKind.outputAction:
+    fail("targeted output action requires its own message")
   of ProjectionCauseKind.sceneChanged:
     if result.cause.interactionPhase != InteractionPhase.none or
         result.cause.interactionKind != InteractionKind.none or

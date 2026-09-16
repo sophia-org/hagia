@@ -42,3 +42,28 @@ same-directory atomic replacement after a committed projection. On restart it
 validates the private indexes and treats the result only as a candidate for
 complete-snapshot reconciliation. The format is neither portable configuration
 nor part of `sophia_wm_v1`.
+
+## Configured workspace ownership
+
+An optional `policy { workspace 4 output-key=2; }` assignment maps a global
+number (1–9) to a stable, nonzero operator key. Sophia publishes the key through
+`output_policy_keys`; connector names remain in Session. Profiles without
+assignments preserve legacy local slots. `output_actions` carries a bar click's
+exact runtime output/generation independently from affected-output coverage.
+A click cannot be redirected to the globally active monitor. Keyboard numbered
+workspace actions select the current owner and focus it in one proposal.
+
+Checkpoint schema 18 retains output keys and assignments. The stable key can
+rebind a new output handle; unplug keeps the preferred owner while existing
+fallback migration hosts the views. Legacy schema 4–17 checkpoints are still
+readable. Enabling assignments remaps unambiguous local ordinal views and their
+window/scratchpad membership together, preserving ViewIds, window IDs, layout,
+cameras and focus. Ambiguous memberships or dynamic-slot collisions refuse the
+speculative candidate. Established assignments cannot silently change on reload.
+An absent cold-start output is dormant, not synthesized. Dynamic assigned
+workspaces reserve configured numbers and use remaining numbers up to 9.
+
+DP-1 can own 1–3 and DP-2 4–6 using keys 1 and 2. These are WM profile settings,
+not Lom behavior. Set `policy-key` in each Sophia `output.named` entry and keep
+Super+number bindings in the same WM profile. Both capabilities are required
+before Hagia accepts an assigned profile's startup activation.

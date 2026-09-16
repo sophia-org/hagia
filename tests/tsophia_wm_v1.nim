@@ -38,6 +38,8 @@ proc kindFor(name: string): MessageKind =
     MessageKind.snapshotChunk
   of "snapshot_end":
     MessageKind.snapshotEnd
+  of "output_action_request":
+    MessageKind.outputActionRequest
   of "projection_request":
     MessageKind.projectionRequest
   of "projection_begin":
@@ -104,7 +106,7 @@ proc corpusLines(path: string): seq[string] =
 
 proc checkValidFrames(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 21
+  check lines.len == 22
   for line in lines:
     let fields = line.split('|')
     check fields.len == 3
@@ -129,7 +131,7 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 15
+  check lines.len == 16
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -143,6 +145,11 @@ proc checkRecords(path: string) =
       check record.surfaceGeneration == 1
       check record.epoch == 1
       check record.token == 1
+    of "snapshot_output_policy_key":
+      check bytes.len == 24
+      check bytes.u64At(0) == 1
+      check bytes.u64At(8) == 1
+      check bytes.u64At(16) == 1
     of "snapshot_output":
       check bytes.decodeSnapshotOutput().output == 1
     of "snapshot_surface":

@@ -182,7 +182,7 @@ proc settingKey(authority: ProfileAuthority, node: KdlNode): string =
     if node.args.len == 0 or node.args[0].kind != KString:
       fail(node.name & " requires a string identity")
     result.add("." & node.args[0].kString())
-  if node.name in ["view-name", "view-layout"]:
+  if node.name in ["view-name", "view-layout", "workspace"]:
     if node.args.len == 0 or
         node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64}:
       fail(node.name & " requires an integer view slot")
@@ -495,10 +495,10 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
       node.name in [
         "layout", "layout-cycle", "view-count", "outer-gap", "inner-gap", "gaps",
         "struts", "viewport-offset", "master-count", "master-ratio", "gap-step",
-        "view-name", "view-layout", "preset-column-widths", "scratchpad-size",
-        "floating-size", "default-column-width", "center-focused-column",
-        "always-center-single-column", "focus-follows-mouse", "default-row-height",
-        "preset-row-heights",
+        "view-name", "view-layout", "workspace", "preset-column-widths",
+        "scratchpad-size", "floating-size", "default-column-width",
+        "center-focused-column", "always-center-single-column", "focus-follows-mouse",
+        "default-row-height", "preset-row-heights",
       ]
     of ProfileAuthority.shell:
       node.name in ["enabled", "panel"]
@@ -538,6 +538,15 @@ proc validateSetting(authority: ProfileAuthority, node: KdlNode, staged = false)
   if authority == ProfileAuthority.policy and node.name == "layout":
     if node.stringArg("policy layout") notin supportedLayoutNames:
       fail("unsupported Hagia policy layout")
+  if authority == ProfileAuthority.policy and node.name == "workspace":
+    if node.args.len != 1 or
+        node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or
+        node.args[0].kInt() < 1 or node.args[0].kInt() > 9 or node.props.len != 1 or
+        not node.props.hasKey("output-key"):
+      fail("policy workspace requires number 1..9 and output-key")
+    let key = node.props["output-key"]
+    if key.kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or key.kInt() < 1:
+      fail("policy workspace output-key must be positive")
   if authority == ProfileAuthority.policy and node.name == "view-name":
     if node.args.len != 2 or
         node.args[0].kind notin {KInt, KInt8, KInt16, KInt32, KInt64} or

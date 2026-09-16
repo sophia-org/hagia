@@ -157,6 +157,10 @@ type
     view*: ViewId
     tag*: TagId
 
+  WorkspaceAssignment* = object
+    number*: int
+    outputKey*: uint64
+
   ViewSlotName* = object
     slot*: int
     name*: string
@@ -174,6 +178,7 @@ type
 
   PolicySettings* = object
     viewCount*: int
+    workspaceAssignments*: seq[WorkspaceAssignment]
     outerGap*, innerGap*, viewportOffset*: int32
     # Legacy profiles keep their two insets; uniform gaps reserve along-axis
     # padding once, through the scroller camera.
@@ -223,6 +228,7 @@ type
 
   OutputData* = object
     id*: OutputId
+    policyKey*: uint64
     bounds*: Rect
     views*: seq[ViewId]
     activeView*: ViewId
@@ -231,6 +237,7 @@ type
 
   OutputAffinity* = object
     output*: OutputId
+    policyKey*: uint64
     views*: seq[ViewId]
     activeView*: ViewId
     focusedWindow*: WindowId
