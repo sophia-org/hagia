@@ -287,3 +287,34 @@ suite "launch origin":
     admission.launchOrigins = @[originRecord(2, 1'u64)]
     expect PolicyClientError:
       restored.reconcile(admission)
+
+suite "output launch destinations":
+  test "empty output bookmark wins over another output's focus and survives cloning":
+    var adapter = initPolicyAdapter()
+    var scene = originScene(1, @[])
+    scene.activeOutput = 20
+    adapter.reconcile(scene)
+    let projection = adapter.projection(scene, originRequest(1, 1, @[10'u64, 20'u64]))
+    check projection.outputLaunchContexts.len == 2
+    var token = 0'u64
+    for record in projection.outputLaunchContexts:
+      check record.generation == 1
+      check record.epoch == 1
+      if record.output == 10:
+        token = record.token
+    check token != 0
+    var candidate = adapter.clone()
+    var admission = originScene(2, @[toplevel(2, 0)])
+    admission.activeOutput = 20
+    admission.launchOrigins = @[originRecord(2, token)]
+    candidate.reconcile(admission)
+    let child = candidate.logicalWindow(2, 1).get()
+    let left = candidate.logicalOutput(10).get()
+    check candidate.model().windows[child].homeOutput == left
+    check candidate.model().windowTagIds(child) ==
+      candidate.model().viewTagIds(candidate.model().outputs[left].activeView)
+    check candidate.model().activeOutput == candidate.logicalOutput(20).get()
+    let repeated = adapter.projection(scene, originRequest(2, 1, @[10'u64, 20'u64]))
+    for record in repeated.outputLaunchContexts:
+      if record.output == 10:
+        check record.token == token

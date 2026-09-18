@@ -34,6 +34,7 @@ type
     launchTokenOrder: seq[uint64]
     launchTokenCounter: uint64
     launchEpoch: uint64
+    outputLaunchTokens: HashSet[uint64]
     dormantOutputToLogical: Table[OutputHandle, OutputId]
     logicalToOutput: Table[OutputId, OutputHandle]
     surfaceFacts: Table[WindowId, SnapshotSurface]
@@ -147,6 +148,8 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   result.launchTokenOrder = adapter.launchTokenOrder
   result.launchTokenCounter = adapter.launchTokenCounter
   result.launchEpoch = adapter.launchEpoch
+  for token in adapter.outputLaunchTokens:
+    result.outputLaunchTokens.incl(token)
 
 proc destinationKey(destination: LaunchDestination): string =
   result = $int(destination.output)
@@ -172,6 +175,22 @@ proc launchToken(
   let key = destination.destinationKey()
   if key in adapter.launchDestinationTokens:
     return adapter.launchDestinationTokens[key]
+  # Reserve capacity before minting. Output bookmarks are stable for the epoch;
+  # never let publishing ordinary window contexts evict an accepted destination.
+  if adapter.launchTokens.len >= maxLaunchOriginRecords:
+    var removable = 0'u64
+    for candidate in adapter.launchTokenOrder:
+      if candidate notin adapter.outputLaunchTokens and
+          adapter.launchTokens[candidate].destinationKey() notin protected:
+        removable = candidate
+        break
+    if removable == 0:
+      return 0
+    adapter.launchDestinationTokens.del(
+      adapter.launchTokens[removable].destinationKey()
+    )
+    adapter.launchTokens.del(removable)
+    adapter.launchTokenOrder.delete(adapter.launchTokenOrder.find(removable))
   adapter.launchTokenCounter += 1
   result = adapter.launchTokenCounter
   adapter.launchTokens[result] = destination
@@ -189,7 +208,8 @@ proc launchToken(
         adapter.launchTokens[candidate].destinationKey()
       else:
         ""
-    if key.len == 0 or key notin protected:
+    if candidate notin adapter.outputLaunchTokens and
+        (key.len == 0 or key notin protected):
       adapter.launchTokenOrder.delete(index)
       if candidate in adapter.launchTokens:
         adapter.launchDestinationTokens.del(key)
@@ -222,12 +242,42 @@ proc launchContexts(
   # Every destination this pass publishes is known before any is minted, so
   # eviction cannot take one the same pass is about to hand out.
   for (key, destination) in sources:
+    let token = adapter.launchToken(destination, protected)
+    if token == 0:
+      continue
     result.add(
       LaunchOriginRecord(
         surfaceIndex: uint32(key and 0xffffffff'u64),
         surfaceGeneration: uint32(key shr 32),
         epoch: epoch,
-        token: adapter.launchToken(destination, protected),
+        token: token,
+      )
+    )
+
+proc outputLaunchContexts(
+    adapter: var PolicyAdapter, epoch: uint64
+): seq[OutputLaunchContext] =
+  # Empty workspaces have no window context to borrow. Publish their destination
+  # directly, and never recycle an output token during this WM connection.
+  for handle, logical in adapter.activeOutputToLogical.pairs:
+    let output = adapter.model.output(logical)
+    if output.isNone:
+      continue
+    let destination = LaunchDestination(
+      output: logical, tags: adapter.model.viewTagIds(output.get().activeView)
+    )
+    let key = destination.destinationKey()
+    var token: uint64
+    if key in adapter.launchDestinationTokens:
+      token = adapter.launchDestinationTokens[key]
+    elif adapter.launchTokens.len < maxLaunchOriginRecords:
+      token = adapter.launchToken(destination, initHashSet[string]())
+    else:
+      continue # Bounded exhaustion makes new launches unavailable, not misdirected.
+    adapter.outputLaunchTokens.incl(token)
+    result.add(
+      OutputLaunchContext(
+        output: handle.output, generation: handle.generation, epoch: epoch, token: token
       )
     )
 
@@ -242,6 +292,7 @@ proc synchronizeLaunchEpoch*(adapter: var PolicyAdapter, epoch: uint64) =
   adapter.launchDestinationTokens.clear()
   adapter.launchTokenOrder.setLen(0)
   adapter.launchTokenCounter = 0
+  adapter.outputLaunchTokens.clear()
 
 proc logicalWindow*(
     adapter: PolicyAdapter, surfaceIndex, surfaceGeneration: uint32
@@ -1135,6 +1186,7 @@ proc projection*(
 
   adapter.synchronizeLaunchEpoch(request.connectionEpoch)
   result.launchContexts = adapter.launchContexts(request.connectionEpoch)
+  result.outputLaunchContexts = adapter.outputLaunchContexts(request.connectionEpoch)
   let (outerGap, innerGap) = adapter.model.effectiveGaps()
   # Fullscreen is the one placement that needs the physical display rather than
   # the work area, and the logical model does not hold it. Handing it to the

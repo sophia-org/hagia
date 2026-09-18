@@ -114,7 +114,8 @@ proc negotiatePolicy(
     capabilityBindings or capabilityActions or capabilityMultiOutput or
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
       optional or capabilityTabGroups or capabilityTranslationGroups or
-      capabilityOutputActions or capabilityOutputPolicyKeys or capabilityLaunchOrigin
+      capabilityOutputActions or capabilityOutputPolicyKeys or capabilityLaunchOrigin or
+      capabilityOutputLaunchContext
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -611,6 +612,27 @@ proc sendProjection(
       )
       inc extensionOrdinal
       start = finish
+
+  if (client.capabilities and capabilityOutputLaunchContext) != 0:
+    if projection.outputLaunchContexts.len > maxOutputs:
+      fail("too many output launch contexts")
+    # Each bounded record is its own extension chunk; honor small negotiated
+    # limits without changing the frozen counted prefix.
+    if client.maxChunkBytes < outputLaunchContextSize:
+      fail("output launch context chunk limit too small")
+    for record in projection.outputLaunchContexts:
+      var payload: seq[byte]
+      payload.addU64(client.connectionEpoch)
+      payload.addU16(extensionOrdinal)
+      payload.addU16(projectionOutputLaunchContextRecordKind)
+      payload.addU32(1)
+      payload.add(record.encodeOutputLaunchContext())
+      client.sendFrame(
+        Frame(
+          kind: MessageKind.projectionChunk, transaction: transaction, payload: payload
+        )
+      )
+      inc extensionOrdinal
 
   var endPayload: seq[byte]
   endPayload.addU64(client.connectionEpoch)

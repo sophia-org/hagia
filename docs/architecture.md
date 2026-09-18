@@ -598,3 +598,15 @@ Chronicles emits redacted operational events at the level selected by
 an absolute path is supplied. Its schema contains only reducer, configuration,
 settlement, checkpoint, and connection correlation fields; it excludes raw
 Sophia handles and application metadata and rotates at bounded size.
+
+## Output launch bookmarks
+
+Alongside inherited window origins, the Sophia adapter can publish a committed
+opaque token for every output's current workspace, including empty outputs.
+Sophia captures this token when accepting a dock/menu launch and echoes it for
+the authenticated application's first top-level. Hagia resolves the original
+workspace without changing focus or revealing workspace internals to Session.
+Output tokens remain stable for the WM connection epoch within the shared
+1024-token bound; exhaustion makes new destinations unavailable. Rejected
+candidate projections never publish their bookmarks, and checkpoints contain
+none. Existing explicit placement and transient-parent rules retain precedence.

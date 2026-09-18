@@ -103,6 +103,7 @@ type
     tabGroups*: seq[ProjectionTabGroup]
     translationGroups*: seq[ProjectionTranslationGroup]
     launchContexts*: seq[LaunchOriginRecord]
+    outputLaunchContexts*: seq[OutputLaunchContext]
 
   LaunchDestination* = object
     ## Where a launch context points: a logical output and the tag set a window

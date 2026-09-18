@@ -405,6 +405,15 @@ proc encodeLaunchOriginRecord*(record: LaunchOriginRecord): seq[byte] =
   result.addU64(record.epoch)
   result.addU64(record.token)
 
+proc encodeOutputLaunchContext*(record: OutputLaunchContext): seq[byte] =
+  if record.output == 0 or record.generation == 0 or record.epoch == 0 or
+      record.token == 0:
+    raise newException(ValueError, "invalid output launch context")
+  result.addU64(record.output)
+  result.addU64(record.generation)
+  result.addU64(record.epoch)
+  result.addU64(record.token)
+
 proc decodeLaunchOriginRecord*(bytes: openArray[byte]): LaunchOriginRecord =
   bytes.requireExact(launchOriginRecordSize)
   result.surfaceIndex = bytes.u32At(0)

@@ -118,6 +118,9 @@ type
     epoch*: uint64
     token*: uint64
 
+  OutputLaunchContext* = object
+    output*, generation*, epoch*, token*: uint64
+
   SnapshotSurfaceClassification* = object
     surfaceIndex*: uint32
     surfaceGeneration*: uint32
@@ -172,6 +175,7 @@ const
   ## is never echoed costs nothing and the placement it enables is what an
   ## operator already expects.
   capabilityLaunchOrigin* = 1'u64 shl 14
+  capabilityOutputLaunchContext* = 1'u64 shl 17
   capabilityOutputActions* = 1'u64 shl 15
   capabilityOutputPolicyKeys* = 1'u64 shl 16
   snapshotOutputPolicyKeyRecordKind* = 65287'u16
@@ -186,6 +190,8 @@ const
   snapshotSurfaceClassificationRecordKind* = 0xFF00'u16
   projectionLaunchContextRecordKind* = 0xFF05'u16
   snapshotLaunchOriginRecordKind* = 0xFF06'u16
+  projectionOutputLaunchContextRecordKind* = 0xFF08'u16
+  outputLaunchContextSize* = 32
   surfaceFocusable* = 1'u16 shl 2
 
   frameHeaderLen* = 24
