@@ -18,7 +18,7 @@ forever — is exactly the direction a new action travels.
 
 So every command below is Hagia-internal work: an enum entry, a reducer arm,
 sometimes new model operations, and a profile binding. None of it touches
-`sophia-stack`.
+Sophia.
 
 ## The rules
 

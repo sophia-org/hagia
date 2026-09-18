@@ -1,7 +1,7 @@
 # Hagia
 
 Hagia is the reference window manager for the
-[Sophia display server](https://github.com/sophia-org/sophia-stack): a
+[Sophia display server](https://github.com/sophia-org/sophia): a
 standalone spatial-policy client that owns tags, views, layouts, and focus,
 and draws nothing. It's also a real window manager, ported deliberately from
 [Triad](docs/provenance.md) and driven daily — a reference implementation in
@@ -12,7 +12,7 @@ Hagia is one corner of a triangle. Sophia owns the server and the protocols.
 [Narthex](https://github.com/sophia-org/narthex) is the reference shell — the
 switcher and work-area client with a strictly smaller capability. If you're
 deciding what to build and where it goes, start with Sophia's
-[Building on Sophia](https://github.com/sophia-org/sophia-stack/blob/master/docs/building-on-sophia.md);
+[Building on Sophia](https://github.com/sophia-org/sophia/blob/master/docs/building-on-sophia.md);
 if you're building a window manager, this repository is the one to copy from.
 
 ## What It Does
@@ -67,7 +67,7 @@ byte for byte, on any machine.
 The conformance gate runs against a Sophia checkout:
 
 ```sh
-SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
+SOPHIA_ROOT=~/dev/sophia-stack nimble test
 ```
 
 It checks the same valid, malformed, and fixed-record corpus that Sophia's

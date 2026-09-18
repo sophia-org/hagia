@@ -20,7 +20,7 @@ expand Hagia's Sophia authority to preserve a source implementation detail.
 Format touched Nim files with `nph`, then run:
 
 ```sh
-SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble verify
+SOPHIA_ROOT=~/dev/sophia-stack nimble verify
 ```
 
 The gate checks formatting and runs the independent valid, malformed, semantic,

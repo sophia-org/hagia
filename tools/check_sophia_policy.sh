@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-if [ "${SOPHIA_STACK_ROOT:-}" = "" ]; then
-    echo "SOPHIA_STACK_ROOT must name a Sophia Stack checkout" >&2
+if [ "${SOPHIA_ROOT:-}" = "" ]; then
+    echo "SOPHIA_ROOT must name a Sophia checkout" >&2
     exit 2
 fi
 
@@ -58,7 +58,7 @@ if "$build_dir/hagia" config check --config="$build_dir/retired-size.kdl"; then
     echo "Hagia config check accepted a retired policy spelling" >&2
     exit 1
 fi
-cd "$SOPHIA_STACK_ROOT"
+cd "$SOPHIA_ROOT"
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
     "$build_dir/hagia-policy-proof" "$build_dir/session" all
 cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \

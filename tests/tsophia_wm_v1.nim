@@ -224,7 +224,7 @@ proc checkRecords(path: string) =
 
 suite "independent Sophia WM v1 wire":
   test "shared golden and malformed corpora":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     checkValidFrames(sophiaRoot / "protocol/golden/sophia-wm-v1.frames")
     checkMalformedFrames(sophiaRoot / "protocol/golden/sophia-wm-v1-malformed.frames")

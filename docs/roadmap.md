@@ -422,7 +422,7 @@ move lands where the user saw the window.
 - [x] Workspace-name key, landed with the naming above.
 - [x] Per-workspace default layout, as `view-layout <slot> "<layout>"`. It seeds a view when the view is born; a runtime switch owns it afterwards.
 - [x] Floating placement defaults, as `floating-size`. Zero keeps the current whole-output behavior.
-- [ ] Sophia-stack installer wiring for `hagia config init` — sophia-stack's
+- [ ] Sophia installer wiring for `hagia config init` — Sophia's
   installer owns this, so it is out of scope for hagia tranches.
 ### Blocked on Sophia's session vocabulary
 
@@ -444,7 +444,7 @@ wire:
   migration classifier already refuses `lock-session` for wanting "a
   dedicated security transition capability".
 
-So the work is sophia-stack's, tracked in its `todo.md` under Native WM and
+So the work is Sophia's, tracked in its `todo.md` under Native WM and
 shell product. Hagia's side per capability is one whitelist string in
 `config/profile.nim`, one appended action whose `sessionOperationSlot`
 returns the new slot, and a binding — a few lines, once the slot exists.

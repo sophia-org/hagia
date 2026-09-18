@@ -43,7 +43,7 @@ Sophia's authority boundaries to every port.
    cross-repository gate is:
 
    ```sh
-   SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
+   SOPHIA_ROOT=~/dev/sophia-stack nimble test
    ```
 
    Use `nimble verify` for the formatting-plus-test contributor gate.
