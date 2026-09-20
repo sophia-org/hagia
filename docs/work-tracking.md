@@ -20,7 +20,14 @@ zk tasks do N               # complete the line the listing numbers N
 Every line carries a stable `id:` and an `order:` key. IDs are `h` and a
 number, unique for the life of the repository and never reused; Sophia's are
 `t` and a number, so a relayed task is unambiguous about which queue it
-belongs to. The `order:` key sets the reviewed position, which the CLI
+belongs to. **Identities are never recycled.** A new task takes the next number above
+every `id:` that has ever been used, in `todo.md` and in the `done-*.md`
+files together -- not the lowest number that happens to be free. A completed
+task keeps its identity for ever, and the evidence that closed it is reached
+by that identity: notes, commit messages and gate reports all cite it. Giving
+a new task an old number silently re-points every one of those citations at
+work it never described. Two live rows sharing a number is the visible
+failure; the quiet one is worse. The `order:` key sets the reviewed position, which the CLI
 preserves rather than sorting by description. Completion moves the line to
 `done-YYYY-MM.md` with its ID and links intact; see `done.md`.
 
