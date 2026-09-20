@@ -57,3 +57,11 @@ Sophia's authority boundaries to every port.
    constraints. Do not narrate obvious code.
 10. Do not kill or restart `gpg-agent`. If signing is unavailable, preserve the
     staged work and ask the user to unlock it.
+11. Track work in this repository's own queue and notebook, which mirror
+    Sophia's so one workflow covers both. `todo.md` holds the queue, reached
+    through `zk tasks`; findings belong in a note under `docs/notes/`, reached
+    through `zk investigate` and its siblings. Hagia's task IDs are `hNNN`,
+    Sophia's are `tNNN`, so a relayed task says which queue it came from. Read
+    `docs/work-tracking.md` before adding either, and run `zk index` after
+    editing a note by hand. `docs/roadmap.md` stays the narrative record of
+    what landed; it is not a queue.
