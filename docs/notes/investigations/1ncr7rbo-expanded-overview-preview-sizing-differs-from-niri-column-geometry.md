@@ -2,7 +2,7 @@
 id: 1ncr7rbo
 date: 2026-09-25
 kind: investigation
-status: diagnosed
+status: resolved
 tags: [investigation]
 ---
 # Expanded overview preview sizing differs from niri column geometry
@@ -189,6 +189,36 @@ results and the signed candidate identity follow below. The initial h005 failure
 and the original audit's stable-size failure remain retained as red evidence.
 Live installation, hardware rendering, animations and physical acceptance are
 not part of this headless correction.
+
+### Development acceptance
+
+Signed source candidate `635aa19b34c34e453db6255e1581eb6f2bb83324` passes the
+complete `nimble verify` contributor gate against an immutable Sophia
+`9ee301e74ef22a065dcb112dc1873c7e458dfec4` checkout. Execution used a minimal
+device tree, private runtime and temporary directories, cleared display/socket
+and Sophia/Hagia environment variables, nice 10 and two Cargo jobs.
+
+- Formatting, data-oriented layout and diff checks pass; all 332 Nim controls
+  pass, including 18 overview policy and 13 overview adapter controls.
+- The real policy corpus and restart corpus pass. Filtered Sophia checks pass:
+  profile admission 2, pointer transport 2, overview transport 5 with 1 existing
+  ignored boundary probe, and session publication 3 with 1 existing ignored
+  probe. Receipts remain synthetic; this is headless acceptance.
+- Eight Alloy assertions, the Z3 entity checks and all four existing TLA+
+  lifecycle models pass.
+- Removing only the camera translation in an isolated source copy makes the
+  corrected control fail: 676 instead of 350 horizontally and 376 instead of
+  200 vertically. Production code passes that same control. No mutation was
+  made to the live session or the signed candidate.
+
+Evidence, exact identities, source/mutation patches and the retained red logs
+are checksummed under
+`~/.local/state/hagia/development-evidence/h005-635aa19/`.
+Its `SHA256SUMS` digest is
+`4573af19b8b0972ad720279ca81487871c0872e9b6cf41f5113e94edd84449fb`.
+Independent read-only review accepted the final projection and tests without a
+blocking finding. This closes h005 development; installation/reload and physical
+acceptance remain separate. No Sophia, Narthex or Lom source changes are needed.
 
 ## Connections
 
