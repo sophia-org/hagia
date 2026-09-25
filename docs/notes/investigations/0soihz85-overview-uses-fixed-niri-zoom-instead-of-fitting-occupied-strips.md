@@ -99,6 +99,13 @@ speculative emphasis change is included. The first full gate was deliberately
 interrupted for the stacking review fix; its partial log makes no acceptance
 claim.
 
+Subsequent Sophia source review confirms a stronger boundary:
+`policy_presentation.rs::region_command` intersects a region's geometry and clip
+before constructing its border. Its bands therefore follow the clipped
+allocation. The hypothetical unclipped-border construction does not describe
+that production path; physical-head cropping remains covered by Sophia's own
+admission rules.
+
 Further live acceptance requires Sophia t246. Its independently reproduced
 backend defect rejects a Present whose source is legitimately absent from a
 replacement publication. Fixed-zoom clipping intentionally omits such sources.
