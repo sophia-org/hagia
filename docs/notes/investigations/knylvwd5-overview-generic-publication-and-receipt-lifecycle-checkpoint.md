@@ -52,9 +52,32 @@ No process launch, shell metadata, buffer or raw input crosses into Hagia.
 
 ## Validation and remaining work
 
-The actual Hagia subprocess-to-Rust transport/reducer control and the generic
-session's actual-frame/input join are still being integrated under Sophia t241
-and t245. Full paired gates remain required; h002 is open in [the queue](../../../todo.md).
+The actual Hagia subprocess-to-Rust transport/reducer controls now pass in
+Sophia `de3b9f95`: publication and exact actions, timeout preservation, receipt
+revocation, reconnect, and ordinary policy without both presentation capabilities.
+These five controls use synthetic receipts, not physical completion evidence.
+The separate reducer-only stale-epoch probe remains ignored and explicitly
+documents why authenticated session receipt validation is necessary.
+
+The full contributor gate passed with Hagia source `983dd83` and Sophia source
+`9a8318ad`: 319 Nim cases, two eleven-scenario policy corpora, four then-current
+paired presentation controls, profile/pointer/launch-origin checks, eight Alloy
+assertions, Z3 expectations, and four TLA+ lifecycle checks. The log is
+`~/.local/state/hagia/development-evidence/h002-joined-verify/verify.log`, with its
+checksum beside it. The preceding disk-capacity failure during Rust compilation
+remains under `h002-84e717d-verify`; rerunning with a disk-backed target passed.
+
+Final Triad comparison found one policy mismatch: upward entry to a monocle or
+deck workspace selected its first window instead of its last. A regression
+failed for both layouts; `f59cdf1` fixes the entry direction, and all nine policy
+tests plus the layout gate pass. Red/green logs are under
+`~/.local/state/hagia/development-evidence/h002-983dd83/`. `aa51b1c` adds the fifth
+paired capability-fallback control to the contributor gate. Neither change adds
+new feature scope.
+
+The generic session's actual-frame/input join and review fixes are being
+integrated under Sophia t241 and t245. Final paired gates remain required;
+h002 is open in [the queue](../../../todo.md).
 No Hagia live install/reload or physical acceptance was performed.
 
 The Sophia renderer agent separately reported two unintended real-card smoke

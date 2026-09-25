@@ -48,7 +48,8 @@ keep their current semantics.
 Super+O opens and closes the workspace overview. Arrow keys and h/j/k/l navigate;
 Return selects; Escape cancels without changing workspace or focus. Pointer
 selection is tied to the displayed generation. Each output retains its own
-workspace. Empty workspaces remain selectable. Tests exercise input capture,
+workspace. The active workspace remains selectable when empty; like Triad,
+keyboard traversal skips inactive empty workspaces. Tests exercise input capture,
 stale/rejected candidates, cancellation, output loss and reconnect. CPU and
 native paths share the same preview geometry without resizing application
 buffers. Offline tests precede any live acceptance; live reload/install remains
