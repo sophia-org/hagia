@@ -518,3 +518,12 @@ to Sophia and shell policy to Narthex. Coordinated live acceptance is pending.
   and fullscreen bounds, focus, and the restored tile order.
 - [ ] Accept the replacement WM in the live session: Super+F, Super+Shift+F,
   and toggling back, with Super+M retaining column-width behavior.
+
+### Configurable arrow output crossing (Sophia t080)
+
+`arrow-crosses-outputs` defaults on and gates column-navigation handoff at
+output edges, including empty monitors. Disabling it preserves local navigation
+and explicit output switching. Checkpoint version 19 persists the preference;
+older checkpoints migrate with crossing enabled and profile reloads replace the
+setting without resetting per-output focus or workspaces. Sophia owns t080
+tracking and integrated acceptance.

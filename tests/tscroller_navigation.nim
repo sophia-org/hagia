@@ -214,3 +214,60 @@ suite "navigation across an empty display":
       check model.activeOutput == only
       check model.outputs[only].focusedWindow == nullWindowId
     model.validate()
+
+suite "configurable directional output handoff":
+  test "disabled handoff preserves local navigation and monitor workspaces":
+    for direction in [-1, 1]:
+      var model = initPolicyModel()
+      model.settings.arrowCrossesOutputs = false
+      let left = model.addOutput(Rect(width: 1280, height: 1024))
+      let right = model.addOutput(Rect(x: 1280, width: 1280, height: 1024))
+      let (source, target) =
+        if direction == 1:
+          (left, right)
+        else:
+          (right, left)
+      model.ensureViewCount(source, 3)
+      model.ensureViewCount(target, 3)
+      model.applyAction(target, PolicyAction.activateView3)
+      let targetWindow = model.addWindow(target, caps(), SizeConstraints())
+      model.setFocus(target, targetWindow)
+      model.applyAction(source, PolicyAction.activateView2)
+      let first = model.addWindow(source, caps(), SizeConstraints())
+      let last = model.addWindow(source, caps(), SizeConstraints())
+      let (inner, edge) =
+        if direction == 1:
+          (first, last)
+        else:
+          (last, first)
+      model.setFocus(source, inner)
+      model.focusColumnRelative(source, direction)
+      check model.outputs[source].focusedWindow == edge
+      let before = model.projectLayout([source, target], 0, 0)
+      let sourceView = model.outputs[source].activeView
+      let targetView = model.outputs[target].activeView
+      model.focusColumnRelative(source, direction)
+      check model.activeOutput == source
+      check model.outputs[source].focusedWindow == edge
+      check model.outputs[target].focusedWindow == targetWindow
+      check model.projectLayout([source, target], 0, 0) == before
+      model.focusOutputRelative(direction)
+      check model.activeOutput == target
+      check model.outputs[source].activeView == sourceView
+      check model.outputs[target].activeView == targetView
+      model.validate()
+
+  test "disabled handoff leaves empty outputs selectable only explicitly":
+    var model = initPolicyModel()
+    model.settings.arrowCrossesOutputs = false
+    let left = model.addOutput(Rect(width: 1280, height: 1024))
+    let right = model.addOutput(Rect(x: 1280, width: 1280, height: 1024))
+    for output in [left, right]:
+      model.setActiveOutput(output)
+      for direction in [-1, 1]:
+        model.focusColumnRelative(output, direction)
+        check model.activeOutput == output
+        check model.outputs[output].focusedWindow == nullWindowId
+    model.focusOutputRelative(-1)
+    check model.activeOutput == left
+    model.validate()

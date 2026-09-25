@@ -128,6 +128,24 @@ the uniform form. Private checkpoint version 16 retains the selected model;
 restoring an older checkpoint preserves legacy spacing until a new profile
 chooses `gaps`.
 
+### Arrow navigation across outputs
+
+Column navigation hands focus to the adjacent monitor at the strip edge by
+default, including when the current monitor is empty. To keep each monitor
+self-contained:
+
+```kdl
+policy {
+  arrow-crosses-outputs #false
+}
+```
+
+This applies to `focus-column-prev/next` and their `focus-left/right` aliases.
+Local navigation and explicit output switching keep their existing behavior.
+The setting survives checkpoints; a profile reload applies the new value while
+preserving each monitor's workspace and remembered focus. Omitting it enables
+crossing again.
+
 ### Focus follows the pointer
 
 Off by default, the way niri has it: crossing a window on the way to somewhere

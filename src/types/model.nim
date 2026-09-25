@@ -215,6 +215,8 @@ type
     ## the operator asked for that. Hagia owns the preference; Sophia owns the
     ## hit test and sends an observation only when this is on.
     focusFollowsMouse*: bool
+    ## Allow column navigation to hand focus to the adjacent output at an edge.
+    arrowCrossesOutputs*: bool
     layoutCycle*: seq[LayoutMode]
     masterCount*: int
     masterRatio*: Scale
@@ -341,4 +343,5 @@ const
     defaultRowHeight: automaticExtent,
     presetRowHeights: @[],
     focusFollowsMouse: false,
+    arrowCrossesOutputs: true,
   )

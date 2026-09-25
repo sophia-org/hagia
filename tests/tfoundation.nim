@@ -1460,3 +1460,70 @@ suite "focus-follows-mouse profile setting":
     repeated.ownerOnly()
     expect DesktopProfileError:
       discard loadAuthorityCandidate(repeated, ProfileAuthority.policy)
+
+suite "arrow-crosses-outputs profile setting":
+  ## The preference is interpreted by Hagia from the opaque policy fragment.
+  test "a profile states it explicitly either way and defaults on":
+    let directory = createTempDir("hagia-arrow-output-", "")
+    defer:
+      removeDir(directory)
+    let digest = repeat('d', 64)
+    for (written, expected) in [("#true", true), ("#false", false)]:
+      let path = directory / ("policy-" & written[1 .. ^1] & ".kdl")
+      writeFile(
+        path,
+        "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+          "\"\npolicy { arrow-crosses-outputs " & written & "; }\n",
+      )
+      path.ownerOnly()
+      let candidate = loadAuthorityCandidate(path, ProfileAuthority.policy)
+      check candidate.policyCandidateSettings().arrowCrossesOutputs == expected
+      var model = initPolicyModel()
+      model.applyPolicyCandidate(candidate)
+      check model.settings.arrowCrossesOutputs == expected
+
+    # Existing profiles keep directional output handoff.
+    let silent = directory / "policy-silent.kdl"
+    writeFile(
+      silent,
+      "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+        "\"\npolicy { view-count 4; }\n",
+    )
+    silent.ownerOnly()
+    check loadAuthorityCandidate(silent, ProfileAuthority.policy)
+      .policyCandidateSettings().arrowCrossesOutputs
+
+  test "a malformed or repeated value fails closed":
+    let directory = createTempDir("hagia-arrow-output-bad-", "")
+    defer:
+      removeDir(directory)
+    let digest = repeat('d', 64)
+    # Not a boolean: a string that reads like one is still not one, and a
+    # profile that meant #true should be told so rather than silently ignored.
+    for body in [
+      "arrow-crosses-outputs \"true\"", "arrow-crosses-outputs",
+      "arrow-crosses-outputs #true #false",
+    ]:
+      let path = directory / "policy.kdl"
+      writeFile(
+        path,
+        "schema 1\nprofile-generation 9\nprofile-digest \"" & digest & "\"\npolicy { " &
+          body & "; }\n",
+      )
+      path.ownerOnly()
+      # Whichever layer notices first refuses it: a value that is not a boolean
+      # never reaches policy, and one the grammar accepts is rejected there.
+      expect DesktopProfileError, KdlParserError:
+        discard loadAuthorityCandidate(path, ProfileAuthority.policy)
+          .policyCandidateSettings()
+
+    # Stated twice, the profile loader refuses it before policy sees it.
+    let repeated = directory / "repeated.kdl"
+    writeFile(
+      repeated,
+      "schema 1\nprofile-generation 9\nprofile-digest \"" & digest &
+        "\"\npolicy { arrow-crosses-outputs #true; arrow-crosses-outputs #false; }\n",
+    )
+    repeated.ownerOnly()
+    expect DesktopProfileError:
+      discard loadAuthorityCandidate(repeated, ProfileAuthority.policy)

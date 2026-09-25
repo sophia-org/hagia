@@ -107,6 +107,8 @@ proc handOffToAdjacent(model: var PolicyModel, outputId: OutputId, delta: int) =
   ## Step off the end of a strip onto the display on that side. An empty
   ## neighbour is still somewhere to be, so the opposite arrow brings the
   ## operator back; one that already remembers a window keeps it.
+  if not model.settings.arrowCrossesOutputs:
+    return
   let adjacent = model.adjacentOutput(outputId, delta)
   if adjacent == nullOutputId or adjacent == outputId:
     return

@@ -246,4 +246,4 @@ suite "pointer focus":
     payload["settings"].delete("focusFollowsMouse")
     let restored = restoreCheckpointPayload("HAGIA-POLICY-CHECKPOINT-12\n" & $payload)
     check not restored.model().settings.focusFollowsMouse
-    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-18\n")
+    check restored.checkpointPayload().startsWith("HAGIA-POLICY-CHECKPOINT-19\n")

@@ -316,7 +316,7 @@ proc hasWindows*(adapter: PolicyAdapter): bool =
   adapter.model.windowOrder.len > 0
 
 proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
-  result.schema = 18
+  result.schema = 19
   for view, tree in adapter.model.tabTrees:
     result.tabTrees.add(TabTreeDto(view: uint32(view), tree: tree))
   result.tabTrees.sort(
@@ -431,7 +431,7 @@ proc checkpointDto(adapter: PolicyAdapter): CheckpointV4Dto =
   )
 
 proc checkpointPayload*(adapter: PolicyAdapter): string =
-  "HAGIA-POLICY-CHECKPOINT-18\n" & $adapter.checkpointDto().toJson()
+  "HAGIA-POLICY-CHECKPOINT-19\n" & $adapter.checkpointDto().toJson()
 
 proc migratedProportion(percent: int): JsonNode =
   ## A checkpointed percentage as the proportion the percent resolver produced
@@ -451,8 +451,8 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   # 16 stated column widths and their defaults as integer percentages, before
   # proportions and fixed pixels.
   # Each migrates forward by filling the fields it could not have written.
-  var version = 18
-  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]:
+  var version = 19
+  for legacy in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]:
     if payload.startsWith("HAGIA-POLICY-CHECKPOINT-" & $legacy & "\n"):
       version = legacy
   let prefix = "HAGIA-POLICY-CHECKPOINT-" & $version & "\n"
@@ -467,6 +467,9 @@ proc restoreCheckpointPayload*(payload: string): PolicyAdapter =
   var dto: CheckpointV4Dto
   try:
     var node = payload[prefix.len .. ^1].parseJson()
+    if version <= 18:
+      # Older sessions always allowed directional output handoff.
+      node["settings"]["arrowCrossesOutputs"] = toJson(true)
     if version == 4:
       node["tabTrees"] = newJArray()
     if version <= 5:

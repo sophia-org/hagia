@@ -178,6 +178,11 @@ proc policyCandidateSettings*(candidate: AuthorityCandidate): PolicySettings =
       if node.args.len != 1 or node.args[0].kind != KBool:
         raise newException(DesktopProfileError, value.key & " requires #true or #false")
       settings.alwaysCenterSingleColumn = node.args[0].kBool()
+    of "policy.arrow-crosses-outputs":
+      let node = parseKdl(value.encoded)[0]
+      if node.args.len != 1 or node.args[0].kind != KBool:
+        raise newException(DesktopProfileError, value.key & " requires #true or #false")
+      settings.arrowCrossesOutputs = node.args[0].kBool()
     of "policy.focus-follows-mouse":
       let node = parseKdl(value.encoded)[0]
       if node.args.len != 1 or node.args[0].kind != KBool:
