@@ -116,3 +116,8 @@ Checkpoint restoration does not serialize this transient state.
 Adapter publication, exact target mapping, receipt retirement and paired
 session input acceptance remain required. These checks establish deterministic
 policy behavior and do not claim a complete or physically accepted overview.
+
+The signed adapter checkpoint `d3920d4` now publishes generic instances/regions,
+maps exact presented actions and handles interleaved receipts. Its
+[lifecycle investigation](../investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
+records the binary hash, deterministic checks and remaining paired acceptance.
