@@ -2,7 +2,7 @@
 id: knylvwd5
 date: 2026-09-25
 kind: investigation
-status: investigating
+status: resolved
 tags: [investigation]
 ---
 # Overview generic publication and receipt lifecycle checkpoint
@@ -85,6 +85,37 @@ runs caused by an inherited environment flag. Both refused submission; full
 logs were not saved. Its owning investigation `a16e9iwc` records this incident,
 the captured refusal and subsequent device-hidden reruns. It provides no
 physical acceptance for this feature.
+
+## Final paired acceptance
+
+The complete native-protocol-family gate passes all eight phases on signed Hagia
+`12d314290ce441c853cb8cd7502c367685a15f1f`, signed Sophia
+`6251aa7915266f79e700c0997267f4361d46d70d` and unchanged Narthex `50b9014d`.
+The gate checked clean, identical source identities before and after the run.
+The WM phase passes all 320 Nim checks, both eleven-scenario policy corpora and
+the five real-Hagia overview/capability controls. Sophia's full default workspace
+suite passes 3,781 tests with no failures; its native backend/session suites pass
+1,741 with no failures. Strict Clippy, layout and shader checks pass.
+
+Evidence is retained in
+`~/.local/state/sophia/development-evidence/rendering-6251aa79/`, including the
+checksummed final gate report and owner logs. Original main gate evidence is
+`~/dev/sophia/.artifacts/integration-6251aa79-DBHFkhEI/`. The immutable Hagia
+binary at `~/.local/state/hagia/development-evidence/h002-12d3142/hagia` has SHA256
+`9473f18be1744a353d370cfd1117827ed36f12b60910aecfb592bb435e7b8245`.
+
+The generic session now joins actual retired frames to input. It defers
+replacement during existing application captures, refuses targets cropped off
+any head before commit, intersects all-head target membership and revokes stale
+receipts independently of transport credit. Production controls establish these
+joins; the real-Hagia wire tests continue to use synthetic receipt fixtures.
+This closes h002's implementation exit and Sophia's paired t241 acceptance.
+No live install/reload or physical display acceptance is claimed.
+
+For a live test, the matching binaries must be selected together and Sophia
+must use `--native-scanout`. The shipped profile has Super+O; an existing profile
+needs the binding documented in the [README](../../../README.md#workspace-overview).
+An explicit overview binding without the negotiated action refuses configuration.
 
 ## Connections
 

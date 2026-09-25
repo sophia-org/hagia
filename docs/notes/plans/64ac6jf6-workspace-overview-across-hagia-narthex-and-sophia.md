@@ -2,7 +2,7 @@
 id: 64ac6jf6
 date: 2026-09-24
 kind: plan
-status: proposed
+status: accepted
 tags: [plan]
 ---
 # WM-owned workspace overview on generic presentation support
@@ -122,3 +122,22 @@ The signed adapter checkpoint `d3920d4` now publishes generic instances/regions,
 maps exact presented actions and handles interleaved receipts. Its
 [lifecycle investigation](../investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
 records the binary hash, deterministic checks and remaining paired acceptance.
+
+## Headless implementation acceptance
+
+Signed Hagia source `12d314290ce441c853cb8cd7502c367685a15f1f` and Sophia
+`6251aa7915266f79e700c0997267f4361d46d70d` pass the complete eight-phase native
+protocol family gate. The WM phase runs all 320 Nim checks, both eleven-scenario
+policy corpora and five real-Hagia presentation controls. The full contributor
+gate previously passed the unchanged formal models, and the final cyclic-entry
+correction has its own red/green regression.
+
+The generic renderer and session now satisfy the ownership correction: Hagia
+owns all overview layout/navigation/selection; Sophia owns source sampling,
+all-head completion, presented input and immediate revocation. Narthex is not
+required. Source/backing retirement, preview-only repaint, stale identities,
+capture continuity, queue saturation and cropped mirror refusal have production
+controls. The [investigation](../investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
+records exact evidence and closes the implementation exit for h002, paired with
+Sophia t241–t245. Physical acceptance remains separate; no live install/reload
+was performed.
