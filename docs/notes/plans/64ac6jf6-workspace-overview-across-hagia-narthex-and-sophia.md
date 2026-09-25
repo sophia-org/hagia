@@ -50,3 +50,32 @@ unauthorized.
 Hagia and Narthex use branches named `overview`. Sophia uses branch `overview`
 in `~/dev/sophia-overview`, isolated from Claude's main-tree XTS gates. Sophia
 baseline `4f5ff135` and Hagia baseline `ad3a738d` were captured at branch creation.
+
+## Boundary review: 2026-09-25
+
+The retained work was signed before rebasing Sophia onto `97a6b6f6`.
+The t159 default shortcut catalog/admission changes remain intact. No live
+install/reload, main-tree changes, X-authority changes, or device negotiation
+changes are part of this work.
+
+Preview commands refer to generational Engine surfaces and sample their committed
+content at a separate destination and clip. They do not mutate client geometry,
+input geometry, buffer size, or content. CPU rendering borrows retained pixels;
+native frame lowering uses the existing owned source path. Frames already queued
+must retain their source ownership until ordinary frame retirement. Closing the
+overview revokes input immediately; it does not release a source still held by a
+submitted frame. Hidden client content must remain resident while referenced by
+a frame. This last residency/retirement path still needs end-to-end verification.
+
+The session must retain the slot-to-workspace/surface mapping for one WM epoch,
+catalog generation, shell epoch and output generation. Only a candidate retired
+on that output grants overview input authority. Each input request names its
+presentation epoch; candidate replies must match the outstanding request and
+catalog, and activation must match the requested selection. Close, topology
+change, WM invalidation or reconnect must revoke this mapping and capture before
+any later input can be admitted. Swallowed presses retain their release debt
+after revocation. Queued work and old replies cannot recreate authority.
+
+These are acceptance rules, not a claim that the unfinished session integration
+already satisfies them. Renderer compilation and focused model/wire tests are
+the first checkpoint; modal integration and headless lifecycle proofs remain.
