@@ -156,7 +156,7 @@ proc parentedDialogIsVisible(
     inc depth
   true
 
-proc presentationFocusRoot(
+proc presentationFocusRoot*(
     model: PolicyModel, output: OutputData, eligible: openArray[WindowId]
 ): WindowId =
   var current = output.focusedWindow
@@ -179,7 +179,7 @@ proc presentationFocusRoot(
     current = parent
   nullWindowId
 
-proc appendFloating(
+proc applyTiledPresentation(
     model: PolicyModel,
     outputId: OutputId,
     eligible: openArray[WindowId],
@@ -220,6 +220,17 @@ proc appendFloating(
     projection.placements.keepItIf(
       it.maximized or model.window(it.window).get().fullscreen
     )
+
+proc appendFloatingPlacements*(
+    model: PolicyModel,
+    outputId: OutputId,
+    eligible: openArray[WindowId],
+    projection: var LogicalOutputProjection,
+    physical: Rect = Rect(),
+) =
+  ## Resolve families only after their owner's final presentation geometry.
+  let bounds = model.output(outputId).get().bounds
+  let elevated = if physical.width > 0 and physical.height > 0: physical else: bounds
   var placed = initTable[WindowId, Rect]()
   for placement in projection.placements:
     placed[placement.window] = placement.geometry
@@ -260,6 +271,16 @@ proc appendFloating(
         ),
       )
     )
+
+proc appendFloating(
+    model: PolicyModel,
+    outputId: OutputId,
+    eligible: openArray[WindowId],
+    projection: var LogicalOutputProjection,
+    physical: Rect = Rect(),
+) =
+  model.applyTiledPresentation(outputId, eligible, projection, physical)
+  model.appendFloatingPlacements(outputId, eligible, projection, physical)
 
 proc selectFocus(
     model: PolicyModel,
@@ -904,7 +925,7 @@ proc projectTabbed(
   let visible = result.placements.mapIt(it.window)
   prepared.selectFocus(output, visible, result)
 
-proc orderPresentationLayers(
+proc orderPresentationLayers*(
     model: PolicyModel, projection: var LogicalOutputProjection
 ) =
   # The wire consumes bottom-to-top placements. Enlarging a window without

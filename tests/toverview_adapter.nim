@@ -288,3 +288,60 @@ suite "overview generic presentation lifecycle":
     let next = session.cycle(snapshot, snapshot.request(3)).presentation.get()
     session.receivePresentationReceipt(receipt)
     check session.cycle(snapshot, snapshot.changed(4)).presentation.get() == next
+
+  test "maximized selection preserves source size and clips a disjoint strip on the wire":
+    for fullscreen in [false, true]:
+      var snapshot = scene()
+      snapshot.outputs[0].focusIndex = 1
+      snapshot.outputs[0].focusGeneration = 1
+      snapshot.surfaces[0].currentStateBits = (if fullscreen: 1'u16 else: 2'u16)
+      snapshot.surfaces[0].requestStateBits = snapshot.surfaces[0].currentStateBits
+      snapshot.surfaces[0].width = 1200
+      snapshot.surfaces[0].height = 900
+      snapshot.surfaces[1].currentOutput = 10
+      var session = initPolicySession()
+      let opened = session.cycle(snapshot, snapshot.request())
+      let initial = opened.presentation.get()
+      initial.validatePresentation()
+      let moved = session.cycle(
+        snapshot, initial.keyboard(snapshot, 2, PolicyAction.overviewRight)
+      )
+      check moved.outputs == opened.outputs
+      let publication = moved.presentation.get()
+      publication.validatePresentation()
+      let large = publication.instances.filterIt(it.sourceIndex == 1)[0]
+      let normal = publication.instances.filterIt(it.sourceIndex == 2)[0]
+      let prior = initial.instances.filterIt(it.sourceIndex == 1)[0]
+      check large.destination.width == 600
+      check large.destination.height == 450
+      check large.destination.width == prior.destination.width
+      check large.destination.height == prior.destination.height
+      check large.id == prior.id
+      check large.sourceGeneration == prior.sourceGeneration
+      check normal.destination.x == large.destination.x + large.destination.width
+      check normal.destination.width == 300
+      for instance in publication.instances:
+        let coverage =
+          publication.outputs.filterIt(it.output == instance.output)[0].coverage
+        let left = max(instance.destination.x, max(instance.clip.x, coverage.x))
+        let top = max(instance.destination.y, max(instance.clip.y, coverage.y))
+        let right = min(
+          instance.destination.x + instance.destination.width,
+          min(instance.clip.x + instance.clip.width, coverage.x + coverage.width),
+        )
+        let bottom = min(
+          instance.destination.y + instance.destination.height,
+          min(instance.clip.y + instance.clip.height, coverage.y + coverage.height),
+        )
+        check right > left
+        check bottom > top
+      let returned = session
+        .cycle(snapshot, publication.keyboard(snapshot, 3, PolicyAction.overviewLeft)).presentation
+        .get()
+      check returned.instances.len == initial.instances.len
+      for instance in returned.instances:
+        let original = initial.instances.filterIt(it.id == instance.id)[0]
+        check instance.destination == original.destination
+        check instance.clip == original.clip
+        check instance.sourceIndex == original.sourceIndex
+        check instance.sourceGeneration == original.sourceGeneration

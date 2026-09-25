@@ -13,8 +13,9 @@ After reporting that overview looked good in the new live session, niltempus
 requested a comparison with Niri for normal, maximized and fullscreen windows.
 Does h004's fixed zoom also preserve those windows' sizes during selection?
 
-This is a post-install audit of h004, not an implementation or physical
-acceptance claim for the remaining differences.
+The initial sections retain the post-install audit of h004. The h005 follow-up
+below records the subsequently authorized correction and its headless evidence.
+Neither is a physical acceptance claim for these specific cases.
 
 ## Evidence
 
@@ -119,6 +120,75 @@ No live commands, install, reload, main-tree edits or source changes were made.
 The user's positive live observation is retained without inferring that these
 specific edge cases were physically exercised. No new queue item was opened
 or completed during the review.
+
+## h005: authorized overview correction
+
+niltempus subsequently authorized correcting these differences. The scope is
+Hagia's overview geometry, navigation and tests. Sophia's protocol, renderer,
+ordinary application configuration and live session are outside this change.
+
+`policy/overview_scroller.nim` builds a private preview strip. Maximized tiles
+use the workspace work area, fullscreen tiles use the physical output bounds,
+and their sizes do not depend on selection. Every column consumes its actual
+preview width before the fixed 50% zoom. The preview camera reveals the selected
+column using the shared scroller reveal/center arithmetic. The vertical
+scroller applies the same rule through the existing transpose operation.
+
+Following Niri's `set_maximized` and `set_fullscreen` extraction rule, an
+expanded tile sharing a scrolling column gets a virtual column immediately to
+the right of its remaining siblings. Existing entity operations perform this
+on a deep clone. Multiple expanded siblings use their deterministic original
+column order; Niri's resulting order instead depends on the expansion event
+sequence. The ordinary column membership and restore semantics stay
+Hagia's; confirming a preview names the original window and workspace. This is
+an intentional difference between the overview strip and the ordinary strip,
+not a change to application layout. Non-scrolling layouts keep their existing
+projection. Full-width columns remain distinct from edge maximization; when
+both flags exist, overview maximization takes precedence, including with gaps.
+
+The camera remains a pure projection of the committed workspace and current
+overview selection. Its baseline is the clone's ordinary reveal for the selected
+window after virtual extraction, derived from the committed camera. That offset
+is translated into preview coordinates before reveal. It has no separate
+movement history: returning to a
+previous selection restores its derived camera, whereas Niri can keep the last
+camera still when a backward step is already visible. Adding retained preview
+camera state is outside this sizing correction; stationary backtracking and
+animation parity are not claimed.
+
+The ordinary projection's combined tiled/floating pass is split without changing
+its call order. Both paths reuse the same floating-family resolver after tiled
+geometry is final. Dialogs resolve against preview parents, and raising a
+selected parent retains its children above it. Ordinary floating geometry stays
+unchanged. Hagia's expanded floating windows retain their existing semantics;
+Niri instead tiles such windows with a restore-to-floating flag. This correction
+does not introduce that separate state transition.
+
+The old navigation workaround, which erased expansion to recover distinct
+centers, is removed. Navigation now reads the same expanded strip that overview
+shows. Instance clipping still intersects both the row and output bounds;
+empty intersections are omitted before publication. Source and instance ids
+remain adapter-owned and unchanged by this policy pass.
+
+The six added policy controls cover stable size and full footprints on both
+axes, multiple expanded columns, shared-column extraction and confirmation,
+floating/dialog size and stacking, translated camera centering and visibility,
+and maximization taking precedence over full-width sizing with gaps. The camera
+walk starts with the expanded column first; its backward bound is the strip
+start. The adapter control follows actual outgoing records and preserves source
+identity, expanded dimensions, positive clipped area and ordinary projections.
+
+The initial full contributor gate passed before the camera/full-width review
+corrections. The final focused policy suite passes 18 controls. Independent
+read-only review accepted the geometry and camera correction. An early camera
+fixture assumed two half-width columns triggered on-overflow centering; they
+correctly fit. Its failure is retained as a fixture error, not defect evidence.
+The corrected fixture uses widths that do overflow, and an isolated copy with
+camera translation removed supplies the negative control. Final contributor
+results and the signed candidate identity follow below. The initial h005 failure
+and the original audit's stable-size failure remain retained as red evidence.
+Live installation, hardware rendering, animations and physical acceptance are
+not part of this headless correction.
 
 ## Connections
 
