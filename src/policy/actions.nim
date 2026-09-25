@@ -2,6 +2,9 @@ import ../types/[actions, core, model]
 import ./state
 import ../types/tab_tree
 import ../entities/tab_tree_ops
+import ../entities/overview_ops
+import ../systems/overview
+import ../types/overview
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -10,6 +13,24 @@ proc profileName*(action: PolicyAction): string =
   ## Stable semantic identity advertised to Sophia's shortcut authority.
   ## The coordinator treats this as opaque text; Hagia alone owns meaning.
   case action
+  of PolicyAction.toggleOverview:
+    "toggle-overview"
+  of PolicyAction.closeOverview:
+    "close-overview"
+  of PolicyAction.confirmOverview:
+    "overview-confirm"
+  of PolicyAction.overviewLeft:
+    "overview-left"
+  of PolicyAction.overviewRight:
+    "overview-right"
+  of PolicyAction.overviewUp:
+    "overview-up"
+  of PolicyAction.overviewDown:
+    "overview-down"
+  of PolicyAction.overviewPreviousWorkspace:
+    "overview-workspace-prev"
+  of PolicyAction.overviewNextWorkspace:
+    "overview-workspace-next"
   of PolicyAction.focusNext:
     "focus-next"
   of PolicyAction.focusPrevious:
@@ -334,6 +355,27 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
   ## Reducer actions mutate private logical state only. Sophia validates the
   ## resulting complete projection before any change becomes authoritative.
   case action
+  of PolicyAction.toggleOverview:
+    if model.overview.active:
+      model.clearOverview()
+    else:
+      model.openOverview(output)
+  of PolicyAction.closeOverview:
+    model.clearOverview()
+  of PolicyAction.confirmOverview:
+    model.confirmOverview()
+  of PolicyAction.overviewLeft:
+    model.navigateOverview(OverviewDirection.left)
+  of PolicyAction.overviewRight:
+    model.navigateOverview(OverviewDirection.right)
+  of PolicyAction.overviewUp:
+    model.navigateOverview(OverviewDirection.up)
+  of PolicyAction.overviewDown:
+    model.navigateOverview(OverviewDirection.down)
+  of PolicyAction.overviewPreviousWorkspace:
+    model.navigateOverview(OverviewDirection.up, true)
+  of PolicyAction.overviewNextWorkspace:
+    model.navigateOverview(OverviewDirection.down, true)
   of PolicyAction.focusNext:
     model.focusRelative(output, 1)
   of PolicyAction.focusPrevious:

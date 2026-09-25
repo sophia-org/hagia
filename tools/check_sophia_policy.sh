@@ -15,6 +15,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/twm-presentation" tests/twm_presentation.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/toverview" tests/toverview.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/ttab-trees" tests/ttab_trees.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tedge-maximized" tests/tedge_maximized.nim

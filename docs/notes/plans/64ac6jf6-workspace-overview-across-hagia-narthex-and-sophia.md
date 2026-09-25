@@ -94,3 +94,25 @@ The development investigation in Sophia is
 `docs/notes/investigations/egmb00jq-rendering-foundation-inventory-and-overview-ownership-correction.md`.
 Complete WM navigation, the generic wire/input contract, end-to-end lifecycle
 proofs and physical acceptance remain outside that rendering test's claim.
+
+## Implementation authorization and policy checkpoint
+
+The subsequent instruction from niltempus to implement the rendering plan
+supersedes the planning-only restriction above. Sophia implementation now uses
+`rendering/foundation`, `rendering/instances` and `rendering/input`; the earlier
+overview-specific prototype remains preserved. Narthex is not required for
+Hagia's overview. Sophia t242–t245 provide generic presentation mechanisms;
+Hagia h002 continues to own layout, navigation and selection policy.
+
+Hagia checkpoint `e326c298` replaces the provisional overview wire with the
+independent generic presentation codec. Its four presentation controls, four
+shared wire corpus controls, standalone build and data-oriented layout gate
+pass. The following policy slice adds transient overview state, per-output
+preview geometry and modal actions. Eight overview controls and all 180 policy
+model controls pass. Opening, navigating and cancelling preserve ordinary
+focus and layout; confirmation applies the selected workspace and window.
+Checkpoint restoration does not serialize this transient state.
+
+Adapter publication, exact target mapping, receipt retirement and paired
+session input acceptance remain required. These checks establish deterministic
+policy behavior and do not claim a complete or physically accepted overview.
