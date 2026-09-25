@@ -492,8 +492,8 @@ Subsystems, each needing an authority decision before any key:
   shape.
 - **Shells** — active shell, cycle, watchdog, per-shell launch and stop.
   Hagia has `shell { enabled; panel }`; the rest is session-authority work.
-- **Overview** and its modal bindings — Hagia has no modal binding concept,
-  which is the prerequisite.
+- **Overview** and its modal bindings — implemented on the h002 candidate with
+  generic Sophia presentation support; joined acceptance is pending.
 - **Recent-windows MRU** — the Alt+Tab family, a bounded focus history with
   its own presentation.
 - **Hotkey overlay** — needs bind properties (`hotkey-overlay-title`), and
@@ -527,3 +527,21 @@ and explicit output switching. Checkpoint version 19 persists the preference;
 older checkpoints migrate with crossing enabled and profile reloads replace the
 setting without resetting per-output focus or workspaces. Sophia owns t080
 tracking and integrated acceptance.
+
+### WM-owned overview candidate
+
+The `overview` branch now owns opening, layout, navigation, cancellation and
+workspace/window selection. Super+O is in Hagia's tracked default and Triad
+migration. The adapter publishes generic bounded surface instances and regions;
+Sophia supplies rendering and exact presented actions. Narthex is not required.
+Ordinary client geometry, focus and workspace remain unchanged until selection
+is confirmed, and reconnect/checkpoint restoration starts with overview closed.
+
+The four paired transport controls use a real compiled Hagia and the Sophia
+reducer to cover unchanged ordinary layout, stable repaint identity, exact
+actions, timeout, revoke and reconnect. Their completion receipts are synthetic;
+actual-frame input and mirrored withdrawal belong to Sophia's joined session
+controls. Full contributor and integrated gates remain pending. This is a
+candidate milestone, with no live installation or physical acceptance claim.
+The [h002 investigation](notes/investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
+records checkpoint identities and evidence.

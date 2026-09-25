@@ -99,6 +99,26 @@ XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
     cargo test --offline -q -p sophia-runtime --test policy_transport \
     hagia_pointer_focus_
 
+# Overview stays WM policy; the paired fixture admits generic presentation
+# records over the real transport. Actual-frame input authority is checked by
+# Sophia's session controls, not by these synthetic presentation receipts.
+cargo test --offline -q -p sophia-runtime --test policy_transport \
+    presentation_hagia -- --list >"$build_dir/presentation-tests"
+for test in \
+    hagia_overview_publishes_generic_records_and_accepts_exact_targeted_actions \
+    hagia_overview_timeout_retains_the_committed_publication \
+    hagia_overview_revoked_receipt_closes_on_the_next_cycle \
+    hagia_overview_reconnect_starts_closed_and_reuses_no_authority
+do
+    grep -Fqx "presentation_hagia::$test: test" "$build_dir/presentation-tests" || {
+        echo "missing paired presentation test: $test" >&2
+        exit 1
+    }
+done
+XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
+    cargo test --offline -q -p sophia-runtime --test policy_transport \
+    presentation_hagia
+
 # Launch origin over a real X socket: the child connects, its ancestry is
 # resolved by Sophia, and the freshly built Hagia places it where its launcher
 # lives. A filter that matches nothing exits zero, so the paired case is named
