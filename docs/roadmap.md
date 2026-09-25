@@ -548,3 +548,10 @@ final policy correction has a retained red/green regression. This milestone
 claims headless acceptance, with no live installation or physical acceptance.
 The [h002 investigation](notes/investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
 records checkpoint identities and evidence.
+
+The h003 follow-up keeps scrolling previews stationary while selection moves
+and fits every workspace on a monitor at one shared thumbnail scale. This fixes
+resizing between fullscreen and ordinary windows and between differently
+populated workspaces. The
+[investigation](notes/investigations/83tcbclk-overview-strip-scale-changes-when-selection-moves-between-windows.md)
+records the reproduced failures, headless checks and remaining live verification.
