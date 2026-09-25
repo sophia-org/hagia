@@ -48,6 +48,9 @@ proc confirmOverview*(model: var PolicyModel) =
 proc entryWindow(workspace: OverviewWorkspace, direction: OverviewDirection): WindowId =
   if workspace.navigation.len == 0:
     return nullWindowId
+  if workspace.layout in {LayoutMode.monocle, LayoutMode.deck}:
+    let index = if direction == OverviewDirection.up: workspace.navigation.high else: 0
+    return workspace.navigation[index].window
   var best = 0
   for index in 1 ..< workspace.navigation.len:
     let rect = workspace.navigation[index].geometry

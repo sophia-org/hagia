@@ -170,3 +170,26 @@ suite "workspace overview policy":
     check previews[^1].workspace.output == right
     check previews[^1].placements.len == 0
     check model == before
+
+  test "entering a cyclic workspace follows the direction of travel":
+    for action in [PolicyAction.selectMonocleLayout, PolicyAction.selectDeckLayout]:
+      var model = initPolicyModel()
+      let output = model.addOutput(Rect(width: 1200, height: 900))
+      model.ensureViewCount(output, 2)
+      let views = model.output(output).get().views
+      let origin = model.addWindow(output, capabilities(), SizeConstraints())
+      model.setFocus(output, origin)
+      model.activateView(output, views[1])
+      let first = model.addWindow(output, capabilities(), SizeConstraints())
+      discard model.addWindow(output, capabilities(), SizeConstraints())
+      let last = model.addWindow(output, capabilities(), SizeConstraints())
+      model.setFocus(output, first)
+      model.applyAction(output, action)
+      model.activateView(output, views[0])
+      model.openOverview(output)
+      model.navigateOverview(OverviewDirection.up, workspaceOnly = true)
+      check model.overview.selection.window == last
+      model.navigateOverview(OverviewDirection.down, workspaceOnly = true)
+      check model.overview.selection.window == origin
+      model.navigateOverview(OverviewDirection.down, workspaceOnly = true)
+      check model.overview.selection.window == first
