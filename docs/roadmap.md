@@ -549,9 +549,21 @@ claims headless acceptance, with no live installation or physical acceptance.
 The [h002 investigation](notes/investigations/knylvwd5-overview-generic-publication-and-receipt-lifecycle-checkpoint.md)
 records checkpoint identities and evidence.
 
-The h003 follow-up keeps scrolling previews stationary while selection moves
-and fits every workspace on a monitor at one shared thumbnail scale. This fixes
-resizing between fullscreen and ordinary windows and between differently
-populated workspaces. The
+The h003 follow-up kept scrolling previews stationary while selection moved
+and fitted every workspace on a monitor at one shared thumbnail scale. It fixed
+resizing during navigation, but crowded workspaces still made every thumbnail
+too small in the reported live session. The
 [investigation](notes/investigations/83tcbclk-overview-strip-scale-changes-when-selection-moves-between-windows.md)
-records the reproduced failures, headless checks and remaining live verification.
+retains that rule's original failures and headless checks.
+
+The h004 correction follows Niri's default 50% viewport zoom. Population no
+longer determines scale; private preview cameras reveal selection, and strips
+clip at output and workspace-row bounds. Navigation retains the underlying
+column order around fullscreen windows, and the selected preview is raised
+within its row. Ordinary client layout, focus, camera and stacking remain
+unchanged until confirmation. The
+[Niri reference investigation](notes/investigations/0soihz85-overview-uses-fixed-niri-zoom-instead-of-fitting-occupied-strips.md)
+records the reference baseline and headless evidence. The paired main-tree
+workspace and eight-phase native-family gates passed with Sophia `ae7f1578`.
+Deployment must include Sophia t246's hidden-Present settlement fix after the
+reported crash; installation and physical acceptance remain separate.

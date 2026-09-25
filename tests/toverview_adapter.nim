@@ -128,7 +128,17 @@ suite "overview generic presentation lifecycle":
     let moved = session.cycle(snapshot, selection)
     let movedPublication = moved.presentation.get()
     check moved.outputs == opened.outputs
-    check movedPublication.instances == publication.instances
+    let selected = movedPublication.instances.filterIt(it.sourceIndex == 2)[0]
+    check movedPublication.instances.allIt(
+      it.output != selected.output or it.zIndex <= selected.zIndex
+    )
+    for instance in movedPublication.instances:
+      let prior = publication.instances.filterIt(it.id == instance.id)
+      require prior.len == 1
+      check instance.destination.width == prior[0].destination.width
+      check instance.destination.height == prior[0].destination.height
+      check instance.sourceIndex == prior[0].sourceIndex
+      check instance.sourceGeneration == prior[0].sourceGeneration
     check movedPublication.regions.filterIt(it.role == PresentationRegionRole.frame) ==
       publication.regions.filterIt(it.role == PresentationRegionRole.frame)
     check movedPublication.regions.filterIt(it.role == PresentationRegionRole.emphasis) !=
@@ -138,7 +148,40 @@ suite "overview generic presentation lifecycle":
         snapshot, movedPublication.keyboard(snapshot, 4, PolicyAction.overviewLeft)
       ).presentation
       .get()
-    check returned.instances == publication.instances
+    for instance in returned.instances:
+      let prior = publication.instances.filterIt(it.id == instance.id)
+      require prior.len == 1
+      check instance.destination == prior[0].destination
+    let confirmed = session.cycle(
+      snapshot, returned.keyboard(snapshot, 5, PolicyAction.confirmOverview)
+    )
+    check confirmed.presentation.isNone
+    check confirmed.outputs.filterIt(it.output.output == 10)[0].output.focusIndex == 1
+
+  test "a minimum-width thumbnail keeps visible emphasis bands while horizontally clipped":
+    var snapshot = scene()
+    snapshot.outputs[0].focusIndex = 1
+    snapshot.outputs[0].focusGeneration = 1
+    snapshot.surfaces[0].minWidth = 4000
+    snapshot.surfaces[0].minHeight = 100
+    var session = initPolicySession()
+    let normal = session.cycle(snapshot, snapshot.changed(1))
+    let opened = session.cycle(snapshot, snapshot.request(2))
+    check opened.outputs == normal.outputs
+    let publication = opened.presentation.get()
+    publication.validatePresentation()
+    let instance = publication.instances.filterIt(it.sourceIndex == 1)[0]
+    check instance.destination.width == 2000
+    check instance.destination.x + instance.destination.width >
+      instance.clip.x + instance.clip.width
+    let emphasis = publication.regions.filterIt(
+      it.output == instance.output and it.role == PresentationRegionRole.emphasis
+    )
+    require emphasis.len == 1
+    check emphasis[0].geometry == instance.destination
+    check emphasis[0].geometry.y >= emphasis[0].clip.y
+    check emphasis[0].geometry.y + emphasis[0].geometry.height <=
+      emphasis[0].clip.y + emphasis[0].clip.height
 
   test "cancel withdraws, reopening mints fresh ids, and an old action is refused":
     var session = initPolicySession()

@@ -3,7 +3,7 @@ import std/options
 import ../types/[core, model, overview, projection]
 import ../state/[model, queries, values]
 import ../systems/[focus, workspaces]
-import ../entities/focus_ops
+import ../entities/[focus_ops, window_ops]
 import ./projection
 
 proc overviewWorkspaces*(
@@ -20,11 +20,9 @@ proc overviewWorkspaces*(
       var candidate = model.clone()
       candidate.activateView(outputId, viewId)
       let layout = candidate.view(viewId).get().layout
-      # The overview fits the whole scrolling strip. Moving its camera with
-      # selection changes the fit against output-anchored fullscreen windows.
-      # Retain the workspace camera; selection only moves its emphasis.
-      if layout notin {LayoutMode.scroller, LayoutMode.verticalScroller} and
-          model.overview.active and model.overview.selection.output == outputId and
+      # Only the preview camera follows selection. The committed workspace and
+      # client focus remain unchanged until confirmation.
+      if model.overview.active and model.overview.selection.output == outputId and
           model.overview.selection.view == viewId and
           model.overview.selection.window != nullWindowId:
         candidate.setFocus(outputId, model.overview.selection.window)
@@ -55,8 +53,27 @@ proc overviewWorkspaces*(
               LogicalPlacement(window: windowId, geometry: output.bounds)
             )
       else:
-        workspace.navigation.setLen(0)
-        for placement in workspace.placements:
+        var navigation = projected.placements
+        if layout in {LayoutMode.scroller, LayoutMode.verticalScroller}:
+          # Expanded windows are output-anchored and can share a center with
+          # the selected column. Navigate their underlying strip positions.
+          var ordinary = candidate.clone()
+          var expanded = false
+          for windowId in candidate.eligibleWindows(outputId):
+            let window = candidate.window(windowId).get()
+            if not window.floating and (window.fullscreen or window.maximized):
+              ordinary.setWindowPresentation(windowId, false, false, window.minimized)
+              expanded = true
+          if expanded:
+            navigation =
+              ordinary.projectLayout(
+                [outputId],
+                outerGap,
+                innerGap,
+                ordinary.settings.viewportOffset,
+                physicalBounds,
+              )[0].placements
+        for placement in navigation:
           if candidate.window(placement.window).get().capabilities.focusable:
             workspace.navigation.add(placement)
       result.add(workspace)
@@ -75,19 +92,6 @@ proc clipped(rect, bounds: Rect): Rect =
     )
   else:
     Rect()
-
-proc sourceExtent(workspace: OverviewWorkspace, bounds: Rect): OverviewSourceExtent =
-  result.left = int64(bounds.x)
-  result.top = int64(bounds.y)
-  var right = result.left + bounds.width
-  var bottom = result.top + bounds.height
-  for placement in workspace.placements:
-    result.left = min(result.left, int64(placement.geometry.x))
-    result.top = min(result.top, int64(placement.geometry.y))
-    right = max(right, int64(placement.geometry.x) + placement.geometry.width)
-    bottom = max(bottom, int64(placement.geometry.y) + placement.geometry.height)
-  result.width = max(1'i64, right - result.left)
-  result.height = max(1'i64, bottom - result.top)
 
 proc overviewPreviews*(
     model: PolicyModel, physicalBounds: openArray[(OutputId, Rect)] = []
@@ -114,27 +118,11 @@ proc overviewPreviews*(
         if workspace.view == model.overview.selection.view:
           center = index
           break
-    # Triad's vertical workspace strip: the selected workspace is centered,
-    # adjacent previews remain clipped to their own output. Fixed-point sizing
-    # makes repeated projections independent of floating-point rounding.
-    let width = max(1'i32, int32(int64(bounds.width) * 3 div 5))
-    let height = max(1'i32, int32(int64(bounds.height) * 3 div 5))
-    let gap = max(1'i32, int32(int64(bounds.height) * 3 div 50))
-    # Fit every workspace at one output-local scale. A sparse workspace must
-    # not magnify its windows when selection leaves a wider occupied strip.
-    var extents: seq[OverviewSourceExtent]
-    var widest = 1'i64
-    var tallest = 1'i64
-    for workspace in workspaces:
-      let extent = workspace.sourceExtent(bounds)
-      extents.add(extent)
-      widest = max(widest, extent.width)
-      tallest = max(tallest, extent.height)
-    var numerator = int64(width)
-    var denominator = widest
-    if int64(height) * widest < int64(width) * tallest:
-      numerator = int64(height)
-      denominator = tallest
+    # Niri scales the viewport by a fixed zoom, never by the number of windows.
+    # The selected workspace is centered, with a tenth-preview-height gap.
+    let width = max(1'i32, int32(int64(bounds.width) div overviewZoomDivisor))
+    let height = max(1'i32, int32(int64(bounds.height) div overviewZoomDivisor))
+    let gap = max(1'i32, height div overviewGapDivisor)
     for index, workspace in workspaces:
       let top =
         int64(bounds.y) + (int64(bounds.height) - height) div 2 +
@@ -149,24 +137,34 @@ proc overviewPreviews*(
         width: width,
         height: height,
       )
+      # A horizontal strip may extend beyond its workspace frame, as in niri,
+      # but never across an output or into the neighboring workspace row.
+      let row = Rect(x: bounds.x, y: geometry.y, width: bounds.width, height: height)
       var preview = OverviewPreview(
-        workspace: workspace, geometry: geometry, clip: geometry.clipped(bounds)
+        workspace: workspace, geometry: geometry, clip: row.clipped(bounds)
       )
-      let extent = extents[index]
-      let fitWidth = extent.width * numerator div denominator
-      let fitHeight = extent.height * numerator div denominator
-      let originX = int64(geometry.x) + (width - fitWidth) div 2
-      let originY = int64(geometry.y) + (height - fitHeight) div 2
       for placement in workspace.placements:
         let source = placement.geometry
         var placed = placement
         placed.geometry = Rect(
-          x:
-            int32(originX + (int64(source.x) - extent.left) * numerator div denominator),
-          y: int32(originY + (int64(source.y) - extent.top) * numerator div denominator),
-          width: max(1'i32, int32(int64(source.width) * numerator div denominator)),
-          height: max(1'i32, int32(int64(source.height) * numerator div denominator)),
+          x: int32(
+            int64(geometry.x) + (int64(source.x) - bounds.x) div overviewZoomDivisor
+          ),
+          y: int32(
+            int64(geometry.y) + (int64(source.y) - bounds.y) div overviewZoomDivisor
+          ),
+          width: max(1'i32, int32(int64(source.width) div overviewZoomDivisor)),
+          height: max(1'i32, int32(int64(source.height) div overviewZoomDivisor)),
         )
         if placed.geometry.clipped(preview.clip).width > 0:
           preview.placements.add(placed)
+      if model.overview.selection.output == outputId and
+          model.overview.selection.view == workspace.view:
+        # Selection must remain visible over an output-anchored fullscreen
+        # neighbor. This is preview stacking, not ordinary client stacking.
+        for index, placement in preview.placements:
+          if placement.window == model.overview.selection.window:
+            preview.placements.delete(index)
+            preview.placements.add(placement)
+            break
       result.add(preview)

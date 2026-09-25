@@ -134,9 +134,10 @@ monitor shows its own vertical strip of active or occupied workspaces. Arrows or
 the selection; Page Up/Down move between workspace previews; Return confirms;
 Escape or Super+O closes. Navigation does not change normal workspace or focus
 until confirmation. A pointer selection names the exact presented target.
-All workspace previews on a monitor share one scale that fits their contents.
-Moving selection between windows or workspaces preserves that scale; scrolling
-layouts also retain their preview camera while the selection highlight moves.
+Workspace previews use Niri's default 50% zoom, independent of how many windows
+or workspaces are occupied. Scrolling previews pan to reveal selection at that
+same scale. Content clips at the output edges and each workspace row; ordinary
+client geometry and the committed camera stay unchanged until confirmation.
 
 Hagia owns this layout and navigation. Sophia's negotiated generic presentation
 extension renders retained content, handles input and retires resources. No
