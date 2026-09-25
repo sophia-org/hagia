@@ -113,6 +113,33 @@ suite "overview generic presentation lifecycle":
     let repaint = scene(2)
     check session.cycle(repaint, repaint.changed(2)).presentation.get() == publication
 
+  test "fullscreen strip selection changes emphasis without rescaling source instances":
+    var snapshot = scene()
+    snapshot.outputs[0].focusIndex = 1
+    snapshot.outputs[0].focusGeneration = 1
+    snapshot.surfaces[0].currentStateBits = 1
+    snapshot.surfaces[0].requestStateBits = 1
+    snapshot.surfaces[1].currentOutput = 10
+    var session = initPolicySession()
+    discard session.cycle(snapshot, snapshot.request(1, PolicyAction.maximizeColumn))
+    let opened = session.cycle(snapshot, snapshot.request(2))
+    let publication = opened.presentation.get()
+    let selection = publication.keyboard(snapshot, 3, PolicyAction.overviewRight)
+    let moved = session.cycle(snapshot, selection)
+    let movedPublication = moved.presentation.get()
+    check moved.outputs == opened.outputs
+    check movedPublication.instances == publication.instances
+    check movedPublication.regions.filterIt(it.role == PresentationRegionRole.frame) ==
+      publication.regions.filterIt(it.role == PresentationRegionRole.frame)
+    check movedPublication.regions.filterIt(it.role == PresentationRegionRole.emphasis) !=
+      publication.regions.filterIt(it.role == PresentationRegionRole.emphasis)
+    let returned = session
+      .cycle(
+        snapshot, movedPublication.keyboard(snapshot, 4, PolicyAction.overviewLeft)
+      ).presentation
+      .get()
+    check returned.instances == publication.instances
+
   test "cancel withdraws, reopening mints fresh ids, and an old action is refused":
     var session = initPolicySession()
     let snapshot = scene()

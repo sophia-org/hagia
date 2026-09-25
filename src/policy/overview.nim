@@ -19,7 +19,12 @@ proc overviewWorkspaces*(
     for viewId in output.views:
       var candidate = model.clone()
       candidate.activateView(outputId, viewId)
-      if model.overview.active and model.overview.selection.output == outputId and
+      let layout = candidate.view(viewId).get().layout
+      # The overview fits the whole scrolling strip. Moving its camera with
+      # selection changes the fit against output-anchored fullscreen windows.
+      # Retain the workspace camera; selection only moves its emphasis.
+      if layout notin {LayoutMode.scroller, LayoutMode.verticalScroller} and
+          model.overview.active and model.overview.selection.output == outputId and
           model.overview.selection.view == viewId and
           model.overview.selection.window != nullWindowId:
         candidate.setFocus(outputId, model.overview.selection.window)
@@ -39,7 +44,7 @@ proc overviewWorkspaces*(
         active: viewId == output.activeView,
         focus: projected.focus,
         placements: projected.placements,
-        layout: candidate.view(viewId).get().layout,
+        layout: layout,
       )
       if workspace.layout == LayoutMode.monocle:
         workspace.navigation.setLen(0)
@@ -70,6 +75,19 @@ proc clipped(rect, bounds: Rect): Rect =
     )
   else:
     Rect()
+
+proc sourceExtent(workspace: OverviewWorkspace, bounds: Rect): OverviewSourceExtent =
+  result.left = int64(bounds.x)
+  result.top = int64(bounds.y)
+  var right = result.left + bounds.width
+  var bottom = result.top + bounds.height
+  for placement in workspace.placements:
+    result.left = min(result.left, int64(placement.geometry.x))
+    result.top = min(result.top, int64(placement.geometry.y))
+    right = max(right, int64(placement.geometry.x) + placement.geometry.width)
+    bottom = max(bottom, int64(placement.geometry.y) + placement.geometry.height)
+  result.width = max(1'i64, right - result.left)
+  result.height = max(1'i64, bottom - result.top)
 
 proc overviewPreviews*(
     model: PolicyModel, physicalBounds: openArray[(OutputId, Rect)] = []
@@ -102,6 +120,21 @@ proc overviewPreviews*(
     let width = max(1'i32, int32(int64(bounds.width) * 3 div 5))
     let height = max(1'i32, int32(int64(bounds.height) * 3 div 5))
     let gap = max(1'i32, int32(int64(bounds.height) * 3 div 50))
+    # Fit every workspace at one output-local scale. A sparse workspace must
+    # not magnify its windows when selection leaves a wider occupied strip.
+    var extents: seq[OverviewSourceExtent]
+    var widest = 1'i64
+    var tallest = 1'i64
+    for workspace in workspaces:
+      let extent = workspace.sourceExtent(bounds)
+      extents.add(extent)
+      widest = max(widest, extent.width)
+      tallest = max(tallest, extent.height)
+    var numerator = int64(width)
+    var denominator = widest
+    if int64(height) * widest < int64(width) * tallest:
+      numerator = int64(height)
+      denominator = tallest
     for index, workspace in workspaces:
       let top =
         int64(bounds.y) + (int64(bounds.height) - height) div 2 +
@@ -119,29 +152,20 @@ proc overviewPreviews*(
       var preview = OverviewPreview(
         workspace: workspace, geometry: geometry, clip: geometry.clipped(bounds)
       )
-      var left = int64(workspace.bounds.x)
-      var topSource = int64(workspace.bounds.y)
-      var right = left + workspace.bounds.width
-      var bottom = topSource + workspace.bounds.height
-      for placement in workspace.placements:
-        left = min(left, int64(placement.geometry.x))
-        topSource = min(topSource, int64(placement.geometry.y))
-        right = max(right, int64(placement.geometry.x) + placement.geometry.width)
-        bottom = max(bottom, int64(placement.geometry.y) + placement.geometry.height)
-      let sourceWidth = max(1'i64, right - left)
-      let sourceHeight = max(1'i64, bottom - topSource)
-      let fitWidth = min(int64(width), int64(height) * sourceWidth div sourceHeight)
-      let fitHeight = min(int64(height), int64(width) * sourceHeight div sourceWidth)
+      let extent = extents[index]
+      let fitWidth = extent.width * numerator div denominator
+      let fitHeight = extent.height * numerator div denominator
       let originX = int64(geometry.x) + (width - fitWidth) div 2
       let originY = int64(geometry.y) + (height - fitHeight) div 2
       for placement in workspace.placements:
         let source = placement.geometry
         var placed = placement
         placed.geometry = Rect(
-          x: int32(originX + (int64(source.x) - left) * fitWidth div sourceWidth),
-          y: int32(originY + (int64(source.y) - topSource) * fitHeight div sourceHeight),
-          width: max(1'i32, int32(int64(source.width) * fitWidth div sourceWidth)),
-          height: max(1'i32, int32(int64(source.height) * fitHeight div sourceHeight)),
+          x:
+            int32(originX + (int64(source.x) - extent.left) * numerator div denominator),
+          y: int32(originY + (int64(source.y) - extent.top) * numerator div denominator),
+          width: max(1'i32, int32(int64(source.width) * numerator div denominator)),
+          height: max(1'i32, int32(int64(source.height) * numerator div denominator)),
         )
         if placed.geometry.clipped(preview.clip).width > 0:
           preview.placements.add(placed)

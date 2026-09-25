@@ -171,6 +171,89 @@ suite "workspace overview policy":
     check previews[^1].placements.len == 0
     check model == before
 
+  test "workspace navigation uses one thumbnail scale across differently populated strips":
+    var model = initPolicyModel()
+    let output = model.addOutput(Rect(width: 1600, height: 1000))
+    model.ensureViewCount(output, 2)
+    let views = model.output(output).get().views
+    let first = model.addWindow(output, capabilities(), SizeConstraints())
+    discard model.addWindow(output, capabilities(), SizeConstraints())
+    discard model.addWindow(output, capabilities(), SizeConstraints())
+    model.setFocus(output, first)
+    model.activateView(output, views[1])
+    let other = model.addWindow(output, capabilities(), SizeConstraints())
+    model.setFocus(output, other)
+    model.activateView(output, views[0])
+    let before = model.clone()
+    model.openOverview(output)
+    let previews = model.overviewPreviews()
+    let wide = previews.filterIt(it.workspace.view == views[0])[0]
+    let narrow = previews.filterIt(it.workspace.view == views[1])[0]
+    check wide.placements.len == 3
+    check narrow.placements.len == 1
+    check wide.placements[0].geometry.width == narrow.placements[0].geometry.width
+    check wide.placements[0].geometry.height == narrow.placements[0].geometry.height
+    model.navigateOverview(OverviewDirection.down, workspaceOnly = true)
+    check model.overview.selection.view == views[1]
+    let moved = model.overviewPreviews()
+    for preview in previews:
+      let matching = moved.filterIt(it.workspace.view == preview.workspace.view)[0]
+      check matching.geometry.width == preview.geometry.width
+      check matching.geometry.height == preview.geometry.height
+      for placement in preview.placements:
+        let matched = matching.placements.filterIt(it.window == placement.window)[0]
+        check matched.geometry.width == placement.geometry.width
+        check matched.geometry.height == placement.geometry.height
+    model.applyAction(output, PolicyAction.closeOverview)
+    check model == before
+
+  test "selection does not resize a strip with a full-width or fullscreen neighbor":
+    for layout in [
+      PolicyAction.selectScrollerLayout, PolicyAction.selectVerticalScrollerLayout
+    ]:
+      for fullscreen in [false, true]:
+        var model = initPolicyModel()
+        let output = model.addOutput(Rect(x: -1600, y: 32, width: 1600, height: 968))
+        let physical = [(output, Rect(x: -1600, width: 1600, height: 1000))]
+        var capable = capabilities()
+        capable.fullscreenable = true
+        let first = model.addWindow(output, capable, SizeConstraints())
+        let second = model.addWindow(output, capable, SizeConstraints())
+        model.setColumnFullWidth(model.window(first).get().column, true)
+        model.setWindowPresentation(first, fullscreen, false, false)
+        model.setFocus(output, first)
+        model.applyAction(output, layout)
+        let ordinary = model.projectLayout([output], physicalBounds = physical)
+        let before = model.clone()
+        model.openOverview(output)
+        let opened = model.overviewPreviews(physical)[0]
+        check opened.placements.len == 2
+        model.navigateOverview(
+          if layout == PolicyAction.selectScrollerLayout:
+            OverviewDirection.right
+          else:
+            OverviewDirection.down
+        )
+        check model.overview.selection.window == second
+        let moved = model.overviewPreviews(physical)[0]
+        check moved.geometry == opened.geometry
+        check moved.clip == opened.clip
+        for placement in opened.placements:
+          let matched = moved.placements.filterIt(it.window == placement.window)
+          require matched.len == 1
+          check matched[0].geometry == placement.geometry
+        check model.projectLayout([output], physicalBounds = physical) == ordinary
+        model.navigateOverview(
+          if layout == PolicyAction.selectScrollerLayout:
+            OverviewDirection.left
+          else:
+            OverviewDirection.up
+        )
+        check model.overview.selection.window == first
+        check model.overviewPreviews(physical)[0].placements == opened.placements
+        model.applyAction(output, PolicyAction.closeOverview)
+        check model == before
+
   test "entering a cyclic workspace follows the direction of travel":
     for action in [PolicyAction.selectMonocleLayout, PolicyAction.selectDeckLayout]:
       var model = initPolicyModel()

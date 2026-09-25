@@ -3,6 +3,9 @@ import ./[core, model, projection]
 ## Logical overview geometry and navigation remain WM policy. Sophia receives
 ## only the adapter's generic instance/region records and opaque action ids.
 type
+  OverviewSourceExtent* = object
+    left*, top*, width*, height*: int64
+
   OverviewWorkspace* = object
     output*: OutputId
     view*: ViewId
