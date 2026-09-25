@@ -5,7 +5,7 @@ const
   maxSurfaceInstances* = 1024
   maxPresentationRegions* = 1024
   maxPresentationBindings* = 256
-  maxPendingPresentationReceipts* = 3 * maxPresentationOutputs
+  maxPendingPresentationReceipts* = 4 * maxPresentationOutputs
   presentationRecordKinds* =
     [0xff09'u16, 0xff0a'u16, 0xff0b'u16, 0xff0c'u16, 0xff0d'u16]
   presentationRecordSizes* = [32, 40, 80, 72, 16]
