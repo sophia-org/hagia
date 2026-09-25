@@ -1,10 +1,10 @@
 import ./wm_translation
 import ./wm_tab_groups
-import ./wm_overview
+import ./wm_presentation
 import std/[net, options, os, sets]
 
 import ../config/policy_candidate
-import ../types/[actions, config_values, handoff, session, wm_v1]
+import ../types/[actions, config_values, handoff, session, wm_v1, wm_presentation]
 import ../types/observability
 import ../observability
 import
@@ -116,7 +116,8 @@ proc negotiatePolicy(
       capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
       optional or capabilityTabGroups or capabilityTranslationGroups or
       capabilityOutputActions or capabilityOutputPolicyKeys or capabilityLaunchOrigin or
-      capabilityOutputLaunchContext or capabilityOverview
+      capabilityOutputLaunchContext or capabilitySurfaceInstances or
+      capabilityPresentationActions
   )
   result.sendFrame(Frame(kind: MessageKind.clientHello, payload: payload))
   let welcome = result.receiveFrame(MessageKind.serverWelcome)
@@ -635,24 +636,23 @@ proc sendProjection(
       )
       inc extensionOrdinal
 
-  if projection.overviewWorkspaces.len > 0:
-    if (client.capabilities and capabilityOverview) == 0:
-      fail("Sophia did not negotiate workspace previews")
-    let (workspaces, placements) = projection.overviewWorkspaces.encodeOverview()
-    for (kind, size, data) in [
-      (overviewWorkspaceRecordKind, overviewWorkspaceRecordSize, workspaces),
-      (overviewPlacementRecordKind, overviewPlacementRecordSize, placements),
-    ]:
+  if projection.presentation.isSome:
+    let required = capabilitySurfaceInstances or capabilityPresentationActions
+    if (client.capabilities and required) != required:
+      fail("Sophia did not negotiate WM presentation")
+    let records = projection.presentation.get().encodePresentation()
+    for index, data in records:
+      let size = presentationRecordSizes[index]
       let limit = (client.maxChunkBytes div size) * size
       if limit == 0:
-        fail("workspace preview chunk limit is too small")
+        fail("presentation chunk limit is too small")
       var start = 0
       while start < data.len:
         let finish = min(start + limit, data.len)
         var payload: seq[byte]
         payload.addU64(client.connectionEpoch)
         payload.addU16(extensionOrdinal)
-        payload.addU16(kind)
+        payload.addU16(presentationRecordKinds[index])
         payload.addU32(uint32((finish - start) div size))
         payload.add(data[start ..< finish])
         client.sendFrame(

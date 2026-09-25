@@ -1,5 +1,7 @@
+import std/options
 import ./core
 import ./wm_v1
+import ./wm_presentation
 
 ## Passive records for one unidirectional settlement round: the snapshot Hagia
 ## reconciled, the single reduced cause it applied, the complete projection it
@@ -36,8 +38,7 @@ type
     ## error rather than something to ignore.
     pointerFocus = 4
     outputAction = 5
-    overviewQuery = 6
-    overviewSelection = 7
+    presentationAction = 6
 
   InteractionPhase* {.pure.} = enum
     none = 0
@@ -64,7 +65,7 @@ type
     interactionKind*: InteractionKind
     interactionAxis*: InteractionAxis
     output*, outputGeneration*: uint64
-    workspace*: uint64
+    presentation*: PresentationIdentity
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32
@@ -99,7 +100,7 @@ type
     members*: seq[ProjectionTabMember]
 
   PolicyProjection* = object
-    overviewWorkspaces*: seq[ProjectionOverviewWorkspace]
+    presentation*: Option[WmPresentation]
     activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
@@ -108,17 +109,6 @@ type
     translationGroups*: seq[ProjectionTranslationGroup]
     launchContexts*: seq[LaunchOriginRecord]
     outputLaunchContexts*: seq[OutputLaunchContext]
-
-  ProjectionOverviewPlacement* = object
-    surfaceIndex*, surfaceGeneration*: uint32
-    geometry*: Rect
-
-  ProjectionOverviewWorkspace* = object
-    output*, workspace*: uint64
-    bounds*: Rect
-    active*: bool
-    focusIndex*, focusGeneration*: uint32
-    placements*: seq[ProjectionOverviewPlacement]
 
   LaunchDestination* = object
     ## Where a launch context points: a logical output and the tag set a window

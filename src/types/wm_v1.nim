@@ -32,7 +32,8 @@ type
     profileRollback = 51
     profileRolledBack = 52
     outputActionRequest = 53
-    overviewRequest = 54
+    presentationActionRequest = 54
+    presentationOutcome = 55
 
   Frame* = object
     kind*: MessageKind
@@ -177,7 +178,8 @@ const
   ## operator already expects.
   capabilityLaunchOrigin* = 1'u64 shl 14
   capabilityOutputLaunchContext* = 1'u64 shl 17
-  capabilityOverview* = 1'u64 shl 18
+  capabilitySurfaceInstances* = 1'u64 shl 18
+  capabilityPresentationActions* = 1'u64 shl 19
   capabilityOutputActions* = 1'u64 shl 15
   capabilityOutputPolicyKeys* = 1'u64 shl 16
   snapshotOutputPolicyKeyRecordKind* = 65287'u16
@@ -200,12 +202,6 @@ const
   maxPayloadLen* = 65536
   maxOutputs* = 16
   maxSurfaces* = 1024
-  maxOverviewWorkspaces* = maxOutputs * 63
-  maxOverviewPlacements* = maxSurfaces * 63
-  overviewWorkspaceRecordKind* = 0xff09'u16
-  overviewPlacementRecordKind* = 0xff0a'u16
-  overviewWorkspaceRecordSize* = 48
-  overviewPlacementRecordSize* = 40
   maxBindings* = 256
   maxActionNameBytes* = 128
   snapshotOutputSize* = 56

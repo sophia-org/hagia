@@ -7,7 +7,6 @@ import ../types/observability
 import ../observability
 import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]
-import ../policy/overview
 import ../types/wm_v1
 import ../types/session
 import ./policy_codec
@@ -789,30 +788,10 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   let output = adapter.model.activeOutput
   var message = PolicyMsg(kind: PolicyMsgKind.sceneChanged, output: output)
   case request.cause.kind
-  of ProjectionCauseKind.sceneChanged, ProjectionCauseKind.overviewQuery:
+  of ProjectionCauseKind.sceneChanged:
     discard
-  of ProjectionCauseKind.overviewSelection:
-    if request.cause.activationSerial == 0 or request.cause.workspace == 0 or
-        request.cause.workspace > uint64(high(uint32)) or
-        request.cause.output notin adapter.outputToLogical:
-      fail("overview selection identity is invalid")
-    let targetOutput = adapter.outputToLogical[request.cause.output]
-    if adapter.logicalToOutput[targetOutput].generation != request.cause.outputGeneration:
-      fail("overview output was replaced")
-    var targetWindow = nullWindowId
-    if request.cause.targetGeneration != 0:
-      let key = surfaceKey(request.cause.targetIndex, request.cause.targetGeneration)
-      if key notin adapter.surfaceToWindow:
-        fail("overview window was removed")
-      targetWindow = adapter.surfaceToWindow[key]
-    elif request.cause.targetIndex != 0:
-      fail("overview window identity is invalid")
-    message = PolicyMsg(
-      kind: PolicyMsgKind.overviewSelection,
-      output: targetOutput,
-      overviewView: ViewId(request.cause.workspace),
-      overviewWindow: targetWindow,
-    )
+  of ProjectionCauseKind.presentationAction:
+    fail("presentation action has no active policy publication")
   of ProjectionCauseKind.outputAction:
     let target = adapter.targetOutputAction(request)
     message = PolicyMsg(
@@ -1232,29 +1211,6 @@ proc projection*(
           ),
         )
       )
-  if request.cause.kind == ProjectionCauseKind.overviewQuery:
-    for workspace in adapter.model.overviewWorkspaces(physicalBounds):
-      var preview = ProjectionOverviewWorkspace(
-        output: adapter.logicalToOutput[workspace.output].output,
-        workspace: uint64(workspace.view),
-        bounds: workspace.bounds,
-        active: workspace.active,
-      )
-      if workspace.focus != nullWindowId:
-        let key = adapter.windowToSurface[workspace.focus]
-        preview.focusIndex = uint32(key and 0xffffffff'u64)
-        preview.focusGeneration = uint32(key shr 32)
-      for placement in workspace.placements:
-        let key = adapter.windowToSurface[placement.window]
-        preview.placements.add(
-          ProjectionOverviewPlacement(
-            surfaceIndex: uint32(key and 0xffffffff'u64),
-            surfaceGeneration: uint32(key shr 32),
-            geometry: placement.geometry,
-          )
-        )
-      result.overviewWorkspaces.add(preview)
-
   for logical in adapter.model.projectLayout(
     affected, outerGap, innerGap, adapter.model.settings.viewportOffset, physicalBounds
   ):
