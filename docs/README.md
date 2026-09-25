@@ -8,6 +8,8 @@ porting useful Triad behavior.
 
 - [Architecture](architecture.md): ownership, module boundaries, reconciliation,
   and projection lifecycle.
+- [Overview and generic presentation plan](notes/plans/64ac6jf6-workspace-overview-across-hagia-narthex-and-sophia.md):
+  WM-owned policy, the paired Sophia rendering foundation, and remaining exits.
 - [Sophia policy boundary](sophia-policy.md): independent wire and settlement
   contract.
 - [Capability map](capability-map.md): where Triad features belong under

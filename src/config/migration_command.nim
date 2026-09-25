@@ -107,8 +107,13 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "session", MigrationDisposition.transformed, "bounded generic window switcher",
       "window-switcher",
     )
-  of "toggle-hotkey-overlay", "toggle-overview", "focus-shell-ui", "close-overview",
-      "recent-window-next", "recent-window-prev", "recent-window-next --filter app-id",
+  of "toggle-overview", "close-overview":
+    commandMigration(
+      "policy", MigrationDisposition.retained,
+      "WM-owned overview through negotiated generic presentation", command,
+    )
+  of "toggle-hotkey-overlay", "focus-shell-ui", "recent-window-next",
+      "recent-window-prev", "recent-window-next --filter app-id",
       "recent-window-prev --filter app-id", "focus-window-or-workspace-down",
       "focus-window-or-workspace-up":
     commandMigration(

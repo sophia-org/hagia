@@ -32,6 +32,8 @@ type
     profileRollback = 51
     profileRolledBack = 52
     outputActionRequest = 53
+    presentationActionRequest = 54
+    presentationOutcome = 55
 
   Frame* = object
     kind*: MessageKind
@@ -176,6 +178,8 @@ const
   ## operator already expects.
   capabilityLaunchOrigin* = 1'u64 shl 14
   capabilityOutputLaunchContext* = 1'u64 shl 17
+  capabilitySurfaceInstances* = 1'u64 shl 18
+  capabilityPresentationActions* = 1'u64 shl 19
   capabilityOutputActions* = 1'u64 shl 15
   capabilityOutputPolicyKeys* = 1'u64 shl 16
   snapshotOutputPolicyKeyRecordKind* = 65287'u16

@@ -16,9 +16,9 @@ lives entirely on this side. The transport carries the vocabulary without
 knowing it, and the protocol's direction rule — client to server, additive
 forever — is exactly the direction a new action travels.
 
-So every command below is Hagia-internal work: an enum entry, a reducer arm,
-sometimes new model operations, and a profile binding. None of it touches
-Sophia.
+Command meaning stays Hagia-internal: an enum entry, a reducer arm, model
+operations and a profile binding. Some commands depend on negotiated generic
+Sophia mechanisms, such as presentation instances for overview.
 
 ## The rules
 
@@ -27,12 +27,11 @@ Sophia.
 `src/types/actions.nim` holds the enum, and its ordinals are a stable wire
 contract: recorded profiles, policy traces, and the conformance corpus all
 name actions by number. Never renumber an action, never reuse a retired
-ordinal, and never leave a gap — `installConfiguration` sends
-`ord(high(PolicyAction))` as the catalog count, so the range must stay
-contiguous from 1. New actions append at the end. The catalog registers them
-automatically; no encoder change is needed.
+ordinal, and never leave a gap. The catalog is a contiguous prefix from 1;
+`installConfiguration` selects the prefix supported by negotiated capabilities.
+New actions append at the end.
 
-The ceiling is 256 actions. Hagia uses 84.
+The ceiling is 256 actions. Hagia uses 185.
 
 ### 2. Names are Hagia's, not Triad's
 
@@ -57,14 +56,14 @@ three things:
 - **A preset cycle.** Absolute setters like `master-ratio <v>` become a
   `cycle-…` action stepping through a list declared in config.
 
-Commands addressing a specific window by id (`focus-window <id>`) stay out of
-the catalog entirely. That is an activation, and activations arrive through the
-shell's switcher and the broker, which is where the authority for naming
-another client's surface belongs.
+Raw client identities stay out of the catalog. A shell switcher activation
+arrives through the broker. A WM presentation action instead carries an opaque
+target Hagia previously published; Sophia ties it to actual presented state,
+and Hagia resolves it back to its private selection.
 
 ### 4. Registered is not the same as bound
 
-Every action in the enum is registered with Sophia on connect. The shipped
+Every supported action is registered with Sophia on connect. The shipped
 profile binds only the keys a new user expects; the rest appear as commented
 lines in `examples/config/default.kdl`. Registering costs nothing and keeps a
 user's own binding one uncomment away.
@@ -72,10 +71,18 @@ user's own binding one uncomment away.
 ### 5. A command's authority decides whether it can be an action at all
 
 Only spatial policy belongs here. Triad commands whose authority is elsewhere
-stay elsewhere and are recorded as such by the classifier: overview and MRU
+stay elsewhere and are recorded as such by the classifier: metadata-bearing MRU
 listings are shell state, screenshots need a capture portal grant, spawning
 and locking are session capabilities, pointer warping and keyboard layout are
 input authority. These are not gaps in Hagia; they are other components' work.
+
+Overview layout, navigation and selection are WM policy. The actions at
+177–185 require `surface_instances` and `presentation_actions`; an older Sophia
+receives the existing catalog prefix through 176. The profile's Super+O binding
+names `policy:toggle-overview`. Modal arrows, h/j/k/l, Return, Escape and Page
+Up/Down are published with the overview, and only Sophia's presented-input
+owner can activate them. Pointer selection uses `overview-confirm` with an
+exact published target; keyboard confirmation uses target zero.
 
 ## Native tabbed layouts
 

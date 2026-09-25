@@ -5,6 +5,7 @@ import ../types/runtime
 import ../runtime/reducer
 import ../types/wm_v1
 import ../types/session
+import ../types/wm_presentation
 import ./policy_adapter
 
 type
@@ -138,6 +139,7 @@ proc prepare*(
   # fall back to ordinary placement, while anything from another epoch is still
   # refused.
   candidate.synchronizeLaunchEpoch(request.connectionEpoch)
+  candidate.synchronizePresentationEpoch(request.connectionEpoch)
   candidate.reconcile(snapshot)
   if request.cause.kind == ProjectionCauseKind.outputAction:
     discard candidate.targetOutputAction(request)
@@ -187,7 +189,17 @@ proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
 
 proc abort*(session: var PolicySession) =
   session.pending = none(PendingProjection)
+  session.committed.clearPresentation()
   if session.runtime.phase != RuntimePhase.disconnected:
     session.runtime = session.runtime.reduceRuntime(
       RuntimeMsg(kind: RuntimeMsgKind.connectionLost)
     ).model
+
+proc receivePresentationReceipt*(
+    session: var PolicySession, receipt: PresentationReceipt
+) =
+  # A receipt can interleave a transaction. Apply it after settlement so a
+  # replaced publication cannot revoke its committed successor.
+  if session.pending.isSome:
+    fail("presentation receipt must follow transaction settlement")
+  session.committed.receivePresentationReceipt(receipt)

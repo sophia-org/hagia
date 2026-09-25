@@ -9,7 +9,7 @@ tags: [investigation, policy, adapter]
 
 ## Question
 
-Mason maximized Brave on workspace 2, switched to workspace 1 and switched
+niltempus maximized Brave on workspace 2, switched to workspace 1 and switched
 back. The window was no longer maximized. A column maximized with the other
 binding survives the same round trip. Why do the two differ, and which of
 them is wrong?

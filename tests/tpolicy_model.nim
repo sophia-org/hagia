@@ -287,6 +287,20 @@ proc appendWelcomeWith(bytes: var seq[byte], epoch: uint64, extra: uint64) =
   payload.addU32(65520)
   bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
 
+proc appendPresentationReceipt(bytes: var seq[byte], outcome: uint16) =
+  var payload: seq[byte]
+  for value in [9'u64, 1, 10, 1, 17]:
+    payload.addU64(value)
+  payload.addU16(outcome)
+  payload.addU16(0)
+  bytes.appendFrame(
+    Frame(
+      kind: MessageKind.presentationOutcome,
+      transaction: 500 + uint64(outcome),
+      payload: payload,
+    )
+  )
+
 proc runWireSession(serverBytes: seq[byte]): seq[byte] =
   var handles: array[0 .. 1, cint]
   doAssert posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, handles) == 0
@@ -2694,6 +2708,58 @@ suite "Sophia policy session":
     let clientWire = serverBytes.runWireSession()
     check clientWire.u16At(6) == uint16(ord(MessageKind.clientHello))
     check clientWire.proposalTransactions() == @[1'u64, 2'u64, 3'u64]
+
+  test "presentation receipts interleave snapshot chunks and transaction settlement":
+    var serverBytes: seq[byte]
+    serverBytes.appendWelcomeWith(
+      9, capabilitySurfaceInstances or capabilityPresentationActions
+    )
+    var opening: seq[byte]
+    opening.appendWireCycle(
+      9,
+      1,
+      11,
+      101,
+      201,
+      1,
+      ProjectionOutcomeKind.committed,
+      action = PolicyAction.toggleOverview.raw(),
+    )
+    let outcomeStart = opening.len - frameHeaderLen - 28
+    serverBytes.add(opening[0 ..< outcomeStart])
+    serverBytes.appendPresentationReceipt(1) # completed stamp before commit reply
+    serverBytes.add(opening[outcomeStart .. ^1])
+    var revoked: seq[byte]
+    revoked.appendWireCycle(9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.committed)
+    let afterBegin = frameHeaderLen + int(revoked.u32At(16))
+    serverBytes.add(revoked[0 ..< afterBegin])
+    serverBytes.appendPresentationReceipt(2)
+    serverBytes.add(revoked[afterBegin .. ^1])
+    serverBytes.appendWireCycle(
+      9,
+      3,
+      13,
+      103,
+      203,
+      3,
+      ProjectionOutcomeKind.committed,
+      action = PolicyAction.toggleOverview.raw(),
+    )
+    serverBytes.appendPresentationReceipt(2) # old publication after reopening
+    serverBytes.appendWireCycle(
+      9, 4, 14, 104, 204, 4, ProjectionOutcomeKind.disconnected
+    )
+    let clientWire = serverBytes.runWireSession()
+    check clientWire.proposalTransactions() == @[1'u64, 2, 3, 4]
+    var publications: seq[uint64]
+    var offset = 0
+    while offset < clientWire.len:
+      let payloadLen = int(clientWire.u32At(offset + 16))
+      if clientWire.u16At(offset + 6) == uint16(MessageKind.projectionChunk) and
+          clientWire.u16At(offset + frameHeaderLen + 10) == 0xff09:
+        publications.add(clientWire.u64At(offset + frameHeaderLen + 16))
+      offset += frameHeaderLen + payloadLen
+    check publications == @[1'u64, 2, 2]
 
   test "a timed-out action cannot alter the next complete projection":
     var serverBytes: seq[byte]

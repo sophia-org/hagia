@@ -40,9 +40,8 @@ The freeze locked the transport, not the vocabulary. Actions travel as opaque
 tokens Sophia never interprets, so Hagia keeps adding spatial commands without
 touching the wire — the goal being every Triad command whose authority is
 spatial policy. [The action vocabulary](docs/action-vocabulary.md) states the
-rules; `hagia config migrate-triad` is the scoreboard, and it is settled: 107
-of the 137 bindings in Triad's recorded default carry over, up from 40 at the
-freeze, and every remaining exclusion names a structural fact of a flat
+rules; `hagia config migrate-triad` carries 109 keyboard bindings and two pointer
+bindings from Triad's 137 recorded defaults. Every remaining exclusion names a structural fact of a flat
 profile — a chord already spent, a shell-mode scope, a pointer chord crossing
 authorities — rather than a missing capability.
 
@@ -127,6 +126,30 @@ The two forms cannot mix, and `struts` requires `gaps`. Triad migration emits
 the uniform form. Private checkpoint version 16 retains the selected model;
 restoring an older checkpoint preserves legacy spacing until a new profile
 chooses `gaps`.
+
+### Workspace overview
+
+The shipped profile's Super+O binding opens Hagia's workspace overview. Each
+monitor shows its own vertical strip of active or occupied workspaces. Arrows or h/j/k/l move
+the selection; Page Up/Down move between workspace previews; Return confirms;
+Escape or Super+O closes. Navigation does not change normal workspace or focus
+until confirmation. A pointer selection names the exact presented target.
+
+Hagia owns this layout and navigation. Sophia's negotiated generic presentation
+extension renders retained content, handles input and retires resources. No
+Narthex overview service is required. Reconnect, source/output loss and
+revocation close the publication; checkpoints never restore modal authority.
+The paired headless integration gates pass; physical display acceptance remains
+separate. Use matching Sophia and Hagia builds and launch Sophia with
+`--native-scanout`. Existing Hagia profiles need this line in their `shortcut` block:
+
+```kdl
+bind "Super+o" "policy:toggle-overview" label="Workspace overview" group="Workspaces"
+```
+
+Add the binding only with the matching pair and native scanout enabled. An older
+Hagia or a session without presentation capabilities does not register this
+action, so an explicit binding to it refuses the WM configuration.
 
 ### Arrow navigation across outputs
 

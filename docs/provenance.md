@@ -171,3 +171,11 @@ the negative struts niri permits. It does not port niri's per-column preset
 index, and refuses the empty `default-column-width` niri accepts, because
 Hagia's projection cannot learn a width from a committed frame. No niri
 implementation, runtime, or dependency is copied.
+
+Overview policy reviews Triad's `docs/triad-overview-navigation.md` and
+`src/systems/overview_geometry.nim` at
+`fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9`. Hagia independently implements
+the per-output vertical strip, active or occupied workspace previews, spatial
+navigation and selection without changing ordinary focus until confirmation.
+The original zoomed workspace arrangement traces to niri. No compositor,
+buffer, animation, shell or physical-input implementation is imported.

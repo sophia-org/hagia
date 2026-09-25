@@ -284,8 +284,8 @@ proc migrateTriadProfile*(source: string): MigrationReport =
       )
     of "overview":
       result.classifyTree(
-        node, node.name, "shell", MigrationDisposition.unsupported,
-        "overview shell projection is deferred",
+        node, node.name, "policy", MigrationDisposition.unsupported,
+        "Hagia owns overview policy; Triad-specific overview styling is not configurable",
       )
     of "floating":
       result.classifyTree(

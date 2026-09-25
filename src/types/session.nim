@@ -1,5 +1,7 @@
+import std/options
 import ./core
 import ./wm_v1
+import ./wm_presentation
 
 ## Passive records for one unidirectional settlement round: the snapshot Hagia
 ## reconciled, the single reduced cause it applied, the complete projection it
@@ -36,6 +38,7 @@ type
     ## error rather than something to ignore.
     pointerFocus = 4
     outputAction = 5
+    presentationAction = 6
 
   InteractionPhase* {.pure.} = enum
     none = 0
@@ -62,6 +65,7 @@ type
     interactionKind*: InteractionKind
     interactionAxis*: InteractionAxis
     output*, outputGeneration*: uint64
+    presentation*: PresentationIdentity
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32
@@ -96,6 +100,7 @@ type
     members*: seq[ProjectionTabMember]
 
   PolicyProjection* = object
+    presentation*: Option[WmPresentation]
     activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
@@ -127,9 +132,8 @@ type
     targetGeneration*: uint32
 
   PolicyTraceEntry* = object
-    ## One recorded cycle. The reducer is pure, so a snapshot and the request
-    ## answered from it fully determine the projection; recording the pair is
-    ## enough to replay the cycle anywhere.
+    ## One cycle, including asynchronous receipts consumed before reduction.
     snapshot*: PolicySnapshot
     request*: ProjectionRequest
     transaction*: uint64
+    presentationReceipts*: seq[PresentationReceipt]

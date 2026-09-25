@@ -263,7 +263,17 @@ type
     maximized*: bool
     minimized*: bool
 
+  OverviewSelection* = object
+    output*: OutputId
+    view*: ViewId
+    window*: WindowId ## Null selects the workspace, including an empty one.
+
+  OverviewState* = object
+    active*: bool
+    selection*: OverviewSelection
+
   PolicyModel* = object
+    overview*: OverviewState ## Transient spatial policy, absent from checkpoints.
     tabTrees*: Table[ViewId, TabTree]
     settings*: PolicySettings
     windows*: EntityStore[WindowId, WindowData]

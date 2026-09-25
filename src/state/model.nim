@@ -13,6 +13,7 @@ proc initPolicyModel*(): PolicyModel =
   PolicyModel(settings: defaultPolicySettings)
 
 proc clone*(model: PolicyModel): PolicyModel =
+  result.overview = model.overview
   for view, tree in model.tabTrees.pairs:
     result.tabTrees[view] = tree.cloneTabTree()
   result.settings = model.settings

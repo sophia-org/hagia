@@ -1,6 +1,6 @@
 import std/sets
 
-import ../types/[actions, session, wm_v1]
+import ../types/[actions, session, wm_v1, wm_presentation]
 import ./wm_v1 as wm_codec
 import ../policy/actions
 import ./policy_transport
@@ -107,6 +107,45 @@ proc decodeProjectionRequest*(
   ## `selectedCapabilities` is what negotiation actually chose. It defaults to
   ## none so a caller that never negotiated cannot be handed a cause it did not
   ## agree to receive.
+  if frame.kind == MessageKind.presentationActionRequest:
+    let required = capabilitySurfaceInstances or capabilityPresentationActions
+    if (selectedCapabilities and required) != required or frame.payload.len < 100:
+      fail("presentation action was not negotiated or is truncated")
+    result.connectionEpoch = frame.payload.u64At(0)
+    result.requestId = frame.payload.u64At(8)
+    result.sceneGeneration = frame.payload.u64At(16)
+    result.policyGeneration = frame.payload.u64At(24)
+    result.cause = ProjectionCause(
+      kind: ProjectionCauseKind.presentationAction,
+      activationSerial: frame.payload.u64At(32),
+      action: frame.payload.u64At(40),
+      presentation: PresentationIdentity(
+        output: frame.payload.u64At(48),
+        outputGeneration: frame.payload.u64At(56),
+        publicationGeneration: frame.payload.u64At(64),
+        presentationEpoch: frame.payload.u64At(72),
+        targetId: frame.payload.u64At(80),
+        targetGeneration: frame.payload.u64At(88),
+      ),
+    )
+    let count = int(frame.payload.u16At(96))
+    if result.connectionEpoch != expectedConnectionEpoch or result.connectionEpoch == 0 or
+        result.requestId == 0 or result.sceneGeneration == 0 or
+        result.policyGeneration == 0 or count notin 1 .. maxOutputs or
+        frame.payload.len != 100 + count * 8 or frame.payload.u16At(98) != 0:
+      fail("presentation action request identity is invalid")
+    for index in 0 ..< count:
+      let output = frame.payload.u64At(100 + index * 8)
+      if output == 0 or output in result.affectedOutputs:
+        fail("presentation action coverage is invalid")
+      result.affectedOutputs.add(output)
+    let identity = result.cause.presentation
+    if result.cause.activationSerial == 0 or result.cause.action == 0 or
+        identity.output notin result.affectedOutputs or identity.outputGeneration == 0 or
+        identity.publicationGeneration == 0 or identity.presentationEpoch == 0 or
+        (identity.targetId == 0) != (identity.targetGeneration == 0):
+      fail("presentation action target is invalid")
+    return
   if frame.kind == MessageKind.outputActionRequest:
     if (selectedCapabilities and capabilityOutputActions) == 0:
       fail("targeted output action was not negotiated")
@@ -173,7 +212,7 @@ proc decodeProjectionRequest*(
       outputCount > maxOutputs:
     fail("policy projection request is invalid")
   case result.cause.kind
-  of ProjectionCauseKind.outputAction:
+  of ProjectionCauseKind.outputAction, ProjectionCauseKind.presentationAction:
     fail("targeted output action requires its own message")
   of ProjectionCauseKind.sceneChanged:
     if result.cause.interactionPhase != InteractionPhase.none or
