@@ -563,5 +563,7 @@ column order around fullscreen windows, and the selected preview is raised
 within its row. Ordinary client layout, focus, camera and stacking remain
 unchanged until confirmation. The
 [Niri reference investigation](notes/investigations/0soihz85-overview-uses-fixed-niri-zoom-instead-of-fitting-occupied-strips.md)
-records the reference baseline and headless evidence. Further live acceptance
-requires Sophia t246's hidden-Present settlement fix after the reported crash.
+records the reference baseline and headless evidence. The paired main-tree
+workspace and eight-phase native-family gates passed with Sophia `ae7f1578`.
+Deployment must include Sophia t246's hidden-Present settlement fix after the
+reported crash; installation and physical acceptance remain separate.

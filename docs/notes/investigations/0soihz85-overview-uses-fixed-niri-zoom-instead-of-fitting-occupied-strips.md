@@ -2,7 +2,7 @@
 id: 0soihz85
 date: 2026-09-25
 kind: investigation
-status: investigating
+status: resolved
 tags: [investigation]
 ---
 # Overview uses fixed niri zoom instead of fitting occupied strips
@@ -106,7 +106,20 @@ allocation. The hypothetical unclipped-border construction does not describe
 that production path; physical-head cropping remains covered by Sophia's own
 admission rules.
 
-Further live acceptance requires Sophia t246. Its independently reproduced
+The final joined gate passed with Sophia t246 candidate
+`ae7f1578402fb5b45c39333f28b5a2d5bfdd5abd` and Hagia documentation tip
+`9dc9d2be8b5f2f6888cc3fffada2ab93895c0bf8`, whose source is the tested
+`e3fe2b4` implementation. Sophia's main-tree static checks, 3,781 default
+workspace tests (zero failed, 33 ignored), and all eight native-protocol-family
+phases passed. Worktree validation also passed 1,749 native backend/session
+tests (zero failed, 39 ignored) and 13 paired transport tests (one ignored) with
+the frozen h004 executable. Start/end identities and binary hashes were unchanged.
+The integration report is
+`~/dev/sophia/.artifacts/t246-ae7f1578-74jtg8wi/gate-summary.json`, with the
+family report and logs in that directory. This closes h004's development exit;
+installation and physical acceptance remain separate.
+
+Deployment must include Sophia t246. Its independently reproduced
 backend defect rejects a Present whose source is legitimately absent from a
 replacement publication. Fixed-zoom clipping intentionally omits such sources.
 Its production-owner controls also found that ordinary visibility could retry
