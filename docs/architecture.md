@@ -23,8 +23,14 @@ The WM proposes spatial intent and receives reduced authorized actions; it does
 not acquire rendering or raw input authority. The
 [overview plan](notes/plans/64ac6jf6-workspace-overview-across-hagia-narthex-and-sophia.md)
 records the ownership correction and the paired rendering-foundation contract
-work. Implementation is on the paired development branches; session integration
-and acceptance gates remain required before this is an integrated feature.
+work and integrated headless acceptance.
+
+Scrolling overview previews use a private strip: normal columns retain their
+sizes, maximized windows occupy the work area, and fullscreen windows occupy the
+physical output size. Expanded tiles in a shared column get virtual columns;
+selection and confirmation still name the original windows. The strip is scaled
+at a fixed 50%, clipped to its output and workspace row, and never committed as
+ordinary client geometry. Floating families resolve after their preview parents.
 
 The detailed allocation of retained Triad features is recorded in
 [`capability-map.md`](capability-map.md). That ledger also records the River and

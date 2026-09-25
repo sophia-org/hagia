@@ -2,10 +2,13 @@ import std/[options, sequtils, tables, unittest]
 
 import policy/[actions, overview, projection, state]
 import systems/overview
+import entities/settings_ops
 import types/[actions, core, model, overview]
 
 proc capabilities(): WindowCapabilities =
   WindowCapabilities(movable: true, resizable: true, focusable: true)
+
+include support/overview_expanded
 
 suite "workspace overview policy":
   test "hidden and empty workspaces are projected without spending state":

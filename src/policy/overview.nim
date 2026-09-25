@@ -3,8 +3,8 @@ import std/options
 import ../types/[core, model, overview, projection]
 import ../state/[model, queries, values]
 import ../systems/[focus, workspaces]
-import ../entities/[focus_ops, window_ops]
-import ./projection
+import ../entities/focus_ops
+import ./[projection, overview_scroller]
 
 proc overviewWorkspaces*(
     model: PolicyModel, physicalBounds: openArray[(OutputId, Rect)] = []
@@ -28,13 +28,23 @@ proc overviewWorkspaces*(
         candidate.setFocus(outputId, model.overview.selection.window)
       if candidate.output(outputId).get().focusedWindow == nullWindowId:
         candidate.focusRelative(outputId, 1)
-      let projected = candidate.projectLayout(
-        [outputId],
-        outerGap,
-        innerGap,
-        candidate.settings.viewportOffset,
-        physicalBounds,
-      )[0]
+      var projected: LogicalOutputProjection
+      if layout in {LayoutMode.scroller, LayoutMode.verticalScroller}:
+        var physical = Rect()
+        for (physicalOutput, bounds) in physicalBounds:
+          if physicalOutput == outputId:
+            physical = bounds
+            break
+        projected =
+          candidate.projectOverviewScroller(outputId, outerGap, innerGap, physical)
+      else:
+        projected = candidate.projectLayout(
+          [outputId],
+          outerGap,
+          innerGap,
+          candidate.settings.viewportOffset,
+          physicalBounds,
+        )[0]
       var workspace = OverviewWorkspace(
         output: outputId,
         view: viewId,
@@ -53,27 +63,7 @@ proc overviewWorkspaces*(
               LogicalPlacement(window: windowId, geometry: output.bounds)
             )
       else:
-        var navigation = projected.placements
-        if layout in {LayoutMode.scroller, LayoutMode.verticalScroller}:
-          # Expanded windows are output-anchored and can share a center with
-          # the selected column. Navigate their underlying strip positions.
-          var ordinary = candidate.clone()
-          var expanded = false
-          for windowId in candidate.eligibleWindows(outputId):
-            let window = candidate.window(windowId).get()
-            if not window.floating and (window.fullscreen or window.maximized):
-              ordinary.setWindowPresentation(windowId, false, false, window.minimized)
-              expanded = true
-          if expanded:
-            navigation =
-              ordinary.projectLayout(
-                [outputId],
-                outerGap,
-                innerGap,
-                ordinary.settings.viewportOffset,
-                physicalBounds,
-              )[0].placements
-        for placement in navigation:
+        for placement in projected.placements:
           if candidate.window(placement.window).get().capabilities.focusable:
             workspace.navigation.add(placement)
       result.add(workspace)
@@ -156,15 +146,27 @@ proc overviewPreviews*(
           width: max(1'i32, int32(int64(source.width) div overviewZoomDivisor)),
           height: max(1'i32, int32(int64(source.height) div overviewZoomDivisor)),
         )
-        if placed.geometry.clipped(preview.clip).width > 0:
+        let visible = placed.geometry.clipped(preview.clip)
+        if visible.width > 0 and visible.height > 0:
           preview.placements.add(placed)
       if model.overview.selection.output == outputId and
           model.overview.selection.view == workspace.view:
-        # Selection must remain visible over an output-anchored fullscreen
-        # neighbor. This is preview stacking, not ordinary client stacking.
-        for index, placement in preview.placements:
-          if placement.window == model.overview.selection.window:
-            preview.placements.delete(index)
-            preview.placements.add(placement)
-            break
+        # Raise the selected family for overlapping floating and native layouts.
+        var lower, raised: seq[LogicalPlacement]
+        for placement in preview.placements:
+          var ancestor = placement.window
+          var selected = false
+          for _ in 0 ..< maxFamilyDepth:
+            if ancestor == model.overview.selection.window:
+              selected = true
+              break
+            let parent = model.window(ancestor)
+            if parent.isNone:
+              break
+            ancestor = parent.get().parent
+          if selected:
+            raised.add(placement)
+          else:
+            lower.add(placement)
+        preview.placements = lower & raised
       result.add(preview)

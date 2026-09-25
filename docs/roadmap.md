@@ -567,3 +567,14 @@ records the reference baseline and headless evidence. The paired main-tree
 workspace and eight-phase native-family gates passed with Sophia `ae7f1578`.
 Deployment must include Sophia t246's hidden-Present settlement fix after the
 reported crash; installation and physical acceptance remain separate.
+
+The h005 follow-up keeps maximized and fullscreen previews at their expanded
+sizes as selection moves. Their strip footprints include the full work-area or
+physical-output extent, so tiled neighbors stay disjoint. Shared-column
+expansion is virtual; ordinary client placement and column ownership are
+unchanged. Normal and floating sizes retain the fixed zoom, and dialogs follow
+their final preview parents. A translated preview camera reveals selection in
+both Hagia scrolling directions. The
+[sizing investigation](notes/investigations/1ncr7rbo-expanded-overview-preview-sizing-differs-from-niri-column-geometry.md)
+records the Niri baseline, tests and remaining differences, including Hagia's
+derived camera on backward navigation and floating expansion semantics.
