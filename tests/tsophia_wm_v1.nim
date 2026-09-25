@@ -1,5 +1,7 @@
 import sophia/wm_translation
 import sophia/wm_tab_groups
+import sophia/wm_overview
+import types/core
 import types/session
 import std/[os, strutils, unittest]
 
@@ -40,6 +42,8 @@ proc kindFor(name: string): MessageKind =
     MessageKind.snapshotEnd
   of "output_action_request":
     MessageKind.outputActionRequest
+  of "overview_request":
+    MessageKind.overviewRequest
   of "projection_request":
     MessageKind.projectionRequest
   of "projection_begin":
@@ -106,7 +110,7 @@ proc corpusLines(path: string): seq[string] =
 
 proc checkValidFrames(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 22
+  check lines.len == 23
   for line in lines:
     let fields = line.split('|')
     check fields.len == 3
@@ -131,12 +135,30 @@ proc checkMalformedFrames(path: string) =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 17
+  check lines.len == 19
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
     let bytes = fields[1].decodeHex()
     case fields[0]
+    of "projection_overview_workspace", "projection_overview_placement":
+      let workspace = ProjectionOverviewWorkspace(
+        output: 1,
+        workspace: 17,
+        bounds: Rect(width: 1600, height: 1000),
+        active: true,
+        focusGeneration: 1,
+        placements: @[
+          ProjectionOverviewPlacement(
+            surfaceGeneration: 1, geometry: Rect(x: 8, y: 8, width: 800, height: 984)
+          )
+        ],
+      )
+      let encoded = [workspace].encodeOverview()
+      if fields[0] == "projection_overview_workspace":
+        check bytes == encoded[0]
+      else:
+        check bytes == encoded[1]
     of "projection_output_launch_context":
       check bytes.len == outputLaunchContextSize
       let record = OutputLaunchContext(

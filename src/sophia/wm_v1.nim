@@ -103,6 +103,8 @@ proc messageKind(raw: uint16): MessageKind =
     MessageKind.profileRolledBack
   of 53:
     MessageKind.outputActionRequest
+  of 54:
+    MessageKind.overviewRequest
   else:
     fail(PolicyProtocolErrorKind.wrongMessageKind, "unknown message kind")
 
@@ -142,6 +144,13 @@ proc validatePayload(kind: MessageKind, payload: openArray[byte]) =
   of MessageKind.snapshotEnd:
     payload.requireExact(20)
     payload.requireReserved(18, 2)
+  of MessageKind.overviewRequest:
+    if payload.len < 80:
+      fail(PolicyProtocolErrorKind.truncated, "truncated overview request")
+    payload.requireReserved(76, 4)
+    let outputCount = int(payload.u16At(74))
+    if outputCount < 1 or outputCount > maxOutputs or payload.len != 80 + outputCount * 8:
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "overview coverage is invalid")
   of MessageKind.outputActionRequest:
     if payload.len < 68:
       fail(PolicyProtocolErrorKind.truncated, "truncated output action request")

@@ -3,6 +3,8 @@ import std/options
 import ../types/[core, model, policy_messages]
 import ./[actions, entity_store, state]
 import ../entities/tab_tree_ops
+import ../types/overview
+import ../systems/overview
 
 proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
   ## The reducer has no transport or filesystem authority. A caller promotes
@@ -13,6 +15,14 @@ proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
   case message.kind
   of PolicyMsgKind.sceneChanged:
     discard
+  of PolicyMsgKind.overviewSelection:
+    result.candidate.selectOverview(
+      OverviewSelection(
+        output: message.output,
+        view: message.overviewView,
+        window: message.overviewWindow,
+      )
+    )
   of PolicyMsgKind.action:
     result.candidate.applyAction(message.output, message.action)
   of PolicyMsgKind.focus:

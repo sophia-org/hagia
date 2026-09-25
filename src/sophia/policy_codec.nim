@@ -107,6 +107,51 @@ proc decodeProjectionRequest*(
   ## `selectedCapabilities` is what negotiation actually chose. It defaults to
   ## none so a caller that never negotiated cannot be handed a cause it did not
   ## agree to receive.
+  if frame.kind == MessageKind.overviewRequest:
+    if (selectedCapabilities and capabilityOverview) == 0 or frame.payload.len < 80:
+      fail("workspace preview request was not negotiated or is truncated")
+    result.connectionEpoch = frame.payload.u64At(0)
+    result.requestId = frame.payload.u64At(8)
+    result.sceneGeneration = frame.payload.u64At(16)
+    result.policyGeneration = frame.payload.u64At(24)
+    let operation = frame.payload.u16At(72)
+    if operation > 1:
+      fail("workspace preview operation is invalid")
+    result.cause = ProjectionCause(
+      kind: (
+        if operation == 0: ProjectionCauseKind.overviewQuery
+        else: ProjectionCauseKind.overviewSelection
+      ),
+      activationSerial: frame.payload.u64At(32),
+      output: frame.payload.u64At(40),
+      outputGeneration: frame.payload.u64At(48),
+      workspace: frame.payload.u64At(56),
+      targetIndex: frame.payload.u32At(64),
+      targetGeneration: frame.payload.u32At(68),
+    )
+    let count = int(frame.payload.u16At(74))
+    if result.connectionEpoch != expectedConnectionEpoch or result.connectionEpoch == 0 or
+        result.requestId == 0 or result.sceneGeneration == 0 or
+        result.policyGeneration == 0 or count < 1 or count > maxOutputs or
+        frame.payload.len != 80 + count * 8 or frame.payload.u32At(76) != 0:
+      fail("workspace preview identity is invalid")
+    for index in 0 ..< count:
+      let output = frame.payload.u64At(80 + index * 8)
+      if output == 0 or output in result.affectedOutputs:
+        fail("workspace preview coverage is invalid")
+      result.affectedOutputs.add(output)
+    if operation == 0:
+      if result.cause.activationSerial != 0 or result.cause.output != 0 or
+          result.cause.outputGeneration != 0 or result.cause.workspace != 0 or
+          result.cause.targetIndex != 0 or result.cause.targetGeneration != 0:
+        fail("workspace preview query carries a selection")
+    elif result.cause.activationSerial == 0 or result.cause.outputGeneration == 0 or
+        result.cause.workspace == 0 or result.cause.workspace > uint64(high(uint32)) or
+        result.cause.output notin result.affectedOutputs or
+        (result.cause.targetGeneration == 0 and result.cause.targetIndex != 0) or
+        result.cause.targetIndex == high(uint32):
+      fail("workspace preview selection is invalid")
+    return
   if frame.kind == MessageKind.outputActionRequest:
     if (selectedCapabilities and capabilityOutputActions) == 0:
       fail("targeted output action was not negotiated")
@@ -173,7 +218,8 @@ proc decodeProjectionRequest*(
       outputCount > maxOutputs:
     fail("policy projection request is invalid")
   case result.cause.kind
-  of ProjectionCauseKind.outputAction:
+  of ProjectionCauseKind.outputAction, ProjectionCauseKind.overviewQuery,
+      ProjectionCauseKind.overviewSelection:
     fail("targeted output action requires its own message")
   of ProjectionCauseKind.sceneChanged:
     if result.cause.interactionPhase != InteractionPhase.none or

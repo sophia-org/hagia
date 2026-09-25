@@ -36,6 +36,8 @@ type
     ## error rather than something to ignore.
     pointerFocus = 4
     outputAction = 5
+    overviewQuery = 6
+    overviewSelection = 7
 
   InteractionPhase* {.pure.} = enum
     none = 0
@@ -62,6 +64,7 @@ type
     interactionKind*: InteractionKind
     interactionAxis*: InteractionAxis
     output*, outputGeneration*: uint64
+    workspace*: uint64
     activationSerial*: uint64
     action*: uint64
     targetIndex*: uint32
@@ -96,6 +99,7 @@ type
     members*: seq[ProjectionTabMember]
 
   PolicyProjection* = object
+    overviewWorkspaces*: seq[ProjectionOverviewWorkspace]
     activeOutput*: uint64
     outputs*: seq[PolicyOutputProjection]
     indicators*: seq[ProjectionIndicator]
@@ -104,6 +108,17 @@ type
     translationGroups*: seq[ProjectionTranslationGroup]
     launchContexts*: seq[LaunchOriginRecord]
     outputLaunchContexts*: seq[OutputLaunchContext]
+
+  ProjectionOverviewPlacement* = object
+    surfaceIndex*, surfaceGeneration*: uint32
+    geometry*: Rect
+
+  ProjectionOverviewWorkspace* = object
+    output*, workspace*: uint64
+    bounds*: Rect
+    active*: bool
+    focusIndex*, focusGeneration*: uint32
+    placements*: seq[ProjectionOverviewPlacement]
 
   LaunchDestination* = object
     ## Where a launch context points: a logical output and the tag set a window
