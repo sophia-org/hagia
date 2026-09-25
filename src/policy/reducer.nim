@@ -3,7 +3,6 @@ import std/options
 import ../types/[core, model, policy_messages]
 import ./[actions, entity_store, state]
 import ../entities/tab_tree_ops
-import ../types/overview
 import ../systems/overview
 
 proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =

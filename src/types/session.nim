@@ -132,9 +132,8 @@ type
     targetGeneration*: uint32
 
   PolicyTraceEntry* = object
-    ## One recorded cycle. The reducer is pure, so a snapshot and the request
-    ## answered from it fully determine the projection; recording the pair is
-    ## enough to replay the cycle anywhere.
+    ## One cycle, including asynchronous receipts consumed before reduction.
     snapshot*: PolicySnapshot
     request*: ProjectionRequest
     transaction*: uint64
+    presentationReceipts*: seq[PresentationReceipt]

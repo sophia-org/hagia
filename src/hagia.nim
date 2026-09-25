@@ -119,6 +119,8 @@ proc run(arguments: seq[string]) =
     var cycle = 0
     for entry in readTrace(arguments[1]):
       inc cycle
+      for receipt in entry.presentationReceipts:
+        session.receivePresentationReceipt(receipt)
       let projection = session.prepare(entry.snapshot, entry.request, entry.transaction)
       stdout.writeLine(
         "cycle=" & $cycle & " request=" & $entry.request.requestId & " outputs=" &

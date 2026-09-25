@@ -25,6 +25,7 @@ type PolicyClient = ref object
   maxChunkBytes: int
   nextTransaction: uint64
   readTimeoutMsec: int
+  presentationReceipts: seq[PresentationReceipt]
 
 const
   capabilityBindings = 1'u64 shl 0
@@ -41,17 +42,7 @@ const
   capabilityTabGroups = 1'u64 shl 11
   capabilityLaunchPlacement = 1'u64 shl 10
 
-proc receiveFrame(client: PolicyClient, kind: MessageKind): Frame =
-  let header = client.socket.receiveExact(frameHeaderLen, client.readTimeoutMsec)
-  let payloadLen = int(header.u32At(16))
-  if payloadLen > maxPayloadLen:
-    fail("policy frame payload is excessive")
-  let payload = client.socket.receiveExact(payloadLen, client.readTimeoutMsec)
-  var bytes = header
-  bytes.add(payload)
-  bytes.decodeFrame(kind)
-
-proc receiveFrame(client: PolicyClient): Frame =
+proc receiveRawFrame(client: PolicyClient): Frame =
   let header = client.socket.receiveExact(frameHeaderLen, client.readTimeoutMsec)
   let payloadLen = int(header.u32At(16))
   if payloadLen > maxPayloadLen:
@@ -60,6 +51,30 @@ proc receiveFrame(client: PolicyClient): Frame =
   var bytes = header
   bytes.add(payload)
   bytes.decodeFrame()
+
+proc receiveFrame(client: PolicyClient): Frame =
+  while true:
+    result = client.receiveRawFrame()
+    if result.kind != MessageKind.presentationOutcome:
+      return
+    if client.presentationReceipts.len >= maxPendingPresentationReceipts:
+      fail("pending presentation receipts exceed the bound")
+    client.presentationReceipts.add(
+      result.decodePresentationReceipt(client.connectionEpoch, client.capabilities)
+    )
+
+proc receiveFrame(client: PolicyClient, kind: MessageKind): Frame =
+  result = client.receiveFrame()
+  if result.kind != kind:
+    fail("unexpected policy message kind")
+
+proc settlePresentationReceipts(
+    client: PolicyClient, session: var PolicySession
+): seq[PresentationReceipt] =
+  result = client.presentationReceipts
+  for receipt in client.presentationReceipts:
+    session.receivePresentationReceipt(receipt)
+  client.presentationReceipts = @[]
 
 const chunkHeaderLen = 16
 
@@ -389,17 +404,25 @@ proc allocateTransaction(client: PolicyClient): uint64 =
     fail("policy transaction identity space is exhausted")
 
 proc installConfiguration(client: PolicyClient) =
+  let lastAction =
+    if (
+      client.capabilities and
+      (capabilitySurfaceInstances or capabilityPresentationActions)
+    ) == (capabilitySurfaceInstances or capabilityPresentationActions):
+      ord(high(PolicyAction))
+    else:
+      ord(PolicyAction.toggleOverview) - 1
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)
   payload.addU64(1)
-  payload.addU16(uint16(ord(high(PolicyAction))))
+  payload.addU16(uint16(lastAction))
   payload.addU16(2) # Engine-owned frame; no focus ring.
   payload.addU32(0)
   payload.addU32(0xffffb6b0'u32)
   payload.addU32(1)
   payload.addU32(0xffffb6b0'u32)
   payload.addU32(0xff7c7c7c'u32)
-  for ordinal in ord(low(PolicyAction)) .. ord(high(PolicyAction)):
+  for ordinal in ord(low(PolicyAction)) .. lastAction:
     payload.addAction(PolicyAction(ordinal))
   let transaction = client.allocateTransaction()
   client.sendFrame(
@@ -762,12 +785,16 @@ proc runPolicyCycles*(path: string, cycleCount: int) =
       let snapshot = client.receiveSnapshot()
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
+      let receipts = client.settlePresentationReceipts(session)
       if tracePath.len > 0:
         # Recorded before the reduction, so a trace replays the inputs rather
         # than a conclusion already drawn from them.
         tracePath.appendTrace(
           PolicyTraceEntry(
-            snapshot: snapshot, request: request, transaction: transaction
+            snapshot: snapshot,
+            request: request,
+            transaction: transaction,
+            presentationReceipts: receipts,
           )
         )
       let projection = session.prepare(snapshot, request, transaction)
@@ -842,10 +869,14 @@ proc runPolicySession(
       injectConfiguredFault("snapshot_received")
       let request = client.receiveProjectionRequest()
       let transaction = client.allocateTransaction()
+      let receipts = client.settlePresentationReceipts(session)
       if tracePath.len > 0:
         tracePath.appendTrace(
           PolicyTraceEntry(
-            snapshot: snapshot, request: request, transaction: transaction
+            snapshot: snapshot,
+            request: request,
+            transaction: transaction,
+            presentationReceipts: receipts,
           )
         )
       let projection = session.prepare(snapshot, request, transaction)

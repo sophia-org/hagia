@@ -17,13 +17,14 @@ policy model stores stable Hagia IDs; opaque Sophia surface and output IDs stay
 inside `src/sophia`.
 
 Overview arrangement, navigation and selection belong to WM policy. Sophia's
-proposed generic presentation support would display retained application content
+generic presentation support displays retained application content
 at independent destination rectangles while preserving normal client geometry.
 The WM proposes spatial intent and receives reduced authorized actions; it does
 not acquire rendering or raw input authority. The
 [overview plan](notes/plans/64ac6jf6-workspace-overview-across-hagia-narthex-and-sophia.md)
 records the ownership correction and the paired rendering-foundation contract
-work. The proposed wire extension is not yet implemented as a complete feature.
+work. Implementation is on the paired development branches; session integration
+and acceptance gates remain required before this is an integrated feature.
 
 The detailed allocation of retained Triad features is recorded in
 [`capability-map.md`](capability-map.md). That ledger also records the River and

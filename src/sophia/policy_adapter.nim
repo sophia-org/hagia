@@ -9,6 +9,11 @@ import ../types/[core, model, policy_messages, projection]
 import ../policy/[actions, entity_store, projection, reducer, state]
 import ../types/wm_v1
 import ../types/session
+import ../types/[overview, wm_presentation]
+import ../policy/overview
+import ../entities/overview_ops
+import ../systems/overview
+import ./wm_presentation
 import ./policy_codec
 import ./snapshot_convert
 import ../types/tab_tree
@@ -41,6 +46,11 @@ type
     # Last emitted maximize bit, promoted with the candidate on commit. An
     # echo of suspended presentation must not clear private maximize intent.
     presentedMaximized: Table[WindowId, bool]
+    # Connection-local presentation identities are not checkpoint state.
+    presentation: Option[WmPresentation]
+    presentationEpoch, publicationCounter, targetCounter: uint64
+    presentationKeys: Table[string, uint64]
+    presentationTargets: Table[uint64, OverviewSelection]
 
   TagRelationDto = object
     owner: uint32
@@ -101,6 +111,8 @@ type
 
 proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate)
 
+include policy_adapter/presentation
+
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
 
@@ -117,8 +129,10 @@ proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandi
       (adapter.model.outputOrder.len > 0 or adapter.model.affinityOrder.len > 0):
     fail("changing established workspace assignments requires an explicit migration")
   prepared.reconcilePolicySettings()
+  prepared.clearOverview()
   prepared.validate()
   adapter.model = prepared
+  adapter.clearPresentation()
 
 proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   result.model = adapter.model.clone()
@@ -150,6 +164,14 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   result.launchEpoch = adapter.launchEpoch
   for token in adapter.outputLaunchTokens:
     result.outputLaunchTokens.incl(token)
+  result.presentation = adapter.presentation
+  result.presentationEpoch = adapter.presentationEpoch
+  result.publicationCounter = adapter.publicationCounter
+  result.targetCounter = adapter.targetCounter
+  for key, id in adapter.presentationKeys.pairs:
+    result.presentationKeys[key] = id
+  for id, selection in adapter.presentationTargets.pairs:
+    result.presentationTargets[id] = selection
 
 proc destinationKey(destination: LaunchDestination): string =
   result = $int(destination.output)
@@ -791,7 +813,8 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   of ProjectionCauseKind.sceneChanged:
     discard
   of ProjectionCauseKind.presentationAction:
-    fail("presentation action has no active policy publication")
+    adapter.applyPresentationAction(request)
+    return
   of ProjectionCauseKind.outputAction:
     let target = adapter.targetOutputAction(request)
     message = PolicyMsg(
@@ -914,6 +937,7 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
     fail("Sophia snapshot is empty")
   if snapshot.activeOutput == 0:
     fail("Sophia snapshot has no active output")
+  adapter.revokeChangedPresentation(snapshot)
 
   # The first complete snapshot may be a WM restart over existing windows.
   # Only later admissions may replace the Engine's reconciled focus.
@@ -1171,6 +1195,11 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   # two-output desktop where both remember a focused window, that is the wrong
   # one. The handle was proved live when it was first established above.
   adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
+  if adapter.model.overview.active:
+    try:
+      adapter.model.setOverviewSelection(adapter.model.overview.selection)
+    except PolicyStateError:
+      adapter.clearPresentation()
   adapter.model.validate()
 
 proc projection*(
@@ -1211,6 +1240,7 @@ proc projection*(
           ),
         )
       )
+  result.presentation = adapter.overviewPresentation(snapshot, physicalBounds)
   for logical in adapter.model.projectLayout(
     affected, outerGap, innerGap, adapter.model.settings.viewportOffset, physicalBounds
   ):

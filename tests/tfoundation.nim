@@ -13,7 +13,7 @@ import
 import runtime/reducer as runtimeReducer
 import runtime/effect_executor
 import sophia/[policy_signals, policy_trace]
-import types/[session, wm_v1]
+import types/[session, wm_v1, wm_presentation]
 import sophia/policy_adapter
 
 const trackedDefaultDesktopProfile = staticRead("../examples/config/default.kdl")
@@ -39,9 +39,23 @@ suite "Hagia foundation":
         connectionEpoch: 2, requestId: 9, sceneGeneration: 7, affectedOutputs: @[3'u64]
       ),
       transaction: 5,
+      presentationReceipts: @[
+        PresentationReceipt(
+          connectionEpoch: 2,
+          publicationGeneration: 3,
+          output: 3,
+          outputGeneration: 1,
+          presentationEpoch: 4,
+          outcome: PresentationOutcomeKind.revoked,
+        )
+      ],
     )
     let restored = entry.traceLine().parseTraceLine()
     check restored.transaction == entry.transaction
+    check restored.presentationReceipts == entry.presentationReceipts
+    var legacy = parseJson(entry.traceLine())
+    legacy.delete("presentationReceipts")
+    check ($legacy).parseTraceLine().presentationReceipts.len == 0
     check restored.snapshot.generation == entry.snapshot.generation
     check restored.snapshot.activeOutput == entry.snapshot.activeOutput
     check restored.snapshot.outputs.len == 1
@@ -583,12 +597,10 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    # Ninety-four entries (including the profile selector), of which eighty-five name a policy action --
-    # three of those being the camera keys, which move the view without
-    # moving focus. The other eight bindings are session capabilities Sophia carries
-    # out, including the two that reload the profile and replace this process.
-    check shortcuts.values.len == 94
-    check policyBindings == 85
+    # The overview binding adds one WM action. The session actions retain
+    # their existing authority, including reload and process replacement.
+    check shortcuts.values.len == 95
+    check policyBindings == 86
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
     # A chord that passes the character check but names no key used to reach
@@ -1183,9 +1195,9 @@ cursor {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 0
-    # One more than the old count: triad-reload is carried now instead of
-    # refused, because the session gained a reload capability for it to name.
-    check report.outputProfile.count("\n  bind ") == 108
+    # Overview and reload have distinct WM and session owners.
+    check report.outputProfile.count("\n  bind ") == 109
+    check "bind Super+o \"policy:toggle-overview\"" in report.outputProfile
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
     check "pointer-bind Super+middle" notin report.outputProfile
