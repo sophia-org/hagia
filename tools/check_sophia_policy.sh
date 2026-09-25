@@ -105,6 +105,7 @@ XDG_CONFIG_HOME="$build_dir/config" SOPHIA_HAGIA_BIN="$build_dir/hagia" \
 cargo test --offline -q -p sophia-runtime --test policy_transport \
     presentation_hagia -- --list >"$build_dir/presentation-tests"
 for test in \
+    hagia_without_presentation_actions_keeps_ordinary_policy_available \
     hagia_overview_publishes_generic_records_and_accepts_exact_targeted_actions \
     hagia_overview_timeout_retains_the_committed_publication \
     hagia_overview_revoked_receipt_closes_on_the_next_cycle \
