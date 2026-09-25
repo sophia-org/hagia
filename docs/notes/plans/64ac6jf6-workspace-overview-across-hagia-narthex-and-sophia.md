@@ -5,12 +5,13 @@ kind: plan
 status: proposed
 tags: [plan]
 ---
-# Workspace overview across Hagia Narthex and Sophia
+# WM-owned workspace overview on generic presentation support
 
 ## Intent and source
 
-Hagia h002 implements the user's Super+O workspace overview request. The user
-explicitly approved expanding implementation to Narthex and Sophia. Triad
+Hagia h002 owns the Super+O workspace overview requested by niltempus. The initial
+experiment spanned the WM, shell and Sophia; the 2026-09-25 ownership correction
+places all overview policy in the WM. Triad
 baseline `fb8fb27ec294e0fe2361375de0b2fa8c08be0ca9` supplies the behavior:
 workspace strips, spatial navigation, Return to select, Escape to cancel.
 `~/src/niri` is a design reference only. The personal config was inspected as
@@ -23,11 +24,19 @@ selection of a logical view/window. Preview generation must preserve the
 committed workspace, focus, widths, and cameras. It does not configure windows
 at thumbnail sizes. Only a confirmed selection changes WM policy.
 
-Narthex owns overview open/close, ordered workspace descriptors and selection.
-It receives bounded shell slots, never surface IDs, geometry, buffers or pixels.
-Sophia bridges published WM facts to those slots, renders scaled scene previews,
-captures modal input against retired presentation, and validates activation.
-The shell does not acquire screenshot or application-input authority.
+Hagia must also own overview arrangement, open/close behavior, modal navigation
+and the selected workspace/window. Sophia supplies generic, capability-checked
+surface presentation and reduced actions tied to the retired presentation. A
+shell is not a required intermediary. The provisional shell navigation reducer
+and overview-specific Sophia service are preserved experiments to be superseded;
+the corrected ownership has not yet been fully implemented.
+
+Sophia t242 defines the generic presentation and input contract as a planning
+prerequisite to paired acceptance t241. Its architecture document is
+`docs/rendering-foundation.md` in the Sophia repository; its linked zk plan and
+investigation distinguish existing renderer mechanisms from proposed instances.
+Documentation and contract definition are authorized. The planning task alone
+does not admit the proposed foundation implementation or a wire freeze.
 
 The interface must be negotiated and bounded, retain independent Nim codecs,
 and revoke stale presentation on output loss, window removal, WM or shell
@@ -61,21 +70,27 @@ changes are part of this work.
 Preview commands refer to generational Engine surfaces and sample their committed
 content at a separate destination and clip. They do not mutate client geometry,
 input geometry, buffer size, or content. CPU rendering borrows retained pixels;
-native frame lowering uses the existing owned source path. Frames already queued
-must retain their source ownership until ordinary frame retirement. Closing the
-overview revokes input immediately; it does not release a source still held by a
-submitted frame. Hidden client content must remain resident while referenced by
-a frame. This last residency/retirement path still needs end-to-end verification.
+native frame lowering uses the existing owned source path. Source leases must
+survive queued/executing render work; copied native backings survive submission,
+display and retirement. Closing the overview revokes input immediately without
+releasing either resource while its consumer needs it. Hidden client content
+must remain resident while referenced by a render operation.
 
-The session must retain the slot-to-workspace/surface mapping for one WM epoch,
-catalog generation, shell epoch and output generation. Only a candidate retired
-on that output grants overview input authority. Each input request names its
-presentation epoch; candidate replies must match the outstanding request and
-catalog, and activation must match the requested selection. Close, topology
-change, WM invalidation or reconnect must revoke this mapping and capture before
-any later input can be admitted. Swallowed presses retain their release debt
-after revocation. Queued work and old replies cannot recreate authority.
+The provisional design mapped shell slots to workspace/surface identities.
+That shell-specific mapping is superseded by t242's role-based contract work.
+The generic version must bind WM instance/action identities to their connection,
+generation, output topology and exact presented state. Close, topology change,
+source loss or reconnect revoke input authority; late replies cannot recreate it,
+and swallowed presses retain their release debt. This is an acceptance
+requirement, not a claim that the unfinished session integration satisfies it.
 
-These are acceptance rules, not a claim that the unfinished session integration
-already satisfies them. Renderer compilation and focused model/wire tests are
-the first checkpoint; modal integration and headless lifecycle proofs remain.
+The production preview-only source/update control subsequently passed with
+simulated native completion. It found and fixed source lookup omitting preview
+references. Source leases remain owned through queued/installed copying; copied
+native backings remain owned until retirement. Both negative controls and the
+restored pass are retained under
+`~/.local/state/hagia/development-evidence/h002-preview-20260925/`.
+The development investigation in Sophia is
+`docs/notes/investigations/egmb00jq-rendering-foundation-inventory-and-overview-ownership-correction.md`.
+Complete WM navigation, the generic wire/input contract, end-to-end lifecycle
+proofs and physical acceptance remain outside that rendering test's claim.
