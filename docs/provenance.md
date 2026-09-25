@@ -179,3 +179,14 @@ the per-output vertical strip, active or occupied workspace previews, spatial
 navigation and selection without changing ordinary focus until confirmation.
 The original zoomed workspace arrangement traces to niri. No compositor,
 buffer, animation, shell or physical-input implementation is imported.
+
+The h004 sizing correction reviews local niri baseline
+`5f4469b6a992492cf7221b269e9379f42e737649`: `niri-config/src/misc.rs`
+(`Overview::default`, zoom 0.5), `src/layout/mod.rs`
+(`compute_overview_zoom`), and `src/layout/monitor.rs` (`workspace_size`,
+`workspace_gap`, `workspaces_render_geo`, and `render_workspaces`). Hagia
+adopts fixed viewport zoom, a centered selected workspace, a gap one tenth
+of the preview height, and row/output clipping instead of fitting all occupied
+content. Preview camera changes use Hagia's existing pure layout projection.
+This is an independent integer policy implementation; no niri code or dependency
+is imported, and Sophia continues to own sampling, pixel rounding and rendering.
