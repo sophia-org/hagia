@@ -2,6 +2,7 @@ import std/unittest
 
 import types/[session, wm_v1]
 import sophia/[policy_codec, policy_transport]
+from sophia/policy_snapshot import validateFileSnapshot
 
 proc snapshot(index: uint32): PolicySnapshot =
   PolicySnapshot(
@@ -49,3 +50,22 @@ suite "legacy snapshot identity characterization":
     value.surfaces[0].transientIndex = 9
     value.surfaces[0].transientGeneration = 0
     value.validateSnapshot()
+
+suite "strict snapshot identities":
+  test "index zero can be focused when the live surface is eligible":
+    var value = snapshot(0)
+    value.outputs[0].focusGeneration = 1
+    value.validateFileSnapshot()
+    value.surfaces[0].capabilityBits = 0
+    expect PolicyClientError:
+      value.validateFileSnapshot()
+
+  test "the all-ones surface index is refused":
+    expect PolicyClientError:
+      snapshot(high(uint32)).validateFileSnapshot()
+
+  test "an absent transient is exactly zero zero":
+    var value = snapshot(1)
+    value.surfaces[0].transientIndex = 9
+    expect PolicyClientError:
+      value.validateFileSnapshot()

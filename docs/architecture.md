@@ -72,6 +72,9 @@ and [DRY principles](dry-principles.md).
   bodies, split into admission, cycle and control owners.
 - `src/sophia/policy_semantics.nim` holds the typed predicates and outcome codes
   both the file bodies and the legacy decoders use.
+- `src/sophia/wm_file_arrays.nim` decodes complete file snapshots through the
+  shared fixed row codecs. `policy_snapshot.nim` owns complete snapshot
+  validation, with explicit legacy identity exceptions at its old entry point.
 - Shell surface policy is not in this repository. It belongs to Narthex, a
   separate client that receives sanitized descriptors and never learns surface
   identifiers, coordinates, or icons.

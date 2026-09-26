@@ -139,6 +139,42 @@ passing controls. No current policy execution, live endpoint or hardware was
 used. Scalar and array body codecs, and the complete role join, remain work
 under h006.
 
+## Complete file snapshot checkpoint
+
+The signed scalar/admission series `809c500`, `a1f5564`, and `cb9abda`
+is joined as `0c5fdb7`, `e5e77ed`, and `69643df`. Capability bits have one
+passive owner; scalar file bodies use shared typed predicates and the file
+payload helpers. The peer's final-tree results and 21 killed mutations are
+reported evidence, not director reruns of those suites. The peer subsequently
+pinned the three initially legacy-only kills in its file corpus too.
+
+`policy_snapshot.nim` now owns complete snapshot validation and output-policy
+key application. The legacy entry preserves the three characterized identity
+behaviors and its error order. The file entry permits a valid index-zero
+surface to hold focus, refuses the all-ones index and partial optional surface
+identities, and rejects unknown surface-capability and operation-target bits.
+The existing policy client delegates only the extracted key application;
+its framing and sequencing are unchanged.
+
+`wm_file_arrays.nim` decodes the complete Snapshot body. It checks the exact
+kind, admitted epoch, prefix, sorted section inventory, row widths, raw-u32
+counts and per-kind maxima before row conversion. Every extension requires its
+selected capability. A mandatory output section, active-output membership,
+live launch origins, and exact output-generation keys are checked before a
+snapshot is returned. Fixed row codecs are shared with the old wire; no old
+Begin/Chunk/End frame is constructed.
+
+Focused device-hidden checks after the join pass: six snapshot identity
+controls, seven file snapshot controls, and four legacy wire corpus controls.
+The file fixtures construct rows from the published layout and use the local
+envelope encoder. They are not a cross-language exchange or a mounted-client
+test. Logs are `.artifacts/h006-arrays/snapshot-identity-joined.log`,
+`arrays-initial.log`, and `legacy-codec-joined.log`; formatting, layout and
+diff checks pass. No compiled mutation or broad contributor gate ran for this
+snapshot checkpoint. Configuration/projection array encoders, the complete WM
+role join, and performance acceptance remain outstanding. Default transport,
+output-role IPC, live sessions and hardware are unchanged.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)

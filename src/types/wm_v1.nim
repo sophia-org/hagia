@@ -214,6 +214,8 @@ const
   projectionOutputLaunchContextRecordKind* = 0xFF08'u16
   outputLaunchContextSize* = 32
   surfaceFocusable* = 1'u16 shl 2
+  snapshotSurfaceCapabilityMask* = 0x1f'u16
+  snapshotSessionOperationTargetMask* = 1'u16
 
   frameHeaderLen* = 24
   maxPayloadLen* = 65536

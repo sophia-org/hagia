@@ -1,6 +1,7 @@
 import ./wm_translation
 import ./wm_tab_groups
 import ./wm_presentation
+from ./policy_snapshot import applyOutputPolicyKey
 import std/[net, options, os, sets]
 
 import ../config/policy_candidate
@@ -324,15 +325,7 @@ proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
         let output = finish.payload.u64At(at)
         let generation = finish.payload.u64At(at + 8)
         let key = finish.payload.u64At(at + 16)
-        var found = -1
-        for i, item in outputs:
-          if key == 0 or item.policyKey == key:
-            fail("output policy key is null or repeated")
-          if item.output == output and item.generation == generation:
-            found = i
-        if found < 0 or outputs[found].policyKey != 0:
-          fail("output policy key names an unknown or repeated output")
-        outputs[found].policyKey = key
+        outputs.applyOutputPolicyKey(output, generation, key)
     elif recordKind == snapshotSurfaceClassificationRecordKind:
       if itemCount == 0 or
           finish.payload.len != 16 + itemCount * snapshotSurfaceClassificationSize or
