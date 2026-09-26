@@ -507,6 +507,32 @@ fixture deliberately issues no layout cycle, has no output bootstrap and
 claims no Engine transaction, presentation or retirement. Actual Session layout
 settlement and failed-action continuation are the next paired checkpoint.
 
+## Failed-action operation-expectation repair
+
+Sophia's signed red `6eeacfc9ac769577ea95ab973d777191abb9a07d` reproduces
+the mismatch separately for TimedOut and RejectedStale: both emitted true,
+while the committed-action positive correctly emitted true. Signed
+`2a8271b027e3be1bc58566750750076994ff122d`, joined as `7b5223530`, qualifies
+the flag at the existing settlement-command owner with `outcome == Committed`.
+The file adapter still encodes the actual command, the existing driver is
+unchanged, and Hagia's strict expectation rule is unchanged.
+
+All three focused controls and 38 neighboring reload controls pass, with two
+fixture entries ignored. Strict Session checks and isolated layout pass.
+These are owner-command controls: the request path supplies the settlement
+identity, but the refusal layout outcome is a fixture value. They do not prove
+actual resize expiry or retained-layout preservation; the real-layout pair
+must cover those. The initial featureless invocation matched zero tests and
+was not counted. Workspace formatting passes; a direct check of the included
+commit file retains the same eleven pre-existing formatting blocks at base
+and fix. One author layout invocation ran outside isolation; the accepted
+layout evidence is its isolated rerun.
+
+The verified eleven-file bundle is
+`~/.local/state/sophia/development-evidence/t249-expectation-2a8271b0`.
+The signed source bundle, exact reds/greens, invocation scripts and evidence
+qualifications are retained there.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
