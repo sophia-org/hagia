@@ -66,6 +66,12 @@ and [DRY principles](dry-principles.md).
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
 - `src/sophia/wm_files.nim` implements the independent WM file envelope:
   header classes, row sections, submit and ack. Body semantics sit above it.
+- `src/sophia/wm_file_payload.nim` holds the strict-file checks every typed body
+  shares: exact kind and admitted epoch, sizes, reserved bytes, capabilities.
+- `src/sophia/wm_file_bodies.nim` encodes and decodes the scalar and admission
+  bodies, split into admission, cycle and control owners.
+- `src/sophia/policy_semantics.nim` holds the typed predicates and outcome codes
+  both the file bodies and the legacy decoders use.
 - Shell surface policy is not in this repository. It belongs to Narthex, a
   separate client that receives sanitized descriptors and never learns surface
   identifiers, coordinates, or icons.
