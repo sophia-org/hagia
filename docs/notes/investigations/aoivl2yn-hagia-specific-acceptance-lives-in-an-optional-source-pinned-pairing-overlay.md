@@ -150,6 +150,48 @@ reader. h006/t249 remain open for the remaining lifecycle and measurement exits
 and explicitly approved physical/default-switch gates. No new default or live
 desktop change follows from these results.
 
+## First attended live 9P trial, 2026-09-26
+
+After niltempus authorized the trial and logged out of the daily desktop,
+release builds of Sophia `81e9826a662dfcc34fe91e8e42309cb064ac5bca` and Hagia
+`1f24fbc1b569cc49a1bc46c31929f3654ba1281a` ran on tty4/display `:90` through
+the existing guarded launcher, explicitly selecting `--wm-transport=9p2000.L`.
+These were production builds without the acceptance overlay. The running
+executables matched SHA256 `62111c72…a572f` (Sophia) and `f10afbac…c1788`
+(Hagia). The live Hagia environment contained `SOPHIA_WM_9P_SOCKET` and the
+separate existing output socket, with no `SOPHIA_WM_SOCKET`.
+
+The copied desktop profile changed only the WM executable; the core profile
+and installed shell components retained their settings and identities. Session's
+actual policy-fragment preflight, generated launch vector and prebuilt xtask
+profile checks passed before takeover. An unnecessary initial whole-desktop
+Hagia check refused a Sophia-owned shell setting; its log is retained. The
+correct Session-owned fragment validation passed without relaxing the profile.
+No installed release, login entry or default transport was changed.
+
+niltempus reported normal behavior, including overview. Logs record WM epoch 1
+with no restart during the observation, committed configuration, checkpoints
+and native frame retirement. Normal logout completed after 246,261 ms with
+exit status 0, `emergency=false`, `wm_degraded=false`, no native frame in flight
+and no native cleanup pending. No trial processes remained. The origin tty
+state was restored. Exact greetd tty termios restoration differed; the existing
+safe-baseline fallback passed its checks and returned to a ready greeter on tty7.
+This is an attended smoke result, not completion of all physical acceptance rows.
+
+The operator also observed lower Sophia CPU use. A five-second uncontrolled
+sample measured 22.6% of one CPU core for Sophia; there is no matched IPC sample
+and therefore no measured transport improvement. The normal diagnostic budget
+suppressed 42,456 records, with zero storage errors; the capture is not a full
+event transcript. Pointer latency/default-switch gates and the earlier
+intermittent reconnect failures remain open.
+
+The private durable bundle is
+`~/.local/state/hagia/development-evidence/h006-live-9p-20260926`: 47 checksummed
+files, including release binaries, preparation and first-failure logs, live
+process identities, operator observations, CPU sample and shutdown evidence.
+Its verified `SHA256SUMS` digest is
+`f32b1f39850b672c8bf5512ca335fd158706807d8297308307878c6c8917cc7e`.
+
 ## Connections
 
 The [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
