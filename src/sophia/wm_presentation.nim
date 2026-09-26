@@ -1,7 +1,7 @@
 import std/[sets, tables]
 
 import ../types/[core, wm_v1, wm_presentation]
-import ./[policy_transport, wm_v1]
+import ./[policy_semantics, policy_transport, wm_v1]
 
 proc validRect(rect: Rect): bool =
   rect.width > 0 and rect.height > 0 and
@@ -144,8 +144,7 @@ proc decodePresentationReceipt*(
     outputGeneration: frame.payload.u64At(24),
     presentationEpoch: frame.payload.u64At(32),
   )
-  if result.connectionEpoch != epoch or epoch == 0 or result.publicationGeneration == 0 or
-      result.output == 0 or result.outputGeneration == 0 or result.presentationEpoch == 0 or
+  if result.connectionEpoch != epoch or epoch == 0 or not validReceiptIdentity(result) or
       outcome notin 1'u16 .. 3'u16 or frame.payload.u16At(42) != 0:
     fail("presentation receipt identity is invalid")
   result.outcome = PresentationOutcomeKind(outcome)

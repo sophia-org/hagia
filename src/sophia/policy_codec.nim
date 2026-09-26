@@ -1,9 +1,10 @@
-import std/sets
+import std/[options, sets]
 
 import ../types/[actions, session, wm_v1, wm_presentation]
 import ./wm_v1 as wm_codec
 import ../policy/actions
 import ./policy_transport
+import ./policy_semantics
 
 ## Decoding and validation for policy frames. These read bytes and refuse
 ## malformed input; they hold no connection state, so the conformance corpus
@@ -140,10 +141,11 @@ proc decodeProjectionRequest*(
         fail("presentation action coverage is invalid")
       result.affectedOutputs.add(output)
     let identity = result.cause.presentation
+    # Coverage already refused a zero output, so the shared identity predicate
+    # is exactly this decoder's former condition.
     if result.cause.activationSerial == 0 or result.cause.action == 0 or
-        identity.output notin result.affectedOutputs or identity.outputGeneration == 0 or
-        identity.publicationGeneration == 0 or identity.presentationEpoch == 0 or
-        (identity.targetId == 0) != (identity.targetGeneration == 0):
+        identity.output notin result.affectedOutputs or
+        not validPresentationIdentity(identity):
       fail("presentation action target is invalid")
     return
   if frame.kind == MessageKind.outputActionRequest:
@@ -253,9 +255,10 @@ proc decodeProjectionRequest*(
         result.cause.interactionKind != InteractionKind.none or
         result.cause.interactionAxis != InteractionAxis.none or
         result.cause.activationSerial != 0 or result.cause.action == 0 or
-        (result.cause.targetIndex != 0 and result.cause.targetGeneration == 0) or
-        result.cause.targetIndex == high(uint32) or result.cause.x != 0 or
-        result.cause.y != 0 or result.cause.width != 0 or result.cause.height != 0:
+        not validOptionalSurface(
+          result.cause.targetIndex, result.cause.targetGeneration
+        ) or result.cause.x != 0 or result.cause.y != 0 or result.cause.width != 0 or
+        result.cause.height != 0:
       fail("policy pointer-focus cause is invalid")
   of ProjectionCauseKind.interaction:
     if result.cause.interactionPhase == InteractionPhase.none or
@@ -263,20 +266,20 @@ proc decodeProjectionRequest*(
         result.cause.activationSerial != 0 or result.cause.action != 0 or
         result.cause.targetIndex == 0 or result.cause.targetGeneration == 0:
       fail("policy interaction cause is invalid")
-    case result.cause.interactionKind
-    of InteractionKind.move, InteractionKind.resize, InteractionKind.drag:
-      if result.cause.interactionAxis != InteractionAxis.none or result.cause.width <= 0 or
-          result.cause.height <= 0:
+    # The target rule above (index zero refused) stays this decoder's own; the
+    # payload rule is shared.
+    if not validInteractionPayload(
+      result.cause.interactionPhase, result.cause.interactionKind,
+      result.cause.interactionAxis, result.cause.x, result.cause.y, result.cause.width,
+      result.cause.height,
+    ):
+      case result.cause.interactionKind
+      of InteractionKind.move, InteractionKind.resize, InteractionKind.drag:
         fail("policy geometry interaction payload is invalid")
-    of InteractionKind.scroll:
-      if result.cause.interactionAxis == InteractionAxis.none or result.cause.width != 0 or
-          result.cause.height != 0 or (
-        result.cause.interactionPhase != InteractionPhase.cancel and result.cause.x == 0 and
-        result.cause.y == 0
-      ):
+      of InteractionKind.scroll:
         fail("policy scroll interaction payload is invalid")
-    else:
-      fail("policy interaction kind is invalid")
+      else:
+        fail("policy interaction kind is invalid")
   for index in 0 ..< outputCount:
     result.affectedOutputs.add(frame.payload.u64At(84 + index * 8))
   # The output a pointer observation names has to be one this cycle may change,
@@ -317,14 +320,13 @@ proc addAction*(payload: var seq[byte], action: PolicyAction) =
 proc decodeProjectionOutcome*(frame: Frame): ProjectionOutcome =
   if frame.kind != MessageKind.projectionOutcome:
     fail("policy outcome frame has the wrong kind")
-  let rawOutcome = frame.payload.u16At(24)
-  if rawOutcome < uint16(ord(low(ProjectionOutcomeKind))) or
-      rawOutcome > uint16(ord(high(ProjectionOutcomeKind))):
+  let outcome = projectionOutcomeFromCode(frame.payload.u16At(24))
+  if outcome.isNone:
     fail("Sophia returned an unknown policy outcome")
   ProjectionOutcome(
     transaction: frame.transaction,
     connectionEpoch: frame.payload.u64At(0),
     requestId: frame.payload.u64At(8),
     sceneGeneration: frame.payload.u64At(16),
-    kind: ProjectionOutcomeKind(rawOutcome),
+    kind: outcome.get,
   )
