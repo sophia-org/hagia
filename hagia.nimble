@@ -13,6 +13,9 @@ requires "nimkdl >= 2.1.0"
 task layout, "Check the data-oriented layout of the source tree":
   exec "sh tools/check_data_oriented_layout.sh"
 
+task pairing, "Run optional Hagia pairing against a pinned isolated Sophia overlay":
+  exec "sh tools/check_sophia_pairing.sh"
+
 task liveReload, "Rebuild and hand the running Hagia over to the new binary":
   exec "sh tools/live_reload.sh"
 

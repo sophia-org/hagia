@@ -42,6 +42,15 @@ the contributor/cross-repository gates in isolated worktrees. Claimed native
 presentation must come from its actual owner; synthetic completions remain
 development evidence. The director owns the paired gate and merge windows.
 
+Hagia-specific cross-project assertions belong here, not in Sophia's mandatory
+tests. `tools/sophia_pairing` is an optional gate over a pinned Sophia source
+revision plus a hashed test-only overlay in an isolated checkout. It retains
+private Session-owner access without a public production test API. Evidence
+must name both the base and overlay, refuse missing/zero tests, and pin the
+normal Hagia executable. `nimble test` and product builds do not depend on this
+optional owner-level fixture. Generic protocol, reducer, admission and backend
+controls remain Sophia-owned.
+
 ## Connections
 
 - [Independent client checkpoint](../investigations/uof7k0rr-independent-hagia-9p-client-bounds-request-and-reply-custody.md)

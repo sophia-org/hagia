@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "sophia_commit": "0319356db2671f7af3da3bcfaa2300ded3d553a4",
+  "mount_sha256": "3a2420ce64de9f58e92cd72c8ddf9bd4fd5ec07857c825e89189fe8262390dbe",
+  "qid_mount_sha256": "e04f15887f5cf087fec2cc6008ca57dc71e76c6e0871be1915cf4b8057f03bac",
+  "session_manifest_sha256": "370afb99ab3d151ff10d6a4ec40b56fe36419d97b464a2a6050a4ded4e6b79b0",
+  "cargo_lock_sha256": "7aec99a8bd3f804b36286e7a3bf7923da10896a70e42e617cc7be76cc8eaf899",
+  "hagia_source": "7455c3edd713770ed43630d0989073d2f14ba623",
+  "hagia_sha256": "0419e09e224676c4d925438f80b22df9532c1653ec339507637edbe01ea52f5f"
+}
