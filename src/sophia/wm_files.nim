@@ -156,8 +156,10 @@ proc decodeRecord*(bytes: openArray[byte], expected: WmFileClass): WmFileHeader 
   ## `bytes.toOpenArray(wmFileHeaderBytes, bytes.high)`; a `bytes[a .. b]`
   ## slice would copy it. Fragment assembly and admitted-epoch matching belong
   ## to the file owner.
+  # Compared as uint32: the length is already within 1 MiB, and converting the
+  # peer's value first could fail a range check on a 32-bit target.
   if bytes.len < wmFileHeaderBytes or bytes.len > wmFileMaxBytes or
-      int(bytes.readU32(0)) != bytes.len:
+      bytes.readU32(0) != uint32(bytes.len):
     fail(WmFileErrorKind.length, "WM file record length is inconsistent")
   if bytes.readU16(4) != wmFileApiVersion:
     fail(WmFileErrorKind.version, "unsupported WM file version")
@@ -214,9 +216,13 @@ proc decodeSections*(bytes: openArray[byte], count: uint16): seq[WmFileSectionVi
     if bytes.readU16(offset + 2) != 0 or bytes.readU32(offset + 12) != 0:
       fail(WmFileErrorKind.reserved, "WM file section reserved field is nonzero")
     let rows = bytes.readU32(offset + 4)
-    let size = int(bytes.readU32(offset + 8))
-    if rows == 0 or size == 0 or size > bytes.len - offset - wmFileSectionHeaderBytes:
+    let rawSize = bytes.readU32(offset + 8)
+    let remaining = bytes.len - offset - wmFileSectionHeaderBytes
+    # The peer's size is bounded by what remains (at most 1 MiB) before it is
+    # converted, so a 32-bit target raises WmFileError, not a range defect.
+    if rows == 0 or rawSize == 0 or rawSize > uint32(remaining):
       fail(WmFileErrorKind.length, "WM file section length is inconsistent")
+    let size = int(rawSize)
     result.add(
       WmFileSectionView(
         kind: kind, count: rows, offset: offset + wmFileSectionHeaderBytes, length: size
@@ -230,8 +236,8 @@ proc decodeSections*(bytes: openArray[byte], count: uint16): seq[WmFileSectionVi
 proc validateSubmit(submit: WmFileSubmit) =
   if submit.connectionEpoch == 0 or submit.submissionId == 0:
     fail(WmFileErrorKind.identity, "WM file submit identity is null")
-  if int(submit.candidateBytes) < wmFileHeaderBytes or
-      int(submit.candidateBytes) > wmFileMaxBytes:
+  if submit.candidateBytes < uint32(wmFileHeaderBytes) or
+      submit.candidateBytes > uint32(wmFileMaxBytes):
     fail(WmFileErrorKind.length, "WM file submit names an impossible candidate")
 
 proc encodeSubmit*(submit: WmFileSubmit): seq[byte] =
