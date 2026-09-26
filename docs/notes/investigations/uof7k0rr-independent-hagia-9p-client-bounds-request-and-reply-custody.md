@@ -408,7 +408,8 @@ session or output transport changed here.
 
 ## Explicit executable endpoint selection
 
-The `protocol/h006-runtime-selection` checkpoint adds an explicit resolver and
+Signed `7455c3edd713770ed43630d0989073d2f14ba623` on
+`protocol/h006-runtime-selection` adds an explicit resolver and
 a thin path wrapper around the supplied-socket file wire. Current IPC remains
 the default. `SOPHIA_WM_9P_SOCKET` or `--9p-socket` selects only the file WM;
 dual selection refuses even when an explicit override is empty. The legacy
@@ -433,6 +434,14 @@ closing the test peer. This is entrypoint evidence, not a completed role
 exchange. Logs, probe source and binaries are retained under
 `.artifacts/h006-endpoint`. Formatting, layout and diff checks pass.
 
+The verified 17-file bundle is
+`~/.local/state/hagia/development-evidence/h006-endpoint-7455c3e`, manifest
+`09ed732136b5db42898114d878857d34df681b84df3df8c03a50d07cde84bc05`.
+It includes the frozen normal executable, SHA256
+`0419e09e224676c4d925438f80b22df9532c1653ec339507637edbe01ea52f5f`,
+for the next protected Session pair. This executable runs the production loop;
+it is distinct from the earlier scripted peer.
+
 The file path intentionally rejects invalid settings earlier than current
 IPC. A read-only trace of Sophia's paired production selection found that,
 after protected launch succeeds, initial activation waits only for worker
@@ -448,6 +457,27 @@ not newly reproduced Session timing controls.
 The output role remains current IPC. No installed session, default selection,
 Engine settlement or physical acceptance is changed or claimed here. The
 independent production-loop/Session pair and full WM milestone remain open.
+
+## Contributor gate on the executable-selection checkpoint
+
+`nimble verify` passes on exact clean, signed Hagia `7455c3e` and Sophia
+`b43e4ef071bf919ed5fec6cd9d1034ce7f7a6644`. Start/end identities match. The
+device-hidden run used serial Nim targets, two Cargo jobs, nice 19 and two TLC
+workers. It reports 457 Nim checks, the existing eleven-scenario revision-3
+behavior corpus and paired profile, pointer-focus, presentation and launch
+controls. Eight Alloy checks are unsatisfiable, Z3 matches its expected
+results, and all four existing TLC checks pass. These remain the existing
+models and legacy paired contracts; this is not new 9P formal verification or
+full WM file-role acceptance. Logs and source identities are preserved in
+`~/.local/state/hagia/development-evidence/h006-verify-7455c3e-b43e4ef0`.
+
+The independent review also found a file-only cross-side mismatch still open
+at that exact Sophia commit: a failed session-action projection can carry a
+true operation-expectation flag although its driver will not wait for an
+operation. Hagia correctly refuses that contradiction before settlement. The
+separate Session fix will qualify the emitted flag by a committed outcome;
+the file contract and Hagia's check stay unchanged. The next paired fixture
+must prove continuation after a failed action, not merely pass a happy path.
 
 ## Connections
 
