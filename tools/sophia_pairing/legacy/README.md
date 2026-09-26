@@ -34,7 +34,7 @@ Each command runs in the overlaid checkout, with `SOPHIA_HAGIA_BIN` set to the b
   The listing must contain `pointer_focus_hagia::hagia_pointer_focus_real_socket_commits_rejects_and_retries` and `pointer_focus_hagia::hagia_pointer_focus_old_server_reports_the_setting_before_admission`.
 - Presentation:
   `cargo test --offline -q -p sophia-runtime --test policy_transport presentation_hagia`.
-  The listing must contain the five `presentation_hagia::hagia_*` cases (without presentation actions; overview publishes; timeout retains; revoked closes; reconnect starts closed). `hagia_overview_old_epoch_identity_is_refused_after_reconnect` also runs under this filter, but the original gate did not name it.
+  The listing must contain the five `presentation_hagia::hagia_*` cases (without presentation actions; overview publishes; timeout retains; revoked closes; reconnect starts closed). `hagia_overview_old_epoch_identity_is_refused_after_reconnect` is also listed under this filter but is `#[ignore]` (boundary-only: the reducer alone has no epoch authority), so it is not executed or passed; it stays ignored and is recorded as that boundary, not run with `--ignored` as a reducer-only control.
 - Launch origin:
   `cargo test --offline -q -p sophia-session --features native-session --lib launch_origin_socket`.
   The listing must contain `hagia_launch_origin::hagia_real_x_child_origin_survives_monitor_switch_and_rejection`. `hagia_launch_origin::hagia_output_bookmark_places_empty_output_after_focus_switch_and_rejected_cycle` stays `#[ignore]` and needs `-- --ignored` to run.
@@ -48,4 +48,4 @@ Each command runs in the overlaid checkout, with `SOPHIA_HAGIA_BIN` set to the b
 - The presentation receipts are explicit transport fixtures, not evidence of an actual presented frame. Completion from retired frames belongs to Session.
 - Pointer focus and presentation drive `PolicyWmSessionTransport` against the Engine reducer, not Session's live owner loop.
 - Launch origin uses a real X child and Sophia's production admission policy. The Hagia client runs over current IPC with a focus-follows-mouse profile.
-- The two-output targeted click case and the output bookmark case stay `#[ignore]`. The partial pointer projection case skips without `SOPHIA_HAGIA_BIN`.
+- The two-output targeted click case and the output bookmark case stay `#[ignore]` and run explicitly with `-- --ignored` and the supplied binary. The old-epoch overview case also stays `#[ignore]`, but it is a recorded boundary, not an explicit run. The partial pointer projection case skips without `SOPHIA_HAGIA_BIN`.
