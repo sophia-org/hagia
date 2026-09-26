@@ -256,6 +256,56 @@ production endpoint/default selection, or output-role migration is claimed.
 The startup/complete adapter remains on Sophia's topic branch; WM migration and
 h006 are still open.
 
+## Independent pair and contributor gate at 586b9a4
+
+The frozen peer built from signed Hagia
+`586b9a4dce3d766127b575720718339cb6ac6071` subsequently passed both required
+startup and cycle fixtures against signed Sophia `99601a30`. Its SHA256 is
+`aa6922d1f65157fedb1c304906afefe7a396a11cd7880ba0e1b0359aaea6ce66`.
+Both child processes exited zero, with pass records and empty stderr. The
+17/23/37-byte fragments exercise the actual independent client and Sophia
+reactor; decoded proposal assertions check epoch, transaction, request and
+scene identities, output coverage, focus, placement, and state generation.
+The shared profile reducer uses the independently fixed generation and digest.
+Semantic outcomes and the presentation receipt remain scripted: this is not
+Engine settlement or native presentation evidence.
+
+Sophia's test-only follow-up `334b5d55`, joined as `c4a8ee921`, additionally
+checks the accepted socket's SO_PEERCRED PID against the spawned child. Both
+cases pass again; the observed namespace PIDs are 301 and 298, with UID 1000.
+The evidence explicitly describes path hashing before and after execution,
+`descriptor_pinned_exec=false`, and `hash_then_exec_window=true`. It does not
+claim protection-domain launch admission.
+
+The independently verified Sophia bundles are under
+`~/.local/state/sophia/development-evidence/`:
+
+- `t249-peer-99601a30-586b9a4`, manifest SHA256
+  `34967dea1e5f5a212227bf9b9e715ead25ec67b7f611454c36249289ba8331e9`;
+- `t249-peer-credentials-334b5d55`, manifest SHA256
+  `155b45d58a5adffdcf7349070f1b0fbfa39c98ed8fd63922bf4be6001c78f7b0`.
+
+The full `nimble verify` contributor gate then passed on clean, unchanged,
+signed Hagia `586b9a4` and Sophia
+`c4a8ee921449047aaded196bca1593e328e20e6f`. The device-hidden run used two
+build jobs, nice 19, and two TLC workers. It includes 415 Nim test successes,
+the eleven-scenario revision-3 policy behavior corpus, the existing Alloy and
+Z3 checks, and all four existing TLC configurations: startup-trace, lifecycle,
+partial-prepare, and stale-completion. These model results concern their
+existing lifecycle specifications; they do not formally verify the new file
+transport. No live or physical gate ran.
+
+The verified 32-file bundle
+`~/.local/state/hagia/development-evidence/h006-verify-586b9a4-c4a8ee92`
+retains the complete log, invocation and isolation wrapper, start/end source
+identities, toolchain, and all 21 Nim executable artifacts copied before the
+gate's temporary directory was removed. Its manifest SHA256 is
+`1310e77616f322c836971334e0881e5faa6817cab6b9bc0039c289686b8937ce`.
+The ongoing PolicyWire extraction and protected-endpoint constructor are on
+separate worktrees and are not covered by this run. The production Hagia file
+loop, launch selection, real Session settlement, and full WM acceptance remain
+outstanding; h006 stays open.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
