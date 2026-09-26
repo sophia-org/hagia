@@ -27,21 +27,6 @@ type PolicyClient = ref object
   readTimeoutMsec: int
   presentationReceipts: seq[PresentationReceipt]
 
-const
-  capabilityBindings = 1'u64 shl 0
-  capabilityActions = 1'u64 shl 1
-  capabilityMultiOutput = 1'u64 shl 2
-  capabilityPointerInteractions = 1'u64 shl 3
-  capabilityChrome = 1'u64 shl 4
-  capabilityPolicyDirty = 1'u64 shl 5
-  capabilityConfiguration = 1'u64 shl 6
-  capabilitySessionOperations = 1'u64 shl 7
-  capabilityIndicators = 1'u64 shl 8
-  capabilityProfileActivation = 1'u64 shl 9
-  capabilityTranslationGroups = 1'u64 shl 12
-  capabilityTabGroups = 1'u64 shl 11
-  capabilityLaunchPlacement = 1'u64 shl 10
-
 proc receiveRawFrame(client: PolicyClient): Frame =
   let header = client.socket.receiveExact(frameHeaderLen, client.readTimeoutMsec)
   let payloadLen = int(header.u32At(16))
