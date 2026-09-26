@@ -11,6 +11,12 @@ use wm_file_acceptance as acceptance;
 #[allow(dead_code)]
 #[path = "../src/legacy.rs"]
 mod legacy;
+#[allow(dead_code)]
+#[path = "../src/measurement.rs"]
+mod measurement;
+#[allow(dead_code)]
+#[path = "../src/measurement_run.rs"]
+mod measurement_run;
 
 #[test]
 fn absent_feature_or_filtered_owner_fixture_cannot_pass() {
@@ -63,6 +69,16 @@ fn incomplete_or_duplicate_test_listing_is_refused() {
     assert_eq!(
         wm_file_acceptance::required_tests(&listing).unwrap().len(),
         names.len()
+    );
+    let with_measurement = format!(
+        "{listing}{prefix}layout_settlement::drag_measurement::normal_hagia_session_drag_measurement: test\n"
+    );
+    let ordinary = wm_file_acceptance::required_tests(&with_measurement).unwrap();
+    assert_eq!(ordinary.len(), names.len());
+    assert!(
+        ordinary
+            .iter()
+            .all(|name| !name.contains("drag_measurement"))
     );
     assert!(wm_file_acceptance::required_tests(&format!("{listing}{listing}")).is_err());
     assert!(

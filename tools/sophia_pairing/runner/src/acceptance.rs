@@ -29,13 +29,14 @@ const REQUIRED: &[&str] = &[
 ];
 const LOG_LIMIT: u64 = 32 * 1024 * 1024;
 
-struct Options {
-    source: PathBuf,
-    binary: PathBuf,
-    sha256: String,
-    output: PathBuf,
-    target: PathBuf,
-    timeout: Duration,
+pub(crate) struct Options {
+    pub source: PathBuf,
+    pub binary: PathBuf,
+    pub sha256: String,
+    pub output: PathBuf,
+    pub target: PathBuf,
+    pub timeout: Duration,
+    pub measure: Option<String>,
 }
 
 /// A gate owns only its lock, never an existing caller's target contents.
@@ -113,6 +114,12 @@ pub fn run(cwd: &Path, args: &[String]) -> Result<Vec<String>, String> {
         result.as_ref().err().map(String::as_str),
     )?;
     result?;
+    if options.measure.is_some() {
+        return Ok(vec![format!(
+            "Hagia measurement campaign complete; see {}; no physical acceptance or full t249 claim",
+            options.output.join("measurement-report.json").display()
+        )]);
+    }
     Ok(vec![format!(
         "Hagia pairing: PASS; pinned Sophia base plus recorded test overlay; physical acceptance and performance not claimed; {}",
         options.output.join("report.json").display()
@@ -179,6 +186,9 @@ fn exercise(
         "--lib",
     ];
     let mut listing = session.to_vec();
+    if options.measure.as_deref() == Some("acceptance") {
+        listing.insert(1, "--release");
+    }
     listing.extend([PREFIX, "--", "--list", "--ignored"]);
     phase("required-list", "cargo", &listing, |text| {
         required_tests(text).map(|_| ())
@@ -196,6 +206,17 @@ fn exercise(
             .map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
+    if options.measure.is_some() {
+        return crate::measurement_run::exercise(
+            repo,
+            options,
+            deadline,
+            &test_binary,
+            &test_hash,
+            before,
+            phases,
+        );
+    }
     for (index, test) in tests.iter().enumerate() {
         let args = [
             test,
@@ -315,6 +336,7 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
             "--output",
             "--target-dir",
             "--timeout",
+            "--measure",
         ]
         .contains(&key)
             || value.is_empty()
@@ -352,13 +374,25 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
     {
         return Err("Hagia SHA256 must be 64 lowercase hexadecimal digits".into());
     }
+    let measurement_acceptance = values.get("--measure") == Some(&"acceptance");
     let seconds = values
         .get("--timeout")
-        .unwrap_or(&"3600")
+        .unwrap_or(if measurement_acceptance {
+            &"14400"
+        } else {
+            &"3600"
+        })
         .parse::<u64>()
         .map_err(|_| "invalid timeout")?;
-    if !(1..=7200).contains(&seconds) {
-        return Err("timeout must be 1..7200 seconds".into());
+    if !(1..=43200).contains(&seconds) {
+        return Err("timeout must be 1..43200 seconds".into());
+    }
+    // Eight conditions, five pairs, both wires: the paced updates alone
+    // consume 9999 seconds. Leave an explicit allowance for setup/drain.
+    if measurement_acceptance && seconds < 10_800 {
+        return Err(
+            "measurement acceptance needs --timeout>=10800 (schedule alone is 9999 seconds)".into(),
+        );
     }
     let output = path("--output")?;
     if output.exists() {
@@ -373,6 +407,16 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
         output,
         target: path("--target-dir")?,
         timeout: Duration::from_secs(seconds),
+        measure: values
+            .get("--measure")
+            .map(|mode| {
+                if ["smoke", "acceptance"].contains(mode) {
+                    Ok((*mode).to_owned())
+                } else {
+                    Err("--measure must be smoke or acceptance".to_owned())
+                }
+            })
+            .transpose()?,
     })
 }
 
@@ -383,6 +427,18 @@ fn stage(
     program: &str,
     args: &[&str],
     log: &Path,
+) -> Result<(), String> {
+    stage_with_env(repo, options, deadline, program, args, log, &[])
+}
+
+pub(crate) fn stage_with_env(
+    repo: &Path,
+    options: &Options,
+    deadline: Instant,
+    program: &str,
+    args: &[&str],
+    log: &Path,
+    environment: &[(&str, String)],
 ) -> Result<(), String> {
     let remaining = deadline
         .checked_duration_since(Instant::now())
@@ -454,6 +510,9 @@ fn stage(
     ] {
         command.env_remove(name);
     }
+    for (name, value) in environment {
+        command.env(name, value);
+    }
     let status = command
         .status()
         .map_err(|e| format!("start isolated phase: {e}"))?;
@@ -490,7 +549,10 @@ pub(crate) fn required_tests(list: &str) -> Result<Vec<String>, String> {
             ));
         }
     }
-    Ok(tests.into_iter().collect())
+    Ok(tests
+        .into_iter()
+        .filter(|name| REQUIRED.contains(&name.rsplit("::").next().unwrap_or("")))
+        .collect())
 }
 
 pub(crate) fn require_exactly_one(log: &str) -> Result<(), String> {

@@ -93,3 +93,61 @@ For captured WM records, the pinned Sophia source also supplies the WM-neutral
 bounded contiguous event capture with explicitly supplied epoch/capabilities.
 It opens no live endpoint and acknowledges nothing; it is separate from this
 Hagia-specific acceptance runner. Sophia's `sophia-wm-files.md` documents usage.
+
+## Session drag measurements
+
+The same isolated overlay can run a separate measurement campaign. Append
+`--measure=smoke` for 16 offered updates per run, or
+`--measure=acceptance --timeout=14400` for the preregistered latency gate.
+The normal owner/legacy acceptance cases are separate from this mode; their
+presence is checked by the same required listing. The timing test is ignored
+and requires explicit workload inputs, so normal pairing does not run it.
+
+Both modes cover move and resize at 60 and 120 Hz, idle and with two recorded
+CPU workers. Smoke has one IPC/files pair per condition. Acceptance has five
+pairs, alternating which wire runs first, and requires at least 10,000 admitted
+updates per run. Acceptance builds the Session fixture in release mode; smoke
+uses the debug test build. The frozen normal Hagia is identical throughout.
+The paced acceptance schedule alone is 9,999 seconds; an acceptance timeout
+below 10,800 seconds is refused before creating a scratch checkout. The outer
+deadline covers all isolated phases without renewal. CPU workers share each
+case's device-hidden PID namespace and end with that case.
+
+Timing begins immediately before Session's real interaction enqueue and ends
+after its actual layout result is applied. Proposals pass unchanged through
+the existing layout owners. The fixture supplies historical managed state,
+frontend acknowledgements and CPU size observations; there is no actual X
+client, backend frame, native retirement or whole-owner-loop claim. Setup,
+Begin and End are untimed. Normal checkpoint writes and fsync remain enabled;
+their pressure on subsequent work is retained. Polling is bounded to 100 us
+sleeps; CPU affinity, process niceness and the load recipe are recorded.
+
+Every elapsed schedule slot is offered. The report distinguishes enqueue
+refusal, accepted replacement of a queued update, successful settlement,
+semantic rejection, actual timeout, disconnect and unresolved measurement
+work. Replaced updates have no invented settlement timestamp. A measurement
+deadline is not a WM timeout. Request and domain-transaction identities remain
+separate. A caught assertion saves partial raw accounting before rethrowing;
+inconsistent partial counters are preserved and refused, never repaired.
+
+`measurement-manifest.json` binds the source overlay, executable, workload,
+machine description, each capture and each CPU-load record. The runner executes
+the listed/hash-checked test binary directly. Failed cases retain their logs,
+post-run binary identity and available partial capture. As elsewhere, path
+hashing is not descriptor-pinned execution or authentication of the producer.
+
+`measurement-report.json` reports nearest-rank p50/p95/p99/max and enqueue
+lateness. Each pair must satisfy Sophia's existing p95 +1 ms, p99 +2 ms and
+one-update-interval p99 budgets, with no failed work. Comparing different
+survivor updates is refused: extra coalescing cannot masquerade as lower
+latency. Counters and raw samples remain available on refusal. Re-evaluate
+captured evidence without launching anything:
+
+```sh
+hagia-sophia-pairing --report-measurements=/absolute/evidence/measurement-manifest.json
+```
+
+Smoke always records `latency_gate_pass=false`, even when its sampled budgets
+pass. This control-path gate does not measure input-to-photon latency, grant
+physical acceptance, or complete t249's other CPU/allocation/copy/wakeup/round-trip
+and lifecycle requirements. The separately scoped daily-driver gate remains.

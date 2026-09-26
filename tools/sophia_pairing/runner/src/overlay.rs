@@ -16,6 +16,10 @@ const MOUNT_TEXT: &str = "\n// Optional Hagia-owned pairing overlay; absent from
 const QID_TEXT: &str = "\n#[path = \"../../../tests/support/external_wm_acceptance/policy_file_qid_observation.rs\"]\npub(in crate::live_session) mod qid_observation;\n";
 const FIXTURES: &[(&str, &str)] = &[
     (
+        "policy_hagia_drag_measurement.rs",
+        include_str!("../../fixtures/policy_hagia_drag_measurement.rs"),
+    ),
+    (
         "policy_hagia_session.rs",
         include_str!("../../fixtures/policy_hagia_session.rs"),
     ),

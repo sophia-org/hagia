@@ -14,6 +14,9 @@ mod operation_join;
 #[path = "policy_hagia_recovery.rs"]
 mod recovery_join;
 
+#[path = "policy_hagia_drag_measurement.rs"]
+mod drag_measurement;
+
 const SURFACE: SurfaceId = SurfaceId::new(3, 1);
 
 fn retain_existing_surface(layout: &mut PersistentLiveLayout) {

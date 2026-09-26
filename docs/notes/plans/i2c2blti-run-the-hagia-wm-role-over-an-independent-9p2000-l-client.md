@@ -53,6 +53,7 @@ controls remain Sophia-owned.
 
 ## Connections
 
+- [Session drag accounting and measurement evidence](../investigations/tzz6apym-session-drag-measurements-retain-admission-and-settlement-accounting.md).
 - [Optional external acceptance ownership and evidence](../investigations/aoivl2yn-hagia-specific-acceptance-lives-in-an-optional-source-pinned-pairing-overlay.md).
 - [Independent client checkpoint](../investigations/uof7k0rr-independent-hagia-9p-client-bounds-request-and-reply-custody.md)
   records the transport-only controls and remaining role integration.
