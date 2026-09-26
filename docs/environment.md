@@ -1,8 +1,8 @@
 # Environment
 
-Every environment variable Hagia reads, what it does, and who sets it. Four of
-them are set for you by Sophia in an installed session; the rest are yours, and
-most exist for development and debugging.
+Every environment variable Hagia reads, what it does, and who sets it. Sophia
+sets the selected endpoint and profile/checkpoint paths in an installed session;
+the remaining variables primarily support development and debugging.
 
 ## Set by Sophia in an installed session
 
@@ -14,10 +14,34 @@ development sometimes needs one.
 
 | Variable | Meaning |
 | --- | --- |
-| `SOPHIA_WM_SOCKET` | Path to the session-owned policy socket. Hagia connects; it never creates or owns this endpoint. Required — `--socket=PATH` is the standalone equivalent. |
+| `SOPHIA_WM_SOCKET` | Path to the session-owned current-IPC policy socket. Hagia connects; it never creates or owns this endpoint. `--socket=PATH` is the standalone equivalent. |
+| `SOPHIA_WM_9P_SOCKET` | Path to the session-owned direct 9P2000.L WM file socket. `--9p-socket=PATH` is the standalone equivalent. This selects only the WM role; output transport remains current IPC. |
 | `HAGIA_POLICY_CANDIDATE` | Path to the policy authority slice Sophia has already staged and validated. When set, it replaces profile discovery entirely, and passing `--config` as well is refused. |
 | `HAGIA_POLICY_CHECKPOINT` | Path to the private policy checkpoint. Written atomically after every committed cycle, owner-only, bounded. Unset disables checkpointing, which also disables `SIGHUP` reload. |
 | `HAGIA_POLICY_PROFILE_ACTIVATION` | Empty runs an ordinary session. `required` runs the profile-activated path and demands `HAGIA_POLICY_CANDIDATE`. Any other value is a startup error. |
+
+Exactly one WM endpoint must be selected. A command-line socket path overrides
+only the environment variable for that same transport. Selecting both
+transports refuses before connecting, including mixed environment/command-line
+selection. An empty explicit path refuses instead of restoring the environment
+path. Hagia never detects the transport from incoming bytes or retries with the
+other protocol after failure. Offline config, replay and checkpoint commands
+ignore socket selection variables and do not open either endpoint.
+
+Sophia keeps current IPC as its default. The matching development Session
+selects files explicitly with `--wm-transport=9p2000.L`; protocol negotiation
+alone does not authorize a switch. Both Hagia paths share the profile handoff,
+policy settlement, receipt application and checkpoint owners. Full file-role
+acceptance remains open; no installed session is changed by this selection API.
+
+The file path validates candidate settings before connecting. This differs from
+current IPC's later settings validation. In the paired Session implementation,
+a child that exits after protected launch but before connecting normally leaves
+the initial five-second worker admission wait to expire. Session reports
+`policy profile admission timed out`, then rejects and rolls back startup; it
+does not report a profile-completion rejection or fall back to current IPC.
+Accept cancellation and endpoint cleanup use the existing worker and supervisor
+owners. The supervisor's reap loop is not a hard total cleanup deadline.
 
 ## Configuration discovery
 

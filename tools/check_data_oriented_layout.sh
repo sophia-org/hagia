@@ -31,8 +31,17 @@ allowed_public_type() {
     src/sophia/wm_v1.nim:PolicyProtocolErrorKind) return 0 ;;
     src/runtime/effect_executor.nim:RuntimeEffectHandler) return 0 ;;
     src/runtime/effect_executor.nim:RuntimeEffectExecutor) return 0 ;;
+    # The policy loop's injected transport: closures over one admitted
+    # connection, not passive data, like the runtime effect executor.
+    src/sophia/policy_wire.nim:PolicyWire) return 0 ;;
     src/sophia/policy_adapter.nim:PolicyAdapter) return 0 ;;
     src/sophia/policy_session.nim:PolicySession) return 0 ;;
+    # Socket/tag custody is private; exporting it as passive data permits
+    # callers to reuse live tags or bypass version/teardown checks.
+    src/ninep/client.nim:NinepClient) return 0 ;;
+    # Classifies the envelope's own WmFileError; it is raised only there, and
+    # each kind matches one of Sophia's WmFileCodecError refusals.
+    src/sophia/wm_files.nim:WmFileErrorKind) return 0 ;;
     esac
     return 1
 }

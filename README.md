@@ -17,12 +17,20 @@ if you're building a window manager, this repository is the one to copy from.
 
 ## What It Does
 
-Hagia independently implements the `sophia_wm_v1` wire in Nim — no Sophia,
+Hagia independently implements the current `sophia_wm_v1` wire and the
+development `sophia_wm_fs_v1` role over direct 9P2000.L in Nim — no Sophia,
 Wayland, River, or Triad library anywhere in the build. It connects to the
-session-owned `SOPHIA_WM_SOCKET`, assembles complete snapshots, reconciles
+explicitly selected Session-owned socket, assembles complete snapshots, reconciles
 them into stable logical entities, and answers each projection request with a
 complete, deterministic layout. Sophia keeps scene truth, input, rendering,
 validation, atomic commit, supervision, and scanout; Hagia only ever proposes.
+
+Current IPC remains the default. The file path uses `SOPHIA_WM_9P_SOCKET`
+instead of `SOPHIA_WM_SOCKET`; dual selection refuses, and there is no automatic
+fallback. Both wires share the same profile handoff and policy loop. This is a
+WM-only migration; output transport remains current IPC, and full file-role
+acceptance is still open. See [the environment contract](docs/environment.md)
+for the explicit development options.
 
 The policy surface: stable logical IDs, nine shared tag slots with
 output-local views, deterministic fixed-point scrolling columns, atomic

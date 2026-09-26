@@ -1,13 +1,15 @@
 import std/[options, os, strutils]
 
-import config/[migration, profile]
-import types/config_values
+import config/[migration, policy_endpoint, profile]
+import types/[config_values, policy_endpoint]
 import types/observability
 import observability
 import types/session
 import
-  sophia/
-    [policy_adapter, policy_checkpoint, policy_client, policy_session, policy_trace]
+  sophia/[
+    policy_adapter, policy_checkpoint, policy_client, policy_session, policy_trace,
+    wm_file_client,
+  ]
 
 proc option(arguments: openArray[string], name: string): string =
   let prefix = "--" & name & "="
@@ -18,7 +20,8 @@ proc option(arguments: openArray[string], name: string): string =
 const usage = """hagia — reference window manager for the Sophia display server
 
 usage:
-  hagia [--socket=PATH] [--config=PATH]   run the policy session
+  hagia [--socket=PATH | --9p-socket=PATH] [--config=PATH]
+                                          run the selected policy session
   hagia config check [--config=PATH]      validate a desktop profile
   hagia config init [--config=PATH]       seed the default profile, never
                                           overwriting an existing one
@@ -35,7 +38,8 @@ signals:
   SIGUSR1  write the committed model to $HAGIA_POLICY_DUMP
 
 common environment:
-  SOPHIA_WM_SOCKET          session-owned policy socket (Sophia sets this)
+  SOPHIA_WM_SOCKET          session-owned current IPC policy socket
+  SOPHIA_WM_9P_SOCKET       session-owned 9P WM socket; exclusive with current IPC
   HAGIA_POLICY_CHECKPOINT   private checkpoint path (Sophia sets this)
   HAGIA_LOG_LEVEL           debug | info | warn | error, default info
   HAGIA_EVIDENCE_NDJSON     absolute path for the evidence stream
@@ -138,14 +142,10 @@ proc run(arguments: seq[string]) =
     stdout.writeLine("replayed cycles=" & $cycle)
     return
 
-  var socketPath = getEnv("SOPHIA_WM_SOCKET")
+  let endpoint = selectPolicyEndpoint(
+    arguments, getEnv("SOPHIA_WM_SOCKET"), getEnv("SOPHIA_WM_9P_SOCKET")
+  )
   let explicitConfig = arguments.option("config")
-  for argument in arguments:
-    if argument.startsWith("--socket="):
-      socketPath = argument[9 .. ^1]
-    elif not argument.startsWith("--config="):
-      raise
-        newException(ValueError, "unknown option " & argument & "; try hagia --help")
   let candidatePath = getEnv("HAGIA_POLICY_CANDIDATE")
   if candidatePath.len > 0 and explicitConfig.len > 0:
     raise newException(
@@ -168,22 +168,30 @@ proc run(arguments: seq[string]) =
       digest: candidate.digest,
     )
   )
-  if socketPath.len == 0:
-    raise newException(ValueError, "hagia: SOPHIA_WM_SOCKET or --socket is required")
+  endpoint.requirePolicyEndpoint()
+  var profileActivation = false
   case getEnv("HAGIA_POLICY_PROFILE_ACTIVATION")
   of "":
-    runPolicySession(socketPath, candidate)
+    discard
   of "required":
     if candidatePath.len == 0:
       raise newException(
         ValueError,
         "hagia: profile activation requires Sophia's staged policy candidate",
       )
-    runProfileActivatedPolicySession(socketPath, candidate)
+    profileActivation = true
   else:
     raise newException(
       ValueError, "hagia: HAGIA_POLICY_PROFILE_ACTIVATION must be empty or required"
     )
+  case endpoint.kind
+  of PolicyEndpointKind.currentIpc:
+    if profileActivation:
+      runProfileActivatedPolicySession(endpoint.path, candidate)
+    else:
+      runPolicySession(endpoint.path, candidate)
+  of PolicyEndpointKind.wmFiles:
+    runFilePolicySession(endpoint.path, candidate, profileActivation)
 
 try:
   run(commandLineParams())

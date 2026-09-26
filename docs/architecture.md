@@ -61,9 +61,30 @@ and [DRY principles](dry-principles.md).
 - `src/runtime/effect_executor.nim` executes injected outer I/O and returns typed
   completion messages.
 - `src/config` discovers, expands, partitions, stages, and migrates desktop profiles.
+- `src/config/policy_endpoint.nim` resolves the explicit WM socket selection
+  without connecting. Dual transport selection refuses; failures never select
+  another wire.
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
+- `src/sophia/wm_files.nim` implements the independent WM file envelope:
+  header classes, row sections, submit and ack. Body semantics sit above it.
+- `src/sophia/wm_file_payload.nim` holds the strict-file checks every typed body
+  shares: exact kind and admitted epoch, sizes, reserved bytes, capabilities.
+- `src/sophia/wm_file_bodies.nim` encodes and decodes the scalar and admission
+  bodies, split into admission, cycle and control owners.
+- `src/sophia/policy_semantics.nim` holds the typed predicates and outcome codes
+  both the file bodies and the legacy decoders use.
+- `src/sophia/wm_file_arrays.nim` decodes complete file snapshots and encodes
+  configuration and projection candidates through shared fixed row codecs.
+  Projection sections have complete per-kind bounds, with no legacy chunk
+  ordinals or frame envelopes. Optional translation and launch hints are
+  omitted when unselected; tabs, indicators and action-bearing presentations
+  refuse when their capabilities are absent. A passive presentation needs
+  `SURFACE_INSTANCES` alone on the file path. Candidate placement identities
+  are validated before encoding; final scene authority stays with Sophia.
+  `policy_snapshot.nim` owns complete snapshot
+  validation, with explicit legacy identity exceptions at its old entry point.
 - Shell surface policy is not in this repository. It belongs to Narthex, a
   separate client that receives sanitized descriptors and never learns surface
   identifiers, coordinates, or icons.
@@ -73,10 +94,25 @@ and [DRY principles](dry-principles.md).
   projections that Sophia explicitly commits.
 - `src/sophia/policy_checkpoint.nim` validates and atomically replaces the
   optional private session checkpoint.
-- `src/sophia/policy_client.nim` owns bounded transport sequencing only.
+- `src/sophia/policy_client.nim` owns the current IPC wire: bounded frame
+  sequencing, refusals and timeouts, offered to the loop as a `PolicyWire`.
+- `src/sophia/policy_loop.nim` runs profile activation and settled cycles over
+  any `PolicyWire`; `policy_wire.nim` defines that typed boundary.
+- `src/sophia/wm_file_wire.nim` offers the WM file role on a supplied socket as a
+  `PolicyWire`. It keeps fids, event and submission counters, one bounded event
+  assembly, at most one held event and bounded receipts in
+  `types/wm_file_wire.nim`; phase stays with `PolicySession`, the profile
+  reducer and Sophia. It always configures, so it serves the configured and
+  activated loops only. A refused submit services receipts and retries within
+  one candidate deadline; admission, candidates, profile waits, started events
+  and object reads each have one absolute deadline that nothing renews.
+- `src/sophia/wm_file_client.nim` connects the explicitly selected file endpoint
+  and runs that same loop.
 
-The adapter exposes a snapshot to policy only after the complete begin/chunk/end
-transfer settles. A projection completely replaces every affected output.
+The adapter exposes a snapshot to policy only after the complete current-IPC
+begin/chunk/end transfer or immutable file object validates. The file reader
+pins the opened object to its Cycle identity; file fragments do not enter the
+policy model. A projection completely replaces every affected output.
 Rejected or interrupted work is discarded before it can mutate Hagia's last
 committed model or the Engine-owned scene.
 

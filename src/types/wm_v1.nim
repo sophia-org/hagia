@@ -170,6 +170,23 @@ type
     presentationBits*: uint16
 
 const
+  ## Negotiated capability bits, one owner for every Hagia codec and client.
+  ## Values are the wire's; the bits declared further below are the same
+  ## family, kept beside the records they gate.
+  capabilityBindings* = 1'u64 shl 0
+  capabilityActions* = 1'u64 shl 1
+  capabilityMultiOutput* = 1'u64 shl 2
+  capabilityPointerInteractions* = 1'u64 shl 3
+  capabilityChrome* = 1'u64 shl 4
+  capabilityPolicyDirty* = 1'u64 shl 5
+  capabilityConfiguration* = 1'u64 shl 6
+  capabilitySessionOperations* = 1'u64 shl 7
+  capabilityIndicators* = 1'u64 shl 8
+  capabilityProfileActivation* = 1'u64 shl 9
+  capabilityLaunchPlacement* = 1'u64 shl 10
+  capabilityTabGroups* = 1'u64 shl 11
+  capabilityTranslationGroups* = 1'u64 shl 12
+
   ## Optional capability: launch origin. Hagia publishes an opaque context
   ## token for each live managed window it could place a launch against, and
   ## Sophia echoes the one it froze when a child connected. Negotiated whenever
@@ -197,6 +214,18 @@ const
   projectionOutputLaunchContextRecordKind* = 0xFF08'u16
   outputLaunchContextSize* = 32
   surfaceFocusable* = 1'u16 shl 2
+  snapshotSurfaceCapabilityMask* = 0x1f'u16
+  snapshotSessionOperationTargetMask* = 1'u16
+  projectionTabGroupRecordKind* = 0xff01'u16
+  projectionTabMemberRecordKind* = 0xff02'u16
+  projectionTranslationGroupRecordKind* = 0xff03'u16
+  projectionTranslationMemberRecordKind* = 0xff04'u16
+  projectionTabGroupSize* = 48
+  projectionTabMemberSize* = 24
+  projectionTranslationGroupSize* = 32
+  projectionTranslationMemberSize* = 24
+  maxTabGroups* = 1024
+  maxTabMembers* = 2048
 
   frameHeaderLen* = 24
   maxPayloadLen* = 65536
