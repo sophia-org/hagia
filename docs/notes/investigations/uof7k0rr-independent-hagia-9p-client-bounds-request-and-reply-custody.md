@@ -587,6 +587,41 @@ and frontend ACKs are supplied; no actual X client, HeadlessEngine surface
 prepare/apply, native retirement, output bootstrap or presentation receipt is
 claimed. Full WM behavior parity and retirement criteria remain open.
 
+## Managed-baseline correction and transport parity
+
+Sophia's separate signed `7f7bd745f` correction, joined as `b4ec35467`, uses
+the complete Session admission transition with an explicitly supplied historical
+candidate. Both admission owners agree on Managed; planning/unmanaged membership,
+standing target and admission recovery extent are absent. Managed expiry now
+asserts exactly one routed rollback configure to the retained geometry and an
+outstanding rollback. Signed `267c03dc` additionally states that no rollback ACK
+or pixels are supplied before continuation: rollback is issued, not completed.
+The corrected pair passes 3/0; the repeated P1 negative fails with the intended
+Hagia refusal in 0.28 seconds, and the exact restored pair passes. Direct support
+formatting, strict Session checks and layout pass. The verified 40-file bundle
+`t249-hagia-f1-7f7bd745` has manifest
+`7cb9de92fbeccfcf1967af71341b7079a65e8256d498e3dc57e04fbe69e47e6f`.
+
+Signed Sophia `3c69de60cd433f95e1a6c4115286f727010a48b3` then runs both
+settlement workloads through current IPC and direct files using that same
+normal Hagia binary and the production protected factories. The file helper
+remains compatible; transport selection changes only the chosen endpoint.
+Exact comparison includes selected capabilities, the full accepted configuration,
+typed proposals and settlement identities, layout outcomes, retained layers,
+rollback shape/pending state and checkpoint bytes. Neither case restores a
+checkpoint or submits Dirty, so no identity normalization is required.
+
+The parity comparison and retained controls pass 4/0 in 3.16 seconds. Both
+transports produce checkpoint SHA256
+`91f3b477708f3e7bdc6749e9d05fb1205c55c16fddfc7b4e6d21136febb7fe8f`.
+Strict Session checks, freshly built worktree layout and direct formatting pass.
+The verified 49-file bundle is
+`~/.local/state/sophia/development-evidence/t249-parity-3c69de60`, manifest
+`b3601e7fe6dcbe4e9679b5c32e6c4cd0cf9113fc493bb10d1539e893b184360f`.
+This establishes settlement parity for two workloads, with the supplied-history,
+frontend ACK and unanswered-rollback limits above. Full WM feature parity,
+actual Engine/backend joins, performance and native acceptance remain separate.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
