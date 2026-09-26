@@ -533,6 +533,60 @@ The verified eleven-file bundle is
 The signed source bundle, exact reds/greens, invocation scripts and evidence
 qualifications are retained there.
 
+## Real Session layout settlement and failed-action continuation
+
+Sophia's signed test-only `7236b47883ea179f918a6b137d4991d11a5663e3`,
+joined as `8fc19139e`, extends the protected normal-Hagia fixture with committed
+and timed-out held resizes. It uses the same frozen `7455c3e` executable.
+Hagia's complete proposals pass unchanged through Session staging. The initial
+managed admission, retained CPU image and route are supplied historical facts;
+the fixture does not reproduce the application's original admission.
+
+Actual queued frontend controls receive supplied correlated Delivered ACKs
+through the Session queue and layout acknowledgement owner. ACKs alone leave
+the layout unready and its old layer intact. Supplied matching CPU facts then
+release readiness, followed by existing prepare, resolve and apply. The real
+Hagia checkpoints and answers a fresh request from the same child and epoch.
+The next proposal proves continuation, not a second layout commit.
+
+The failure case first commits a baseline and waits for its atomic checkpoint.
+It queues an admitted session action, changes canonical work-area facts before
+dispatch and obtains an unmodified proposal with a real resize obligation.
+With pixels withheld, the layout remains unready and no prepare occurs.
+Forcing the deadline to now exercises the existing expiry and settlement
+owners. The retained layout and reducer remain unchanged, no operation is
+issued, and checkpoint bytes and device/inode remain unchanged after Hagia
+answers the next correlated request. This is forced-deadline expiry, not a
+measurement of the configured timeout.
+
+Independent review found that the supplied managed baseline updated only the
+admission coordinator, leaving Session's unmanaged/planning and layout-epoch
+state inconsistent. The timeout therefore followed first-launch admission
+fencing, not the managed-resize rollback path. The green result remains valid
+for failed-outcome consumption and P1, but does not yet prove rollback of a
+managed window. A separate fixture correction must use the complete layout
+owner transition and assert the rollback configure and absence of admission
+recovery state. No production defect is inferred from this fixture mismatch.
+
+The restored A/B run passes 3/0 in 1.39 seconds. Removing only P1's Committed
+qualification makes the real Hagia refuse the inconsistent operation flag;
+the continuation assertion fails in 0.29 seconds with exit 101. Exact source
+restoration and the green rerun are recorded. The two preceding fixture
+failures exposed missing historical admission and frontend ACK inputs; neither
+required a production repair. Strict Session checks, layout and diff checks
+pass. Workspace formatting passed, but a later direct check found that the
+included support files had been skipped; their formatting is part of the
+corrective checkpoint.
+
+The verified 49-file evidence bundle is
+`~/.local/state/sophia/development-evidence/t249-hagia-layout-7236b478`,
+manifest `632dc35cdfdb33a57d760b6fada0bd69fc11874dc1cfac9a9e109bf952af4ee0`.
+This proves real Hagia-to-Session layout/reducer settlement, subject to the
+timeout-path qualification above. CPU observations
+and frontend ACKs are supplied; no actual X client, HeadlessEngine surface
+prepare/apply, native retirement, output bootstrap or presentation receipt is
+claimed. Full WM behavior parity and retirement criteria remain open.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
