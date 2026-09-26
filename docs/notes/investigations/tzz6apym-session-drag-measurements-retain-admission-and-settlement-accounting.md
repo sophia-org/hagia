@@ -117,6 +117,57 @@ Sophia p95 +1 ms, p99 +2 ms and one-update-interval budgets are unchanged.
 CPU/allocation/copy/wakeup/round-trip accounting, the full paced campaign and
 attended daily configuration remain separate requirements.
 
+## Readiness correction and retained failed diagnostic
+
+Sophia's signed `9f03d3e8424184c1ceb4b8c4b51bd1e3a57de6b4`, joined as
+`82085333571141eb8662bcf3468877442c72d7dd`, replaces the file driver's idle
+command-channel wait with one reactor readiness turn and an accepted-command
+bell. DirtyOnly permissions, active response waits and current IPC remain
+unchanged. Seven new generic controls pass within the restored worker suite
+(59 passed, three explicitly ignored), with strict native Session, fresh
+layout and formatting checks. A compiled selector mutant enters the old
+fallback and fails with an explicit test marker. This is structural evidence,
+not a latency measurement.
+
+The pairing pin moves to this exact Sophia commit. Only the pinned `ninep.rs`
+mount context changes; the workload, frozen Hagia, thresholds and checkpoint
+behavior are unchanged. `.artifacts/measure/pair-idle-fix` completes sixteen
+cases: 256 admitted, 229 settled, 27 coalesced and no rejected, timed-out,
+disconnected or unresolved work. Its overlay hash is
+`1d353600319ab5cb6f6ca7cad1091e7a482942224765c391efc1f148491ba2eb`;
+the checked test-binary hash is
+`51465741a8b821320cca31838dfc1a2d63b4b14bf84e37d0dea789d27d58997d`.
+
+The campaign still exits 1: two of eight pairs meet the numerical smoke
+budgets, six do not. Three 60 Hz file runs have medians of 1.74–1.85 ms,
+instead of the earlier roughly 9 ms. Ordinal 02, **idle** move at 60 Hz, is an
+outlier: only offers 1 and 16 survive, with enqueue-to-settlement latencies
+647.7 and 722.6 ms. Its load record proves zero load workers. An interim chat
+update mislabeled this as CPU load; the manifest and this record correct it.
+The 120 Hz results retain interval failures and, in three pairs, different
+survivor identities. None of these small debug runs is release acceptance.
+
+The outlier's long settlement gaps coincide with sparse Hagia checkpoint-save
+timestamps. Hagia synchronously flushes and fsyncs the file and its directory;
+the evidence and build targets share an ext4 filesystem. Storage latency is a
+hypothesis, not an attributed cause. Keep the failed case. The next diagnosis
+can record bounded per-case I/O pressure and checkpoint durations or use a
+declared order control. Do not disable fsync, discard startup samples, change
+the filesystem for one wire, or relax budgets after this result. The full
+release campaign has not run.
+
+The separate ordinary pairing at `.artifacts/measure/retained-idle-fix`
+passes all 25 named owner/legacy cases. Strict native Session and runtime,
+fresh layout, workspace formatting, direct overlay formatting and whitespace
+checks pass. The compatibility-only rebase also passes all eighteen runner
+controls and strict Clippy. These results do not turn the failed timing
+campaign into a performance pass.
+
+The original signed tooling and first failures are preserved at
+`~/.local/state/hagia/development-evidence/h006-drag-measurement-48fed33`.
+Sophia's independent fix evidence is at
+`~/.local/state/sophia/development-evidence/t249-wm-idle-9f03d3e8`.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
