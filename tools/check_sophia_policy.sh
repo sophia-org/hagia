@@ -17,6 +17,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tsophia-wm-v1" tests/tsophia_wm_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tsnapshot-identity" tests/tsnapshot_identity.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/twm-presentation" tests/twm_presentation.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/toverview" tests/toverview.nim

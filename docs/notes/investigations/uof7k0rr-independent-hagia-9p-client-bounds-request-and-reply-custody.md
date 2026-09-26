@@ -114,6 +114,31 @@ read reported as EOF, version suffix, and dropped flush (bounded timeout).
 These are interoperability and negative controls, not performance measurements.
 The old focused and paired logs remain separate. No live endpoint was opened.
 
+## File envelope and snapshot preparation
+
+The independent file envelope `efcfb60` and raw-u32 portability follow-up
+`7095aeb` are joined as signed `d5c2e48` and `3e89a14`; their whole trees match.
+The peer reports fifteen focused tests, formatting and layout passing, and
+fifteen of sixteen mutations killed. The survivor is an equivalent addition
+on the tested 64-bit target. No 32-bit execution is claimed. Its preserved
+bundle is `hagia-wm-files/.artifacts/h006-envelope-bundle`; the runtime client
+still does not select the file transport.
+
+Before array conversion, three direct snapshot-validator characterizations
+pass against `3e89a14`: a surface with index zero is accepted but focusing it
+is refused; the all-ones surface index is not refused; and a nonzero transient
+index is ignored when its generation is zero. These are direct legacy codec
+behaviors, not proof of live Session admission. The file path must use strict
+surface identities without silently changing legacy behavior during extraction.
+The shared snapshot validator remains unchanged at this checkpoint.
+
+The device-hidden baseline uses its own disk Nim cache. Logs are in
+`.artifacts/h006-arrays`: the first invocation omitted `--path:src` and failed
+to locate the imports; `snapshot-identity-baseline-2.log` contains the three
+passing controls. No current policy execution, live endpoint or hardware was
+used. Scalar and array body codecs, and the complete role join, remain work
+under h006.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
