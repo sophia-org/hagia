@@ -622,6 +622,47 @@ This establishes settlement parity for two workloads, with the supplied-history,
 frontend ACK and unanswered-rollback limits above. Full WM feature parity,
 actual Engine/backend joins, performance and native acceptance remain separate.
 
+## Plain CPU production join
+
+Sophia's signed test-only `29af52dd686a7397d28b0cb0751f71bc47717900`,
+joined as `8a47f6da63389e2a7e6891102068305b5af5fe1a`, takes the actual
+Hagia/Session layout result through layout projection, authority conversion and
+the CPU production runtime. The latter executes the existing Engine surface
+prepare/apply path. The frozen normal Hagia remains `7455c3e`; no client,
+production owner or decoder changes were needed.
+
+Real supplied CPU bytes establish backend surface generation 1 on handle 700,
+then generation 2 on resized handle 701. Their buffer content versions are
+independently 11 and 23. The separately supplied Session history is compared
+with the actual backend baseline for geometry, source and surface generation;
+this does not reproduce the application's original admission. Historical
+admission and frontend ACKs retain the earlier fixture qualifications.
+
+An actual committed Session update and its matching CPU batch reach the
+production cycle in owner order. The committed surface, output snapshot and
+buffer source agree. Composition is required for the successor pixel check:
+a clipped 16-by-16 interior probe contains the expected XRGB8888 colour.
+Both runs record `old_only_pixels=0`: the target covers the old rectangle,
+so there is no old-image removal claim. The pending checks submit empty cycles
+with no competing content. After forced-deadline timeout, backend geometry,
+source and generation, and the whole retained frame, stay unchanged. The
+rollback configure remains unanswered; Hagia continues in the same child and
+epoch without rewriting its checkpoint.
+
+The final CPU cases plus retained startup, layout and transport-parity controls
+pass 6/0 in 4.33 seconds. Strict native Session all-target Clippy, layout, direct
+support-file formatting and diff checks pass. The first compile failure was a
+fixture resource-ID constructor typo; its log is retained. The verified evidence
+is `~/.local/state/sophia/development-evidence/t249-hagia-cpu-29af52dd`,
+manifest `a48e44ea10b68c4b56510570b791f66e142229516ad7f4322b9f3599526e8c69`.
+
+This closes a plain CPU backend join for these supplied inputs. It does not
+exercise competing pending content, queued Present deferral or rejection,
+native retirement, the complete device loop, or an interleaving between Engine
+prepare and apply. Session settles before the backend cycle; no new atomic
+rollback guarantee across those owners is claimed. Broader WM behavior and
+native acceptance remain separate.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
