@@ -95,6 +95,14 @@ and [DRY principles](dry-principles.md).
   sequencing, refusals and timeouts, offered to the loop as a `PolicyWire`.
 - `src/sophia/policy_loop.nim` runs profile activation and settled cycles over
   any `PolicyWire`; `policy_wire.nim` defines that typed boundary.
+- `src/sophia/wm_file_wire.nim` offers the WM file role on a supplied socket as a
+  `PolicyWire`. It keeps fids, event and submission counters, one bounded event
+  assembly, at most one held event and bounded receipts in
+  `types/wm_file_wire.nim`; phase stays with `PolicySession`, the profile
+  reducer and Sophia. It always configures, so it serves the configured and
+  activated loops only. A refused submit services receipts and retries within
+  one candidate deadline; admission, candidates, profile waits, started events
+  and object reads each have one absolute deadline that nothing renews.
 
 The adapter exposes a snapshot to policy only after the complete begin/chunk/end
 transfer settles. A projection completely replaces every affected output.
