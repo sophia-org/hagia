@@ -33,6 +33,9 @@ allowed_public_type() {
     src/runtime/effect_executor.nim:RuntimeEffectExecutor) return 0 ;;
     src/sophia/policy_adapter.nim:PolicyAdapter) return 0 ;;
     src/sophia/policy_session.nim:PolicySession) return 0 ;;
+    # Socket/tag custody is private; exporting it as passive data permits
+    # callers to reuse live tags or bypass version/teardown checks.
+    src/ninep/client.nim:NinepClient) return 0 ;;
     esac
     return 1
 }

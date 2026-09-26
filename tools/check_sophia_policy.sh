@@ -11,6 +11,8 @@ build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 cd "$root"
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tninep" tests/tninep.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tsophia-wm-v1" tests/tsophia_wm_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/twm-presentation" tests/twm_presentation.nim
