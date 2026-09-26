@@ -664,3 +664,95 @@ fn report_environment_huge_writeback_is_descriptive_and_preserves_budgets() {
         .remove("environment");
     assert_eq!(huge_result, baseline_result);
 }
+
+/// Declares the early-stop amendment on a campaign and, if `stop` is given,
+/// the capture it stopped after.
+fn early_stop(manifest: &mut Value, stop: Option<Value>) {
+    manifest["schema"] = json!(2);
+    manifest["early_stop"] = json!("first-refused-pair");
+    manifest["stopped_at"] = stop.unwrap_or(Value::Null);
+}
+
+/// Replaces the 9P capture with one whose latency refuses its pair.
+fn slow_files(directory: &Directory, manifest: &mut Value) {
+    let bytes = serde_json::to_vec(&capture("9p2000.L", 4, 5_000_000)).unwrap();
+    fs::write(directory.0.join("run-1.json"), &bytes).unwrap();
+    manifest["runs"][1]["sha256"] = json!(format!("{:x}", Sha256::digest(&bytes)));
+}
+
+fn stop_after_pair_one() -> Value {
+    json!({"kind":"move","rate_hz":120,"load":"idle","pair":1,"ordinal":2})
+}
+
+#[test]
+fn an_early_stop_reports_the_refused_pair_and_never_passes() {
+    let (dir, mut manifest) = campaign();
+    slow_files(&dir, &mut manifest);
+    early_stop(&mut manifest, Some(stop_after_pair_one()));
+    let result = report(&dir, &manifest).unwrap();
+    assert_eq!(result["budgets_pass"], false);
+    assert_eq!(result["latency_gate_pass"], false);
+    assert_eq!(result["early_stop"], "first-refused-pair");
+    assert_eq!(result["stopped_early"], stop_after_pair_one());
+    // The same stop under acceptance needs no forty pairs, only honest ones.
+    manifest["mode"] = json!("acceptance");
+    assert!(
+        report(&dir, &manifest)
+            .unwrap_err()
+            .contains("10000 admitted")
+    );
+}
+
+#[test]
+fn an_early_stop_must_follow_exactly_the_first_refused_pair() {
+    let (dir, mut manifest) = campaign();
+    early_stop(&mut manifest, Some(stop_after_pair_one()));
+    assert!(
+        report(&dir, &manifest)
+            .unwrap_err()
+            .contains("first refused pair")
+    );
+    slow_files(&dir, &mut manifest);
+    let mut stop = stop_after_pair_one();
+    stop["ordinal"] = json!(1);
+    manifest["stopped_at"] = stop;
+    assert!(
+        report(&dir, &manifest)
+            .unwrap_err()
+            .contains("last capture")
+    );
+    let mut stop = stop_after_pair_one();
+    stop["load"] = json!("cpu");
+    manifest["stopped_at"] = stop;
+    assert!(
+        report(&dir, &manifest)
+            .unwrap_err()
+            .contains("first refused pair")
+    );
+    let mut stop = stop_after_pair_one();
+    stop["extra"] = json!(1);
+    manifest["stopped_at"] = stop;
+    assert!(report(&dir, &manifest).is_err());
+}
+
+#[test]
+fn the_amendment_is_declared_exactly_and_the_original_schema_is_unchanged() {
+    let (dir, mut manifest) = campaign();
+    let original = report(&dir, &manifest).unwrap();
+    assert!(original.get("stopped_early").is_none());
+    early_stop(&mut manifest, None);
+    let declared = report(&dir, &manifest).unwrap();
+    assert_eq!(declared["budgets_pass"], true);
+    assert_eq!(declared["stopped_early"], Value::Null);
+    manifest["early_stop"] = json!("first-pair");
+    assert!(
+        report(&dir, &manifest)
+            .unwrap_err()
+            .contains("early-stop rule")
+    );
+    let (dir, mut manifest) = campaign();
+    manifest["early_stop"] = json!("first-refused-pair");
+    assert!(report(&dir, &manifest).unwrap_err().contains("exactly"));
+    manifest["schema"] = json!(3);
+    assert!(report(&dir, &manifest).unwrap_err().contains("schema"));
+}

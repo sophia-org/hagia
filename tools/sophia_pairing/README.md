@@ -156,6 +156,16 @@ captured evidence without launching anything:
 hagia-sophia-pairing --report-measurements=/absolute/evidence/measurement-manifest.json
 ```
 
+`--early-stop=first-refused-pair` applies the declared early-stop amendment:
+after each pair the runner judges that pair with the report's own comparison
+and, at the first refusal, stops, records `stopped_at` (kind, rate, load, pair
+and last capture ordinal) and exits unsuccessfully with every capture kept.
+The manifest and report then use schema 2 (`early_stop`, `stopped_at`,
+`stopped_early`), and the report accepts a stop only when exactly one pair
+refused and it ended the campaign; such a campaign never passes. Without the
+flag the campaign, manifest and report are the original schema 1 method,
+unchanged, and a passing campaign runs every pair either way.
+
 Smoke always records `latency_gate_pass=false`, even when its sampled budgets
 pass. This control-path gate does not measure input-to-photon latency, grant
 physical acceptance, or complete t249's other CPU/allocation/copy/wakeup/round-trip

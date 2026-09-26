@@ -514,9 +514,28 @@ pub fn report(manifest: &Path) -> Result<Value, String> {
     let root = manifest.parent().ok_or("manifest has no parent")?;
     let document: Value =
         serde_json::from_slice(&read_bounded(&manifest, 256 * 1024)?).map_err(|e| e.to_string())?;
-    fields(&document, &["schema", "mode", "identity", "runs"])?;
-    if number(&document, "schema")? != 1 {
-        return Err("unsupported campaign schema".into());
+    // Schema 1 is the original method; schema 2 declares the early-stop
+    // amendment and names where the campaign stopped, if it did.
+    let schema = number(&document, "schema")?;
+    match schema {
+        1 => fields(&document, &["schema", "mode", "identity", "runs"])?,
+        2 => {
+            fields(
+                &document,
+                &[
+                    "schema",
+                    "mode",
+                    "identity",
+                    "runs",
+                    "early_stop",
+                    "stopped_at",
+                ],
+            )?;
+            if document["early_stop"] != "first-refused-pair" {
+                return Err("unsupported early-stop rule".into());
+            }
+        }
+        _ => return Err("unsupported campaign schema".into()),
     }
     let mode = choice(&document, "mode", &["smoke", "acceptance"])?;
     let identity = &document["identity"];
@@ -663,21 +682,40 @@ pub fn report(manifest: &Path) -> Result<Value, String> {
         pairs.push(comparison);
         let _ = (kind, rate);
     }
-    if mode == "acceptance" && groups.len() != 40 {
+    let stopped = &document["stopped_at"];
+    if !stopped.is_null() {
+        fields(stopped, &["kind", "rate_hz", "load", "pair", "ordinal"])?;
+        if number(stopped, "ordinal")? != runs.len() as u64 {
+            return Err("an early stop must name the last capture".into());
+        }
+        // Stopping follows the first refusal at once, so exactly one pair
+        // refused and it is the pair that ended the campaign.
+        let refused: Vec<_> = pairs.iter().filter(|p| p["budgets_pass"] != true).collect();
+        if refused.len() != 1
+            || ["kind", "rate_hz", "load", "pair"]
+                .iter()
+                .any(|key| refused[0][*key] != stopped[*key])
+        {
+            return Err("an early stop must follow exactly the first refused pair".into());
+        }
+    } else if mode == "acceptance" && groups.len() != 40 {
         return Err(
             "acceptance requires five pairs for each move/resize, 60/120 Hz, idle/CPU condition"
                 .into(),
         );
     }
-    let budgets_pass = pairs.iter().all(|p| p["budgets_pass"] == true);
-    Ok(
-        json!({"schema":1,"mode":mode,"identity":identity,"pairs":pairs,"budgets_pass":budgets_pass,
+    let budgets_pass = stopped.is_null() && pairs.iter().all(|p| p["budgets_pass"] == true);
+    let mut report = json!({"schema":1,"mode":mode,"identity":identity,"pairs":pairs,"budgets_pass":budgets_pass,
         "latency_gate_pass":mode == "acceptance" && budgets_pass,
         "physical_acceptance":false,"full_t249_acceptance":false,
         "qualifications":["captured Session owner timings, not input-to-photon", "hashes bind bytes, not producer authenticity",
             "smoke cannot satisfy the latency gate", "CPU, allocation, copied bytes, wakes and round-trip measurements remain separate",
-            "environment and checkpoint timing are descriptive; they never waive, exclude or re-judge a budget"]}),
-    )
+            "environment and checkpoint timing are descriptive; they never waive, exclude or re-judge a budget"]});
+    if schema == 2 {
+        report["early_stop"] = json!("first-refused-pair");
+        report["stopped_early"] = stopped.clone();
+    }
+    Ok(report)
 }
 
 pub fn sample_environment(start_instant: std::time::Instant, sources: &mut Vec<String>) -> Value {

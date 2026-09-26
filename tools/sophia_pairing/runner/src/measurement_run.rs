@@ -44,6 +44,8 @@ pub(crate) fn exercise(
         &machine_bytes,
     )
     .map_err(|e| e.to_string())?;
+    // Schema 1 is the original method, unchanged. Schema 2 declares the
+    // early-stop amendment and records where a campaign stopped, if it did.
     let mut manifest = json!({"schema":1,"mode":mode,"identity":{
         "sophia_commit":identity["sophia_commit"],"hagia_sha256":identity["hagia_sha256"],
         "overlay_sha256":identity["overlay_manifest_sha256"],"test_binary_sha256":binary_hash,
@@ -51,11 +53,16 @@ pub(crate) fn exercise(
         "machine_sha256":format!("{:x}",Sha256::digest(&machine_bytes)),
         "load_recipe_sha256":format!("{:x}",Sha256::digest(LOAD.as_bytes())),
         "build_mode":if mode == "smoke" { "debug" } else { "release" }},"runs":[]});
+    if options.early_stop {
+        manifest["schema"] = json!(2);
+        manifest["early_stop"] = json!("first-refused-pair");
+        manifest["stopped_at"] = Value::Null;
+    }
     let manifest_path = options.output.join("measurement-manifest.json");
     write_json(&manifest_path, &manifest)?;
     let runner = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut ordinal = 0;
-    for kind in ["move", "resize"] {
+    'campaign: for kind in ["move", "resize"] {
         for rate in [60, 120] {
             for load in ["idle", "cpu"] {
                 for pair in 1..=pair_count {
@@ -184,16 +191,48 @@ pub(crate) fn exercise(
                         }
                         capture?;
                     }
+                    if options.early_stop && !pair_passes(&options.output, &manifest)? {
+                        manifest["stopped_at"] = json!({"kind":kind,"rate_hz":rate,"load":load,
+                            "pair":pair,"ordinal":ordinal});
+                        write_json(&manifest_path, &manifest)?;
+                        break 'campaign;
+                    }
                 }
             }
         }
     }
     let report = crate::measurement::report(&manifest_path)?;
     write_json(&options.output.join("measurement-report.json"), &report)?;
+    if !report["stopped_early"].is_null() {
+        return Err("measurement stopped at the first refused pair; captures retained".into());
+    }
     if report["budgets_pass"] != true {
         return Err("measurement exceeded a predeclared budget; captures retained".into());
     }
     Ok(())
+}
+
+/// Judges the pair just captured (the manifest's last two runs) with the
+/// report's own comparison, so stopping never uses a second budget rule.
+fn pair_passes(root: &Path, manifest: &Value) -> Result<bool, String> {
+    let runs = manifest["runs"].as_array().ok_or("manifest runs missing")?;
+    let [.., first, second] = runs.as_slice() else {
+        return Err("a pair needs two captures".into());
+    };
+    let decode = |entry: &Value| -> Result<crate::measurement::Run, String> {
+        let path = entry["path"].as_str().ok_or("capture path missing")?;
+        crate::measurement::decode_run(&crate::measurement::read_bounded(
+            &root.join(path),
+            32 * 1024 * 1024,
+        )?)
+    };
+    let (first, second) = (decode(first)?, decode(second)?);
+    let (ipc, files) = if first.wire == "current-ipc" {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    Ok(crate::measurement::compare(&ipc, &files)?["budgets_pass"] == true)
 }
 
 fn write_json(path: &Path, value: &Value) -> Result<(), String> {

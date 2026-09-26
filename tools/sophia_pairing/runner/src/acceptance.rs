@@ -37,6 +37,8 @@ pub(crate) struct Options {
     pub target: PathBuf,
     pub timeout: Duration,
     pub measure: Option<String>,
+    /// Stop after the first pair whose own budgets refuse (declared amendment).
+    pub early_stop: bool,
 }
 
 /// A gate owns only its lock, never an existing caller's target contents.
@@ -337,6 +339,7 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
             "--target-dir",
             "--timeout",
             "--measure",
+            "--early-stop",
         ]
         .contains(&key)
             || value.is_empty()
@@ -394,6 +397,13 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
             "measurement acceptance needs --timeout>=10800 (schedule alone is 9999 seconds)".into(),
         );
     }
+    let early_stop = match values.get("--early-stop") {
+        None => false,
+        Some(&"first-refused-pair") if values.contains_key("--measure") => true,
+        Some(_) => {
+            return Err("--early-stop=first-refused-pair needs --measure".into());
+        }
+    };
     let output = path("--output")?;
     if output.exists() {
         return Err("WM acceptance requires a fresh evidence directory".into());
@@ -417,6 +427,7 @@ fn options(repo: &Path, args: &[String]) -> Result<Options, String> {
                 }
             })
             .transpose()?,
+        early_stop,
     })
 }
 
