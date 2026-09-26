@@ -46,6 +46,183 @@ proc readyClient(server, peer: Socket, timeoutMsec = 500): NinepClient =
     hex("15 00 00 00 64 ff ff 00 00 01 00 08 00 39 50 32 30 30 30 2e 4c")
   check result.negotiatedMsize() == 4096
 
+suite "caller deadlines across 9P operations":
+  test "expired caller budget emits no request and closes all custody":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    expect NinepClientError:
+      discard client.call(
+        NinepRequest(kind: NinepRequestKind.clunk, fid: 1), some(getMonoTime())
+      )
+    check client.pendingCount() == 0
+    check server.recv(1, 500).len == 0
+
+  test "caller budget caps synchronous first-byte wait":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 3000)
+    let start = getMonoTime()
+    expect NinepClientError:
+      discard client.call(
+        NinepRequest(kind: NinepRequestKind.clunk, fid: 1),
+        some(start + initDuration(milliseconds = 75)),
+      )
+    check (getMonoTime() - start).inMilliseconds < 1500
+    check client.pendingCount() == 0
+
+  test "caller budget caps assembly after a prefix was consumed":
+    for prefix in ["0c 00 00", "0c 00 00 00 75 01 00 01 00 00 00"]:
+      let (server, peer) = sockets()
+      defer:
+        server.close()
+      let client = readyClient(server, peer, timeoutMsec = 3000)
+      discard client.sendRequest(
+        NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+      )
+      server.sendBytes(prefix.hex())
+      let start = getMonoTime()
+      expect NinepClientError:
+        discard client.tryReceiveReply(
+          expires = some(start + initDuration(milliseconds = 75))
+        )
+      check (getMonoTime() - start).inMilliseconds < 1500
+      check client.pendingCount() == 0
+      expect NinepClientError:
+        discard client.negotiatedMsize()
+
+  test "an idle pending read closes when repeated polling reaches the same cap":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 3000)
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    let start = getMonoTime()
+    let expires = some(start + initDuration(milliseconds = 75))
+    expect NinepClientError:
+      while true:
+        check client.tryReceiveReply(waitMsec = 500, expires = expires).isNone()
+    check (getMonoTime() - start).inMilliseconds < 1500
+    check client.pendingCount() == 0
+
+  test "version adoption cannot renew the caller budget":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let start = getMonoTime()
+    expect NinepClientError:
+      discard peer.adoptNinepSocket(
+        timeoutMsec = 3000, expires = some(start + initDuration(milliseconds = 75))
+      )
+    check (getMonoTime() - start).inMilliseconds < 1500
+    check server.recv(21, 500).len == 21
+    check server.recv(1, 500).len == 0
+
+  test "expiry wins over a complete reply already buffered on the socket":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    server.sendBytes(hex("0c 00 00 00 75 01 00 01 00 00 00 41"))
+    expect NinepClientError:
+      discard client.tryReceiveReply(expires = some(getMonoTime()))
+    check client.pendingCount() == 0
+    expect NinepClientError:
+      discard client.negotiatedMsize()
+
+  test "a later caller budget never extends the per-frame timeout":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 50)
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    server.sendBytes(hex("0c 00 00"))
+    let start = getMonoTime()
+    expect NinepClientError:
+      discard client.receiveReply(some(start + initDuration(seconds = 3)))
+    check (getMonoTime() - start).inMilliseconds < 1500
+    check client.pendingCount() == 0
+
+  test "one caller deadline survives a successful earlier RPC":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 3000)
+    let expires = some(getMonoTime() + initDuration(milliseconds = 100))
+    server.sendBytes(hex("07 00 00 00 79 01 00"))
+    check client.call(NinepRequest(kind: NinepRequestKind.clunk, fid: 1), expires).kind ==
+      NinepReplyKind.clunk
+    check server.recv(11, 500).len == 11
+    # Spend the same operation budget outside socket I/O; the next call may
+    # not restart it merely because the prior reply completed successfully.
+    while getMonoTime() < expires.get():
+      discard posix.usleep(1000)
+    expect NinepClientError:
+      discard client.call(NinepRequest(kind: NinepRequestKind.clunk, fid: 2), expires)
+    check server.recv(1, 500).len == 0
+    check client.pendingCount() == 0
+
+  test "caller budget caps blocked writes on an unread socket":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    var sendBuffer: cint = 1024
+    require posix.setsockopt(
+      peer.getFd(), SOL_SOCKET, SO_SNDBUF, addr sendBuffer, SockLen(sizeof(sendBuffer))
+    ) == 0
+    let client = readyClient(server, peer, timeoutMsec = 3000)
+    let start = getMonoTime()
+    let expires = some(start + initDuration(milliseconds = 75))
+    var refused = false
+    for _ in 0 ..< ninepMaxPending:
+      try:
+        discard client.sendRequest(
+          NinepRequest(kind: NinepRequestKind.write, fid: 2, data: newSeq[byte](4073)),
+          expires,
+        )
+      except NinepClientError:
+        refused = true
+        break
+    check refused
+    check (getMonoTime() - start).inMilliseconds < 1500
+    check client.pendingCount() == 0
+    var received = 0
+    while true:
+      let chunk = server.recv(4096, 500)
+      if chunk.len == 0:
+        break
+      received += chunk.len
+      require received <= ninepMaxPending * 4096
+    check received > 0
+
+  test "polling before caller expiry retains one live read":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    let expires = some(getMonoTime() + initDuration(seconds = 2))
+    let tag = client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1), expires
+    )
+    check client.tryReceiveReply(expires = expires).isNone()
+    check client.pendingCount() == 1
+    server.sendBytes(hex("0c 00 00 00 75 01 00 01 00 00 00 41"))
+    let reply = client.tryReceiveReply(expires = expires)
+    require reply.isSome()
+    check reply.get().tag == tag and reply.get().data == @[0x41'u8]
+    check client.pendingCount() == 0
+
 suite "independent base 9P2000.L codec":
   test "version and attach match independently specified byte layouts":
     check NinepRequest(kind: NinepRequestKind.version, msize: 4096).encodeRequest(
