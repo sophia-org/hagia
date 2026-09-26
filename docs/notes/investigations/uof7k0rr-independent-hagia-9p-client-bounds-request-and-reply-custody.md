@@ -306,6 +306,62 @@ separate worktrees and are not covered by this run. The production Hagia file
 loop, launch selection, real Session settlement, and full WM acceptance remain
 outstanding; h006 stays open.
 
+## Caller deadlines and the shared Hagia loop
+
+Signed `13822eb77b65008c820782ee942296c287712077` adds an optional absolute
+`expires` to the independent client's adoption, send, receive, readiness and
+synchronous-call APIs. The default remains unchanged. A supplied cap is the
+earlier of the caller deadline and the existing frame or readiness deadline;
+the caller reuses it across all RPCs in a bounded file operation. An idle
+Cycle wait can still omit it. Expiry closes the stream and all tags even when
+a reply is already buffered, so an earlier write's effect can be unknown.
+Timeout never means rollback. Millisecond polling can return idle just before
+the cap; a repeated call retains that same cap. Error strings do not identify
+which deadline expired.
+
+The device-hidden focused client suite passes 34 controls, including all 24
+previous controls. New cases cover pre-expired requests, first-byte and partial
+assembly waits, idle expiry, version adoption, already buffered replies,
+non-extension of the frame timeout, one deadline across RPCs, blocked writes
+followed by peer EOF, and a successful reply after an idle poll. Three compiled
+mutations dropping the assembly, synchronous-reply or write cap fail their
+named controls. Source was restored before the final pass. Formatting, layout
+and diff checks pass. The verified seventeen-file bundle is
+`~/.local/state/hagia/development-evidence/h006-deadlines-13822eb`, manifest
+`6d4f48b8c8257717458801b0dc56257fab709c582bfd86cbf85323048ead8c6a`.
+
+Signed pF checkpoint `9685af844078d8f1e863b2209f373e89d2bd0e99`, joined as
+`f05bb50`, extracts the existing loop behind the typed `PolicyWire` closure
+table. `PolicySession` and the profile reducer retain their existing ownership;
+the legacy adapter retains frame parsing, encoding and timeouts. Snapshot and
+request remain separate callbacks to preserve the fault-injection boundary.
+Neutral configuration and Dirty values have file compatibility aliases.
+Legacy projection completions report no operation-expectation flag; a file
+completion's flag must agree with the intent before settlement.
+
+The author's eight focused targets passed, including nine new real-loop
+fake-wire controls. Two compiled mutations were rejected: applying a nonempty
+receipt list after preparation, and checking the expectation after settlement.
+The latter is pinned through refusal precedence against an invalid outcome
+identity, alongside absence of checkpoint and operation side effects.
+The normal and proof executables compile. Formatting and layout pass.
+
+The baseline capture independently compiles `586b9a4` source: all 92 extracted
+source/example blobs match, and generated C embeds 54 baseline local-module
+paths with none from the changed source. The candidate embeds 56 current
+local-module paths, including the new wire and loop. Both produce the same
+fifteen client frames, including configuration transaction 1, projection 2,
+Dirty 3 and projection 4. Their SHA256 is
+`144aa6b845c8f756d85b1bbf726b90a3707e362dfd243b43b8d4a394a75a3640`.
+The director verified the frame equality and source git bundle and preserved
+the focused logs, binaries and capture under
+`~/.local/state/hagia/development-evidence/h006-policy-wire-9685af8`. Its
+28-file manifest SHA256 is
+`ca686ba13a64542f36bad8762dbdb1a06956ccadd99a946af5fa99715898a163`.
+These focused checkpoints do not extend the earlier full contributor result
+to the new source. The production file wire and its paired acceptance remain
+the next work; output traffic and the installed default are unchanged.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
