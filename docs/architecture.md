@@ -91,7 +91,10 @@ and [DRY principles](dry-principles.md).
   projections that Sophia explicitly commits.
 - `src/sophia/policy_checkpoint.nim` validates and atomically replaces the
   optional private session checkpoint.
-- `src/sophia/policy_client.nim` owns bounded transport sequencing only.
+- `src/sophia/policy_client.nim` owns the current IPC wire: bounded frame
+  sequencing, refusals and timeouts, offered to the loop as a `PolicyWire`.
+- `src/sophia/policy_loop.nim` runs profile activation and settled cycles over
+  any `PolicyWire`; `policy_wire.nim` defines that typed boundary.
 
 The adapter exposes a snapshot to policy only after the complete begin/chunk/end
 transfer settles. A projection completely replaces every affected output.

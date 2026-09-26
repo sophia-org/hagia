@@ -2,17 +2,12 @@ import ./wm_translation
 import ./wm_tab_groups
 import ./wm_presentation
 from ./policy_snapshot import applyOutputPolicyKey
-import std/[net, options, os, sets]
+import std/[net, options]
 
 import ../config/policy_candidate
-import ../types/[actions, config_values, handoff, session, wm_v1, wm_presentation]
-import ../types/observability
-import ../observability
+import ../types/[config_values, handoff, session, wm_v1, wm_presentation]
 import
-  ./[
-    policy_adapter, policy_checkpoint, policy_codec, policy_session, policy_signals,
-    policy_trace, policy_transport, profile_handoff, wm_v1,
-  ]
+  ./[policy_codec, policy_loop, policy_semantics, policy_transport, policy_wire, wm_v1]
 
 export PolicyClientError, policy_codec
 
@@ -53,14 +48,6 @@ proc receiveFrame(client: PolicyClient, kind: MessageKind): Frame =
   result = client.receiveFrame()
   if result.kind != kind:
     fail("unexpected policy message kind")
-
-proc settlePresentationReceipts(
-    client: PolicyClient, session: var PolicySession
-): seq[PresentationReceipt] =
-  result = client.presentationReceipts
-  for receipt in client.presentationReceipts:
-    session.receivePresentationReceipt(receipt)
-  client.presentationReceipts = @[]
 
 const chunkHeaderLen = 16
 
@@ -158,72 +145,6 @@ proc connectPolicy(
   path.connectWhenReady().negotiatePolicy(
     requestConfiguration, requestProfileActivation, requestPointerFocus
   )
-
-proc settleProfileCommand(
-    client: PolicyClient,
-    model: var ProfileHandoffModel,
-    kind: ProfileHandoffMsgKind,
-    frame: Frame,
-): ProfileOutcomeKind =
-  let expected =
-    case kind
-    of ProfileHandoffMsgKind.prepare: MessageKind.profilePrepare
-    of ProfileHandoffMsgKind.activate: MessageKind.profileActivate
-    of ProfileHandoffMsgKind.rollback: MessageKind.profileRollback
-  if frame.kind != expected:
-    fail("desktop profile command is out of phase")
-  let update = model.reduceProfileHandoff(
-    ProfileHandoffMsg(kind: kind, command: frame.decodeProfileCommand())
-  )
-  model = update.model
-  let response =
-    case kind
-    of ProfileHandoffMsgKind.prepare: MessageKind.profilePrepared
-    of ProfileHandoffMsgKind.activate: MessageKind.profileActive
-    of ProfileHandoffMsgKind.rollback: MessageKind.profileRolledBack
-  client.sendFrame(
-    response.profileCompletionFrame(
-      update.completion.transaction, update.completion.identity,
-      update.completion.outcome,
-    )
-  )
-  update.completion.outcome
-
-proc activateProfileCandidate(
-    client: PolicyClient, candidate: AuthorityCandidate
-): StartupProfileHandoffDisposition =
-  ## Bounded participant barrier shared by startup and exact-key reattachment.
-  ## The caller decides whether an accepted client enters the normal cycle.
-  var model = candidate.initProfileHandoff(client.connectionEpoch)
-  let prepared = client.settleProfileCommand(
-    model, ProfileHandoffMsgKind.prepare, client.receiveFrame()
-  )
-  if prepared != ProfileOutcomeKind.accepted:
-    operationalLog(OperationalLevel.failure, "profile_prepare", "rejected_identity")
-
-  for _ in 0 ..< 2:
-    let frame = client.receiveFrame()
-    case frame.kind
-    of MessageKind.profileActivate:
-      let outcome =
-        client.settleProfileCommand(model, ProfileHandoffMsgKind.activate, frame)
-      if outcome == ProfileOutcomeKind.accepted:
-        return StartupProfileHandoffDisposition.activated
-    of MessageKind.profileRollback:
-      let outcome =
-        client.settleProfileCommand(model, ProfileHandoffMsgKind.rollback, frame)
-      if outcome == ProfileOutcomeKind.accepted:
-        return StartupProfileHandoffDisposition.rolledBack
-      return StartupProfileHandoffDisposition.rejected
-    else:
-      fail("normal policy traffic preceded desktop profile activation")
-  StartupProfileHandoffDisposition.rejected
-
-proc runStartupProfileHandoff*(
-    socket: Socket, candidate: AuthorityCandidate
-): StartupProfileHandoffDisposition =
-  ## Startup-only proof entry point. It never enters the normal policy cycle.
-  socket.negotiatePolicy(false, true).activateProfileCandidate(candidate)
 
 proc receiveSnapshot(client: PolicyClient): PolicySnapshot =
   let begin = client.receiveFrame(MessageKind.snapshotBegin)
@@ -381,38 +302,39 @@ proc allocateTransaction(client: PolicyClient): uint64 =
   if result == 0 or client.nextTransaction == 0:
     fail("policy transaction identity space is exhausted")
 
-proc installConfiguration(client: PolicyClient) =
-  let lastAction =
-    if (
-      client.capabilities and
-      (capabilitySurfaceInstances or capabilityPresentationActions)
-    ) == (capabilitySurfaceInstances or capabilityPresentationActions):
-      ord(high(PolicyAction))
-    else:
-      ord(PolicyAction.toggleOverview) - 1
+proc installConfiguration(
+    client: PolicyClient, configuration: PolicyConfiguration
+): PolicyConfigurationOutcome =
+  # The legacy frame carries colours with an opaque alpha byte.
   var payload: seq[byte]
-  payload.addU64(client.connectionEpoch)
-  payload.addU64(1)
-  payload.addU16(uint16(lastAction))
-  payload.addU16(2) # Engine-owned frame; no focus ring.
-  payload.addU32(0)
-  payload.addU32(0xffffb6b0'u32)
-  payload.addU32(1)
-  payload.addU32(0xffffb6b0'u32)
-  payload.addU32(0xff7c7c7c'u32)
-  for ordinal in ord(low(PolicyAction)) .. lastAction:
-    payload.addAction(PolicyAction(ordinal))
-  let transaction = client.allocateTransaction()
+  payload.addU64(configuration.connectionEpoch)
+  payload.addU64(configuration.generation)
+  payload.addU16(uint16(configuration.actions.len))
+  payload.addU16(configuration.styleBits)
+  payload.addU32(configuration.focusWidth)
+  payload.addU32(0xff000000'u32 or configuration.focusRgb)
+  payload.addU32(configuration.frameWidth)
+  payload.addU32(0xff000000'u32 or configuration.frameFocusedRgb)
+  payload.addU32(0xff000000'u32 or configuration.frameUnfocusedRgb)
+  for action in configuration.actions:
+    payload.addAction(action)
   client.sendFrame(
     Frame(
-      kind: MessageKind.policyConfiguration, transaction: transaction, payload: payload
+      kind: MessageKind.policyConfiguration,
+      transaction: configuration.transaction,
+      payload: payload,
     )
   )
   let outcome = client.receiveFrame(MessageKind.policyConfigurationOutcome)
-  if outcome.transaction != transaction or
-      outcome.payload.u64At(0) != client.connectionEpoch or outcome.payload.u64At(8) != 1 or
-      outcome.payload.u16At(16) != 1:
+  let kind = projectionOutcomeFromCode(outcome.payload.u16At(16))
+  if kind.isNone:
     fail("Sophia rejected Hagia's policy configuration")
+  PolicyConfigurationOutcome(
+    transaction: outcome.transaction,
+    connectionEpoch: outcome.payload.u64At(0),
+    generation: outcome.payload.u64At(8),
+    kind: kind.get(),
+  )
 
 proc sendProjection(
     client: PolicyClient,
@@ -718,23 +640,14 @@ proc sendSessionOperation(
   injectConfiguredFault("operation_outcome_received")
   ProjectionOutcomeKind(raw)
 
-proc requestFreshCycle(
-    client: PolicyClient, policyGeneration: uint64, snapshot: PolicySnapshot
-) =
-  if policyGeneration == high(uint64) or snapshot.outputs.len == 0 or
-      snapshot.outputs.len > maxOutputs:
-    fail("policy refresh identity is invalid")
+proc requestDirty(client: PolicyClient, dirty: PolicyDirty) =
   var payload: seq[byte]
   payload.addU64(client.connectionEpoch)
-  payload.addU64(policyGeneration + 1)
-  payload.addU16(uint16(snapshot.outputs.len))
+  payload.addU64(dirty.policyGeneration)
+  payload.addU16(uint16(dirty.affectedOutputs.len))
   payload.addU16(0)
-  var outputs = initHashSet[uint64]()
-  for output in snapshot.outputs:
-    if output.output == 0 or output.output in outputs:
-      fail("policy refresh output scope is invalid")
-    outputs.incl(output.output)
-    payload.addU64(output.output)
+  for output in dirty.affectedOutputs:
+    payload.addU64(output)
   client.sendFrame(
     Frame(
       kind: MessageKind.policyDirty,
@@ -742,18 +655,99 @@ proc requestFreshCycle(
       payload: payload,
     )
   )
-  operationalLog(
-    OperationalLevel.info, "policy_refresh", "requested", "checkpoint_reconciled"
-  )
-  recordEvidence(
-    EvidenceEvent(
-      kind: EvidenceKind.reducer,
-      event: "policy_refresh",
-      epoch: client.connectionEpoch,
-      generation: policyGeneration + 1,
-      status: "refresh_requested",
+
+proc frameWire(client: PolicyClient): PolicyWire =
+  ## The current IPC as a policy wire: frames, their refusals, ordering and
+  ## timeouts stay exactly as they were. It states no session-operation
+  ## expectation, so none is reported.
+  proc receiveProfileCommand(
+      expected: set[ProfileHandoffMsgKind]
+  ): Option[ProfileHandoffMsg] =
+    let frame = client.receiveFrame()
+    let kind =
+      case frame.kind
+      of MessageKind.profilePrepare:
+        some(ProfileHandoffMsgKind.prepare)
+      of MessageKind.profileActivate:
+        some(ProfileHandoffMsgKind.activate)
+      of MessageKind.profileRollback:
+        some(ProfileHandoffMsgKind.rollback)
+      else:
+        none(ProfileHandoffMsgKind)
+    if kind.isNone or kind.get() notin expected:
+      return none(ProfileHandoffMsg)
+    some(ProfileHandoffMsg(kind: kind.get(), command: frame.decodeProfileCommand()))
+
+  proc completeProfile(kind: ProfileHandoffMsgKind, completion: ProfileCompletion) =
+    let response =
+      case kind
+      of ProfileHandoffMsgKind.prepare: MessageKind.profilePrepared
+      of ProfileHandoffMsgKind.activate: MessageKind.profileActive
+      of ProfileHandoffMsgKind.rollback: MessageKind.profileRolledBack
+    client.sendFrame(
+      response.profileCompletionFrame(
+        completion.transaction, completion.identity, completion.outcome
+      )
     )
+
+  proc enterPolicyTraffic() =
+    client.readTimeoutMsec = -1
+
+  proc allocate(): uint64 =
+    client.allocateTransaction()
+
+  proc install(configuration: PolicyConfiguration): PolicyConfigurationOutcome =
+    client.installConfiguration(configuration)
+
+  proc snapshot(): PolicySnapshot =
+    client.receiveSnapshot()
+
+  proc request(): ProjectionRequest =
+    client.receiveProjectionRequest()
+
+  proc project(
+      request: ProjectionRequest, transaction: uint64, projection: PolicyProjection
+  ): ProjectionCompletion =
+    ProjectionCompletion(
+      outcome: client.sendProjection(request, transaction, projection),
+      expectSessionOperation: none(bool),
+    )
+
+  proc operate(intent: SessionOperationIntent): ProjectionOutcomeKind =
+    client.sendSessionOperation(intent)
+
+  proc dirty(value: PolicyDirty) =
+    client.requestDirty(value)
+
+  proc receipts(): seq[PresentationReceipt] =
+    result = client.presentationReceipts
+    client.presentationReceipts = @[]
+
+  proc close() =
+    client.socket.close()
+
+  PolicyWire(
+    connectionEpoch: client.connectionEpoch,
+    capabilities: client.capabilities,
+    receiveProfileCommand: receiveProfileCommand,
+    completeProfile: completeProfile,
+    enterPolicyTraffic: enterPolicyTraffic,
+    allocateTransaction: allocate,
+    installConfiguration: install,
+    receiveSnapshot: snapshot,
+    receiveRequest: request,
+    submitProjection: project,
+    submitSessionOperation: operate,
+    requestDirty: dirty,
+    takeReceipts: receipts,
+    close: close,
   )
+
+proc runStartupProfileHandoff*(
+    socket: Socket, candidate: AuthorityCandidate
+): StartupProfileHandoffDisposition =
+  ## Startup-only proof entry point. It never enters the normal policy cycle.
+  socket.negotiatePolicy(false, true).frameWire().activateProfileCandidate(candidate)
 
 ## Exercise a bounded sequence of complete public-policy cycles without Triad
 ## machinery. The shared revision-3 corpus uses one connection so output loss
@@ -761,273 +755,30 @@ proc requestFreshCycle(
 proc runPolicyCycles*(path: string, cycleCount: int) =
   if cycleCount < 1 or cycleCount > 16:
     fail("policy proof cycle count is invalid")
-  let client = path.connectPolicy(false)
-  let tracePath = getEnv("HAGIA_POLICY_TRACE")
-  var session = initPolicySession()
-  try:
-    for _ in 0 ..< cycleCount:
-      let snapshot = client.receiveSnapshot()
-      let request = client.receiveProjectionRequest()
-      let transaction = client.allocateTransaction()
-      let receipts = client.settlePresentationReceipts(session)
-      if tracePath.len > 0:
-        # Recorded before the reduction, so a trace replays the inputs rather
-        # than a conclusion already drawn from them.
-        tracePath.appendTrace(
-          PolicyTraceEntry(
-            snapshot: snapshot,
-            request: request,
-            transaction: transaction,
-            presentationReceipts: receipts,
-          )
-        )
-      let projection = session.prepare(snapshot, request, transaction)
-      let outcome = client.sendProjection(request, transaction, projection)
-      session.settle(outcome)
-  finally:
-    session.abort()
-    client.socket.close()
+  path.connectPolicy(false).frameWire().runPolicyCycles(cycleCount)
 
 ## Exercise the smallest complete public-policy cycle without Triad machinery.
 proc runOnePolicyCycle*(path: string) =
   path.runPolicyCycles(1)
 
-## Process several settled projections on one authenticated connection. Sophia's
-## supervisor, rather than this client, owns restart policy after transport loss.
-proc runPolicySession(
-    client: PolicyClient,
-    configure: bool,
-    policyCandidate: Option[AuthorityCandidate] = none(AuthorityCandidate),
-    preparedAdapter: Option[PolicyAdapter] = none(PolicyAdapter),
-) =
-  if policyCandidate.isSome and
-      policyCandidate.get().policyCandidateSettings().workspaceAssignments.len > 0 and
-      (client.capabilities and (capabilityOutputActions or capabilityOutputPolicyKeys)) !=
-      (capabilityOutputActions or capabilityOutputPolicyKeys):
-    fail("assigned workspaces require output_actions and output_policy_keys")
-  installPolicySignals()
-  let tracePath = getEnv("HAGIA_POLICY_TRACE")
-  let privateCheckpoint = checkpointPath()
-  var checkpointEnabled = privateCheckpoint.len > 0
-  var restoredCheckpoint = false
-  var session =
-    if preparedAdapter.isSome:
-      initPolicySession(preparedAdapter.get())
-    elif policyCandidate.isSome:
-      initPolicySession(initPolicyAdapter(policyCandidate.get()))
-    else:
-      initPolicySession()
-  if checkpointEnabled:
-    try:
-      let restored = privateCheckpoint.loadPolicyCheckpoint()
-      if restored.isSome:
-        var candidate = restored.get()
-        if policyCandidate.isSome:
-          candidate.applyPolicyCandidate(policyCandidate.get())
-        operationalLog(
-          OperationalLevel.info,
-          "checkpoint",
-          "loaded",
-          "candidate_nonempty=" & $candidate.hasWindows(),
-        )
-        recordEvidence(
-          EvidenceEvent(
-            kind: EvidenceKind.checkpoint, event: "checkpoint", status: "loaded"
-          )
-        )
-        session = initPolicySession(candidate)
-        restoredCheckpoint = true
-    except PolicyCheckpointError as error:
-      operationalLog(OperationalLevel.warning, "checkpoint", "discarded", error.msg)
-      recordEvidence(
-        EvidenceEvent(
-          kind: EvidenceKind.checkpoint, event: "checkpoint", status: "discarded"
-        )
-      )
-  try:
-    if configure:
-      client.installConfiguration()
-      injectConfiguredFault("configuration_installed")
-    while true:
-      let snapshot = client.receiveSnapshot()
-      injectConfiguredFault("snapshot_received")
-      let request = client.receiveProjectionRequest()
-      let transaction = client.allocateTransaction()
-      let receipts = client.settlePresentationReceipts(session)
-      if tracePath.len > 0:
-        tracePath.appendTrace(
-          PolicyTraceEntry(
-            snapshot: snapshot,
-            request: request,
-            transaction: transaction,
-            presentationReceipts: receipts,
-          )
-        )
-      let projection = session.prepare(snapshot, request, transaction)
-      if projection.activeOutput != snapshot.activeOutput:
-        operationalLog(OperationalLevel.info, "projection", "active_output_changed")
-      injectConfiguredFault("projection_prepared")
-      let operation = session.pendingOperation()
-      let outcome = client.sendProjection(request, transaction, projection)
-      injectConfiguredFault("outcome_received")
-      session.settle(outcome)
-      recordEvidence(
-        EvidenceEvent(
-          kind: EvidenceKind.settlement,
-          event: "projection",
-          epoch: request.connectionEpoch,
-          generation: outcome.sceneGeneration,
-          requestId: request.requestId,
-          transaction: transaction,
-          status: $outcome.kind,
-        )
-      )
-      if takeDumpRequest():
-        # Read-only: the dump reuses the checkpoint DTO, so it says exactly what
-        # a restored generation would see, and writing it changes nothing.
-        let dumpPath = getEnv("HAGIA_POLICY_DUMP")
-        if dumpPath.len == 0:
-          operationalLog(
-            OperationalLevel.warning, "dump", "refused", "HAGIA_POLICY_DUMP is unset"
-          )
-        else:
-          try:
-            dumpPath.savePolicyCheckpoint(session.committedAdapter())
-            operationalLog(OperationalLevel.info, "dump", "written", dumpPath)
-            recordEvidence(
-              EvidenceEvent(
-                kind: EvidenceKind.checkpoint,
-                event: "dump",
-                epoch: request.connectionEpoch,
-                generation: outcome.sceneGeneration,
-                status: "written",
-              )
-            )
-          except PolicyCheckpointError as error:
-            operationalLog(OperationalLevel.warning, "dump", "failed", error.msg)
-      if not checkpointEnabled and takeReloadRequest():
-        # Without a checkpoint an exit would drop the session rather than
-        # reload it, so the request is refused rather than half-honoured.
-        operationalLog(
-          OperationalLevel.warning, "reload", "refused",
-          "HAGIA_POLICY_CHECKPOINT is unset",
-        )
-      if outcome.kind == ProjectionOutcomeKind.committed and checkpointEnabled:
-        try:
-          privateCheckpoint.savePolicyCheckpoint(session.committedAdapter())
-          let candidateNonempty = session.committedAdapter().hasWindows()
-          operationalLog(
-            OperationalLevel.info,
-            "checkpoint",
-            "saved",
-            "candidate_nonempty=" & $candidateNonempty,
-          )
-          recordEvidence(
-            EvidenceEvent(
-              kind: EvidenceKind.checkpoint,
-              event: "checkpoint",
-              epoch: request.connectionEpoch,
-              generation: outcome.sceneGeneration,
-              status: "saved",
-            )
-          )
-          injectConfiguredFault("checkpoint_saved")
-          if takeReloadRequest():
-            # The checkpoint for this cycle is on disk, so exiting is a reload
-            # rather than a loss: Sophia restarts the process from the same
-            # path and the next generation reconciles this state against a
-            # complete snapshot.
-            operationalLog(OperationalLevel.info, "reload", "requested")
-            recordEvidence(
-              EvidenceEvent(
-                kind: EvidenceKind.connection,
-                event: "reload",
-                epoch: request.connectionEpoch,
-                generation: outcome.sceneGeneration,
-                status: "reload_requested",
-              )
-            )
-            quit(0)
-          if restoredCheckpoint:
-            operationalLog(
-              OperationalLevel.info,
-              "checkpoint",
-              "reconciled",
-              "candidate_nonempty=" & $candidateNonempty,
-            )
-        except PolicyCheckpointError as error:
-          checkpointEnabled = false
-          operationalLog(OperationalLevel.warning, "checkpoint", "disabled", error.msg)
-          recordEvidence(
-            EvidenceEvent(
-              kind: EvidenceKind.checkpoint, event: "checkpoint", status: "disabled"
-            )
-          )
-      # Both sends are capability-gated by Sophia, which answers an
-      # unnegotiated one with UnsupportedCapability and drops the connection.
-      # A session started without configuration never requested either bit, so
-      # the enhancement is skipped rather than allowed to kill the session.
-      if outcome.kind == ProjectionOutcomeKind.committed and operation.isSome:
-        if (client.capabilities and capabilitySessionOperations) == 0:
-          operationalLog(
-            OperationalLevel.warning, "session_operation", "skipped",
-            "session_operations was not negotiated",
-          )
-        else:
-          let operationOutcome = client.sendSessionOperation(operation.get())
-          if operationOutcome == ProjectionOutcomeKind.disconnected:
-            return
-      if outcome.kind == ProjectionOutcomeKind.committed and restoredCheckpoint:
-        if (client.capabilities and capabilityPolicyDirty) == 0:
-          operationalLog(
-            OperationalLevel.warning, "policy_refresh", "skipped",
-            "policy_dirty was not negotiated",
-          )
-        else:
-          client.requestFreshCycle(session.policyGeneration(), snapshot)
-        restoredCheckpoint = false
-      if outcome.kind == ProjectionOutcomeKind.disconnected:
-        return
-  finally:
-    session.abort()
-    client.socket.close()
-
 proc runPolicySession*(path: string) =
-  path.connectPolicy(true).runPolicySession(true)
+  path.connectPolicy(true).frameWire().runPolicySession(true)
 
 proc runPolicySession*(path: string, candidate: AuthorityCandidate) =
-  path.connectPolicy(true, false, candidate.requestsPointerFocus()).runPolicySession(
-    true, some(candidate)
-  )
-
-proc runActivatedPolicyClient(client: PolicyClient, candidate: AuthorityCandidate) =
-  try:
-    # Active permits Sophia to open its graphical gate. Build the actual
-    # policy first, so a value-level rejection cannot arrive after that promise.
-    if candidate.policyCandidateSettings().workspaceAssignments.len > 0 and
-        (
-          client.capabilities and (
-            capabilityOutputActions or capabilityOutputPolicyKeys
-          )
-        ) != (capabilityOutputActions or capabilityOutputPolicyKeys):
-      fail("assigned workspaces require output_actions and output_policy_keys")
-    let prepared = initPolicyAdapter(candidate)
-    if client.activateProfileCandidate(candidate) !=
-        StartupProfileHandoffDisposition.activated:
-      fail("desktop profile activation did not admit normal policy traffic")
-    client.readTimeoutMsec = -1
-    client.runPolicySession(true, some(candidate), some(prepared))
-  finally:
-    client.socket.close()
+  path
+    .connectPolicy(true, false, candidate.requestsPointerFocus())
+    .frameWire()
+    .runPolicySession(true, some(candidate))
 
 proc runProfileActivatedPolicySession*(path: string, candidate: AuthorityCandidate) =
   ## Reuses the authenticated connection only after exact Active settlement.
   path
     .connectPolicy(true, true, candidate.requestsPointerFocus())
-    .runActivatedPolicyClient(candidate)
+    .frameWire()
+    .runActivatedPolicy(candidate)
 
 proc runPolicySessionOnSocket*(socket: Socket) =
-  socket.negotiatePolicy(false).runPolicySession(false)
+  socket.negotiatePolicy(false).frameWire().runPolicySession(false)
 
 proc runProfileActivatedPolicySessionOnSocket*(
     socket: Socket, candidate: AuthorityCandidate
@@ -1036,4 +787,5 @@ proc runProfileActivatedPolicySessionOnSocket*(
   ## activation and configuration ordering.
   socket
     .negotiatePolicy(true, true, candidate.requestsPointerFocus())
-    .runActivatedPolicyClient(candidate)
+    .frameWire()
+    .runActivatedPolicy(candidate)

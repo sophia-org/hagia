@@ -95,7 +95,7 @@ Three kinds of declaration stay outside this layer, each for a stated reason:
 
 - an error type and the enum that classifies it belong to the module that
   raises them;
-- a closure vtable such as `RuntimeEffectExecutor` is injected behavior, not
+- a closure vtable such as `RuntimeEffectExecutor` or `PolicyWire` is injected behavior, not
   passive data; and
 - an encapsulated state machine whose fields are private on purpose, such as
   `PolicyAdapter`, `PolicySession` and the direct socket/tag owner `NinepClient`,

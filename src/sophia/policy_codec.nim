@@ -1,8 +1,7 @@
 import std/[options, sets]
 
-import ../types/[actions, session, wm_v1, wm_presentation]
+import ../types/[session, wm_v1, wm_presentation]
 import ./wm_v1 as wm_codec
-import ../policy/actions
 import ./policy_transport
 import ./policy_semantics
 import ./policy_snapshot as snapshot_checks
@@ -226,16 +225,15 @@ proc validateLaunchOrigins*(records: openArray[LaunchOriginRecord], epoch: uint6
       fail("policy launch origin names a surface twice")
     seen.incl(key)
 
-proc addAction*(payload: var seq[byte], action: PolicyAction) =
-  let name = action.profileName()
-  if name.len < 1 or name.len > maxActionNameBytes:
+proc addAction*(payload: var seq[byte], action: SnapshotAction) =
+  if action.name.len < 1 or action.name.len > maxActionNameBytes:
     fail("policy action name is invalid")
-  payload.addU64(action.raw())
-  payload.addU16(action.sessionOperationSlot())
-  payload.addU16(uint16(name.len))
-  for value in name:
+  payload.addU64(action.action)
+  payload.addU16(action.sessionOperationSlot)
+  payload.addU16(uint16(action.name.len))
+  for value in action.name:
     payload.add(byte(value))
-  for _ in name.len ..< maxActionNameBytes:
+  for _ in action.name.len ..< maxActionNameBytes:
     payload.add(0)
 
 proc decodeProjectionOutcome*(frame: Frame): ProjectionOutcome =
