@@ -86,6 +86,7 @@ The modules are:
 | `types/wm_v1.nim` | `sophia_wm_v1` message kinds, records, offsets, and bounds |
 | `types/ninep.nim` | independent base 9P2000.L requests, replies, qids, attributes and bounds |
 | `types/wm_files.nim` | `sophia_wm_fs_v1` envelope kinds, classes, header, section, submit and ack records, and bounds |
+| `types/wm_file_bodies.nim` | typed scalar and admission WM file bodies: limits, negotiation, cycle, dirty, session operation, outcomes, receipts, Submitted, and their sizes |
 | `types/shell_v1.nim` | shell descriptor records, bounds, and reducer model |
 | `types/observability.nim` | evidence records and rotation bounds |
 

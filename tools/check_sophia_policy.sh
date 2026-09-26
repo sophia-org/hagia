@@ -15,6 +15,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/twm-files" tests/twm_files.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/twm-file-bodies" tests/twm_file_bodies.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tsophia-wm-v1" tests/tsophia_wm_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/twm-presentation" tests/twm_presentation.nim

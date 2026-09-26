@@ -12,6 +12,13 @@ const
   wmFileSectionHeaderBytes* = 16
   wmFileSubmitBytes* = 24
   wmFileAckBytes* = 16
+  ## One u64 output id in a body's output list.
+  wmFileOutputIdBytes* = 8
+  ## API-1 custody bounds that the Limits object publishes and every adapter
+  ## enforces; Limits cannot promise other values.
+  wmFileMaxJournalRecords* = 64'u16
+  wmFileAssemblyTimeoutMillis* = 12_000'u32
+  wmFileSendTimeoutMillis* = 4_000'u32
 
 type
   WmFileKind* {.pure.} = enum
