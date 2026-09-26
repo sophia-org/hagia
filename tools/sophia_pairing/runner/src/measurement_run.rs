@@ -86,7 +86,7 @@ pub(crate) fn exercise(
                         ];
                         // The load threads live inside the same PID namespace and
                         // outer deadline as the fixture; neither can outlive it.
-                        let result = acceptance::stage_with_env(
+                        let raw_result = acceptance::stage_with_env(
                             repo,
                             options,
                             deadline,
@@ -98,14 +98,32 @@ pub(crate) fn exercise(
                                     .join("load.json")
                                     .to_str()
                                     .ok_or("evidence path must be UTF-8")?,
+                                evidence
+                                    .join("environment.json")
+                                    .to_str()
+                                    .ok_or("environment path must be UTF-8")?,
                                 binary.to_str().ok_or("test path must be UTF-8")?,
                                 &test,
                             ],
                             &log,
                             &environment,
-                        )
-                        .and_then(|()| acceptance::read_log(&log))
-                        .and_then(|text| acceptance::require_exactly_one(&text));
+                        );
+
+                        let log_text = acceptance::read_log(&log);
+
+                        let (checkpoint_saves, checkpoint_max_gap_ms) = match &log_text {
+                            Ok(text) => {
+                                let (saves, gap) =
+                                    crate::measurement::extract_checkpoint_gaps(text);
+                                (Some(saves), gap)
+                            }
+                            Err(_) => (None, None),
+                        };
+
+                        let result = raw_result
+                            .and_then(|()| log_text.clone())
+                            .and_then(|text| acceptance::require_exactly_one(&text));
+
                         let binary_after = acceptance::digest(binary);
                         let wire_label = if wire == "current-ipc" {
                             "ipc"
@@ -124,11 +142,18 @@ pub(crate) fn exercise(
                                 &options.output.join(&load_path),
                                 64 * 1024,
                             )?;
+                            let env_path = format!("{relative}/environment.json");
+                            let env_bytes = crate::measurement::read_bounded(
+                                &options.output.join(&env_path),
+                                64 * 1024,
+                            )?;
                             // Index exact raw bytes before judging them. An interrupted
                             // fixture may honestly retain inconsistent partial counters.
                             manifest["runs"].as_array_mut().unwrap().push(json!({"ordinal":ordinal,"pair":pair,
                                 "load":load,"path":path,"sha256":format!("{:x}",Sha256::digest(&bytes)),
-                                "load_path":load_path,"load_sha256":format!("{:x}",Sha256::digest(&load_bytes))}));
+                                "load_path":load_path,"load_sha256":format!("{:x}",Sha256::digest(&load_bytes)),
+                                "environment_path":env_path,"environment_sha256":format!("{:x}",Sha256::digest(&env_bytes)),
+                                "checkpoint_saves":checkpoint_saves,"checkpoint_max_gap_ms":checkpoint_max_gap_ms}));
                             write_json(&manifest_path, &manifest)?;
                             let run = crate::measurement::decode_run(&bytes)?;
                             if run.wire != wire
@@ -181,7 +206,7 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 
 /// Internal subprocess mode, run only inside the caller's isolated stage.
 pub fn worker(args: &[String]) -> Result<(), String> {
-    let [workers, report, binary, test] = args else {
+    let [workers, report, env_report, binary, test] = args else {
         return Err("invalid measurement worker arguments".into());
     };
     let workers: usize = workers.parse().map_err(|_| "invalid load worker count")?;
@@ -191,6 +216,8 @@ pub fn worker(args: &[String]) -> Result<(), String> {
     let stopping = Arc::new(AtomicBool::new(false));
     let barrier = Arc::new(Barrier::new(workers + 1));
     let start = Instant::now();
+    let mut sources = Vec::new();
+    let env_start = crate::measurement::sample_environment(start, &mut sources);
     let (status, counts) = std::thread::scope(|scope| {
         let handles: Vec<_> = (0..workers)
             .map(|id| {
@@ -228,6 +255,11 @@ pub fn worker(args: &[String]) -> Result<(), String> {
         let counts: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
         (status, counts)
     });
+    let env_end = crate::measurement::sample_environment(start, &mut sources);
+    write_json(
+        Path::new(env_report),
+        &json!({"schema":1,"sources":sources,"start":env_start,"end":env_end}),
+    )?;
     write_json(
         Path::new(report),
         &json!({"schema":1,"recipe":LOAD,"workers":workers,

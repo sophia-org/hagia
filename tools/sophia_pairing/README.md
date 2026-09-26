@@ -136,6 +136,15 @@ the listed/hash-checked test binary directly. Failed cases retain their logs,
 post-run binary identity and available partial capture. As elsewhere, path
 hashing is not descriptor-pinned execution or authentication of the producer.
 
+During each measurement case, the runner samples system-wide environment metrics
+(`environment.json`) immediately before the workload and immediately after it exits.
+This records `Dirty` and `Writeback` kilobytes from `/proc/meminfo`, as well as
+`some` and `full` CPU/IO/Memory pressure totals from `/proc/pressure`. The runner
+also passively extracts the count and maximum millisecond gap of Hagia checkpoint
+saves from the case log. These environment and checkpoint metrics are entirely
+descriptive and system-wide (other processes contribute). They are included in the
+report but never waive, exclude or re-judge an established budget.
+
 `measurement-report.json` reports nearest-rank p50/p95/p99/max and enqueue
 lateness. Each pair must satisfy Sophia's existing p95 +1 ms, p99 +2 ms and
 one-update-interval p99 budgets, with no failed work. Comparing different
