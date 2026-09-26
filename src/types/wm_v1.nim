@@ -170,6 +170,23 @@ type
     presentationBits*: uint16
 
 const
+  ## Negotiated capability bits, one owner for every Hagia codec and client.
+  ## Values are the wire's; the bits declared further below are the same
+  ## family, kept beside the records they gate.
+  capabilityBindings* = 1'u64 shl 0
+  capabilityActions* = 1'u64 shl 1
+  capabilityMultiOutput* = 1'u64 shl 2
+  capabilityPointerInteractions* = 1'u64 shl 3
+  capabilityChrome* = 1'u64 shl 4
+  capabilityPolicyDirty* = 1'u64 shl 5
+  capabilityConfiguration* = 1'u64 shl 6
+  capabilitySessionOperations* = 1'u64 shl 7
+  capabilityIndicators* = 1'u64 shl 8
+  capabilityProfileActivation* = 1'u64 shl 9
+  capabilityLaunchPlacement* = 1'u64 shl 10
+  capabilityTabGroups* = 1'u64 shl 11
+  capabilityTranslationGroups* = 1'u64 shl 12
+
   ## Optional capability: launch origin. Hagia publishes an opaque context
   ## token for each live managed window it could place a launch against, and
   ## Sophia echoes the one it froze when a child connected. Negotiated whenever
