@@ -36,6 +36,9 @@ allowed_public_type() {
     # Socket/tag custody is private; exporting it as passive data permits
     # callers to reuse live tags or bypass version/teardown checks.
     src/ninep/client.nim:NinepClient) return 0 ;;
+    # Classifies the envelope's own WmFileError; it is raised only there, and
+    # each kind matches one of Sophia's WmFileCodecError refusals.
+    src/sophia/wm_files.nim:WmFileErrorKind) return 0 ;;
     esac
     return 1
 }
