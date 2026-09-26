@@ -64,6 +64,8 @@ and [DRY principles](dry-principles.md).
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
+- `src/sophia/wm_files.nim` implements the independent WM file envelope:
+  header classes, row sections, submit and ack. Body semantics sit above it.
 - Shell surface policy is not in this repository. It belongs to Narthex, a
   separate client that receives sanitized descriptors and never learns surface
   identifiers, coordinates, or icons.

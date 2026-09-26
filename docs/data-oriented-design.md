@@ -85,6 +85,7 @@ The modules are:
 | `types/handoff.nim` | startup profile handoff phase, model, and disposition |
 | `types/wm_v1.nim` | `sophia_wm_v1` message kinds, records, offsets, and bounds |
 | `types/ninep.nim` | independent base 9P2000.L requests, replies, qids, attributes and bounds |
+| `types/wm_files.nim` | `sophia_wm_fs_v1` envelope kinds, classes, header, section, submit and ack records, and bounds |
 | `types/shell_v1.nim` | shell descriptor records, bounds, and reducer model |
 | `types/observability.nim` | evidence records and rotation bounds |
 
