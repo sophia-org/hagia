@@ -104,10 +104,51 @@ limit is not a write quota. The initial runner unit compile used nice 19/jobs 2
 without device isolation; its two controls were repeated under isolation before
 the real pairing. No live process was launched by that initial compile.
 
-The older Hagia interoperability fixtures and their gate references are being
-relocated together in a separate lane. h006/t249 remain open for the remaining
-acceptance work, read-only inspection, measurements and explicitly approved
-physical/default-switch gates.
+### Completed legacy relocation and combined gate
+
+Sophia `8bc5da5aa` and `6991101b4` remove the remaining real-Hagia runtime and
+Session pairings while retaining generic X-origin and owner controls. Hagia's
+`69fa0c2`, `30d7b8f` and README correction `06ab32d5` supply the external legacy
+fixtures and move their ordinary gate references in the same change. The final
+legacy installation recipe is data (`MOUNTS.tsv`), consumed by the one Rust
+runner; no separate maintained shell installer remains. Five source files are
+byte-identical to Sophia's originals, with the extracted activation and
+launch-origin hook adaptations recorded in `legacy/PROVENANCE.blobs` and README.
+
+The neutral Sophia listing loses exactly eight runtime and six Session cases,
+plus three name-only generic renames. Restored generic checks pass runtime 6/0
+and Session 667/0 with 21 ignored, strict checks, layout and format. The first
+Session run failed three reconnect cases (664/3/21); focused and full reruns did
+not reproduce them. They remain intermittent/unresolved. Untouched source and
+green reruns do not establish that the failures predate relocation. The first
+listing comparison reused a stale shared-target binary and is discarded;
+independent base/head targets establish the final listing. All logs remain in
+`sophia-legacy/.artifacts/neutral-validation` and the combined durable bundle.
+
+`run-5` is the final combined optional gate on Sophia
+`81e9826a662dfcc34fe91e8e42309cb064ac5bca` plus overlay
+`d4b330dfb325ddee2567892b338a0b634409b1644ef158e1cc318998938c9222`.
+All 25 named pairing cases pass: twelve Session-owner cases and thirteen legacy
+cases, including explicitly selected targeted-click and output-bookmark tests.
+The reducer-only old-epoch presentation case is verified in the ignored listing
+and is not executed or counted as accepted. Protocol checks pass 251/0; strict
+native Session and runtime all-target checks, fresh xtask layout, workspace and
+direct fixture formatting, and whitespace checks pass. Before/after identities
+match. The runner executable hash is
+`1cf6246b02b998b1160688de9824fefaff4339f1ac0f3c9fcb238ef54304023a`.
+
+Independent runner review caught an integration-test listing mismatch before
+the combined run: Cargo labels the runtime target `Running tests/...`, whereas
+the original parser accepted only `Running unittests ...`. The parser now
+requires the exact expected launch kind and exactly one executable under the
+private target. Four runner controls and strict Clippy pass, including wrong
+launch kind, ambiguous/missing cases and zero-test refusal.
+
+The pinned Sophia source includes its generic captured-record inspector, with
+eight controls and a CLI malformed-suffix/empty-stdout check; it is not a live
+reader. h006/t249 remain open for the remaining lifecycle and measurement exits
+and explicitly approved physical/default-switch gates. No new default or live
+desktop change follows from these results.
 
 ## Connections
 

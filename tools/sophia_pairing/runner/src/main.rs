@@ -1,4 +1,5 @@
 mod acceptance;
+mod legacy;
 mod overlay;
 
 fn main() -> std::process::ExitCode {

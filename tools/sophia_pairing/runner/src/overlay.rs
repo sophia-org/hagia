@@ -100,6 +100,7 @@ pub fn validate_source(source: &Path) -> Result<(), String> {
             ));
         }
     }
+    crate::legacy::validate(source, &expected)?;
     Ok(())
 }
 
@@ -173,6 +174,7 @@ pub fn prepare(source: &Path, output: &Path) -> Result<PathBuf, String> {
         fs::write(scratch.join(path), &text).map_err(|e| e.to_string())?;
         files.push(json!({"path": path, "sha256": hash(text.as_bytes())}));
     }
+    files.extend(crate::legacy::apply(&scratch)?);
     let manifest = json!({"schema": 1, "base": base, "files": files,
         "private_test_overlay": true, "unmodified_sophia_claim": false});
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
@@ -182,18 +184,14 @@ pub fn prepare(source: &Path, output: &Path) -> Result<PathBuf, String> {
         format!("{}\n", hash(&manifest_bytes)),
     )
     .map_err(|e| e.to_string())?;
-    git(
-        &scratch,
-        &[
-            "add",
-            "--",
-            MOUNT,
-            QID_MOUNT,
-            DIRECTORY,
-            SESSION_MANIFEST,
-            CARGO_LOCK,
-        ],
-    )?;
+    let mut add = vec!["add", "--"];
+    for file in manifest["files"]
+        .as_array()
+        .ok_or("invalid file manifest")?
+    {
+        add.push(file["path"].as_str().ok_or("invalid file path")?);
+    }
+    git(&scratch, &add)?;
     let patch = git(&scratch, &["diff", "HEAD", "--binary"])?;
     fs::write(output.join("overlay.patch"), patch).map_err(|e| e.to_string())?;
     Ok(scratch)

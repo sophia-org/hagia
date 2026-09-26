@@ -187,6 +187,7 @@ fn exercise(
     let test_binary = listed_binary(
         &read_log(&options.output.join("required-list.log"))?,
         &options.target,
+        "unittests src/lib.rs",
     )?;
     let test_hash = digest(&test_binary)?;
     fs::write(
@@ -218,6 +219,7 @@ fn exercise(
             return Err("paired test executable changed between required cases".into());
         }
     }
+    crate::legacy::exercise(&mut phase, &options.output, &options.target)?;
     phase(
         "strict",
         "cargo",
@@ -231,6 +233,24 @@ fn exercise(
             "sophia-session",
             "--features",
             "native-session",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+        |_| Ok(()),
+    )?;
+    phase(
+        "strict-runtime",
+        "cargo",
+        &[
+            "clippy",
+            "--offline",
+            "--locked",
+            "-j",
+            "2",
+            "-p",
+            "sophia-runtime",
             "--all-targets",
             "--",
             "-D",
@@ -408,6 +428,7 @@ fn stage(
         .env("XDG_RUNTIME_DIR", "/tmp/runtime")
         .env("TMPDIR", "/tmp")
         .env("SOPHIA_HAGIA_FILE_BIN", &options.binary)
+        .env("SOPHIA_HAGIA_BIN", &options.binary)
         .env("SOPHIA_HAGIA_FILE_SHA256", &options.sha256)
         .env("SOPHIA_HAGIA_FILE_EVIDENCE", options.output.join("cases"))
         .stdin(Stdio::null())
@@ -424,7 +445,6 @@ fn stage(
         "SOPHIA_OUTPUT_SOCKET",
         "SOPHIA_SHELL_SOCKET",
         "SOPHIA_DESKTOP_PROFILE",
-        "SOPHIA_HAGIA_BIN",
         "SOPHIA_RUN_REAL_ATOMIC_SCANOUT_SMOKE",
         "HAGIA_POLICY_CANDIDATE",
         "HAGIA_POLICY_CHECKPOINT",
@@ -510,7 +530,7 @@ fn summaries(log: &str) -> Result<Vec<(usize, usize, usize)>, String> {
         .collect()
 }
 
-fn read_log(path: &Path) -> Result<String, String> {
+pub(crate) fn read_log(path: &Path) -> Result<String, String> {
     let mut text = String::new();
     File::open(path)
         .map_err(|e| e.to_string())?
@@ -523,7 +543,7 @@ fn read_log(path: &Path) -> Result<String, String> {
     Ok(text)
 }
 
-fn digest(path: &Path) -> Result<String, String> {
+pub(crate) fn digest(path: &Path) -> Result<String, String> {
     let mut hash = Sha256::new();
     let mut file = File::open(path).map_err(|e| e.to_string())?;
     let mut bytes = [0; 65536];
@@ -585,23 +605,28 @@ fn write_report(
     })).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
 
-fn listed_binary(log: &str, target: &Path) -> Result<PathBuf, String> {
-    let binaries: Vec<_> = log
+pub(crate) fn listed_path<'a>(log: &'a str, entry: &str) -> Result<&'a str, String> {
+    let launches: Vec<_> = log
         .lines()
-        .filter(|line| line.contains("Running unittests "))
-        .filter_map(|line| {
-            line.rsplit_once(" (")
-                .and_then(|(_, path)| path.strip_suffix(')'))
-        })
+        .filter_map(|line| line.trim_start().strip_prefix("Running "))
         .collect();
-    if binaries.len() != 1 {
-        return Err("required listing must name exactly one Session test executable".into());
+    if launches.len() != 1 {
+        return Err("required listing must name exactly one test executable".into());
     }
-    let binary = PathBuf::from(binaries[0])
+    launches[0]
+        .strip_prefix(entry)
+        .and_then(|line| line.strip_prefix(" ("))
+        .and_then(|line| line.strip_suffix(')'))
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| format!("required listing did not launch {entry}"))
+}
+
+pub(crate) fn listed_binary(log: &str, target: &Path, entry: &str) -> Result<PathBuf, String> {
+    let binary = PathBuf::from(listed_path(log, entry)?)
         .canonicalize()
         .map_err(|e| e.to_string())?;
     if !binary.starts_with(target.canonicalize().map_err(|e| e.to_string())?) {
-        return Err("Session test executable is outside the private target".into());
+        return Err("test executable is outside the private target".into());
     }
     Ok(binary)
 }

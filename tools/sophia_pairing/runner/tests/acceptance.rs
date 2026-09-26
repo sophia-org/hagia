@@ -5,6 +5,13 @@ mod overlay;
 #[path = "../src/acceptance.rs"]
 mod wm_file_acceptance;
 
+// These tests import the tool modules directly, without launching Cargo or a
+// paired process. Production orchestration uses the same validation helpers.
+use wm_file_acceptance as acceptance;
+#[allow(dead_code)]
+#[path = "../src/legacy.rs"]
+mod legacy;
+
 #[test]
 fn absent_feature_or_filtered_owner_fixture_cannot_pass() {
     for log in [
@@ -76,4 +83,40 @@ fn incomplete_or_duplicate_test_listing_is_refused() {
             "{missing}"
         );
     }
+}
+
+#[test]
+fn legacy_case_must_be_named_exactly_once() {
+    let name = "hagia_real_x_child_origin_survives_monitor_switch_and_rejection";
+    assert!(legacy::named_test("", name).is_err());
+    assert!(legacy::named_test("unrelated: test\n", name).is_err());
+    let entry = format!("parent::{name}: test\n");
+    assert_eq!(
+        legacy::named_test(&entry, name).unwrap(),
+        format!("parent::{name}")
+    );
+    assert!(legacy::named_test(&format!("{entry}{entry}"), name).is_err());
+}
+
+#[test]
+fn listed_binary_requires_the_expected_cargo_launch_kind() {
+    for entry in ["unittests src/lib.rs", "tests/policy_transport.rs"] {
+        let line = format!("     Running {entry} (/private/target/test)\n");
+        assert_eq!(
+            acceptance::listed_path(&line, entry).unwrap(),
+            "/private/target/test"
+        );
+        assert!(acceptance::listed_path(&format!("{line}{line}"), entry).is_err());
+        assert!(acceptance::listed_path("unrelated (/private/target/test)", entry).is_err());
+        assert!(
+            acceptance::listed_path("Running arbitrary (/private/target/test)", entry).is_err()
+        );
+    }
+    assert!(
+        acceptance::listed_path(
+            "Running tests/policy_transport.rs (/private/target/test)",
+            "unittests src/lib.rs"
+        )
+        .is_err()
+    );
 }

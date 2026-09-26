@@ -16,6 +16,17 @@ evidence directory, copies the embedded fixtures and adds two test mounts:
   source has `#![cfg(test)]`; it neither allocates Qids nor proves held-fid wire
   behavior.
 
+The older interoperability fixtures are also external, under `legacy/`.
+Their seven copy/mount recipes in `legacy/MOUNTS.tsv` have exact base-file hashes
+and unique anchors. The same Rust runner installs them into the scratch tree;
+there is no separate installer. It lists and runs thirteen named legacy cases:
+pointer focus, reducer-level presentation, protected profile admission, real X
+launch origin, output bookmarks, partial projections and targeted clicks.
+Each family records and executes its listed test binary directly. The two
+integration cases historically marked ignored are invoked explicitly. The
+reducer-only old-epoch presentation boundary stays ignored and is checked only
+in the ignored-test listing; it is not acceptance evidence.
+
 No source in the supplied checkout is modified. The overlay preserves private
 Session access without a public test API or an environment-driven include hook
 in Sophia. This deliberately couples the optional tests to one Sophia version.
@@ -59,6 +70,9 @@ and after. Direct rustfmt checks cover every injected Rust fixture; `cargo fmt`
 alone does not inspect included support modules. Existing mount-file bodies keep
 their pinned base formatting, including any pre-existing formatting debt; the
 recorded patch and whitespace check cover the added mount lines.
+Legacy families retain their own test-binary records and logs. Their older
+receipt fixtures remain synthetic; their runtime reducer checks do not become
+Session layout or physical-presentation evidence by moving here.
 
 The normal Session, managed layout and CPU joins use supplied historical
 admission, frontend acknowledgements and CPU pixels. The presentation case uses
@@ -73,3 +87,9 @@ The profile-replacement fixture additionally overlays a Session dev-dependency
 on the already-locked serde_json package, solely to inspect Hagia's checkpoint.
 Both Cargo files are context-pinned and hashed; every Cargo phase uses --locked.
 This is part of the test overlay, not a production dependency change.
+
+For captured WM records, the pinned Sophia source also supplies the WM-neutral
+`sophia-protocol` example `wm_file_inspect`. It renders a validated Snapshot or
+bounded contiguous event capture with explicitly supplied epoch/capabilities.
+It opens no live endpoint and acknowledges nothing; it is separate from this
+Hagia-specific acceptance runner. Sophia's `sophia-wm-files.md` documents usage.
