@@ -7,6 +7,8 @@ from ./wm_v1 import
   decodeSnapshotAction, decodeSnapshotSessionOperation,
   decodeSnapshotSurfaceClassification, decodeLaunchOriginRecord, encodeSnapshotAction
 from ./policy_codec import validateLaunchOrigins
+import ./wm_file_arrays/projection
+export projection
 
 ## Complete arrays reuse fixed row codecs and typed validation, never legacy
 ## frames or transfers. Shape, capability and aggregate checks precede row work.

@@ -73,7 +73,13 @@ and [DRY principles](dry-principles.md).
 - `src/sophia/policy_semantics.nim` holds the typed predicates and outcome codes
   both the file bodies and the legacy decoders use.
 - `src/sophia/wm_file_arrays.nim` decodes complete file snapshots and encodes
-  configuration candidates through shared fixed row codecs.
+  configuration and projection candidates through shared fixed row codecs.
+  Projection sections have complete per-kind bounds, with no legacy chunk
+  ordinals or frame envelopes. Optional translation and launch hints are
+  omitted when unselected; tabs, indicators and action-bearing presentations
+  refuse when their capabilities are absent. A passive presentation needs
+  `SURFACE_INSTANCES` alone on the file path. Candidate placement identities
+  are validated before encoding; final scene authority stays with Sophia.
   `policy_snapshot.nim` owns complete snapshot
   validation, with explicit legacy identity exceptions at its old entry point.
 - Shell surface policy is not in this repository. It belongs to Narthex, a

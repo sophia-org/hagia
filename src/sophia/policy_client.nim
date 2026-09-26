@@ -515,7 +515,7 @@ proc sendProjection(
   if projection.tabGroups.len > 0:
     if (client.capabilities and capabilityTabGroups) == 0:
       fail("Sophia did not negotiate tab groups")
-    if projection.tabGroups.len > 1024:
+    if projection.tabGroups.len > maxTabGroups:
       fail("too many tab groups")
     var groups, members: seq[byte]
     var memberCount = 0
@@ -524,10 +524,13 @@ proc sendProjection(
       for member in group.members:
         members.add(group.encodeTabMember(member))
         inc memberCount
-    if memberCount > 2048:
+    if memberCount > maxTabMembers:
       fail("too many tab members")
     var ordinal = extensionOrdinal
-    for (kind, size, data) in [(0xff01'u16, 48, groups), (0xff02'u16, 24, members)]:
+    for (kind, size, data) in [
+      (projectionTabGroupRecordKind, projectionTabGroupSize, groups),
+      (projectionTabMemberRecordKind, projectionTabMemberSize, members),
+    ]:
       let limit = (client.maxChunkBytes div size) * size
       if limit == 0:
         fail("negotiated tab chunk limit is too small")
@@ -561,9 +564,12 @@ proc sendProjection(
       groups.add(group.encodeTranslationGroup())
       for member in group.members:
         members.add(group.encodeTranslationMember(member))
-    if members.len div 24 > maxSurfaces:
+    if members.len div projectionTranslationMemberSize > maxSurfaces:
       fail("too many translation members")
-    for (kind, size, data) in [(0xff03'u16, 32, groups), (0xff04'u16, 24, members)]:
+    for (kind, size, data) in [
+      (projectionTranslationGroupRecordKind, projectionTranslationGroupSize, groups),
+      (projectionTranslationMemberRecordKind, projectionTranslationMemberSize, members),
+    ]:
       let limit = (client.maxChunkBytes div size) * size
       if limit == 0:
         fail("negotiated translation chunk limit is too small")

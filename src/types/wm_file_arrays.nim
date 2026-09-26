@@ -4,6 +4,7 @@ import ./wm_v1
 const
   wmFileSnapshotPrefixBytes* = 32
   wmFileConfigurationPrefixBytes* = 48
+  wmFileProjectionPrefixBytes* = 40
   wmFileChromeMaxWidth* = 64'u32
   snapshotOutputPolicyKeySize* = 24
 

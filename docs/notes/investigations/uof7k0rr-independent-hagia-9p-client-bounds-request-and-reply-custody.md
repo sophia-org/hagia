@@ -202,6 +202,60 @@ and action rows; a Rust-decoder exchange remains outstanding. Projection
 array encoding, the file client loop and complete role acceptance remain
 open. No broad gate, physical run or default transport change is claimed.
 
+## Complete Projection encoder and supplied-stream peer
+
+The file candidate encoder now emits one bounded section per populated kind,
+with shared legacy fixed-row encoders and no chunk envelope. Row counts and
+output partitions are checked before row construction. Translation and launch
+hints retain their capability-dependent omission rules; tab groups, indicators
+and action-bearing presentations refuse without their required capabilities.
+A passive presentation uses the file contract's `SURFACE_INSTANCES` minimum.
+Placement handle/state validity is checked on the candidate side, earlier than
+Sophia's row codec; final membership and authority remain Engine-owned.
+The legacy client now reads the same named tab/translation kind, width and
+count constants, with identical values and conditions.
+
+Sophia's shared selected-tab fix was characterized at `71fde5fb`, made red at
+`afbba8f2` and fixed at `d8c20a89`: index zero with a nonzero generation is
+present, `(0,0)` is absent, and all-ones indices or other zero-generation
+pairs refuse. Its None encoder previously produced `(u32::MAX,0)`, which its
+own decoder refused. The compatibility change is recorded in Sophia's t249
+note, and both frozen byte fixtures passed unchanged. Hagia now explicitly
+pins present index zero, absent selection with no members, and invalid
+selection pairs. The Sophia bundle's thirteen files were independently
+checksum-verified; manifest SHA256 is
+`d53adc5e9db0f0ab6ac2f731036e048db8ca59352090438d7fabde2e688010d9`.
+
+Device-hidden checks: ten Projection controls, fourteen Snapshot/Configuration
+controls and four legacy corpus controls pass. The normal Hagia executable
+compiles after the constant reuse. Three compiled mutations (row bounds,
+action-bearing presentation capabilities, and the output-launch dependency)
+fail their named controls; source was restored and Projection rerun green.
+Formatting, layout and diff checks pass. Evidence is
+`.artifacts/h006-projection/`. The tests include one 81920-byte instance section
+that crosses the old chunk boundary without splitting.
+
+`tests/wm_file_session_peer.nim` is a separate prebuilt peer for Session's
+opt-in supplied-stream startup/cycle fixture. It uses the independent .L client,
+shared typed file codecs and Hagia's existing profile reducer against a fixed
+fixture candidate (epoch 9, generation 3, digest 07 repeated 32 times). Its
+Configuration, placement, session operation and accepted outcomes are scripted;
+it is not the production Hagia loop or an Engine acceptance test. Candidate
+writes are 17 bytes, events are read in 23-byte pieces, and immutable objects
+in 37-byte pieces, forcing header/body fragmentation. Submitted, ACK and
+semantic transaction identities are checked separately. Object metadata stays
+pinned, and Snapshot/Cycle transaction and generation must match. Deadline
+failure closes the one-shot peer and retires its outstanding read.
+
+The peer compiles after correcting a test-helper sequence-deletion API mistake;
+the failed compile log is retained. At this checkpoint the independent socket
+pair has not run. It requires the exact prebuilt executable and SHA256, with
+fresh retained evidence. No full contributor gate, authenticated launch,
+LivePublicPolicyState settlement, native retirement, performance measurement,
+production endpoint/default selection, or output-role migration is claimed.
+The startup/complete adapter remains on Sophia's topic branch; WM migration and
+h006 are still open.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)

@@ -216,6 +216,16 @@ const
   surfaceFocusable* = 1'u16 shl 2
   snapshotSurfaceCapabilityMask* = 0x1f'u16
   snapshotSessionOperationTargetMask* = 1'u16
+  projectionTabGroupRecordKind* = 0xff01'u16
+  projectionTabMemberRecordKind* = 0xff02'u16
+  projectionTranslationGroupRecordKind* = 0xff03'u16
+  projectionTranslationMemberRecordKind* = 0xff04'u16
+  projectionTabGroupSize* = 48
+  projectionTabMemberSize* = 24
+  projectionTranslationGroupSize* = 32
+  projectionTranslationMemberSize* = 24
+  maxTabGroups* = 1024
+  maxTabMembers* = 2048
 
   frameHeaderLen* = 24
   maxPayloadLen* = 65536
