@@ -362,6 +362,93 @@ These focused checkpoints do not extend the earlier full contributor result
 to the new source. The production file wire and its paired acceptance remain
 the next work; output traffic and the installed default are unchanged.
 
+## Supplied-socket file wire
+
+Signed `17f402eaec3f5639a964006676399842642674b0`, joined as `c4554f8`,
+implements the file role behind `PolicyWire`. One event read may coexist with
+one control RPC. Candidate custody consumes its matching Submitted while
+preserving one earlier event for its eventual consumer; receipts continue to
+drain and acknowledge behind that held event. A second unrelated event refuses.
+The selected capability set must fit both the offer and the published ceiling.
+Profile and policy phases remain with the shared reducers and Session driver.
+
+One absolute candidate deadline includes encoding, staging, submit retries,
+Submitted and clunk. A started file-event assembly has a bounded lifetime,
+while idle waiting before its first observed payload fragment is uncapped in
+normal policy traffic. Completion stops that assembly timer even when the
+record waits for its consumer. A snapshot/object read has one deadline across
+all RPCs; fragment progress cannot renew it. Discovery retains its shorter
+bound. Expiry closes custody and does not imply semantic rollback.
+
+The author's device-hidden focused suite passes all fifteen file-wire controls
+and the nine retained targets. The latter include the legacy corpus, client,
+profile, model, file bodies and arrays. The first retained-corpus invocation
+omitted `SOPHIA_ROOT` and failed; the corrected invocation passed and both logs
+are retained. Normal and proof binaries build, and config check, formatting and
+layout pass. The peer is a scripted transcript: it proves flow and refusal,
+not independent server conformance or real Session settlement.
+
+Six compiled mutants fail named assertions: dropping receipt drain,
+overwriting the held event, renewing candidate time, retaining an assembly cap
+after completion, removing the whole-object cap and renewing the event cap per
+fragment. A seventh mutant that repeatedly pops and replaces the held event
+spun without reaching I/O. The director terminated its exact owned test process,
+PID 5301; this is timeout evidence, not a named assertion failure. The mutation
+runner now includes isolated-process timeout and final source restoration, but
+that revised runner was not rerun. The accepted source was restored and its
+hash verified before the final focused checks.
+
+The verified 35-file bundle is
+`~/.local/state/hagia/development-evidence/h006-file-wire-17f402e`, manifest
+`e159a044c66a88eb009246a196f5ee081d43e6fc515ca7e596cb52421756c221`.
+It retains the source/bundle, binaries, initial failures, restored checks and
+mutation records. Explicit executable endpoint selection and the independent
+production-loop/Session pairing are subsequent checkpoints; no installed
+session or output transport changed here.
+
+## Explicit executable endpoint selection
+
+The `protocol/h006-runtime-selection` checkpoint adds an explicit resolver and
+a thin path wrapper around the supplied-socket file wire. Current IPC remains
+the default. `SOPHIA_WM_9P_SOCKET` or `--9p-socket` selects only the file WM;
+dual selection refuses even when an explicit override is empty. The legacy
+missing-path and unknown-option refusals retain their order. Offline commands
+ignore endpoint variables. There is no byte sniffing or fallback.
+
+The wrapper uses the existing candidate settings parser before connecting and
+passes its focus and workspace requirements into negotiation. It uses the
+existing connect retry and shared activated/configured loops; only the file
+wire closes its socket. Its two focused controls pass, covering all four
+focus/workspace combinations through a real path connection and an invalid
+candidate that never connects. The prescribed peer refuses the first submit;
+these are wrapper/offer controls, not Session admission evidence. The first
+compile failed on missing parentheses in a test bit-mask assertion; the fixed
+run passes, with both logs retained.
+
+Six pure resolver controls pass. The normal executable compiles, and eleven
+disposable CLI probes pass: ambiguous/mixed selection, empty override, legacy
+missing path, offline config/help and all four environment/option dispatches.
+The latter check actual current-IPC and exact 9P2000.L initial messages before
+closing the test peer. This is entrypoint evidence, not a completed role
+exchange. Logs, probe source and binaries are retained under
+`.artifacts/h006-endpoint`. Formatting, layout and diff checks pass.
+
+The file path intentionally rejects invalid settings earlier than current
+IPC. A read-only trace of Sophia's paired production selection found that,
+after protected launch succeeds, initial activation waits only for worker
+events for five seconds. A child that exits before accept normally produces
+the profile-admission timeout, not a ProfileRejected completion. The existing
+startup rejection rolls back the candidate and drops the worker, endpoint and
+supervisor without promotion or fallback. Worker cancellation interrupts the
+longer pending accept; the supervisor's existing reap loop is not a hard total
+cleanup deadline. An exit before protection evidence is acquired instead
+fails launch/evidence acquisition. These are source-traced classifications,
+not newly reproduced Session timing controls.
+
+The output role remains current IPC. No installed session, default selection,
+Engine settlement or physical acceptance is changed or claimed here. The
+independent production-loop/Session pair and full WM milestone remain open.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)

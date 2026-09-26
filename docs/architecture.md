@@ -61,6 +61,9 @@ and [DRY principles](dry-principles.md).
 - `src/runtime/effect_executor.nim` executes injected outer I/O and returns typed
   completion messages.
 - `src/config` discovers, expands, partitions, stages, and migrates desktop profiles.
+- `src/config/policy_endpoint.nim` resolves the explicit WM socket selection
+  without connecting. Dual transport selection refuses; failures never select
+  another wire.
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.
@@ -103,9 +106,13 @@ and [DRY principles](dry-principles.md).
   activated loops only. A refused submit services receipts and retries within
   one candidate deadline; admission, candidates, profile waits, started events
   and object reads each have one absolute deadline that nothing renews.
+- `src/sophia/wm_file_client.nim` connects the explicitly selected file endpoint
+  and runs that same loop.
 
-The adapter exposes a snapshot to policy only after the complete begin/chunk/end
-transfer settles. A projection completely replaces every affected output.
+The adapter exposes a snapshot to policy only after the complete current-IPC
+begin/chunk/end transfer or immutable file object validates. The file reader
+pins the opened object to its Cycle identity; file fragments do not enter the
+policy model. A projection completely replaces every affected output.
 Rejected or interrupted work is discarded before it can mutate Hagia's last
 committed model or the Engine-owned scene.
 

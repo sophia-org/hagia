@@ -52,6 +52,10 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tpolicy-wire" tests/tpolicy_wire.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tfile-wire" tests/tfile_wire.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tpolicy-endpoint" tests/tpolicy_endpoint.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/twm-file-client" tests/twm_file_client.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-hagia" \
