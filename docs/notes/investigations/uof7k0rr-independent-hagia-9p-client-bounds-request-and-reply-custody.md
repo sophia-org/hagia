@@ -663,6 +663,42 @@ prepare and apply. Session settles before the backend cycle; no new atomic
 rollback guarantee across those owners is claimed. Broader WM behavior and
 native acceptance remain separate.
 
+## Eleven-scenario behavior parity
+
+Sophia's signed `be449f389be6447c4f4eb292fcf27b4b92b36486`, joined as
+`5b6a4ad00f360d93c56387bc89335e6b9eb9af8c`, runs the eleven canonical
+behavior scenarios through the same frozen normal Hagia on both transports.
+Protected startup and configuration use the existing Session helper. The test
+then takes its configured worker and drives the canonical corpus with a
+test-owned reducer, preserving the conformance host's scene, cause and outcome
+rules. Session's layout owner does not settle these corpus proposals.
+
+The pair passes 1/0 in 1.02 seconds. Every full decoded proposal and
+reducer-decided outcome is exactly equal, with no identity normalization.
+Selection stays `0x3dfff` on both wires. Both observations have digest
+`7ee814817923d62c8c6c0f53b9c7753b927fca9b50ca80f9889b8eb316fe3653`.
+Later proposals establish continuation after earlier outcomes. Driver readiness
+only proves its send completed; consumption or promotion of the final outcome
+is not established. This is corpus behavior parity, not checkpoint, layout or
+native settlement parity. Those claims retain their separate evidence above.
+
+The first run stopped on current IPC because the fixture put the configured
+session-action catalog into canonical snapshots with no operation slots. The
+correction uses the host's empty snapshot catalog while retaining actual
+configuration admission; no canonical or production behavior changed. That
+failure is preserved. Strict native Session all-target Clippy, layout and direct
+support formatting pass. Five retained opt-in tests were listed, not rerun.
+The first layout invocation incorrectly passed `-j 2` to xtask; its failure is
+preserved, and the corrected invocation uses `CARGO_BUILD_JOBS=2`.
+
+The verified bundle is
+`~/.local/state/sophia/development-evidence/t249-hagia-corpus-be449f38`,
+manifest `8e34f49956c17d9c0553a26f287c0045607a4ff88938d6f571c8179b2258b44f`.
+The author also corrected P1's historical layout provenance: its valid exit 0
+came from a fallback invocation using the isolation wrapper's eight-job setting,
+not the intended two. That is an execution-limit deviation, not a new P1 run
+or a change to its layout result. The original evidence remains preserved.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
