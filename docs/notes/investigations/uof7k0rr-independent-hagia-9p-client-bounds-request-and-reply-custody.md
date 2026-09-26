@@ -175,6 +175,33 @@ snapshot checkpoint. Configuration/projection array encoders, the complete WM
 role join, and performance acceptance remain outstanding. Default transport,
 output-role IPC, live sessions and hardware are unchanged.
 
+## Configuration candidate checkpoint
+
+The h006 bodies evidence bundle is verified at
+`hagia-wm-files/.artifacts/h006-bodies-bundle`: nineteen files, with manifest
+SHA256 `c04abf01fcc7133a2135e388dccfb6bf2782cd9d6d38cef85502afc11e315076`.
+It retains the peer's six final binaries, focused logs, source bundle and
+mutation evidence. Intermediate commits were not built alone, and no broad
+contributor gate is implied.
+
+The outgoing Configuration array body now has a passive value and encoder.
+It checks the candidate header and exact epoch, nonzero transaction and
+generation, configuration/chrome/action capabilities, the 64-pixel chrome
+bound, style consistency, `00RRGGBB`, and bounded unique action IDs/names.
+Its action rows use `encodeSnapshotAction`; the legacy decoder and new row
+encoder share the same character predicate without changing legacy error
+order. No legacy frame is embedded in a file.
+
+Snapshot diagnostics now retain the underlying rule, and count versus width
+refusals use the same value/length error categories as the scalar helpers.
+Fourteen snapshot/configuration controls and the four legacy wire corpus
+controls pass device-hidden, with formatting, layout and diff checks. Logs
+are `.artifacts/h006-arrays/configuration-{initial,legacy,layout,format}.log`.
+The configuration control compares independently assembled expected fields
+and action rows; a Rust-decoder exchange remains outstanding. Projection
+array encoding, the file client loop and complete role acceptance remain
+open. No broad gate, physical run or default transport change is claimed.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)

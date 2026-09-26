@@ -1,4 +1,4 @@
-import std/unittest
+import std/[strutils, unittest]
 
 import types/[wm_v1, wm_files, wm_file_arrays]
 import sophia/[wm_files, wm_file_arrays]
@@ -155,3 +155,115 @@ suite "complete WM file snapshot arrays":
     rows[3].rows[10] = 2
     expect WmFileError:
       discard rows.snapshotBytes().decodeFileSnapshot(7, high(uint64))
+
+  test "row diagnostics preserve the rule and distinguish counts from lengths":
+    try:
+      discard sections().snapshotBytes(8).decodeFileSnapshot(7, high(uint64))
+      check false
+    except WmFileError as error:
+      check error.kind == WmFileErrorKind.value
+      check "active output" in error.msg
+    var rows = sections(false)
+    rows[0].count = high(uint32)
+    try:
+      discard rows.snapshotBytes().decodeFileSnapshot(7, high(uint64))
+      check false
+    except WmFileError as error:
+      check error.kind == WmFileErrorKind.value
+    rows = sections(false)
+    rows[0].rows.setLen(snapshotOutputSize - 1)
+    try:
+      discard rows.snapshotBytes().decodeFileSnapshot(7, high(uint64))
+      check false
+    except WmFileError as error:
+      check error.kind == WmFileErrorKind.length
+
+proc configuration(): WmFileConfiguration =
+  WmFileConfiguration(
+    transaction: 13,
+    connectionEpoch: 7,
+    generation: 19,
+    styleBits: 2,
+    frameWidth: 1,
+    focusRgb: 0x123456,
+    frameFocusedRgb: 0xabcdef,
+    frameUnfocusedRgb: 0x987654,
+    actions: @[SnapshotAction(action: 11, sessionOperationSlot: 1, name: "x")],
+  )
+
+proc candidate(): WmFileHeader =
+  WmFileHeader(kind: WmFileKind.configuration, connectionEpoch: 7, submissionId: 23)
+
+suite "complete WM file configuration arrays":
+  test "prefix and action row match the published layout":
+    var body: seq[byte]
+    body.addU64(13)
+    body.addU64(19)
+    body.addU16(2)
+    body.addU16(1)
+    for value in [0'u32, 0x123456, 1, 0xabcdef, 0x987654]:
+      body.addU32(value)
+    body.addU64(0)
+    body.add(@[sections()[2]].encodeSections())
+    check candidate().encodeFileConfiguration(configuration(), high(uint64)) ==
+      candidate().encodeRecord(body)
+
+  test "empty actions and disabled chrome need only configuration":
+    let value = WmFileConfiguration(transaction: 1, connectionEpoch: 7, generation: 1)
+    let bytes = candidate().encodeFileConfiguration(value, capabilityConfiguration)
+    check bytes.len == wmFileHeaderBytes + wmFileConfigurationPrefixBytes
+    check bytes.readU16(wmFileHeaderBytes + 18) == 0
+
+  test "each populated component requires its selected capability":
+    for bit in [capabilityConfiguration, capabilityChrome, capabilityActions]:
+      expect WmFileError:
+        discard
+          candidate().encodeFileConfiguration(configuration(), high(uint64) xor bit)
+
+  test "wrong direction epoch and null semantic identity are refused":
+    var header = candidate()
+    header.kind = WmFileKind.snapshot
+    expect WmFileError:
+      discard header.encodeFileConfiguration(configuration(), high(uint64))
+    var value = configuration()
+    value.connectionEpoch = 8
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))
+    value = configuration()
+    value.transaction = 0
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))
+
+  test "file RGB and chrome widths are strict":
+    for color in [0xff123456'u32, high(uint32)]:
+      var value = configuration()
+      value.focusRgb = color
+      expect WmFileError:
+        discard candidate().encodeFileConfiguration(value, high(uint64))
+    for width in [0'u32, wmFileChromeMaxWidth + 1, high(uint32)]:
+      var value = configuration()
+      value.frameWidth = width
+      expect WmFileError:
+        discard candidate().encodeFileConfiguration(value, high(uint64))
+    var value = configuration()
+    value.styleBits = 0
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))
+
+  test "action bounds names and uniqueness are checked":
+    var value = configuration()
+    value.actions.setLen(maxBindings + 1)
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))
+    for name in ["", "bad/name", repeat("x", maxActionNameBytes + 1)]:
+      value = configuration()
+      value.actions[0].name = name
+      expect WmFileError:
+        discard candidate().encodeFileConfiguration(value, high(uint64))
+    value = configuration()
+    value.actions.add(value.actions[0])
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))
+    value.actions[1].action = 12
+    expect WmFileError:
+      discard candidate().encodeFileConfiguration(value, high(uint64))

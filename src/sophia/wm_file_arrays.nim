@@ -5,7 +5,7 @@ import ./[wm_files, wm_file_payload, policy_snapshot, policy_transport]
 from ./wm_v1 import
   PolicyProtocolError, decodeSnapshotOutput, decodeSnapshotSurface,
   decodeSnapshotAction, decodeSnapshotSessionOperation,
-  decodeSnapshotSurfaceClassification, decodeLaunchOriginRecord
+  decodeSnapshotSurfaceClassification, decodeLaunchOriginRecord, encodeSnapshotAction
 from ./policy_codec import validateLaunchOrigins
 
 ## Complete arrays reuse fixed row codecs and typed validation, never legacy
@@ -52,9 +52,10 @@ proc decodeFileSnapshot*(
   for section in sections:
     let layout = snapshotLayout(section.kind)
     # The raw peer count is bounded before conversion or multiplication.
-    if section.count > uint32(layout.maximum) or
-        section.length != int(section.count) * layout.size:
-      failWmFile(WmFileErrorKind.sections, "snapshot row count or width is invalid")
+    if section.count > uint32(layout.maximum):
+      failWmFile(WmFileErrorKind.value, "snapshot row count exceeds its bound")
+    if section.length != int(section.count) * layout.size:
+      failWmFile(WmFileErrorKind.length, "snapshot row width is invalid")
     selected.requireCapabilities(layout.capability)
     hasOutputs = hasOutputs or section.kind == 1
   if not hasOutputs:
@@ -105,4 +106,59 @@ proc decodeFileSnapshot*(
       if (origin.surfaceIndex, origin.surfaceGeneration) notin live:
         failWmFile(WmFileErrorKind.value, "snapshot launch origin is not live")
   except PolicyClientError, PolicyProtocolError:
-    failWmFile(WmFileErrorKind.value, "invalid snapshot rows")
+    failWmFile(
+      WmFileErrorKind.value, "invalid snapshot rows: " & getCurrentExceptionMsg()
+    )
+
+proc encodeFileConfiguration*(
+    header: WmFileHeader, value: WmFileConfiguration, selected: uint64
+): seq[byte] =
+  header.validateHeader()
+  header.requireKind(WmFileKind.configuration)
+  header.requireEpoch(value.connectionEpoch)
+  requireNonzero([value.transaction, value.generation])
+  selected.requireCapabilities(capabilityConfiguration)
+  if (value.styleBits and not 3'u16) != 0:
+    failWmFile(WmFileErrorKind.reserved, "configuration style bits are invalid")
+  for color in [value.focusRgb, value.frameFocusedRgb, value.frameUnfocusedRgb]:
+    if (color shr 24) != 0:
+      failWmFile(WmFileErrorKind.reserved, "file configuration requires 00RRGGBB")
+  for (enabled, width) in [
+    ((value.styleBits and 1) != 0, value.focusWidth),
+    ((value.styleBits and 2) != 0, value.frameWidth),
+  ]:
+    if width > wmFileChromeMaxWidth or enabled != (width > 0):
+      failWmFile(WmFileErrorKind.value, "configuration chrome width is invalid")
+  if value.styleBits != 0:
+    selected.requireCapabilities(capabilityChrome)
+  if value.actions.len > maxBindings:
+    failWmFile(WmFileErrorKind.value, "too many configuration actions")
+  if value.actions.len > 0:
+    selected.requireCapabilities(capabilityActions)
+  var ids = initHashSet[uint64]()
+  var names = initHashSet[string]()
+  var rows: seq[byte]
+  for action in value.actions:
+    if action.action == 0 or ids.containsOrIncl(action.action) or
+        names.containsOrIncl(action.name):
+      failWmFile(WmFileErrorKind.value, "configuration action is null or repeated")
+    try:
+      rows.add(action.encodeSnapshotAction())
+    except PolicyProtocolError:
+      failWmFile(WmFileErrorKind.value, getCurrentExceptionMsg())
+  var sections: seq[WmFileSection]
+  if value.actions.len > 0:
+    sections.add(WmFileSection(kind: 3, count: uint32(value.actions.len), rows: rows))
+  var body: seq[byte]
+  body.addU64(value.transaction)
+  body.addU64(value.generation)
+  body.addU16(value.styleBits)
+  body.addU16(uint16(sections.len))
+  for field in [
+    value.focusWidth, value.focusRgb, value.frameWidth, value.frameFocusedRgb,
+    value.frameUnfocusedRgb,
+  ]:
+    body.addU32(field)
+  body.addU64(0)
+  body.add(sections.encodeSections())
+  header.encodePayload(WmFileKind.configuration, body)

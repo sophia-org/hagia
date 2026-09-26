@@ -16,6 +16,11 @@ proc validSurface*(index, generation: uint32): bool =
 proc validOptionalSurface*(index, generation: uint32): bool =
   (index == 0 and generation == 0) or validSurface(index, generation)
 
+proc validActionNameByte*(value: byte): bool =
+  value >= byte('a') and value <= byte('z') or value >= byte('A') and value <= byte('Z') or
+    value >= byte('0') and value <= byte('9') or
+    value in [byte('-'), byte('_'), byte(' '), byte('.')]
+
 proc validInteractionPayload*(
     phase: InteractionPhase,
     kind: InteractionKind,

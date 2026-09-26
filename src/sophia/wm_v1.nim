@@ -1,4 +1,5 @@
 import ../types/wm_v1
+from ./policy_semantics import validActionNameByte
 
 ## Frame encoding, decoding, and validation for Sophia's WM v1 protocol. The
 ## record layout lives in `src/types/wm_v1.nim`; this module owns only the
@@ -396,17 +397,26 @@ proc decodeSnapshotAction*(bytes: openArray[byte]): SnapshotAction =
   result.name = newString(nameLen)
   for index in 0 ..< nameLen:
     let value = bytes[12 + index]
-    if not (
-      value >= byte('a') and value <= byte('z') or
-      value >= byte('A') and value <= byte('Z') or
-      value >= byte('0') and value <= byte('9') or
-      value in [byte('-'), byte('_'), byte(' '), byte('.')]
-    ):
+    if not value.validActionNameByte():
       fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action name is invalid")
     result.name[index] = char(value)
   for index in 12 + nameLen ..< snapshotActionSize:
     if bytes[index] != 0:
       fail(PolicyProtocolErrorKind.reservedNonzero, "policy action padding is nonzero")
+
+proc encodeSnapshotAction*(action: SnapshotAction): seq[byte] =
+  if action.name.len < 1 or action.name.len > maxActionNameBytes:
+    fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action name length is invalid")
+  for value in action.name:
+    if not byte(value).validActionNameByte():
+      fail(PolicyProtocolErrorKind.fieldTooLarge, "policy action name is invalid")
+  result.addU64(action.action)
+  result.addU16(action.sessionOperationSlot)
+  result.addU16(uint16(action.name.len))
+  for value in action.name:
+    result.add(byte(value))
+  for _ in action.name.len ..< maxActionNameBytes:
+    result.add(0)
 
 proc decodeSnapshotSessionOperation*(bytes: openArray[byte]): SnapshotSessionOperation =
   bytes.requireExact(snapshotSessionOperationSize)
