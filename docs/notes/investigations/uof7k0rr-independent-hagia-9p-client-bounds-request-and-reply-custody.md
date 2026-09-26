@@ -699,6 +699,44 @@ came from a fallback invocation using the isolation wrapper's eight-job setting,
 not the intended two. That is an execution-limit deviation, not a new P1 run
 or a change to its layout result. The original evidence remains preserved.
 
+## Committed session-operation acceptance
+
+Sophia's signed test-only `05c6560d2a9fa9785ceb071fb8e84a2df86fae92`,
+joined as `137a235d4ac02efd71b99627e0ddae5b1185a8ba`, follows a committed
+action from frozen normal Hagia through the existing Session operation owner.
+After a real baseline resize settles, the targetless terminal action commits
+its unchanged projection. Hagia atomically checkpoints before sending the
+operation. Session validates the real token, epoch, expected slot and target;
+its unchanged operation proposal yields the actual immediate layout result.
+Applying it returns the exact application-1 launch intent and sends the existing
+acceptance outcome. The fixture retains the tuple locally and never calls the
+action queue, executor or launcher. This proves accepted intent, not application
+execution or success.
+
+The case distinguishes activation serial 5 from projection request 2 and
+projection domain transaction 3. Operation domain transaction 4 carries request
+ID 5, correctly naming the activation serial. After operation acceptance, the
+same child answers request 3 with domain transaction 5. Checkpoint bytes and
+device/inode identity stay unchanged through the operation and next uncommitted
+proposal. Supplied historical admission, CPU facts and frontend ACKs retain
+their earlier qualifications.
+
+The corrected serial suite passes 8/0 in 5.97 seconds, including retained
+startup, layout, CPU and both parity controls. Strict native Session all-target
+Clippy, freshly compiled worktree layout, direct support formatting and diff
+checks pass. The retained first run was 7/1: the new fixture incorrectly expected
+no diagnostic action marker on projection commit. It now asserts `Some(action)`
+there and `None` on operation settlement; production behavior is unchanged.
+The final post-green edit only clarifies that marker's comment.
+
+The 73-file verified evidence is
+`~/.local/state/sophia/development-evidence/t249-hagia-operation-05c6560d`.
+Its SHA256SUMS digest is
+`e43c315d9cf8f05cdaf75ad144e89c42c968aa5acb553479b1bcc0fff25518be`.
+Presentation capabilities are absent, so the omitted presentation preflight
+would return true for no publication. Presentation preflight, native retirement,
+physical input and the whole device loop remain unexercised.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
