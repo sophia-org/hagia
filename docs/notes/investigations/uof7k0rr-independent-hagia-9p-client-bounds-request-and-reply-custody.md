@@ -41,16 +41,24 @@ It refuses unknown/classic reply types and malformed lengths without trusting
 the peer's allocation counts. Numeric `.L` errors remain typed refusals.
 
 The socket owner keeps at most 32 ordinary pending requests and reserves one
-additional flush slot. Tags remain owned until a reply or an ordered `Rflush`
-settles them. An original reply may precede `Rflush`; a reply after its tag was
+additional flush slot. An ordinary tag remains reserved while any outstanding flush names it, even
+when its original reply arrives first. Only the ordered `Rflush` releases that
+reservation; flush requests cannot themselves be flushed. An original reply may precede `Rflush`; a reply after its tag was
 cancelled is a protocol error. Disconnect, malformed peer traffic and partial
 I/O failure close the socket and clear all local tag custody.
 
-I/O uses a nonblocking owned descriptor plus poll with one monotonic deadline
-for an entire frame. A peer cannot extend that deadline by trickling fragments,
-and unread-socket backpressure cannot leave a partial write waiting forever.
-The caller chooses the finite I/O timeout; the eventual WM event-loop adapter
-must separately handle idle waiting and its existing signal/restart lifecycle.
+I/O uses a nonblocking owned descriptor. `tryReceiveReply` polls for the caller's
+bounded idle interval and returns `None` only if it consumed no bytes. EOF is a
+disconnect, including before the first byte. Receipt of the first byte starts
+one monotonic assembly deadline for the remaining header and body: a prefix
+must complete or close, never return as idle. Synchronous `receiveReply` also
+bounds the initial wait separately, so a call can take up to twice the configured
+timeout. `tryReceiveReply` requires a pending request; an adapter normally keeps
+an event read pending rather than using this API as a general disconnect probe. A peer cannot extend assembly by trickling
+fragments. Writes have their own whole-frame deadline and fail closed on partial
+I/O failure. The eventual pipelined WM adapter must continue draining replies
+while writes are blocked; these low-level bounded operations alone do not
+establish that event-loop scheduling contract.
 This low-level owner does not select an endpoint, supervise a process, assign
 an epoch, authenticate attach names or interpret WM file contents.
 
@@ -63,11 +71,48 @@ replies; cancellation at a full request window; mismatched kind/tag/count;
 typed remote refusal; partial-read and blocked-write deadlines; and invalid
 version/msize negotiation. Formatting, layout and whitespace checks pass.
 
-Next run the independent executable against the exact signed t247 server and
-its relevant mutation controls, retaining both binary hashes. The full WM file
-payloads, adapter, profile/snapshot/proposal roundtrip, existing-IPC comparison
-and paired lifecycle gate are still pending under h006/Sophia t249. The
-socket tests do not establish those exits or physical presentation.
+The full WM file payloads, adapter, profile/snapshot/proposal roundtrip,
+existing-IPC comparison and paired lifecycle gate remain pending under
+h006/Sophia t249. Socket tests do not establish those exits or physical
+presentation.
+
+## Independent review and corrected client
+
+The t247 owner's read-only review found a real tag reuse bug: if the original
+reply arrived before `Rflush`, its tag could be reused after allocator wrap,
+and the later `Rflush` could delete the new request. The regression traverses
+the actual tag namespace while retaining the flush, then checks the new request
+survives. No allocator test hook or artificial private state is used.
+
+Other corrections are: version requests use `NOTAG`; starting renegotiation
+immediately invalidates the previous session even if the new version is
+refused; an empty `Rwalk` for a nonempty walk is malformed; and flush-of-flush
+and renegotiation during a pending flush refuse without discarding custody.
+The role adapter owns fids, and only a full walk or zero-name clone establishes
+`newfid`. A partial walk reports the prefix without creating that fid.
+
+`review-final-24.log` records 24/0 after all mutations were restored. New
+controls include idle waits beyond the assembly timeout, readable EOF, a
+three-byte prefix that times out cleanly, and a delayed suffix that completes
+exactly one reply. Six compiled source mutations fail their intended guards:
+flush tag reservation, EOF treated as idle, consumed-prefix return as idle,
+version reset, the empty-walk rule, and an error reply to flush. The latter is
+a protocol violation because flush cannot fail; it closes all local custody. The initial broad partial-custody
+mutation failed at the earlier successful-reply assertion; its separately
+filtered rerun pins the partial-header refusal itself. All logs are retained.
+
+The independent Nim executable then ran against t247's copied debug server
+from signed `ee2b7601`, SHA256
+`ef220dde8d8125310b7c6d4526b2b539056878cc60acb1a5c6bba1d132748b94`.
+The client SHA256 is
+`6baf06ed051985da5fa2ec96d931c80d6aa18b626fe6fbb4a34692edabffddbe`.
+`final-pair/pair-report.json` and per-run logs retain both identities. The
+clean run negotiates 4096 bytes, reads all 70000 patterned bytes through
+fragmented reads, and checks walk/open/getattr/write/flush/clunk. Each server
+mutation is refused: permissive authorization, corrupted read bytes, pending
+read reported as EOF, version suffix, and dropped flush (bounded timeout).
+These are interoperability and negative controls, not performance measurements.
+The old focused and paired logs remain separate. No live endpoint was opened.
 
 ## Connections
 

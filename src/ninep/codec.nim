@@ -232,7 +232,7 @@ proc decodeReply*(data: openArray[byte], msize: uint32): NinepReply =
 proc matchesRequest*(reply: NinepReply, request: NinepPending): bool =
   ## Correlate replies before exposing bytes to the WM file adapter.
   if reply.kind == NinepReplyKind.lerror:
-    return true
+    return request.kind != NinepRequestKind.flush
   if ord(reply.kind) != ord(request.kind) + 1:
     return false
   case request.kind
@@ -240,7 +240,8 @@ proc matchesRequest*(reply: NinepReply, request: NinepPending): bool =
     reply.version == ninepVersion and reply.msize >= ninepMinMsize and
       reply.msize <= request.bound
   of NinepRequestKind.walk:
-    reply.walked.len <= int(request.bound)
+    reply.walked.len <= int(request.bound) and
+      (request.bound == 0 or reply.walked.len > 0)
   of NinepRequestKind.read:
     reply.data.len <= int(request.bound)
   of NinepRequestKind.write:

@@ -1,4 +1,4 @@
-import std/[monotimes, net, posix, strutils, times, unittest]
+import std/[monotimes, net, options, posix, strutils, times, unittest]
 import types/ninep
 import ninep/[client, codec]
 
@@ -39,11 +39,11 @@ proc sockets(): tuple[server, peer: Socket] =
 
 proc readyClient(server, peer: Socket, timeoutMsec = 500): NinepClient =
   server.sendBytes(
-    hex("15 00 00 00 65 00 00 00 10 00 00 08 00 39 50 32 30 30 30 2e 4c")
+    hex("15 00 00 00 65 ff ff 00 10 00 00 08 00 39 50 32 30 30 30 2e 4c")
   )
   result = peer.adoptNinepSocket(timeoutMsec = timeoutMsec)
   check server.recv(21, 500).bytes() ==
-    hex("15 00 00 00 64 00 00 00 00 01 00 08 00 39 50 32 30 30 30 2e 4c")
+    hex("15 00 00 00 64 ff ff 00 00 01 00 08 00 39 50 32 30 30 30 2e 4c")
   check result.negotiatedMsize() == 4096
 
 suite "independent base 9P2000.L codec":
@@ -296,9 +296,9 @@ suite "bounded direct 9P client":
 
   test "unsupported version and message-size inflation cannot negotiate":
     for response in [
-      "14 00 00 00 65 00 00 00 10 00 00 07 00 75 6e 6b 6e 6f 77 6e",
-      "15 00 00 00 65 00 00 01 00 01 00 08 00 39 50 32 30 30 30 2e 4c",
-      "15 00 00 00 65 00 00 ff 0f 00 00 08 00 39 50 32 30 30 30 2e 4c",
+      "14 00 00 00 65 ff ff 00 10 00 00 07 00 75 6e 6b 6e 6f 77 6e",
+      "15 00 00 00 65 ff ff 01 00 01 00 08 00 39 50 32 30 30 30 2e 4c",
+      "15 00 00 00 65 ff ff ff 0f 00 00 08 00 39 50 32 30 30 30 2e 4c",
     ]:
       let (server, peer) = sockets()
       defer:
@@ -306,3 +306,214 @@ suite "bounded direct 9P client":
       server.sendBytes(response.hex())
       expect NinepClientError:
         discard peer.adoptNinepSocket(timeoutMsec = 500)
+
+  test "failed renegotiation cannot retain the earlier negotiated session":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    discard
+      client.sendRequest(NinepRequest(kind: NinepRequestKind.version, msize: 4096))
+    expect NinepClientError:
+      discard client.sendRequest(NinepRequest(kind: NinepRequestKind.clunk, fid: 1))
+    server.sendBytes(hex("0b 00 00 00 07 ff ff 16 00 00 00"))
+    check client.receiveReply().kind == NinepReplyKind.lerror
+    expect NinepClientError:
+      discard client.negotiatedMsize()
+    expect NinepClientError:
+      discard client.sendRequest(NinepRequest(kind: NinepRequestKind.clunk, fid: 1))
+    server.sendBytes(
+      hex("15 00 00 00 65 ff ff 00 10 00 00 08 00 39 50 32 30 30 30 2e 4c")
+    )
+    discard client.call(NinepRequest(kind: NinepRequestKind.version, msize: 4096))
+    check client.negotiatedMsize() == 4096
+
+  test "a flushed tag stays reserved through allocator wrap after its reply":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    let old = client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    let flushing =
+      client.sendRequest(NinepRequest(kind: NinepRequestKind.flush, oldtag: old))
+    require server.recv(32, 500).len == 32
+    server.sendBytes(hex("0c 00 00 00 75 01 00 01 00 00 00 41"))
+    require client.receiveReply().tag == old
+    # Traverse the real tag namespace; no test hook changes allocator state.
+    for _ in 0 ..< int(ninepNoTag) - 2:
+      let tag = client.sendRequest(NinepRequest(kind: NinepRequestKind.clunk, fid: 2))
+      require server.recv(11, 500).len == 11
+      server.sendBytes(@[7'u8, 0, 0, 0, 121, byte(tag and 255), byte(tag shr 8)])
+      require client.receiveReply().tag == tag
+    let next = client.sendRequest(NinepRequest(kind: NinepRequestKind.clunk, fid: 2))
+    require next != old and next != flushing
+    require server.recv(11, 500).len == 11
+    server.sendBytes(hex("07 00 00 00 6d 02 00"))
+    server.sendBytes(@[7'u8, 0, 0, 0, 121, byte(next and 255), byte(next shr 8)])
+    check client.receiveReply().tag == flushing
+    check client.receiveReply().tag == next
+    check client.pendingCount() == 0
+
+  test "idle event waits preserve custody beyond the frame deadline":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 20)
+    defer:
+      client.close()
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    check client.tryReceiveReply(waitMsec = 50).isNone()
+    check client.pendingCount() == 1
+    check client.negotiatedMsize() == 4096
+    server.sendBytes(hex("0c 00 00 00 75 01 00 01 00 00 00 41"))
+    let reply = client.tryReceiveReply()
+    require reply.isSome()
+    check reply.get().data == @[0x41'u8]
+    check client.pendingCount() == 0
+
+  test "readable EOF is disconnect rather than idle":
+    let (server, peer) = sockets()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    discard server.recv(23, 500)
+    server.close()
+    expect NinepClientError:
+      discard client.tryReceiveReply(waitMsec = 50)
+    check client.pendingCount() == 0
+
+  test "try receive owns a partial header until the assembly deadline":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer, timeoutMsec = 50)
+    defer:
+      client.close()
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    server.sendBytes(hex("0c 00 00"))
+    let start = getMonoTime()
+    expect NinepClientError:
+      discard client.tryReceiveReply()
+    check (getMonoTime() - start).inMilliseconds < 1000
+    check client.pendingCount() == 0
+
+  test "try receive completes one reply from a delayed frame suffix":
+    let (server, peer) = sockets()
+    let client = readyClient(server, peer, timeoutMsec = 500)
+    discard client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    require server.recv(23, 500).len == 23
+    server.sendBytes(hex("0c 00 00"))
+    let child = posix.fork()
+    require child >= 0
+    if child == 0:
+      client.close()
+      # Deliberately fragment the reply while the parent holds its prefix.
+      discard posix.usleep(20_000)
+      server.sendBytes(hex("00 75 01 00 01 00 00 00 41"))
+      server.close()
+      posix.exitnow(0)
+    server.close()
+    defer:
+      client.close()
+    let reply = client.tryReceiveReply()
+    require reply.isSome()
+    check reply.get().data == @[0x41'u8]
+    check client.pendingCount() == 0
+    var status: cint
+    check posix.waitpid(child, status, 0) == child
+    check status == 0
+
+  test "empty walk succeeds only for a zero-name clone":
+    for names in [newSeq[string](), @["child"]]:
+      let (server, peer) = sockets()
+      defer:
+        server.close()
+      let client = readyClient(server, peer)
+      defer:
+        client.close()
+      discard client.sendRequest(
+        NinepRequest(kind: NinepRequestKind.walk, fid: 1, newfid: 2, names: names)
+      )
+      server.sendBytes(hex("09 00 00 00 6f 01 00 00 00"))
+      if names.len == 0:
+        check client.receiveReply().walked.len == 0
+      else:
+        expect NinepClientError:
+          discard client.receiveReply()
+      check client.pendingCount() == 0
+
+  test "flush of flush and version during flush refuse without losing requests":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    let old = client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    let flushing =
+      client.sendRequest(NinepRequest(kind: NinepRequestKind.flush, oldtag: old))
+    expect NinepClientError:
+      discard
+        client.sendRequest(NinepRequest(kind: NinepRequestKind.flush, oldtag: flushing))
+    expect NinepClientError:
+      discard
+        client.sendRequest(NinepRequest(kind: NinepRequestKind.version, msize: 4096))
+    check client.pendingCount() == 2
+    server.sendBytes(hex("07 00 00 00 6d 02 00"))
+    check client.receiveReply().kind == NinepReplyKind.flush
+    check client.pendingCount() == 0
+
+  test "a partial walk reports its prefix without claiming newfid custody":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    discard client.sendRequest(
+      NinepRequest(
+        kind: NinepRequestKind.walk, fid: 1, newfid: 2, names: @["dir", "absent"]
+      )
+    )
+    server.sendBytes(
+      hex("16 00 00 00 6f 01 00 01 00 80 00 00 00 00 03 00 00 00 00 00 00 00")
+    )
+    let reply = client.receiveReply()
+    check reply.walked.len == 1
+    check reply.walked[0].path == 3
+    check client.pendingCount() == 0
+
+  test "flush cannot be answered with a remote error":
+    let (server, peer) = sockets()
+    defer:
+      server.close()
+    let client = readyClient(server, peer)
+    defer:
+      client.close()
+    let old = client.sendRequest(
+      NinepRequest(kind: NinepRequestKind.read, fid: 2, readCount: 1)
+    )
+    discard client.sendRequest(NinepRequest(kind: NinepRequestKind.flush, oldtag: old))
+    server.sendBytes(hex("0b 00 00 00 07 02 00 05 00 00 00"))
+    expect NinepClientError:
+      discard client.receiveReply()
+    check client.pendingCount() == 0
+    expect NinepClientError:
+      discard client.negotiatedMsize()
