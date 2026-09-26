@@ -48,6 +48,8 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tscroller-navigation" tests/tscroller_navigation.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tprofile-handoff" tests/tprofile_handoff.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+    -o:"$build_dir/tpolicy-wire" tests/tpolicy_wire.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-hagia" \

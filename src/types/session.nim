@@ -131,6 +131,31 @@ type
     targetIndex*: uint32
     targetGeneration*: uint32
 
+  ## The configuration Hagia installs, whatever the wire. Colours are
+  ## 0x00RRGGBB; each wire encodes its own representation of them.
+  PolicyConfiguration* = object
+    transaction*, connectionEpoch*, generation*: uint64
+    styleBits*: uint16
+    focusWidth*, focusRgb*: uint32
+    frameWidth*, frameFocusedRgb*, frameUnfocusedRgb*: uint32
+    actions*: seq[SnapshotAction]
+
+  PolicyConfigurationOutcome* = object
+    transaction*, connectionEpoch*, generation*: uint64
+    kind*: ProjectionOutcomeKind
+
+  ## A request for a fresh cycle over these outputs. No outcome answers it.
+  PolicyDirty* = object
+    policyGeneration*: uint64
+    affectedOutputs*: seq[uint64]
+
+  ## A settled projection and, where the wire states one, whether Sophia
+  ## expects the session operation that projection carries. A wire without
+  ## that statement reports none; nothing is inferred for it.
+  ProjectionCompletion* = object
+    outcome*: ProjectionOutcome
+    expectSessionOperation*: Option[bool]
+
   PolicyTraceEntry* = object
     ## One cycle, including asynchronous receipts consumed before reduction.
     snapshot*: PolicySnapshot

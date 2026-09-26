@@ -64,9 +64,8 @@ type
     requestId*: uint64
     kind*: ProjectionOutcomeKind
 
-  WmFileDirty* = object
-    policyGeneration*: uint64
-    affectedOutputs*: seq[uint64]
+  ## The file body carries the neutral dirty record unchanged.
+  WmFileDirty* = PolicyDirty
 
   WmFileSessionOperation* = object
     transaction*: uint64
