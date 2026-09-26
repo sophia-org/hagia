@@ -479,6 +479,34 @@ separate Session fix will qualify the emitted flag by a committed outcome;
 the file contract and Hagia's check stay unchanged. The next paired fixture
 must prove continuation after a failed action, not merely pass a happy path.
 
+## Protected normal-Hagia startup pair
+
+Sophia's test-only `9bf5c52beb858840d3d838b4efcc92e787ee8e2f`, joined as
+`a43dd5f886bba267dd4f84e7dd09a478a806a681`, runs the frozen normal `7455c3e`
+executable through Session's production protected file endpoint, staged profile
+and configuration owners. Hagia's actual profile reducer completes the handoff;
+its actual file loop supplies the catalog. The pair passes in 0.46 seconds:
+configured and ReadyForCycle, epoch 1, exact staged profile identity, 175 actions
+and immutable selected capabilities 253951 within ceiling 262143. Native
+presentation bits and overview actions are absent, and no layout checkpoint
+is written. There is no scripted profile response or replacement client.
+
+The fixture pins the executable path and SHA256 before and after, records the
+supervisor's protected peer evidence, and requires fresh evidence inputs.
+Missing inputs fail an explicitly selected test instead of silently skipping.
+The process/peer IDs in the isolated run are 299/300. Cleanup reaps the child
+in 5 ms on this run; Hagia reports connection reset when the fixture stops its
+worker. Neither a clean Hagia exit nor a hard stuck-kernel cleanup bound is
+claimed. Strict Session checks, layout and formatting pass.
+
+The verified 17-file bundle is
+`~/.local/state/sophia/development-evidence/t249-hagia-startup-9bf5c52b`,
+manifest `83417ff60abc663833470befbe406295307d0d060a203c215d08c71bc33ed802`.
+This proves protected startup/profile/configuration/catalog admission. The
+fixture deliberately issues no layout cycle, has no output bootstrap and
+claims no Engine transaction, presentation or retirement. Actual Session layout
+settlement and failed-action continuation are the next paired checkpoint.
+
 ## Connections
 
 - [h006 plan](../plans/i2c2blti-run-the-hagia-wm-role-over-an-independent-9p2000-l-client.md)
