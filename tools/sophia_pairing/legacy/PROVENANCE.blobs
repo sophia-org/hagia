@@ -1,3 +1,5 @@
 333eea6af95ecaf746001c853d9c699eea4682fe crates/sophia-runtime/tests/support/pointer_focus_hagia.rs
 625ac521d2823110ffe5dd4f08975aa1480c347d crates/sophia-runtime/tests/support/presentation_hagia.rs
 31824b56f1ec960882cad962e5ab91edbc858493 crates/sophia-session/tests/support/delegated_policy.rs
+a76e8ad30f1563646e6f07791800a877861b976f crates/sophia-session/tests/support/content_actions/targeted_policy.rs
+1c54583b8acf150b0aa48ad59dede6a3c44fce35 crates/sophia-session/tests/support/policy_partial_projection_socket.rs
