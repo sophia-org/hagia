@@ -8,7 +8,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
-const FROZEN_SHA256: &str = "e8221d1197b032e51c7fabe5dccc20e6c8e52342e8e8cd8a82940ad9063b86ad";
+const FROZEN_SHA256: &str = "PENDING_FRESH_SDK_HAGIA_BUILD";
 
 #[path = "policy_hagia_layout.rs"]
 mod layout_settlement;
@@ -149,6 +149,7 @@ fn with_normal_hagia_transport_fixture<T>(
         &mut std::fs::File,
     ) -> T,
 ) -> T {
+    assert_eq!(transport, WmTransportSelection::NineP2000L);
     let binary = std::fs::canonicalize(
         std::env::var_os("SOPHIA_HAGIA_FILE_BIN").expect("required frozen normal Hagia missing"),
     )
@@ -173,7 +174,7 @@ fn with_normal_hagia_transport_fixture<T>(
     .join(case);
     std::fs::create_dir(&evidence).expect("case evidence must be fresh; parent must exist");
     let mut identity = std::fs::File::create(evidence.join("identity.txt")).unwrap();
-    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=e8b56a3195ac11f44e100bc4ed903c0d3cb72e9a\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
+    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=b3d84966e80c48a5273c33f8b04456f18fd424af\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
     writeln!(
         identity,
         "wm_transport={}\noutput_transport=current_ipc\noutput_service_started={presentation_fixture}\noutput_peer_exercised=false\nsimulated_presentation_fixture={presentation_fixture}",
@@ -270,10 +271,7 @@ fn with_normal_hagia_transport_fixture<T>(
             .iter()
             .any(|(key, _)| key == transport.socket_env())
     );
-    let other_transport = match transport {
-        WmTransportSelection::CurrentIpc => WmTransportSelection::NineP2000L,
-        WmTransportSelection::NineP2000L => WmTransportSelection::CurrentIpc,
-    };
+    let other_transport = WmTransportSelection::CurrentIpc;
     assert!(
         !spec
             .environment

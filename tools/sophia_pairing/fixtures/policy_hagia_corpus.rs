@@ -239,21 +239,12 @@ fn run_corpus(case: &str, transport: WmTransportSelection) -> (u64, Vec<Scenario
 
 #[test]
 #[ignore = "requires exact frozen normal Hagia and explicit fresh evidence inputs"]
-fn normal_hagia_behavior_corpus_matches_over_current_ipc_and_files() {
-    let (ipc_selected, ipc) = run_corpus("corpus-ipc", WmTransportSelection::CurrentIpc);
-    let (files_selected, files) = run_corpus("corpus-files", WmTransportSelection::NineP2000L);
-    assert_eq!(
-        ipc_selected, files_selected,
-        "transports admitted different selections"
-    );
-    assert_eq!(ipc.len(), SOPHIA_WM_V1_BEHAVIOR_SCENARIOS.len());
-    assert_eq!(files.len(), ipc.len());
-    for (ipc, files) in ipc.iter().zip(&files) {
-        assert_eq!(ipc, files, "transport changed scenario {}", ipc.scenario);
-    }
+fn normal_hagia_behavior_corpus_over_files() {
+    let (selected, files) = run_corpus("corpus-files", WmTransportSelection::NineP2000L);
+    assert_eq!(files.len(), SOPHIA_WM_V1_BEHAVIOR_SCENARIOS.len());
     eprintln!(
-        "hagia_behavior_corpus_parity scenarios={} selected_capabilities={ipc_selected:#x} observations_sha256={:x} status=pass layout_settlement=false native_settlement=false",
-        ipc.len(),
-        Sha256::digest(format!("{ipc_selected:#x}\n{ipc:#?}").as_bytes())
+        "hagia_behavior_corpus_files scenarios={} selected_capabilities={selected:#x} observations_sha256={:x} status=pass layout_settlement=false native_settlement=false",
+        files.len(),
+        Sha256::digest(format!("{selected:#x}\n{files:#?}").as_bytes())
     );
 }

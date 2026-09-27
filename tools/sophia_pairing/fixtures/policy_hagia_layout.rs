@@ -613,10 +613,9 @@ fn held_resize_timeout(case: &str, transport: WmTransportSelection) -> Settlemen
 
 #[test]
 #[ignore = "requires exact frozen normal Hagia and explicit fresh evidence inputs"]
-fn normal_hagia_current_ipc_and_files_preserve_layout_settlement() {
-    // Both sides start at epoch one with the same supplied facts. Compare
-    // semantic identities and checkpoint bytes exactly: no wire-specific
-    // normalisation may hide an extra request, effect or model transition.
+fn normal_hagia_files_preserve_layout_settlement() {
+    // Keep each file-path settlement assertion. IPC parity is retired with
+    // Hagia's IPC backend; this is not a cross-transport comparison.
     for (name, exercise) in [
         (
             "commit",
@@ -624,19 +623,14 @@ fn normal_hagia_current_ipc_and_files_preserve_layout_settlement() {
         ),
         ("timeout", held_resize_timeout),
     ] {
-        let ipc = exercise(
-            &format!("parity-{name}-ipc"),
-            WmTransportSelection::CurrentIpc,
-        );
         let files = exercise(
-            &format!("parity-{name}-files"),
+            &format!("settlement-{name}-files"),
             WmTransportSelection::NineP2000L,
         );
-        assert_eq!(ipc, files, "transport changed {name} settlement");
         eprintln!(
-            "hagia_layout_parity case={name} status=pass proposals={} checkpoint_sha256={:x} native_presentation=false rollback_completion=false",
-            ipc.proposals.len(),
-            Sha256::digest(&ipc.checkpoint)
+            "hagia_layout_files case={name} status=pass proposals={} checkpoint_sha256={:x} native_presentation=false rollback_completion=false",
+            files.proposals.len(),
+            Sha256::digest(&files.checkpoint)
         );
     }
 }

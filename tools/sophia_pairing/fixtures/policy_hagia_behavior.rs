@@ -753,33 +753,29 @@ fn run_assignment(case: &str, transport: WmTransportSelection) -> (u64, Vec<Step
     )
 }
 
-fn assert_same(label: &str, ipc: (u64, Vec<Step>), files: (u64, Vec<Step>)) {
-    assert_eq!(
-        ipc.0, files.0,
-        "{label}: transports admitted different selections"
-    );
-    assert_eq!(ipc.1.len(), files.1.len(), "{label}");
-    for (ipc, files) in ipc.1.iter().zip(&files.1) {
-        assert_eq!(ipc, files, "{label}: transport changed step {}", ipc.name);
-    }
+fn record_files(label: &str, files: (u64, Vec<Step>)) {
+    assert!(!files.1.is_empty(), "{label}: no behavior observed");
     eprintln!(
-        "hagia_behavior_coverage_parity corpus={label} steps={} selected_capabilities={:#x} observations_sha256={:x} status=pass layout_settlement=false native_settlement=false",
-        ipc.1.len(),
-        ipc.0,
-        Sha256::digest(format!("{:#x}\n{:#?}", ipc.0, ipc.1).as_bytes())
+        "hagia_behavior_coverage_files corpus={label} steps={} selected_capabilities={:#x} observations_sha256={:x} status=pass layout_settlement=false native_settlement=false",
+        files.1.len(),
+        files.0,
+        Sha256::digest(format!("{:#x}\n{:#?}", files.0, files.1).as_bytes())
     );
 }
 
 #[test]
 #[ignore = "requires exact frozen normal Hagia and explicit fresh evidence inputs"]
-fn normal_hagia_behavior_coverage_matches_over_current_ipc_and_files() {
-    let ipc = run_actions("behavior-ipc", WmTransportSelection::CurrentIpc);
-    let files = run_actions("behavior-files", WmTransportSelection::NineP2000L);
-    assert_same("actions", ipc, files);
-    let ipc = run_assignment("assignment-ipc", WmTransportSelection::CurrentIpc);
-    let files = run_assignment("assignment-files", WmTransportSelection::NineP2000L);
-    assert_same("assignment", ipc, files);
-    let ipc = run_pointer_focus("pointer-focus-ipc", WmTransportSelection::CurrentIpc);
-    let files = run_pointer_focus("pointer-focus-files", WmTransportSelection::NineP2000L);
-    assert_same("pointer-focus", ipc, files);
+fn normal_hagia_behavior_coverage_over_files() {
+    record_files(
+        "actions",
+        run_actions("behavior-files", WmTransportSelection::NineP2000L),
+    );
+    record_files(
+        "assignment",
+        run_assignment("assignment-files", WmTransportSelection::NineP2000L),
+    );
+    record_files(
+        "pointer-focus",
+        run_pointer_focus("pointer-focus-files", WmTransportSelection::NineP2000L),
+    );
 }

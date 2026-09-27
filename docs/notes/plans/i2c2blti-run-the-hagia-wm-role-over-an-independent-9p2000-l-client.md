@@ -97,3 +97,14 @@ controls failed as required. All failed logs remain available.
 
 No formal-model rerun, reviewed release build, installation or live reload is
 claimed. Keep h006 open for the remaining paired acceptance and release work.
+
+
+### Pairing follow-up prepared (code only)
+
+The separate `tests/sdk-9p-pairing` branch targets Sophia `3d8c4ac3` and keeps
+Hagia product input `b3d84966`. All twelve owner cases keep their internal file
+assertions; IPC parity is retired. The two pregraphics cases explicitly select
+9P. Historical runtime/native IPC cases and comparative measurements no longer
+qualify this candidate; `tools/sophia_pairing/SDK-MIGRATION.md` names the remaining
+behavior gaps. A deliberately invalid executable digest prevents any run until
+a fresh isolated build is bound. This follow-up has not compiled or run yet.

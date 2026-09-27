@@ -139,54 +139,8 @@ pub fn exercise(
     output: &Path,
     target: &Path,
 ) -> Result<(), String> {
-    let runtime = [
-        (
-            "hagia_pointer_focus_real_socket_commits_rejects_and_retries",
-            false,
-        ),
-        (
-            "hagia_pointer_focus_old_server_reports_the_setting_before_admission",
-            false,
-        ),
-        (
-            "hagia_without_presentation_actions_keeps_ordinary_policy_available",
-            false,
-        ),
-        (
-            "hagia_overview_publishes_generic_records_and_accepts_exact_targeted_actions",
-            false,
-        ),
-        (
-            "hagia_overview_timeout_retains_the_committed_publication",
-            false,
-        ),
-        (
-            "hagia_overview_revoked_receipt_closes_on_the_next_cycle",
-            false,
-        ),
-        (
-            "hagia_overview_reconnect_starts_closed_and_reuses_no_authority",
-            false,
-        ),
-    ];
-    let native = [
-        (
-            "hagia_real_x_child_origin_survives_monitor_switch_and_rejection",
-            false,
-        ),
-        (
-            "hagia_output_bookmark_places_empty_output_after_focus_switch_and_rejected_cycle",
-            true,
-        ),
-        (
-            "hagia_real_partial_pointer_projection_preserves_untouched_output",
-            false,
-        ),
-        (
-            "two_output_click_queue_reaches_hagia_without_active_output_retargeting",
-            true,
-        ),
-    ];
+    // The old runtime/native families spawn the retired --socket client.
+    // Their IPC transport evidence is historical, not a 9P acceptance result.
     let pregraphics = [
         (
             "hagia_pregraphics_profile_admission_rejects_invalid_policy_values",
@@ -197,35 +151,17 @@ pub fn exercise(
             false,
         ),
     ];
-    for (family, selection, cases) in [
-        (
-            "runtime",
-            &["-p", "sophia-runtime", "--test", "policy_transport"][..],
-            &runtime[..],
-        ),
-        (
-            "native",
-            &[
-                "-p",
-                "sophia-session",
-                "--features",
-                "native-session",
-                "--lib",
-            ][..],
-            &native[..],
-        ),
-        (
-            "pregraphics",
-            &[
-                "-p",
-                "sophia-session",
-                "--features",
-                "atomic-scanout-live",
-                "--lib",
-            ][..],
-            &pregraphics[..],
-        ),
-    ] {
+    for (family, selection, cases) in [(
+        "pregraphics",
+        &[
+            "-p",
+            "sophia-session",
+            "--features",
+            "atomic-scanout-live",
+            "--lib",
+        ][..],
+        &pregraphics[..],
+    )] {
         let list_name = format!("legacy-{family}-list");
         let mut command = vec!["test", "--offline", "--locked", "-j", "2"];
         command.extend_from_slice(selection);

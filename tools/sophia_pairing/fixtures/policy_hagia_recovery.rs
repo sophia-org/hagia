@@ -336,15 +336,9 @@ fn recovery(case: &str, transport: WmTransportSelection) -> RecoveryObservation 
                 assert_eq!(request.connection_epoch, epoch);
                 assert_eq!(wm.supervisor.peer_id(), Some(peer));
                 let delta = refreshed_id.transaction.raw() - restored_id.transaction.raw();
-                // Legacy Dirty consumes an envelope domain transaction. File Dirty
-                // has only its distinct submission identity, no invented domain ID.
-                assert_eq!(
-                    delta,
-                    match transport {
-                        WmTransportSelection::CurrentIpc => 2,
-                        WmTransportSelection::NineP2000L => 1,
-                    }
-                );
+                // File Dirty has its own submission identity and consumes no
+                // extra domain transaction.
+                assert_eq!(delta, 1);
                 writeln!(identity, "epoch={epoch} restored_request={} dirty_request={} policy_generation={} restored_domain={} continuation_domain={} dirty_domain_delta={delta} fixture_enqueued=false", restored_request.request_id, request.request_id, request.policy_generation, restored_id.transaction.raw(), refreshed_id.transaction.raw()).unwrap();
                 dirty_generations.push(request.policy_generation);
                 commit_reconciled(wm, layout, output, refreshed, &mut retained, identity);
@@ -363,11 +357,9 @@ fn recovery(case: &str, transport: WmTransportSelection) -> RecoveryObservation 
 
 #[test]
 #[ignore = "requires exact frozen normal Hagia and explicit fresh evidence inputs"]
-fn normal_hagia_checkpoint_restore_survives_automatic_and_control_restart_on_both_wires() {
-    let ipc = recovery("recovery-ipc", WmTransportSelection::CurrentIpc);
-    let files = recovery("recovery-files", WmTransportSelection::NineP2000L);
-    assert_eq!(
-        ipc, files,
-        "restored semantic state agrees, domain transaction allocation differs"
-    );
+fn normal_hagia_checkpoint_restore_survives_automatic_and_control_restart_over_files() {
+    let observation = recovery("recovery-files", WmTransportSelection::NineP2000L);
+    assert!(!observation.layers.is_empty());
+    assert!(!observation.checkpoint.is_empty());
+    assert_eq!(observation.dirty_generations.len(), 2);
 }

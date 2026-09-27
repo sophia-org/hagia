@@ -336,7 +336,6 @@ fn run_presentation(case: &str, transport: WmTransportSelection) {
 
 #[test]
 #[ignore = "requires pinned normal Hagia and explicit simulated backend completion fixture"]
-fn normal_hagia_receipts_follow_mirrored_backend_completion_on_both_wires() {
-    run_presentation("presentation-ipc", WmTransportSelection::CurrentIpc);
+fn normal_hagia_receipts_follow_mirrored_backend_completion_over_files() {
     run_presentation("presentation-files", WmTransportSelection::NineP2000L);
 }

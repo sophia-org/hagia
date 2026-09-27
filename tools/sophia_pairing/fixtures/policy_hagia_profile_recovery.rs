@@ -397,11 +397,7 @@ fn profile_recovery(case: &str, transport: WmTransportSelection) -> Vec<u8> {
 
 #[test]
 #[ignore = "requires exact frozen normal Hagia and explicit fresh evidence inputs"]
-fn normal_hagia_profile_replacement_and_rejection_roll_back_on_both_wires() {
-    let ipc = profile_recovery("profile-recovery-ipc", WmTransportSelection::CurrentIpc);
-    let files = profile_recovery("profile-recovery-files", WmTransportSelection::NineP2000L);
-    assert_eq!(
-        ipc, files,
-        "same accepted profile/checkpoint after real rollback"
-    );
+fn normal_hagia_profile_replacement_and_rejection_roll_back_over_files() {
+    let checkpoint = profile_recovery("profile-recovery-files", WmTransportSelection::NineP2000L);
+    assert!(!checkpoint.is_empty());
 }

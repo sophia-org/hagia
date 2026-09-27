@@ -26,6 +26,7 @@ fn hagia_pregraphics_profile_admission_activates_every_owner() {
     config = super::super::session_config_tests::isolated_session_config(&[
         format!("--wm-process={}", hagia_bin.to_string_lossy()),
         "--wm-interface=sophia_wm_v1".to_owned(),
+        "--wm-transport=9p2000.L".to_owned(),
         format!("--desktop-profile={}", profile_path.display()),
     ])
     .unwrap();

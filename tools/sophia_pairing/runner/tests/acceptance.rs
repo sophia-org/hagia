@@ -52,15 +52,15 @@ fn incomplete_or_duplicate_test_listing_is_refused() {
         "protected_normal_hagia_admits_profile_configuration_and_catalog_over_files",
         "normal_hagia_held_resize_commits_then_answers_a_fresh_request",
         "normal_hagia_timed_out_session_action_keeps_checkpoint_and_answers_next_request",
-        "normal_hagia_current_ipc_and_files_preserve_layout_settlement",
+        "normal_hagia_files_preserve_layout_settlement",
         "real_hagia_resize_reaches_cpu_production_engine_commit",
         "real_hagia_timeout_keeps_cpu_production_state",
         "normal_hagia_committed_action_returns_intent_and_answers_next_request",
-        "normal_hagia_behavior_corpus_matches_over_current_ipc_and_files",
-        "normal_hagia_checkpoint_restore_survives_automatic_and_control_restart_on_both_wires",
-        "normal_hagia_behavior_coverage_matches_over_current_ipc_and_files",
-        "normal_hagia_receipts_follow_mirrored_backend_completion_on_both_wires",
-        "normal_hagia_profile_replacement_and_rejection_roll_back_on_both_wires",
+        "normal_hagia_behavior_corpus_over_files",
+        "normal_hagia_checkpoint_restore_survives_automatic_and_control_restart_over_files",
+        "normal_hagia_behavior_coverage_over_files",
+        "normal_hagia_receipts_follow_mirrored_backend_completion_over_files",
+        "normal_hagia_profile_replacement_and_rejection_roll_back_over_files",
     ];
     let listing: String = names
         .iter()
