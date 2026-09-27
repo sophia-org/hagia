@@ -1,8 +1,8 @@
 import std/[options, os]
 
-import ../config/policy_candidate
+import ../config/[policy_candidate, policy_environment]
 import ../types/[config_values, handoff, session, wm_presentation, wm_v1]
-import ../types/observability
+import ../types/[observability, policy_environment]
 import ../observability
 import
   ./[
@@ -248,8 +248,10 @@ proc runPolicySession*(
         # Without a checkpoint an exit would drop the session rather than
         # reload it, so the request is refused rather than half-honoured.
         operationalLog(
-          OperationalLevel.warning, "reload", "refused",
-          "HAGIA_POLICY_CHECKPOINT is unset",
+          OperationalLevel.warning,
+          "reload",
+          "refused",
+          policyCheckpointEnvironment.display() & " is unset",
         )
       if outcome.kind == ProjectionOutcomeKind.committed and checkpointEnabled:
         try:

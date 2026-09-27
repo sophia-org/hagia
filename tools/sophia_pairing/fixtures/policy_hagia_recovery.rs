@@ -226,7 +226,7 @@ fn recovery(case: &str, transport: WmTransportSelection) -> RecoveryObservation 
             let candidate_path = &original_spec
                 .environment
                 .iter()
-                .find(|(key, _)| key == "HAGIA_POLICY_CANDIDATE")
+                .find(|(key, _)| key == "SOPHIA_WM_POLICY_CANDIDATE")
                 .unwrap()
                 .1;
             let candidate = std::fs::read(candidate_path).unwrap();

@@ -83,6 +83,7 @@ The modules are:
 | `types/migration.nim` | migration items and reports |
 | `types/session.nim` | snapshot, cause, request, projection, and outcome records |
 | `types/policy_endpoint.nim` | explicit WM transport selection and its Session-owned endpoint path |
+| `types/policy_environment.nim` | Sophia's WM policy environment names, their legacy fallbacks, and the environment contract identity |
 | `types/handoff.nim` | startup profile handoff phase, model, and disposition |
 | `types/wm_v1.nim` | `sophia_wm_v1` message kinds, records, offsets, and bounds |
 | `types/ninep.nim` | independent base 9P2000.L requests, replies, qids, attributes and bounds |

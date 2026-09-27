@@ -39,12 +39,12 @@ Run from the Hagia repository, with an exclusive disk cache:
 cargo +1.96.1 run --offline --locked --manifest-path tools/sophia_pairing/runner/Cargo.toml -- \
   --sophia-root=/absolute/clean/sophia-checkout \
   --hagia-bin=/absolute/frozen/hagia \
-  --hagia-sha256=0419e09e224676c4d925438f80b22df9532c1653ec339507637edbe01ea52f5f \
+  --hagia-sha256=e8221d1197b032e51c7fabe5dccc20e6c8e52342e8e8cd8a82940ad9063b86ad \
   --output=/absolute/fresh/evidence \
   --target-dir=/absolute/exclusive/cargo-cache
 ```
 
-The current fixture pins Hagia source `7455c3e` and its retained executable;
+The current fixture pins Hagia source `e8b56a3` and its retained executable;
 there is no automatic build or replacement of that artifact. The runner needs
 Rust 1.96.1 (Sophia's pinned toolchain), cached Cargo dependencies, Git,
 bubblewrap and GNU timeout. `nimble pairing` is the short launcher; it requires
@@ -73,6 +73,17 @@ recorded patch and whitespace check cover the added mount lines.
 Legacy families retain their own test-binary records and logs. Their older
 receipt fixtures remain synthetic; their runtime reducer checks do not become
 Session layout or physical-presentation evidence by moving here.
+
+Each normal case's `identity.txt` has a `launch_environment_keys=` line. It
+lists the variable names in the launch spec that Session gave its supervisor,
+which is the configured environment for the child, not what the running Hagia
+observed. Names only; the values are private Session paths. The case asserts
+that the set is exact, so it shows which names Sophia configured
+(`SOPHIA_WM_POLICY_*` from be6e5888) and that no `HAGIA_POLICY_*` name was
+configured. It does not by itself show that Hagia read them. That comes from
+Hagia's behaviour in the cases: the checkpoint that Hagia writes to, and
+restores from, the Session checkpoint path, which reaches it only through
+`SOPHIA_WM_POLICY_CHECKPOINT`.
 
 The normal Session, managed layout and CPU joins use supplied historical
 admission, frontend acknowledgements and CPU pixels. The presentation case uses

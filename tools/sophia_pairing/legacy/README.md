@@ -10,7 +10,7 @@ An overlaid checkout is "Sophia <commit> + Hagia legacy overlay <manifest sha256
 | --- | --- | --- |
 | `runtime/pointer_focus_hagia.rs` | `crates/sophia-runtime/tests/support/pointer_focus_hagia.rs` | byte-identical |
 | `runtime/presentation_hagia.rs` | `crates/sophia-runtime/tests/support/presentation_hagia.rs` | byte-identical |
-| `session/delegated_policy.rs` | `crates/sophia-session/tests/support/delegated_policy.rs` | byte-identical |
+| `session/delegated_policy.rs` | `crates/sophia-session/tests/support/delegated_policy.rs` | adds `--shell-process=/usr/bin/true`: Sophia be6e5888 no longer infers a shell from an absolute WM path, and this explicit profile keeps the shell enabled |
 | `session/targeted_policy.rs` | `crates/sophia-session/tests/support/content_actions/targeted_policy.rs` | byte-identical |
 | `session/policy_partial_projection_socket.rs` | `crates/sophia-session/tests/support/policy_partial_projection_socket.rs` | byte-identical |
 | `session/pregraphics_activation.rs` | `hagia_pregraphics_profile_admission_activates_every_owner` in `live_session/profile_preparation_tests.rs` | one module level deeper, so `super::super::session_config_tests` |

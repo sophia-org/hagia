@@ -64,6 +64,8 @@ and [DRY principles](dry-principles.md).
 - `src/config/policy_endpoint.nim` resolves the explicit WM socket selection
   without connecting. Dual transport selection refuses; failures never select
   another wire.
+- `src/config/policy_environment.nim` reads Sophia's WM policy environment:
+  `SOPHIA_WM_POLICY_*` by presence, legacy `HAGIA_POLICY_*` only when unset.
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
 - `src/sophia/wm_v1.nim` implements the independent fixed wire.

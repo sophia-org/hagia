@@ -1,5 +1,7 @@
 import std/[json, options, os, posix, tempfiles]
 
+import ../config/policy_environment
+import ../types/policy_environment
 import ./policy_adapter
 
 export checkpointPayload
@@ -9,7 +11,8 @@ type PolicyCheckpointError* = object of CatchableError
 const maxPolicyCheckpointBytes = 1_048_576'i64
 
 proc checkpointPath*(): string =
-  getEnv("HAGIA_POLICY_CHECKPOINT")
+  ## Empty disables checkpointing, and with it `SIGHUP` reload.
+  policyCheckpointEnvironment.resolvedValue()
 
 proc loadPolicyCheckpoint*(path: string): Option[PolicyAdapter] =
   if path.len == 0 or not fileExists(path):

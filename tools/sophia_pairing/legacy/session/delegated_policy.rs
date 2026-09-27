@@ -29,6 +29,10 @@ fn hagia_pregraphics_profile_admission_rejects_invalid_policy_values() {
             // admitted before the test can reach Hagia's policy rejection.
             "--session-app=terminal=/usr/bin/true".to_owned(),
             "--session-app=browser=/usr/bin/true".to_owned(),
+            // The explicit profile keeps the compiled shell enabled, and Sophia
+            // no longer infers a shell from the WM path. The shell is not under
+            // test; admission must still reach Hagia's policy rejection.
+            "--shell-process=/usr/bin/true".to_owned(),
             format!("--desktop-profile={}", path.display()),
         ])
         .unwrap();
