@@ -1,9 +1,8 @@
-> SDK migration in progress: the current pairing sources target Hagia
-> `b3d84966` and Sophia `3d8c4ac3`. The new executable digest is deliberately
-> unbound until a fresh isolated build; this checkout refuses a run meanwhile.
-> See [SDK-MIGRATION.md](SDK-MIGRATION.md) for retained assertions, retired IPC
-> comparisons and the evidence still missing. No new paired result is claimed.
-> The older procedure and results below describe the pre-SDK pairing.
+> SDK pairing candidate: Hagia `b3d84966`, Sophia `3d8c4ac3`, development
+> binary SHA-256 `1fc120d1cd496e4eca40e914899f7cd322b78c3f744f2d32e53101f068920f29`.
+> The new binary is bound, but paired acceptance has not run yet. See
+> [SDK-MIGRATION.md](SDK-MIGRATION.md) for retained assertions, retired IPC
+> comparisons and remaining gaps. The older procedure below is historical.
 
 # Optional Sophia pairing
 

@@ -6,7 +6,7 @@
   "session_manifest_sha256": "37c9a4e72f2e9fb46a0685e19ea3402103dc7651bda5917d8bfdcdc03119f1d8",
   "cargo_lock_sha256": "3148b50df9ecb606f9f7f2dca5aef619c3c23d006d52bb1440ad8902fdd80576",
   "hagia_source": "b3d84966e80c48a5273c33f8b04456f18fd424af",
-  "hagia_sha256": "PENDING_FRESH_SDK_HAGIA_BUILD",
+  "hagia_sha256": "1fc120d1cd496e4eca40e914899f7cd322b78c3f744f2d32e53101f068920f29",
   "legacy_mount_sha256": {
     "crates/sophia-runtime/tests/policy_transport.rs": "a13c21f43596926b28197c78ecb9a185c8734272ca13a937a2585d0f898d1fa2",
     "crates/sophia-session/tests/support/live_session/profile_preparation_tests.rs": "13d09c5cd68e6f315afebab34108c9949b801dd06bf51e7b2cc1269f0b86e4c5",

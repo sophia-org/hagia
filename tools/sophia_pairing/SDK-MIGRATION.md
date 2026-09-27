@@ -2,9 +2,9 @@
 
 This update keeps the signed product source at Hagia `b3d84966` and targets
 Sophia `3d8c4ac3`. All fixture mount files are byte-identical to the previous
-Sophia pin; only the lockfile binding changes. The executable hash is pending
-an isolated fresh build and is deliberately invalid until that binding lands.
-No build or paired result is claimed by this code-only update.
+Sophia pin; only the lockfile binding changes. A fresh isolated development executable is bound by SHA-256 in the compatibility
+manifest and fixture. Its source is the unchanged product commit. Pairing has
+not run yet; this is not a reviewed release build.
 
 ## Kept assertions
 
