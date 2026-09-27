@@ -62,6 +62,14 @@ nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-hagia" \
     -o:"$build_dir/hagia" src/hagia.nim
+# The environment contract probe is what an installer matches before trusting
+# a binary with the generic names; its exact line is part of the contract.
+contract=$("$build_dir/hagia" config check-environment-contract)
+expected_contract='hagia_environment_contract schema=1 wm_policy=sophia-wm-policy-v1 names=SOPHIA_WM_POLICY_CHECKPOINT,SOPHIA_WM_POLICY_CANDIDATE,SOPHIA_WM_POLICY_PROFILE_ACTIVATION legacy=HAGIA_POLICY_CHECKPOINT,HAGIA_POLICY_CANDIDATE,HAGIA_POLICY_PROFILE_ACTIVATION precedence=presence'
+if [ "$contract" != "$expected_contract" ]; then
+    echo "Hagia environment contract probe changed: $contract" >&2
+    exit 1
+fi
 # The CLI must validate the same policy values as runtime preparation.
 "$build_dir/hagia" config check --config="$root/examples/config/default.kdl"
 printf 'schema 1\npolicy { outer-gap 513; }\n' >"$build_dir/invalid-policy.kdl"

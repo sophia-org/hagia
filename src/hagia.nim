@@ -29,6 +29,9 @@ usage:
                                           print the fully expanded profile
   hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH
                                           translate a Triad configuration
+  hagia config check-environment-contract
+                                          print the supported Sophia WM
+                                          policy environment contract
   hagia dump-checkpoint PATH              print a checkpoint or state dump
   hagia replay TRACE [--checkpoint=PATH]  re-run a recorded session offline
   hagia --help                            this text
@@ -78,6 +81,10 @@ proc run(arguments: seq[string]) =
         stdout.writeLine("left existing " & path)
     of "print-effective":
       stdout.write(loadDesktopProfile(configPath).effectiveProfile())
+    of "check-environment-contract":
+      # A capability probe: no profile, socket, or session is touched, so an
+      # installer can refuse a binary that predates the generic names.
+      stdout.writeLine(policyEnvironmentContract())
     of "migrate-triad":
       let inputPath = arguments.option("input")
       let outputDirectory = arguments.option("output-dir")
@@ -90,7 +97,8 @@ proc run(arguments: seq[string]) =
       raise newException(
         ValueError,
         "usage: hagia config check|print-effective|init [--config=PATH]\n" &
-          "       hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH",
+          "       hagia config migrate-triad --input=PATH --output-dir=ABSOLUTE_PATH\n" &
+          "       hagia config check-environment-contract",
       )
     return
 

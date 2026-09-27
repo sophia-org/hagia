@@ -29,8 +29,12 @@ const
     legacy: "HAGIA_POLICY_PROFILE_ACTIVATION",
   )
 
-  # Every reader above, so the pairs are checked as one list.
+  # Every reader above, in the order the contract line names them. The
+  # capability probe prints this list, so it cannot drift from the readers.
   policyEnvironmentNames* = [
     policyCheckpointEnvironment, policyCandidateEnvironment,
     policyProfileActivationEnvironment,
   ]
+  policyEnvironmentContractSchema* = 1
+  policyEnvironmentContractName* = "sophia-wm-policy-v1"
+  policyEnvironmentContractPrecedence* = "presence"

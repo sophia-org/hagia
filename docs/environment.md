@@ -33,6 +33,18 @@ Hagia still accepts them. Precedence is by presence, decided per variable in
   Hagia logs one `environment conflict` warning; it does not fail; and
 - when neither is set the value is empty, which behaves as before.
 
+`hagia config check-environment-contract` prints one versioned line naming the
+variables this binary reads, built from the same names the readers use, so an
+installer can refuse an older binary before relying on the generic names. It
+opens no profile, socket or session:
+
+```text
+hagia_environment_contract schema=1 wm_policy=sophia-wm-policy-v1 names=SOPHIA_WM_POLICY_CHECKPOINT,SOPHIA_WM_POLICY_CANDIDATE,SOPHIA_WM_POLICY_PROFILE_ACTIVATION legacy=HAGIA_POLICY_CHECKPOINT,HAGIA_POLICY_CANDIDATE,HAGIA_POLICY_PROFILE_ACTIVATION precedence=presence
+```
+
+A binary that predates the probe refuses the subcommand with a usage error and
+a non-zero exit.
+
 Exactly one WM endpoint must be selected. A command-line socket path overrides
 only the environment variable for that same transport. Selecting both
 transports refuses before connecting, including mixed environment/command-line

@@ -1,4 +1,4 @@
-import std/[os, unittest]
+import std/[os, strutils, unittest]
 
 import config/policy_environment
 import types/policy_environment
@@ -150,3 +150,42 @@ suite "profile activation value":
     ) ==
       "hagia: SOPHIA_WM_POLICY_PROFILE_ACTIVATION (or legacy " &
       "HAGIA_POLICY_PROFILE_ACTIVATION) must be empty or required"
+
+suite "environment contract probe":
+  test "the line is exact and stable":
+    check policyEnvironmentContract() ==
+      "hagia_environment_contract schema=1 wm_policy=sophia-wm-policy-v1 " &
+      "names=SOPHIA_WM_POLICY_CHECKPOINT,SOPHIA_WM_POLICY_CANDIDATE," &
+      "SOPHIA_WM_POLICY_PROFILE_ACTIVATION " &
+      "legacy=HAGIA_POLICY_CHECKPOINT,HAGIA_POLICY_CANDIDATE," &
+      "HAGIA_POLICY_PROFILE_ACTIVATION precedence=presence"
+
+  test "the line is derived from the names the readers use":
+    let line = policyEnvironmentContract()
+    check line.count('\n') == 0
+    var sophiaNames, legacyNames: seq[string]
+    for name in [
+      policyCheckpointEnvironment, policyCandidateEnvironment,
+      policyProfileActivationEnvironment,
+    ]:
+      sophiaNames.add(name.sophia)
+      legacyNames.add(name.legacy)
+    check policyEnvironmentNames.len == sophiaNames.len
+    for index, name in policyEnvironmentNames:
+      check name.sophia == sophiaNames[index]
+      check name.legacy == legacyNames[index]
+    check (" names=" & sophiaNames.join(",") & " ") in line
+    check (" legacy=" & legacyNames.join(",") & " ") in line
+    check line.startsWith(
+      "hagia_environment_contract schema=" & $policyEnvironmentContractSchema & " "
+    )
+
+  test "the probe does not read the environment":
+    proc body() =
+      let unset = policyEnvironmentContract()
+      for name in policyEnvironmentNames:
+        putEnv(name.sophia, "/sophia")
+        putEnv(name.legacy, "/legacy")
+      check policyEnvironmentContract() == unset
+
+    isolated(body)

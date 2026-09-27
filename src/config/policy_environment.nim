@@ -1,4 +1,4 @@
-import std/os
+import std/[os, strutils]
 
 import ../types/observability
 import ../observability
@@ -61,3 +61,15 @@ proc profileActivationRequired*(activation, candidatePath: string): bool =
       "hagia: " & policyProfileActivationEnvironment.display() &
         " must be empty or required",
     )
+
+proc policyEnvironmentContract*(): string =
+  ## One stable line an installer can match before trusting a Hagia binary with
+  ## the generic names. Built from the same names the readers use, so renaming a
+  ## reader changes the line; a semantic change must bump the schema.
+  var sophiaNames, legacyNames: seq[string]
+  for name in policyEnvironmentNames:
+    sophiaNames.add(name.sophia)
+    legacyNames.add(name.legacy)
+  "hagia_environment_contract schema=" & $policyEnvironmentContractSchema & " wm_policy=" &
+    policyEnvironmentContractName & " names=" & sophiaNames.join(",") & " legacy=" &
+    legacyNames.join(",") & " precedence=" & policyEnvironmentContractPrecedence
