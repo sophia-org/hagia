@@ -74,6 +74,17 @@ Legacy families retain their own test-binary records and logs. Their older
 receipt fixtures remain synthetic; their runtime reducer checks do not become
 Session layout or physical-presentation evidence by moving here.
 
+Each normal case's `identity.txt` has a `launch_environment_keys=` line. It
+lists the variable names in the launch spec that Session gave its supervisor,
+which is the configured environment for the child, not what the running Hagia
+observed. Names only; the values are private Session paths. The case asserts
+that the set is exact, so it shows which names Sophia configured
+(`SOPHIA_WM_POLICY_*` from be6e5888) and that no `HAGIA_POLICY_*` name was
+configured. It does not by itself show that Hagia read them. That comes from
+Hagia's behaviour in the cases: the checkpoint that Hagia writes to, and
+restores from, the Session checkpoint path, which reaches it only through
+`SOPHIA_WM_POLICY_CHECKPOINT`.
+
 The normal Session, managed layout and CPU joins use supplied historical
 admission, frontend acknowledgements and CPU pixels. The presentation case uses
 a generic backend `test-support` target with simulated device/copy/flip
