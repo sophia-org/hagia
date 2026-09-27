@@ -16,9 +16,22 @@ development sometimes needs one.
 | --- | --- |
 | `SOPHIA_WM_SOCKET` | Path to the session-owned current-IPC policy socket. Hagia connects; it never creates or owns this endpoint. `--socket=PATH` is the standalone equivalent. |
 | `SOPHIA_WM_9P_SOCKET` | Path to the session-owned direct 9P2000.L WM file socket. `--9p-socket=PATH` is the standalone equivalent. This selects only the WM role; output transport remains current IPC. |
-| `HAGIA_POLICY_CANDIDATE` | Path to the policy authority slice Sophia has already staged and validated. When set, it replaces profile discovery entirely, and passing `--config` as well is refused. |
-| `HAGIA_POLICY_CHECKPOINT` | Path to the private policy checkpoint. Written atomically after every committed cycle, owner-only, bounded. Unset disables checkpointing, which also disables `SIGHUP` reload. |
-| `HAGIA_POLICY_PROFILE_ACTIVATION` | Empty runs an ordinary session. `required` runs the profile-activated path and demands `HAGIA_POLICY_CANDIDATE`. Any other value is a startup error. |
+| `SOPHIA_WM_POLICY_CANDIDATE` | Path to the read-only policy authority slice Sophia has already staged and validated. When non-empty, it replaces profile discovery entirely, and passing `--config` as well is refused. |
+| `SOPHIA_WM_POLICY_CHECKPOINT` | Path to the private read-write policy checkpoint. Hagia uses the path as given and assumes no file name. Written atomically after every committed cycle, owner-only, bounded. Empty or unset disables checkpointing, which also disables `SIGHUP` reload. |
+| `SOPHIA_WM_POLICY_PROFILE_ACTIVATION` | Empty runs an ordinary session. `required` runs the profile-activated path and demands a policy candidate. Any other value is a startup error. |
+
+Sophia releases before the rename export `HAGIA_POLICY_CANDIDATE`,
+`HAGIA_POLICY_CHECKPOINT` and `HAGIA_POLICY_PROFILE_ACTIVATION` instead, and
+Hagia still accepts them. Precedence is by presence, decided per variable in
+`src/config/policy_environment.nim`:
+
+- a set `SOPHIA_WM_POLICY_*` name is used, even when its value is empty, so a
+  current Sophia's explicit empty value is never replaced by a legacy value;
+- only when the `SOPHIA_WM_POLICY_*` name is unset is the `HAGIA_POLICY_*` name
+  read;
+- when both are set to different values the `SOPHIA_WM_POLICY_*` name wins and
+  Hagia logs one `environment conflict` warning; it does not fail; and
+- when neither is set the value is empty, which behaves as before.
 
 Exactly one WM endpoint must be selected. A command-line socket path overrides
 only the environment variable for that same transport. Selecting both
@@ -84,7 +97,7 @@ Not environment, but the same surface. See `README.md`.
 
 | Signal | Effect |
 | --- | --- |
-| `SIGHUP` | Save the checkpoint at the next committed cycle and exit, so Sophia restarts a rebuilt binary and the next generation restores. Refused with a warning when `HAGIA_POLICY_CHECKPOINT` is unset, because exiting would drop the session rather than reload it. |
+| `SIGHUP` | Save the checkpoint at the next committed cycle and exit, so Sophia restarts a rebuilt binary and the next generation restores. Refused with a warning when no checkpoint path is set (`SOPHIA_WM_POLICY_CHECKPOINT`, or legacy `HAGIA_POLICY_CHECKPOINT`), because exiting would drop the session rather than reload it. |
 | `SIGUSR1` | Write the committed model to `HAGIA_POLICY_DUMP`. Read-only. |
 
 ## Tooling

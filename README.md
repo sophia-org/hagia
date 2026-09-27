@@ -62,7 +62,7 @@ Terminal, browser, close, and logout already work this way; lock, screenshot,
 wallpaper, and audio are queued to ride the same pattern. The desktop gets
 fuller without Hagia's authority growing.
 
-Sessions survive restarts. An optional `HAGIA_POLICY_CHECKPOINT` file is
+Sessions survive restarts. An optional `SOPHIA_WM_POLICY_CHECKPOINT` file is
 written atomically after every committed cycle, and a restarted Hagia
 revalidates it against a complete snapshot before trusting it. `SIGHUP` asks a
 running Hagia to hand over to a rebuilt binary; `SIGUSR1` dumps its state;

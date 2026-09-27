@@ -7,7 +7,7 @@ import
 import config/profile
 import types/config_values
 import policy/[actions, entity_store, projection, state]
-import types/[actions, core, model, projection, session, wm_v1]
+import types/[actions, core, model, policy_environment, projection, session, wm_v1]
 import
   sophia/[
     policy_adapter, policy_checkpoint, policy_client, policy_codec, policy_session,
@@ -2795,7 +2795,7 @@ suite "Sophia policy session":
     # it, and a refresh is only legal once it has been negotiated.
     let directory = createTempDir("hagia-refresh-", "")
     defer:
-      delEnv("HAGIA_POLICY_CHECKPOINT")
+      delEnv(policyCheckpointEnvironment.sophia)
       if fileExists(directory / "policy.checkpoint"):
         removeFile(directory / "policy.checkpoint")
       removeDir(directory)
@@ -2804,7 +2804,7 @@ suite "Sophia policy session":
     var adapter = initPolicyAdapter()
     adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
     path.savePolicyCheckpoint(adapter)
-    putEnv("HAGIA_POLICY_CHECKPOINT", path)
+    putEnv(policyCheckpointEnvironment.sophia, path)
 
     var serverBytes: seq[byte]
     serverBytes.appendWelcomeWith(9, 1'u64 shl 5)
@@ -2828,7 +2828,7 @@ suite "Sophia policy session":
     # drops the connection. Skipping the enhancement keeps the session alive.
     let directory = createTempDir("hagia-refresh-ungated-", "")
     defer:
-      delEnv("HAGIA_POLICY_CHECKPOINT")
+      delEnv(policyCheckpointEnvironment.sophia)
       if fileExists(directory / "policy.checkpoint"):
         removeFile(directory / "policy.checkpoint")
       removeDir(directory)
@@ -2837,7 +2837,7 @@ suite "Sophia policy session":
     var adapter = initPolicyAdapter()
     adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
     path.savePolicyCheckpoint(adapter)
-    putEnv("HAGIA_POLICY_CHECKPOINT", path)
+    putEnv(policyCheckpointEnvironment.sophia, path)
 
     var serverBytes: seq[byte]
     serverBytes.appendWelcome(9)

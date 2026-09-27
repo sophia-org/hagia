@@ -1,6 +1,7 @@
 import std/[options, os, strutils, tempfiles, unittest]
 
-import types/[config_values, handoff, session, wm_presentation, wm_v1]
+import
+  types/[config_values, handoff, policy_environment, session, wm_presentation, wm_v1]
 import sophia/[policy_loop, policy_transport, policy_wire]
 
 ## The policy loop over a fake wire: where the loop checks, settles, sends and
@@ -176,17 +177,27 @@ proc raisedMessage(body: proc()): string =
     return error.msg
   "no error"
 
-proc withCheckpoint(body: proc(path: string)) =
+proc clearCheckpointEnvironment() =
+  delEnv(policyCheckpointEnvironment.sophia)
+  delEnv(policyCheckpointEnvironment.legacy)
+
+proc withCheckpoint(variable: string, body: proc(path: string)) =
+  ## Names the checkpoint through `variable` alone, so an inherited value of
+  ## either spelling cannot decide which file the session writes.
   let directory = createTempDir("hagia-wire-", "")
   let path = directory / "policy.checkpoint"
-  putEnv("HAGIA_POLICY_CHECKPOINT", path)
+  clearCheckpointEnvironment()
+  putEnv(variable, path)
   try:
     body(path)
   finally:
-    delEnv("HAGIA_POLICY_CHECKPOINT")
+    clearCheckpointEnvironment()
     if fileExists(path):
       removeFile(path)
     removeDir(directory)
+
+proc withCheckpoint(body: proc(path: string)) =
+  withCheckpoint(policyCheckpointEnvironment.sophia, body)
 
 proc profileCandidate(): AuthorityCandidate =
   AuthorityCandidate(
@@ -263,6 +274,27 @@ suite "Hagia policy loop over a typed wire":
             ]
           check fake.closes == 1
       )
+
+  test "a release before the rename still names the checkpoint by its legacy name":
+    proc legacySession(path: string) =
+      let fake = oneCycle(true, ProjectionOutcomeKind.committed, none(bool))
+      fake.wire().runPolicySession(false)
+      check fileExists(path)
+      check fake.closes == 1
+
+    withCheckpoint(policyCheckpointEnvironment.legacy, legacySession)
+
+  test "an empty Sophia checkpoint name disables checkpointing over a legacy path":
+    # Presence decides precedence: Sophia's explicit empty value wins, so a stale
+    # legacy path inherited beside it is never written.
+    proc emptySophiaSession(path: string) =
+      putEnv(policyCheckpointEnvironment.sophia, "")
+      let fake = oneCycle(true, ProjectionOutcomeKind.committed, none(bool))
+      fake.wire().runPolicySession(false)
+      check not fileExists(path)
+      check fake.closes == 1
+
+    withCheckpoint(policyCheckpointEnvironment.legacy, emptySophiaSession)
 
   test "an absent expectation, as the legacy wire reports, is never checked":
     let ended = oneCycle(false, ProjectionOutcomeKind.disconnected, none(bool))

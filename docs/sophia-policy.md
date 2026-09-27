@@ -36,7 +36,8 @@ output status record. Stable private view IDs become opaque indicator IDs;
 labels, state flags, and activation tokens cross the wire, while tag masks and
 the private layout model do not.
 
-Sophia gives the installed client an owner-only `HAGIA_POLICY_CHECKPOINT` path
+Sophia gives the installed client an owner-only `SOPHIA_WM_POLICY_CHECKPOINT` path
+(legacy `HAGIA_POLICY_CHECKPOINT`; see [environment](environment.md))
 inside the policy endpoint directory. Hagia writes a bounded, fsynced,
 same-directory atomic replacement after a committed projection. On restart it
 validates the private indexes and treats the result only as a candidate for
