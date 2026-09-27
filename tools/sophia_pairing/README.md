@@ -1,6 +1,7 @@
 > SDK pairing candidate: Hagia `b3d84966`, Sophia `3d8c4ac3`, development
 > binary SHA-256 `1fc120d1cd496e4eca40e914899f7cd322b78c3f744f2d32e53101f068920f29`.
-> The new binary is bound, but paired acceptance has not run yet. See
+> The isolated run passed all 24 phases, including 12 owner cases and two
+> pregraphics cases. This is a development binary, not a reviewed release. See
 > [SDK-MIGRATION.md](SDK-MIGRATION.md) for retained assertions, retired IPC
 > comparisons and remaining gaps. The older procedure below is historical.
 

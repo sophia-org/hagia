@@ -3,8 +3,11 @@
 This update keeps the signed product source at Hagia `b3d84966` and targets
 Sophia `3d8c4ac3`. All fixture mount files are byte-identical to the previous
 Sophia pin; only the lockfile binding changes. A fresh isolated development executable is bound by SHA-256 in the compatibility
-manifest and fixture. Its source is the unchanged product commit. Pairing has
-not run yet; this is not a reviewed release build.
+manifest and fixture. Its source is the unchanged product commit. The isolated `hagia-sdk-pairing/run1` passed all 24 phases: the twelve owner
+cases, two pregraphics cases, protocol/isolation/list checks, strict Session and
+runtime clippy, layout, formatting and whitespace. The runner at `797e8e04`
+completed with identical initial and final source/overlay/binary identities.
+This is not a reviewed release build.
 
 ## Kept assertions
 
@@ -42,7 +45,15 @@ retirement:
 - The comparative IPC/files drag campaign is refused. Historical captures can
   still be parsed, but their results do not qualify the SDK candidate.
 
-A green new run would prove the named protected owner exchanges with supplied
-historical admission, CPU pixels and frontend acknowledgements. It would not
+The green run proves the named protected owner exchanges with supplied
+historical admission, CPU pixels and frontend acknowledgements. It does not
 prove physical input, presentation, application execution or performance, and
-would not by itself close every h006/t249 acceptance item.
+does not by itself close every h006/t249 acceptance item.
+
+## Follow-up from this run
+
+Policy exchanges showed approximately one-second gaps. SDK submit, snapshot
+and consume stage local work, but its poll hints appear to expose only wire
+readiness and deadlines. A focused wakeup regression is pending; no latency
+claim is made from this functional run. A changed SDK/vendor requires a new
+product identity and refreshed pairing evidence.
