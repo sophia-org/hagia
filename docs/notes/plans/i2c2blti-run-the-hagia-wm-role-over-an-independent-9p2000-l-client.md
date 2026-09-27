@@ -134,3 +134,20 @@ Keep h006 open for the behavior gaps named in
 and installed acceptance. The 449-test local suite remains evidence for the
 previous vendor; the new vendor has the strict C suite and protected pairing.
 Formal models were not rerun. No live reload or installation occurred.
+
+
+### Reviewed-closure artifact qualification
+
+The immutable pair build at Hagia `69f427ab` / Narthex `50b9014d` succeeded
+with the reviewed dependency manifests, staged toolchain and nested isolated
+build. The exact resulting Hagia binary (SHA-256 `8c2fc4c4…728ddeae`) then
+passed all 24 protected pairing phases against Sophia `3d8c4ac3` plus the
+recorded overlay, with identical initial and final identities. See binding
+`3653f12f`, `hagia-sdk-pairing/run3-reviewed/report.json` and the full digest
+in `tools/sophia_pairing/compatibility.json`.
+
+This closes the reviewed-artifact build and named protected owner exchange
+checks. h006 stays open for the documented behavior gaps and installed/physical
+acceptance; formal models were not rerun. Full desktop packaging still needs
+the final Sophia/SDK/artifact pin alignment. No installation or live action
+was performed.

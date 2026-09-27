@@ -82,3 +82,21 @@ The refreshed reviewed dependency manifest binds source `69f427ab` with SHA-256
 reviewed-manifest release builder has not built this binary. The behavior gaps
 above, formal-model rerun, bound release build and installed acceptance remain
 open. No live session, device or installation was touched.
+
+## Reviewed-closure artifact qualification
+
+The first dependency-bound WM pair build succeeded under nested Bubblewrap
+with network and devices hidden. Its Hagia binary uses the reviewed 13-package
+closure and staged compiler/config/stdlib; Narthex uses its reviewed four-package
+closure. Sources, package inputs and toolchain identities were checked before
+and after. The C toolchain identity remains recorded rather than a complete
+reproducible closure.
+
+The exact resulting Hagia SHA-256
+`8c2fc4c400b141c9b23ff87a44f2bc80b9c0457bd9c5a550409283f4728ddeae`
+passed all 24 phases in `hagia-sdk-pairing/run3-reviewed`, bound by `3653f12f`.
+Initial and final identities match. This is evidence for the reviewed artifact,
+separate from the development binary in run2. Both use Hagia `69f427ab`,
+C SDK `8decca1d` and Sophia `3d8c4ac3` plus the recorded Hagia-owned overlay.
+The behavior gaps above, formal-model rerun, full desktop packaging and
+installed/physical acceptance remain open. The running session was untouched.

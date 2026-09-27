@@ -1,7 +1,7 @@
 > Pairing candidate: Hagia `69f427ab`, C SDK `8decca1d`, Sophia `3d8c4ac3`.
 > The reviewed-closure binary SHA-256 is `8c2fc4c400b141c9b23ff87a44f2bc80b9c0457bd9c5a550409283f4728ddeae`.
-> Its protected pairing is pending. The development binary passed all 24
-> phases; that evidence remains separate. See [SDK-MIGRATION.md](SDK-MIGRATION.md).
+> This exact binary passed all 24 protected pairing phases. Earlier development
+> runs remain separate evidence. No installed/physical acceptance is claimed. See [SDK-MIGRATION.md](SDK-MIGRATION.md).
 > The older procedure below is historical.
 
 # Optional Sophia pairing
