@@ -8,7 +8,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
-const FROZEN_SHA256: &str = "1fc120d1cd496e4eca40e914899f7cd322b78c3f744f2d32e53101f068920f29";
+const FROZEN_SHA256: &str = "0c38b959688aa51ee4d0adbfecc6d7ec33d1cb0662e96d36eb76868544764bb6";
 
 #[path = "policy_hagia_layout.rs"]
 mod layout_settlement;
@@ -174,7 +174,7 @@ fn with_normal_hagia_transport_fixture<T>(
     .join(case);
     std::fs::create_dir(&evidence).expect("case evidence must be fresh; parent must exist");
     let mut identity = std::fs::File::create(evidence.join("identity.txt")).unwrap();
-    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=b3d84966e80c48a5273c33f8b04456f18fd424af\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
+    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=69f427abb0565d10c04dab302915396048252dcf\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
     writeln!(
         identity,
         "wm_transport={}\noutput_transport=current_ipc\noutput_service_started={presentation_fixture}\noutput_peer_exercised=false\nsimulated_presentation_fixture={presentation_fixture}",
