@@ -108,3 +108,29 @@ assertions; IPC parity is retired. The two pregraphics cases explicitly select
 qualify this candidate; `tools/sophia_pairing/SDK-MIGRATION.md` names the remaining
 behavior gaps. A deliberately invalid executable digest prevents any run until
 a fresh isolated build is bound. This follow-up has not compiled or run yet.
+
+
+### 2026-09-27 protected SDK pairing qualification
+
+The code-only follow-up above was subsequently bound and run. Hagia `69f427ab`
+with C SDK `8decca1d` passed all 24 phases against Sophia `3d8c4ac3` plus the
+Hagia-owned test overlay: twelve protected owner cases, two pregraphics cases,
+and protocol/isolation/list/strict/layout/format checks. The fresh normal
+development executable is pinned in pairing binding `6add5738`;
+`hagia-sdk-pairing/run2/report.json` records matching initial and final identities.
+Startup, automatic/control restart, checkpoint restore and profile rollback
+now have SDK-backed owner-level evidence. Physical/native acceptance is not
+claimed; the fixture supplies historical admission, CPU pixels and frontend
+acknowledgements.
+
+The first pairing run found a local-work wakeup defect: SDK submit, snapshot
+and consume could leave a poll-first caller sleeping until a deadline or
+forever. Deterministic idle-socket controls fail before `8decca1d` and pass
+afterward, including return to idle without spinning. The corrected SDK is
+vendored, and the refreshed Hagia dependency manifest is reviewed.
+
+Keep h006 open for the behavior gaps named in
+`tools/sophia_pairing/SDK-MIGRATION.md`, the reviewed-manifest release build
+and installed acceptance. The 449-test local suite remains evidence for the
+previous vendor; the new vendor has the strict C suite and protected pairing.
+Formal models were not rerun. No live reload or installation occurred.

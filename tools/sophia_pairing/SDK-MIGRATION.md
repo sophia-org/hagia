@@ -61,3 +61,24 @@ no-IPC suite and idle no-spin controls pass. Hagia `69f427ab` vendors that fix.
 The result above remains evidence for `b3d84966`; the new vendor needs refreshed
 pairing evidence and a source-bound dependency manifest. No latency measurement
 or release qualification is claimed for the new revision.
+
+## Wakeup-corrected pairing result
+
+The fresh development binary from Hagia `69f427ab`, vendoring C SDK `8decca1d`,
+passed all 24 phases in `hagia-sdk-pairing/run2` against Sophia `3d8c4ac3` plus
+the recorded overlay. Binding commit `6add5738` names binary SHA-256
+`0c38b959688aa51ee4d0adbfecc6d7ec33d1cb0662e96d36eb76868544764bb6`. Initial
+and final source, overlay, runner and binary identities match. The twelve
+protected owner cases, two pregraphics cases and strict/layout/format checks
+passed with unchanged assertions and deadlines.
+
+The action/assignment/pointer corpus phase took 1.073 seconds versus 52.741
+seconds before the fix. This is a diagnostic observation from two functional
+runs, not a controlled performance measurement. The deterministic C SDK test
+establishes the local wakeup correction and return to idle without spinning.
+
+The refreshed reviewed dependency manifest binds source `69f427ab` with SHA-256
+`fabc46a9c97091f6738d0ffe1cb04a07d783e61cd1db742667a533f71263e20e`. The
+reviewed-manifest release builder has not built this binary. The behavior gaps
+above, formal-model rerun, bound release build and installed acceptance remain
+open. No live session, device or installation was touched.
