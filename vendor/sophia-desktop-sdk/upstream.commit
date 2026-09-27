@@ -1,0 +1,17 @@
+tree 77ac75c10747f2787528d5b460e6ebb611d86b77
+parent 5b33b6673042505d119b7d67aa3bcb3020b209ae
+author Mason Green <mason@greenm01.net> 1790544571 -0400
+committer Mason Green <mason@greenm01.net> 1790544571 -0400
+gpgsig -----BEGIN PGP SIGNATURE-----
+ 
+ iHUEABYIAB0WIQR+I2QUnoHdebKT6m9XGEu2KoAAYgUCarmKuwAKCRBXGEu2KoAA
+ YlknAQCjvqUDcgn56ifOtSs/jwLZE86QyVdQIpqG19uIlKJOtwD/Z+UvGCHYoYcw
+ vNksmLgLHWfswL6mt7EpINSkYbGlxwk=
+ =3Ojp
+ -----END PGP SIGNATURE-----
+
+Cover WM event deadlines while held or awaiting an acknowledgement
+
+A complete retained event remains available after twenty simulated seconds. A partial event retains its original deadline while an ack reply is withheld and additional bytes arrive, then closes at that exact deadline.
+
+Validation: strict WITH_IPC=0 make check. These are scripted clock controls, with no real-time or production Session claim.
