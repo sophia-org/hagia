@@ -39,12 +39,12 @@ Run from the Hagia repository, with an exclusive disk cache:
 cargo +1.96.1 run --offline --locked --manifest-path tools/sophia_pairing/runner/Cargo.toml -- \
   --sophia-root=/absolute/clean/sophia-checkout \
   --hagia-bin=/absolute/frozen/hagia \
-  --hagia-sha256=0419e09e224676c4d925438f80b22df9532c1653ec339507637edbe01ea52f5f \
+  --hagia-sha256=e8221d1197b032e51c7fabe5dccc20e6c8e52342e8e8cd8a82940ad9063b86ad \
   --output=/absolute/fresh/evidence \
   --target-dir=/absolute/exclusive/cargo-cache
 ```
 
-The current fixture pins Hagia source `7455c3e` and its retained executable;
+The current fixture pins Hagia source `e8b56a3` and its retained executable;
 there is no automatic build or replacement of that artifact. The runner needs
 Rust 1.96.1 (Sophia's pinned toolchain), cached Cargo dependencies, Git,
 bubblewrap and GNU timeout. `nimble pairing` is the short launcher; it requires

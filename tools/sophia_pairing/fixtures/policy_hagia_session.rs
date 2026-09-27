@@ -8,7 +8,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
-const FROZEN_SHA256: &str = "0419e09e224676c4d925438f80b22df9532c1653ec339507637edbe01ea52f5f";
+const FROZEN_SHA256: &str = "e8221d1197b032e51c7fabe5dccc20e6c8e52342e8e8cd8a82940ad9063b86ad";
 
 #[path = "policy_hagia_layout.rs"]
 mod layout_settlement;
@@ -173,7 +173,7 @@ fn with_normal_hagia_transport_fixture<T>(
     .join(case);
     std::fs::create_dir(&evidence).expect("case evidence must be fresh; parent must exist");
     let mut identity = std::fs::File::create(evidence.join("identity.txt")).unwrap();
-    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=7455c3edd713770ed43630d0989073d2f14ba623\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
+    writeln!(identity, "binary={}\npath_sha256_before={expected}\nsource=e8b56a3195ac11f44e100bc4ed903c0d3cb72e9a\nidentity_qualification=path hashed before/after; not descriptor-pinned exec", binary.display()).unwrap();
     writeln!(
         identity,
         "wm_transport={}\noutput_transport=current_ipc\noutput_service_started={presentation_fixture}\noutput_peer_exercised=false\nsimulated_presentation_fixture={presentation_fixture}",
@@ -237,9 +237,9 @@ fn with_normal_hagia_transport_fixture<T>(
         .collect::<BTreeSet<_>>();
     let mut expected_keys = [
         transport.socket_env(),
-        "HAGIA_POLICY_CHECKPOINT",
-        "HAGIA_POLICY_CANDIDATE",
-        "HAGIA_POLICY_PROFILE_ACTIVATION",
+        "SOPHIA_WM_POLICY_CHECKPOINT",
+        "SOPHIA_WM_POLICY_CANDIDATE",
+        "SOPHIA_WM_POLICY_PROFILE_ACTIVATION",
     ]
     .map(str::to_owned)
     .into_iter()
@@ -253,10 +253,17 @@ fn with_normal_hagia_transport_fixture<T>(
         );
     }
     assert_eq!(keys, expected_keys);
+    // Names only: the values are private Session paths.
+    writeln!(
+        identity,
+        "launch_environment_keys={}",
+        keys.iter().cloned().collect::<Vec<_>>().join(",")
+    )
+    .unwrap();
     assert!(
         spec.environment
             .iter()
-            .any(|(key, value)| key == "HAGIA_POLICY_PROFILE_ACTIVATION" && value == "required")
+            .any(|(key, value)| key == "SOPHIA_WM_POLICY_PROFILE_ACTIVATION" && value == "required")
     );
     assert!(
         spec.environment
