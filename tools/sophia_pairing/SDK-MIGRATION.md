@@ -54,6 +54,10 @@ does not by itself close every h006/t249 acceptance item.
 
 Policy exchanges showed approximately one-second gaps. SDK submit, snapshot
 and consume stage local work, but its poll hints appear to expose only wire
-readiness and deadlines. A focused wakeup regression is pending; no latency
-claim is made from this functional run. A changed SDK/vendor requires a new
-product identity and refreshed pairing evidence.
+readiness and deadlines. The focused SDK regression reproduced missing wakeups after submit, snapshot
+and consume (timeouts 1000/-1/1000 with no socket readiness). SDK `8decca1d`
+requests one immediate dispatch after each successful API call; the strict
+no-IPC suite and idle no-spin controls pass. Hagia `69f427ab` vendors that fix.
+The result above remains evidence for `b3d84966`; the new vendor needs refreshed
+pairing evidence and a source-bound dependency manifest. No latency measurement
+or release qualification is claimed for the new revision.
