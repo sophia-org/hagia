@@ -1,8 +1,8 @@
-> SDK pairing candidate: Hagia `69f427ab`, Sophia `3d8c4ac3`, development
-> binary SHA-256 `0c38b959688aa51ee4d0adbfecc6d7ec33d1cb0662e96d36eb76868544764bb6`.
-> The wakeup fix passed refreshed pairing: all 24 phases, including 12 protected
-> owner cases and two pregraphics cases. This is a development build. See [SDK-MIGRATION.md](SDK-MIGRATION.md)
-> for scope and remaining gaps. The older procedure below is historical.
+> Pairing candidate: Hagia `69f427ab`, C SDK `8decca1d`, Sophia `3d8c4ac3`.
+> The reviewed-closure binary SHA-256 is `8c2fc4c400b141c9b23ff87a44f2bc80b9c0457bd9c5a550409283f4728ddeae`.
+> Its protected pairing is pending. The development binary passed all 24
+> phases; that evidence remains separate. See [SDK-MIGRATION.md](SDK-MIGRATION.md).
+> The older procedure below is historical.
 
 # Optional Sophia pairing
 

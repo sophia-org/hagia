@@ -8,7 +8,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
-const FROZEN_SHA256: &str = "0c38b959688aa51ee4d0adbfecc6d7ec33d1cb0662e96d36eb76868544764bb6";
+const FROZEN_SHA256: &str = "8c2fc4c400b141c9b23ff87a44f2bc80b9c0457bd9c5a550409283f4728ddeae";
 
 #[path = "policy_hagia_layout.rs"]
 mod layout_settlement;
