@@ -1,6 +1,15 @@
-import std/[strutils, unittest]
-import types/[handoff, session, wm_file_bodies, wm_files, wm_presentation, wm_v1]
-import sophia/[policy_codec, policy_transport, wm_file_bodies, wm_files]
+import std/strutils
+import std/unittest
+import types/handoff
+import types/session
+import ./support/wire/types/wm_file_bodies
+import ./support/wire/types/wm_files
+import types/wm_presentation
+import types/wm_v1
+import sophia/policy_codec
+import sophia/policy_transport
+import ./support/wire/sophia/wm_file_bodies
+import ./support/wire/sophia/wm_files
 
 ## Records below are assembled field by field from `sophia-wm-files-v1.kdl`
 ## (Sophia 4ebfd0b8 controls, 14cab2ed admission) with a local little-endian
@@ -526,17 +535,3 @@ suite "WM file cycle bodies":
     cycle.request.connectionEpoch = 8
     refuses WmFileErrorKind.epoch:
       discard eventHeader(WmFileKind.cycle).encodeCycle(cycle, allCaps)
-
-suite "legacy acceptance preserved beside strict file bodies":
-  test "the legacy scalar decoder still refuses a Focus target at index zero":
-    # Legacy layout: epoch, request, scene, policy, cause 2 (Focus), no
-    # interaction, target (0, 1), one output.
-    var le: Le
-    le.u64(epoch).u64(43).u64(44).u64(45).u16(2).u16(0).u16(0).u16(0).u64(0).u64(0)
-    le.u32(0).u32(1).i32(0).i32(0).i32(0).i32(0).u16(1).u16(0).u64(1)
-    let frame =
-      Frame(kind: MessageKind.projectionRequest, transaction: 1, payload: le.bytes)
-    expect PolicyClientError:
-      discard frame.decodeProjectionRequest(epoch, allCaps)
-    check event(22, cycleBody(2, [1'u64], surface(0, 1)))
-      .decodeCycle(epoch, allCaps).request.cause.targetGeneration == 1

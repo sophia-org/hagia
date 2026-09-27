@@ -1,6 +1,19 @@
+import ./support/wire/sophia/presentation_oracle
 import std/unittest
-import types/[core, session, wm_v1, wm_presentation]
-import sophia/[policy_codec, policy_transport, wm_presentation, wm_v1]
+import types/core
+import types/session
+import types/wm_v1
+import types/wm_presentation
+import sophia/policy_transport
+import ./support/wire/sophia/wm_v1
+import ./support/wire/sophia/wm_file_bodies
+import ./support/wire/sophia/wm_files
+import ./support/wire/types/wm_files
+import ./support/wire/types/wm_file_bodies
+import types/desktop_sdk
+import sophia/desktop_sdk
+import sophia/sdk_cycle
+import sophia/sdk_rows
 
 proc presentation(): WmPresentation =
   let bounds = Rect(width: 400, height: 200)
@@ -37,13 +50,37 @@ proc presentation(): WmPresentation =
     ],
   )
 
-proc actionFrame(target: uint64): Frame =
-  result = Frame(kind: MessageKind.presentationActionRequest, transaction: 1)
-  for value in [2'u64, 3, 4, 5, 6, 7, 1, 1, 8, 9, target, target]:
-    result.payload.addU64(value)
-  result.payload.addU16(1)
-  result.payload.addU16(0)
-  result.payload.addU64(1)
+const presentationCaps =
+  capabilityActions or capabilitySurfaceInstances or capabilityPresentationActions
+
+proc actionRecord(target: uint64): seq[byte] =
+  let request = ProjectionRequest(
+    connectionEpoch: 2,
+    requestId: 3,
+    sceneGeneration: 4,
+    policyGeneration: 5,
+    affectedOutputs: @[1'u64],
+    cause: ProjectionCause(
+      kind: ProjectionCauseKind.presentationAction,
+      activationSerial: 6,
+      action: 7,
+      presentation: PresentationIdentity(
+        publicationGeneration: 1,
+        output: 1,
+        outputGeneration: 8,
+        presentationEpoch: 9,
+        targetId: target,
+        targetGeneration: target,
+      ),
+    ),
+  )
+  WmFileHeader(kind: WmFileKind.cycle, connectionEpoch: 2, sequence: 1).encodeCycle(
+    WmFileCycle(snapshotTransaction: 1, requestTransaction: 2, request: request),
+    presentationCaps,
+  )
+
+proc decoded(bytes: seq[byte], caps: uint64): WfRecord =
+  sdkCheck(wfDecode(unsafeAddr bytes[0], csize_t(bytes.len), caps, addr result))
 
 suite "generic WM presentation boundary":
   test "one source has independent instances and fixed bounded records":
@@ -78,42 +115,71 @@ suite "generic WM presentation boundary":
         discard p.encodePresentation()
 
   test "keyboard and pointer actions require exact complete identity and negotiation":
-    let caps = capabilitySurfaceInstances or capabilityPresentationActions
     for target in [0'u64, 10]:
-      let frame = actionFrame(target)
-      let request = frame.decodeProjectionRequest(2, caps)
+      let bytes = actionRecord(target)
+      let request = bytes.decoded(presentationCaps).policyRequest()
+      check request.connectionEpoch == 2
       check request.cause.kind == ProjectionCauseKind.presentationAction
       check request.cause.presentation.targetId == target
       check request.cause.presentation.presentationEpoch == 9
       for capabilities in [
-        0'u64, capabilitySurfaceInstances, capabilityPresentationActions
+        0'u64,
+        capabilitySurfaceInstances,
+        capabilityPresentationActions,
+        presentationCaps xor capabilityActions,
+        presentationCaps xor capabilitySurfaceInstances,
+        presentationCaps xor capabilityPresentationActions,
       ]:
         expect PolicyClientError:
-          discard frame.decodeProjectionRequest(2, capabilities)
-      for offset in [0, 8, 16, 24, 32, 40, 48, 56, 64, 72]:
-        var bad = actionFrame(target)
+          discard bytes.decoded(capabilities)
+      # Required envelope epoch, request identities and presentation cause fields.
+      # Cycle has a 48-byte prefix and one 8-byte affected output before its cause.
+      for offset in [8, 48, 56, 64, 88, 96, 104, 112, 120, 128]:
+        var bad = actionRecord(target)
         for index in offset ..< offset + 8:
-          bad.payload[index] = 0
+          bad[index] = 0
         expect PolicyClientError:
-          discard bad.decodeProjectionRequest(2, caps)
-      var bad = actionFrame(0)
-      bad.payload[80] = 1
+          discard bad.decoded(presentationCaps)
+      var bad = actionRecord(0)
+      bad[136] = 1 # target id without its generation
       expect PolicyClientError:
-        discard bad.decodeProjectionRequest(2, caps)
+        discard bad.decoded(presentationCaps)
 
   test "receipts require actual presentation epoch and known lifecycle outcome":
     for outcome in 1'u16 .. 3'u16:
-      var frame = Frame(kind: MessageKind.presentationOutcome, transaction: 1)
-      for value in [2'u64, 3, 4, 5, 6]:
-        frame.payload.addU64(value)
-      frame.payload.addU16(outcome)
-      frame.payload.addU16(0)
-      check frame.decodePresentationReceipt(2, capabilitySurfaceInstances).outcome ==
-        PresentationOutcomeKind(outcome)
+      let bytes = WmFileHeader(
+        kind: WmFileKind.presentationReceipt, connectionEpoch: 2, sequence: 1
+      ).encodePresentationReceipt(
+        WmFilePresentationReceipt(
+          transaction: 1,
+          receipt: PresentationReceipt(
+            connectionEpoch: 2,
+            publicationGeneration: 3,
+            output: 4,
+            outputGeneration: 5,
+            presentationEpoch: 6,
+            outcome: PresentationOutcomeKind(outcome),
+          ),
+        ),
+        capabilitySurfaceInstances,
+      )
+      let record = bytes.decoded(capabilitySurfaceInstances)
+      check record.header.epoch == 2
+      check record.value.presentationReceipt.outcome == outcome
+      # Epoch admission is owned by the SDK session. The independent oracle
+      # retains the old explicit expected-epoch characterization here.
+      expect WmFileError:
+        discard bytes.decodePresentationReceipt(3, capabilitySurfaceInstances)
       expect PolicyClientError:
-        discard frame.decodePresentationReceipt(3, capabilitySurfaceInstances)
-      expect PolicyClientError:
-        discard frame.decodePresentationReceipt(2, 0)
-      frame.payload[32] = 0
-      expect PolicyClientError:
-        discard frame.decodePresentationReceipt(2, capabilitySurfaceInstances)
+        discard bytes.decoded(0)
+      for offset in [40, 48, 56, 64]:
+        var bad = bytes
+        for index in offset ..< offset + 8:
+          bad[index] = 0
+        expect PolicyClientError:
+          discard bad.decoded(capabilitySurfaceInstances)
+      for invalid in [0'u8, 4'u8]:
+        var bad = bytes
+        bad[72] = invalid
+        expect PolicyClientError:
+          discard bad.decoded(capabilitySurfaceInstances)

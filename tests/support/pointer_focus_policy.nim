@@ -6,6 +6,8 @@
 ## Everything here is about refusing a malformed or unnegotiated observation
 ## and about the setting deciding whether a well-formed one changes anything.
 
+import ./wire/sophia/wm_files as fileCodec
+
 proc pointerFocusCandidate(generation: uint64, enabled: bool): AuthorityCandidate =
   AuthorityCandidate(
     authority: ProfileAuthority.policy,
@@ -19,37 +21,25 @@ proc pointerFocusCandidate(generation: uint64, enabled: bool): AuthorityCandidat
     ],
   )
 
-proc pointerFocusFrame(
+proc pointerFocusRecord(
     output: uint64,
     index: uint32 = 0,
     generation: uint32 = 0,
     serial: uint64 = 0,
     width: int32 = 0,
     affected: uint64 = 0,
-): Frame =
-  ## The wire shape the contract fixes: the output rides the action slot, the
-  ## target pair is the only optional part, and every interaction slot is zero.
+): seq[byte] =
+  ## File PointerFocus contains only output and target. Former IPC serial and
+  ## geometry negatives now append forbidden trailing fields to that body.
   var payload: seq[byte]
-  payload.addU64(7)
-  payload.addU64(1)
-  payload.addU64(1)
-  payload.addU64(1)
-  payload.addU16(uint16(ord(ProjectionCauseKind.pointerFocus)))
-  payload.addU16(0)
-  payload.addU16(0)
-  payload.addU16(0)
-  payload.addU64(serial)
-  payload.addU64(output)
-  payload.addU32(index)
-  payload.addU32(generation)
-  payload.addU32(0)
-  payload.addU32(0)
-  payload.addU32(cast[uint32](width))
-  payload.addU32(0)
-  payload.addU16(1)
-  payload.addU16(0)
-  payload.addU64(if affected == 0: output else: affected)
-  Frame(kind: MessageKind.projectionRequest, transaction: 1, payload: payload)
+  fileCodec.addU64(payload, output)
+  fileCodec.addU32(payload, index)
+  fileCodec.addU32(payload, generation)
+  if serial != 0:
+    fileCodec.addU64(payload, serial)
+  if width != 0:
+    fileCodec.addU32(payload, cast[uint32](width))
+  cycleRecord(7, 3, payload, [if affected == 0: output else: affected])
 
 proc pointerFocusRequest(
     output: uint64, index: uint32 = 0, generation: uint32 = 0, requestId = 1'u64
@@ -92,10 +82,9 @@ suite "pointer focus":
     ## An observation Hagia never agreed to receive is a protocol error, not
     ## something to ignore: the peer is sending a cause this connection did not
     ## admit, and carrying on would hide that.
-    expect PolicyClientError:
-      discard pointerFocusFrame(10).decodeProjectionRequest(7, 0)
-    let request =
-      pointerFocusFrame(10).decodeProjectionRequest(7, capabilityPointerFocus)
+    expect WmFileError:
+      discard pointerFocusRecord(10).decodeCycle(7, 0).request
+    let request = pointerFocusRecord(10).decodeCycle(7, capabilityPointerFocus).request
     check request.cause.kind == ProjectionCauseKind.pointerFocus
     check request.cause.action == 10
     check request.cause.targetIndex == 0
@@ -105,26 +94,26 @@ suite "pointer focus":
     ## Index zero is a valid surface index, so generation is what says a target
     ## is there. An index without a generation is the malformed case.
     let present =
-      pointerFocusFrame(10, 0, 1).decodeProjectionRequest(7, capabilityPointerFocus)
+      pointerFocusRecord(10, 0, 1).decodeCycle(7, capabilityPointerFocus).request
     check present.cause.targetIndex == 0
     check present.cause.targetGeneration == 1
     let alsoPresent =
-      pointerFocusFrame(10, 4, 2).decodeProjectionRequest(7, capabilityPointerFocus)
+      pointerFocusRecord(10, 4, 2).decodeCycle(7, capabilityPointerFocus).request
     check alsoPresent.cause.targetIndex == 4
-    expect PolicyClientError:
+    expect WmFileError:
       discard
-        pointerFocusFrame(10, 4, 0).decodeProjectionRequest(7, capabilityPointerFocus)
+        pointerFocusRecord(10, 4, 0).decodeCycle(7, capabilityPointerFocus).request
 
   test "a malformed observation is refused":
     for frame in [
-      pointerFocusFrame(0), # no output
-      pointerFocusFrame(10, 0, 0, 5), # an activation serial it must not carry
-      pointerFocusFrame(10, 0, 0, 0, 64), # geometry belongs to interactions
-      pointerFocusFrame(10, 0, 0, 0, 0, 20), # an output this cycle cannot change
-      pointerFocusFrame(10, high(uint32), 1), # not a surface identity
+      pointerFocusRecord(0), # no output
+      pointerFocusRecord(10, 0, 0, 5), # an activation serial it must not carry
+      pointerFocusRecord(10, 0, 0, 0, 64), # geometry belongs to interactions
+      pointerFocusRecord(10, 0, 0, 0, 0, 20), # an output this cycle cannot change
+      pointerFocusRecord(10, high(uint32), 1), # not a surface identity
     ]:
-      expect PolicyClientError:
-        discard frame.decodeProjectionRequest(7, capabilityPointerFocus)
+      expect WmFileError:
+        discard frame.decodeCycle(7, capabilityPointerFocus).request
 
   test "enabled, the pointer moves focus between windows and onto empty outputs":
     var adapter = initPolicyAdapter(pointerFocusCandidate(2, true))

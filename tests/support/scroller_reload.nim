@@ -11,7 +11,7 @@
 ## preference quietly rebuilt from a default reappears as a different placement
 ## on the way back, and nothing else in a gap change would move it.
 ##
-## The path here is the one `policy_client.nim` runs, not a shortcut through
+## The path here is the one `policy_loop.nim` runs, not a shortcut through
 ## the model: every step is a prepared candidate that Sophia commits, the
 ## checkpoint is written from the committed adapter and read back from disk,
 ## and the new candidate is applied to what was read.
@@ -136,7 +136,7 @@ proc reloadWithGap(
     session: PolicySession, path: string, outerGap: int, generation: uint64
 ): PolicySession =
   ## What a restarted Hagia does with a changed gap, in the order
-  ## `policy_client.nim` does it: write the committed checkpoint, read it back
+  ## `policy_loop.nim` does it: write the committed checkpoint, read it back
   ## from disk, apply the new candidate to what was read, open a session on it.
   path.savePolicyCheckpoint(session.committedAdapter())
   var candidate = path.loadPolicyCheckpoint().get()

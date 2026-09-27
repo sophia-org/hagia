@@ -1,4 +1,4 @@
-import ./session
+import ../../../../src/types/session
 
 const
   wmFileSnapshotPrefixBytes* = 32

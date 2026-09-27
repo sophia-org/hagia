@@ -17,20 +17,18 @@ if you're building a window manager, this repository is the one to copy from.
 
 ## What It Does
 
-Hagia independently implements the current `sophia_wm_v1` wire and the
-development `sophia_wm_fs_v1` role over direct 9P2000.L in Nim — no Sophia,
-Wayland, River, or Triad library anywhere in the build. It connects to the
-explicitly selected Session-owned socket, assembles complete snapshots, reconciles
-them into stable logical entities, and answers each projection request with a
-complete, deterministic layout. Sophia keeps scene truth, input, rendering,
-validation, atomic commit, supervision, and scanout; Hagia only ever proposes.
+Hagia uses the standalone Sophia C desktop SDK through thin Nim bindings for
+its WM file role over standard 9P2000.L. The exact SDK source and signed commit
+are vendored under `vendor/sophia-desktop-sdk`; no Sophia server library is a
+build or runtime dependency. The SDK owns transport, record validation,
+submission custody, acknowledgements and snapshot pins. Hagia converts complete
+values into its spatial-policy model and returns proposals.
 
-Current IPC remains the default. The file path uses `SOPHIA_WM_9P_SOCKET`
-instead of `SOPHIA_WM_SOCKET`; dual selection refuses, and there is no automatic
-fallback. Both wires share the same profile handoff and policy loop. This is a
-WM-only migration; output transport remains current IPC, and full file-role
-acceptance is still open. See [the environment contract](docs/environment.md)
-for the explicit development options.
+Select the Session-owned endpoint with `SOPHIA_WM_9P_SOCKET` or
+`--9p-socket=PATH`. The old `SOPHIA_WM_SOCKET` variable (even empty) and
+`--socket` option are refused. There is no IPC backend or fallback. This WM
+client does not open or implement the separate output/admin authorities.
+See [the environment contract](docs/environment.md).
 
 The policy surface: stable logical IDs, nine shared tag slots with
 output-local views, deterministic fixed-point scrolling columns, atomic
@@ -71,23 +69,33 @@ byte for byte, on any machine.
 
 ## Verify It
 
-The conformance gate runs against a Sophia checkout:
+The local contributor gate runs the vendored SDK tests, independent file-record
+oracles, adapter tests and pure policy tests:
 
 ```sh
-SOPHIA_ROOT=~/dev/sophia-stack nimble test
+nimble test
 ```
 
-It checks the same valid, malformed, and fixed-record corpus that Sophia's
-generated Rust and C99 codecs parse, then drives the compiled Hagia client
-through Sophia's authenticated transport and canonical Engine reducer.
-`nimble verify` adds formatting, bounded Alloy/Z3 entity invariants, and the
-TLA+ startup/rollback lifecycle. `nimble layout` checks the data-oriented
-module discipline alone, in under a second.
+Outputs and Nim caches use a fresh private temporary directory. The contributor
+gate uses the developer's toolchain and Nim packages; a release build separately
+requires reviewed dependency and toolchain inventories. `nimble verify` adds
+formatting and the retained model checks. `nimble layout` checks module discipline.
 
-The installed hardware procedure lives in Sophia's
-`tools/hagia_policy_physical_gate.sh` and is deliberately not part of
-`nimble test` — taking DRM/KMS and physical input needs an operator's
-explicit say-so.
+For the supplied-stream SDK adapter proof against a provisioned Sophia checkout:
+
+```sh
+SOPHIA_ROOT=/absolute/sophia \
+CARGO_TARGET_DIR=/absolute/private-target \
+SOPHIA_WM_FILE_PEER_EVIDENCE=/absolute/new-evidence \
+nimble exportProof
+```
+
+That gate compiles Hagia's actual `PolicyWire` peer and runs Sophia's production
+file export startup/cycle tests offline and locked. Admission and policy outcomes
+are supplied by the fixture. It claims no authenticated launch, native rendering
+or physical acceptance. The old optional pairing overlay contains historical IPC
+cases and needs migration before it can qualify this 9P-only candidate.
+[The test migration map](docs/sdk-test-migration.md) records ownership and gaps.
 
 ## Configuration
 

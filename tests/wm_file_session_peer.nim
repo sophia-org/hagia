@@ -1,10 +1,17 @@
-import std/[os, strutils]
-import
-  types/[
-    config_values, handoff, session, wm_files, wm_file_arrays, wm_file_bodies, wm_v1,
-    wm_presentation,
-  ]
-import sophia/[profile_handoff, wm_files, wm_file_arrays, wm_file_bodies]
+import std/os
+import std/strutils
+import types/config_values
+import types/handoff
+import types/session
+import ./support/wire/types/wm_files
+import ./support/wire/types/wm_file_arrays
+import ./support/wire/types/wm_file_bodies
+import types/wm_v1
+import types/wm_presentation
+import sophia/profile_handoff
+import ./support/wire/sophia/wm_files
+import ./support/wire/sophia/wm_file_arrays
+import ./support/wire/sophia/wm_file_bodies
 import support/wm_file_peer_io
 
 ## Independent codec/transport peer for Session's supplied-stream fixture.

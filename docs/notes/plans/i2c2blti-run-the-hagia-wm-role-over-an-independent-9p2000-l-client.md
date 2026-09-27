@@ -6,6 +6,25 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-09-27 revised implementation boundary
+
+The operator superseded the independent production-client design: one desktop
+SDK per language owns every public role over standard 9P2000.L. Hagia uses thin
+Nim bindings to the standalone C SDK, vendored with its signed commit and full
+inventory. The old Nim codecs remain test oracles only. The product has no IPC
+backend or fallback; old IPC endpoint selection refuses.
+
+The migration retains pure policy tests and maps direct-client tests to SDK
+controls in [the coverage map](../../sdk-test-migration.md). SDK `00897d8` fixes
+receipt capability disclosure, `5b33b66` refuses impossible offers before
+submission, and `93bdf3c` adds complete-held and partial-event timing controls.
+The first two defects were found while preserving Hagia's adapter assertions.
+
+The original scope below records the prior design, not a current instruction.
+h006 stays open until the remaining paired acceptance is qualified. Local
+SDK/policy tests and supplied-stream export tests do not establish authenticated
+launch, native presentation, restart or installed desktop acceptance.
+
 ## Scope and exit
 
 Hagia h006 is paired with Sophia t249 under niltempus's 2026-09-25 instruction
@@ -61,3 +80,20 @@ controls remain Sophia-owned.
 - [Work tracking](../../work-tracking.md), h006 owns this client work.
 - Sophia plan `docs/notes/plans/80blhke8-migrate-the-hagia-wm-role-to-admitted-9p2000-l-files.md`
   owns t247 foundation, t248 Session adapter and t249 paired role acceptance.
+
+
+### 2026-09-27 local qualification
+
+The signed C SDK pin is `93bdf3c3b47c837af79023bec482760e1f1ceb80`.
+The final local gate passed 449 Nim tests, strict vendored SDK checks and CLI
+checks. The actual SDK PolicyWire peer passed startup and cycle against
+Sophia `3d8c4ac3`'s production file export (2/2). Admission and policy outcomes
+are supplied by that fixture; authenticated Session launch remains open.
+Evidence is in `hagia-c-sdk/full-local-run1.log` and
+`hagia-c-sdk/sdk-export-final-run1.log` under the development evidence directory.
+The SDK timing run's first failure was a test expectation of FAILED instead of
+CLOSED; the corrected run passed. The previous receipt/bootstrap guard-removal
+controls failed as required. All failed logs remain available.
+
+No formal-model rerun, reviewed release build, installation or live reload is
+claimed. Keep h006 open for the remaining paired acceptance and release work.

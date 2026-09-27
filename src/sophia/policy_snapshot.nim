@@ -3,10 +3,9 @@ import std/sets
 import ../types/[session, wm_v1]
 import ./[policy_semantics, policy_transport]
 
-## Shared complete-snapshot checks. Legacy identity exceptions are explicit
-## at its wrapper; the file path uses strict identities without changing it.
+## Complete file snapshot checks before policy reconciliation.
 
-proc validateSnapshotFields(snapshot: PolicySnapshot, strictIdentities: bool) =
+proc validateSnapshotFields(snapshot: PolicySnapshot) =
   if snapshot.generation == 0 or snapshot.activeOutput == 0 or snapshot.outputs.len == 0 or
       snapshot.outputs.len > maxOutputs or snapshot.surfaces.len > maxSurfaces:
     fail("policy snapshot count is invalid")
@@ -26,10 +25,8 @@ proc validateSnapshotFields(snapshot: PolicySnapshot, strictIdentities: bool) =
   var surfaces = initHashSet[(uint32, uint32)]()
   for surface in snapshot.surfaces:
     let identity = (surface.surfaceIndex, surface.surfaceGeneration)
-    if surface.surfaceGeneration == 0 or (
-      strictIdentities and
-      not validSurface(surface.surfaceIndex, surface.surfaceGeneration)
-    ) or surface.stateGeneration == 0 or surface.width <= 0 or surface.height <= 0 or
+    if not validSurface(surface.surfaceIndex, surface.surfaceGeneration) or
+        surface.stateGeneration == 0 or surface.width <= 0 or surface.height <= 0 or
         identity in surfaces or
         (surface.currentOutput != 0 and surface.currentOutput notin outputs):
       fail("policy snapshot surface is invalid")
@@ -51,18 +48,14 @@ proc validateSnapshotFields(snapshot: PolicySnapshot, strictIdentities: bool) =
       fail("policy surface presentation state conflicts")
     surfaces.incl(identity)
   for surface in snapshot.surfaces:
-    if strictIdentities and
-        not validOptionalSurface(surface.transientIndex, surface.transientGeneration):
+    if not validOptionalSurface(surface.transientIndex, surface.transientGeneration):
       fail("policy transient owner identity is invalid")
     if surface.transientGeneration != 0 and
         (surface.transientIndex, surface.transientGeneration) notin surfaces:
       fail("policy transient owner is invalid")
   for output in snapshot.outputs:
     let invalidFocus =
-      if strictIdentities:
-        not validOptionalSurface(output.focusIndex, output.focusGeneration)
-      else:
-        (output.focusIndex == 0) != (output.focusGeneration == 0)
+      not validOptionalSurface(output.focusIndex, output.focusGeneration)
     if invalidFocus:
       fail("policy output focus identity is partial")
     if output.focusGeneration != 0:
@@ -100,12 +93,8 @@ proc validateSnapshotFields(snapshot: PolicySnapshot, strictIdentities: bool) =
     actions.incl(action.action)
     actionNames.incl(action.name)
 
-proc validateSnapshot*(snapshot: PolicySnapshot) =
-  # Preserve the characterized legacy direct-validator acceptance.
-  snapshot.validateSnapshotFields(false)
-
 proc validateFileSnapshot*(snapshot: PolicySnapshot) =
-  snapshot.validateSnapshotFields(true)
+  snapshot.validateSnapshotFields()
   for surface in snapshot.surfaces:
     if (surface.capabilityBits and not snapshotSurfaceCapabilityMask) != 0:
       fail("policy surface capabilities are invalid")

@@ -1,66 +1,66 @@
 #!/bin/sh
 set -eu
 
-if [ "${SOPHIA_ROOT:-}" = "" ]; then
-    echo "SOPHIA_ROOT must name a Sophia checkout" >&2
-    exit 2
-fi
-
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-build_dir=$(mktemp -d)
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/hagia-policy.XXXXXXXX")
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 cd "$root"
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+# Release dependency custody is a separate bound build. This contributor gate
+# uses the developer's Nim toolchain and private per-run output/cache paths.
+unset DISPLAY WAYLAND_DISPLAY
+nice -n 19 make -C vendor/sophia-desktop-sdk/source -j2 WITH_IPC=0 \
+    BUILD="$build_dir/c-sdk" check
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
+    -o:"$build_dir/tdesktop-sdk" tests/tdesktop_sdk.nim
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tninep" tests/tninep.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-files" tests/twm_files.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-file-bodies" tests/twm_file_bodies.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tsophia-wm-v1" tests/tsophia_wm_v1.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tsnapshot-identity" tests/tsnapshot_identity.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-file-arrays" tests/twm_file_arrays.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-file-projection" tests/twm_file_projection.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-presentation" tests/twm_presentation.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/toverview" tests/toverview.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/toverview-adapter" tests/toverview_adapter.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/ttab-trees" tests/ttab_trees.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tedge-maximized" tests/tedge_maximized.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tgap-layout" tests/tgap_layout.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tcolumn-sizing" tests/tcolumn_sizing.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tpolicy-model" tests/tpolicy_model.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tfoundation" tests/tfoundation.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tscroller-ops" tests/tscroller_ops.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tscroller-navigation" tests/tscroller_navigation.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tprofile-handoff" tests/tprofile_handoff.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tpolicy-wire" tests/tpolicy_wire.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tfile-wire" tests/tfile_wire.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tpolicy-endpoint" tests/tpolicy_endpoint.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tpolicy-environment" tests/tpolicy_environment.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
+nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/twm-file-client" tests/twm_file_client.nim
-nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
-    -o:"$build_dir/hagia-policy-proof" src/hagia_policy_proof.nim
-nim c --hints:off --path:src --nimcache:"$build_dir/nimcache-hagia" \
+nice -n 19 nim c --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache-hagia" \
     -o:"$build_dir/hagia" src/hagia.nim
 # The environment contract probe is what an installer matches before trusting
 # a binary with the generic names; its exact line is part of the contract.
@@ -94,14 +94,4 @@ if "$build_dir/hagia" config check --config="$build_dir/retired-size.kdl"; then
     echo "Hagia config check accepted a retired policy spelling" >&2
     exit 1
 fi
-cd "$SOPHIA_ROOT"
-cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
-    "$build_dir/hagia-policy-proof" "$build_dir/session" all
-cargo run --offline -q -p sophia-runtime --example policy_c_conformance_host -- \
-    "$build_dir/hagia-policy-proof" "$build_dir/session-restart" restart
-# Hagia-specific interoperability cases (pregraphics profile admission,
-# pointer focus, presentation, launch origin) moved to the opt-in
-# tools/sophia_pairing/legacy overlay so Sophia's own tree stays WM-neutral.
-
-printf '%s\n' \
-    'hagia_policy_behavior_corpus schema=4 status=complete revision=3 scenarios=11 sequential=true action=true timeout_recovery=true stale_recovery=true invalid_recovery=true reconnect_restart=true preserved_commit=true'
+printf '%s\n' 'hagia_policy_tests schema=1 status=pass wire=9p2000.L scope=local_sdk_and_policy'

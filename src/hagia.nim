@@ -1,15 +1,19 @@
-import std/[options, os, strutils]
+import std/options
+import std/os
+import std/strutils
 
-import config/[migration, policy_endpoint, policy_environment, profile]
-import types/[config_values, policy_endpoint, policy_environment]
+import config/migration
+import config/policy_endpoint
+import config/policy_environment
+import config/profile
+import types/config_values
+import types/policy_environment
 import types/observability
 import observability
 import types/session
 import
-  sophia/[
-    policy_adapter, policy_checkpoint, policy_client, policy_session, policy_trace,
-    wm_file_client,
-  ]
+  sophia/
+    [policy_adapter, policy_checkpoint, policy_session, policy_trace, wm_file_client]
 
 proc option(arguments: openArray[string], name: string): string =
   let prefix = "--" & name & "="
@@ -20,7 +24,7 @@ proc option(arguments: openArray[string], name: string): string =
 const usage = """hagia — reference window manager for the Sophia display server
 
 usage:
-  hagia [--socket=PATH | --9p-socket=PATH] [--config=PATH]
+  hagia [--9p-socket=PATH] [--config=PATH]
                                           run the selected policy session
   hagia config check [--config=PATH]      validate a desktop profile
   hagia config init [--config=PATH]       seed the default profile, never
@@ -41,8 +45,7 @@ signals:
   SIGUSR1  write the committed model to $HAGIA_POLICY_DUMP
 
 common environment:
-  SOPHIA_WM_SOCKET          session-owned current IPC policy socket
-  SOPHIA_WM_9P_SOCKET       session-owned 9P WM socket; exclusive with current IPC
+  SOPHIA_WM_9P_SOCKET       session-owned 9P WM socket
   SOPHIA_WM_POLICY_CHECKPOINT
                             private checkpoint path (Sophia sets this;
                             legacy HAGIA_POLICY_CHECKPOINT when unset)
@@ -152,9 +155,11 @@ proc run(arguments: seq[string]) =
     stdout.writeLine("replayed cycles=" & $cycle)
     return
 
-  let endpoint = selectPolicyEndpoint(
-    arguments, getEnv("SOPHIA_WM_SOCKET"), getEnv("SOPHIA_WM_9P_SOCKET")
-  )
+  if existsEnv("SOPHIA_WM_SOCKET"):
+    raise newException(
+      ValueError, "SOPHIA_WM_SOCKET is unsupported; use SOPHIA_WM_9P_SOCKET"
+    )
+  let endpoint = selectPolicyEndpoint(arguments, getEnv("SOPHIA_WM_9P_SOCKET"))
   let explicitConfig = arguments.option("config")
   let candidatePath = policyCandidateEnvironment.resolvedValue()
   if candidatePath.len > 0 and explicitConfig.len > 0:
@@ -182,14 +187,7 @@ proc run(arguments: seq[string]) =
   let profileActivation = profileActivationRequired(
     policyProfileActivationEnvironment.resolvedValue(), candidatePath
   )
-  case endpoint.kind
-  of PolicyEndpointKind.currentIpc:
-    if profileActivation:
-      runProfileActivatedPolicySession(endpoint.path, candidate)
-    else:
-      runPolicySession(endpoint.path, candidate)
-  of PolicyEndpointKind.wmFiles:
-    runFilePolicySession(endpoint.path, candidate, profileActivation)
+  runFilePolicySession(endpoint.path, candidate, profileActivation)
 
 try:
   run(commandLineParams())

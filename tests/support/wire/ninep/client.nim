@@ -1,4 +1,11 @@
-import std/[monotimes, nativesockets, net, options, os, posix, tables, times]
+import std/monotimes
+import std/nativesockets
+import std/net
+import std/options
+import std/os
+import std/posix
+import std/tables
+import std/times
 import ../types/ninep
 import ./codec
 

@@ -68,25 +68,17 @@ and [DRY principles](dry-principles.md).
   `SOPHIA_WM_POLICY_*` by presence, legacy `HAGIA_POLICY_*` only when unset.
 - `src/observability.nim` separates redacted Chronicles operations from the
   opt-in, schema-versioned evidence stream.
-- `src/sophia/wm_v1.nim` implements the independent fixed wire.
-- `src/sophia/wm_files.nim` implements the independent WM file envelope:
-  header classes, row sections, submit and ack. Body semantics sit above it.
-- `src/sophia/wm_file_payload.nim` holds the strict-file checks every typed body
-  shares: exact kind and admitted epoch, sizes, reserved bytes, capabilities.
-- `src/sophia/wm_file_bodies.nim` encodes and decodes the scalar and admission
-  bodies, split into admission, cycle and control owners.
-- `src/sophia/policy_semantics.nim` holds the typed predicates and outcome codes
-  both the file bodies and the legacy decoders use.
-- `src/sophia/wm_file_arrays.nim` decodes complete file snapshots and encodes
-  configuration and projection candidates through shared fixed row codecs.
-  Projection sections have complete per-kind bounds, with no legacy chunk
-  ordinals or frame envelopes. Optional translation and launch hints are
-  omitted when unselected; tabs, indicators and action-bearing presentations
-  refuse when their capabilities are absent. A passive presentation needs
-  `SURFACE_INSTANCES` alone on the file path. Candidate placement identities
-  are validated before encoding; final scene authority stays with Sophia.
-  `policy_snapshot.nim` owns complete snapshot
-  validation, with explicit legacy identity exceptions at its old entry point.
+- `vendor/sophia-desktop-sdk` pins the standalone C SDK's source, inventory and
+  signed commit object. Its public WM file/session API owns 9P framing, typed
+  records, bounded intake, candidate custody, acknowledgements and snapshot pins.
+- `src/sophia/desktop_sdk.nim` is the FFI and explicit C source build boundary.
+  `sdk_rows`, `sdk_snapshot`, `sdk_cycle` and `sdk_candidate` convert public SDK
+  values to and from Hagia's passive records. Borrowed snapshot rows are copied
+  before their pin is released; candidate backing storage outlives submission.
+- `policy_snapshot.nim` and `policy_projection_validation.nim` own complete
+  policy-value checks. No legacy identity exception remains in production.
+- `tests/support/wire` holds independent Nim byte encoders and decoders for
+  conformance comparisons; production modules do not import them.
 - Shell surface policy is not in this repository. It belongs to Narthex, a
   separate client that receives sanitized descriptors and never learns surface
   identifiers, coordinates, or icons.
@@ -96,23 +88,16 @@ and [DRY principles](dry-principles.md).
   projections that Sophia explicitly commits.
 - `src/sophia/policy_checkpoint.nim` validates and atomically replaces the
   optional private session checkpoint.
-- `src/sophia/policy_client.nim` owns the current IPC wire: bounded frame
-  sequencing, refusals and timeouts, offered to the loop as a `PolicyWire`.
-- `src/sophia/policy_loop.nim` runs profile activation and settled cycles over
-  any `PolicyWire`; `policy_wire.nim` defines that typed boundary.
-- `src/sophia/wm_file_wire.nim` offers the WM file role on a supplied socket as a
-  `PolicyWire`. It keeps fids, event and submission counters, one bounded event
-  assembly, at most one held event and bounded receipts in
-  `types/wm_file_wire.nim`; phase stays with `PolicySession`, the profile
-  reducer and Sophia. It always configures, so it serves the configured and
-  activated loops only. A refused submit services receipts and retries within
-  one candidate deadline; admission, candidates, profile waits, started events
-  and object reads each have one absolute deadline that nothing renews.
-- `src/sophia/wm_file_client.nim` connects the explicitly selected file endpoint
-  and runs that same loop.
+- `src/sophia/policy_loop.nim` runs profile activation and settled cycles through
+  `PolicyWire`, the typed injectable boundary also used by pure policy tests.
+- `src/sophia/wm_file_wire.nim` adapts the SDK session to `PolicyWire`, owns its
+  storage and borrowed socket lifetime, drains receipts and closes on failure.
+  It does not allocate fids, encode 9P requests or implement retry custody.
+- `src/sophia/wm_file_client.nim` validates candidate settings, connects the
+  explicitly selected file endpoint and runs the policy loop.
 
-The adapter exposes a snapshot to policy only after the complete current-IPC
-begin/chunk/end transfer or immutable file object validates. The file reader
+The adapter exposes a snapshot to policy only after the immutable file object
+validates. The SDK file reader
 pins the opened object to its Cycle identity; file fragments do not enter the
 policy model. A projection completely replaces every affected output.
 Rejected or interrupted work is discarded before it can mutate Hagia's last
@@ -563,7 +548,7 @@ staging directory.
 
 Wire revision 3 reserves fixed-size profile prepare, activate, and rollback
 commands and their typed completions for the external Hagia policy authority.
-The independent Hagia decoder rejects null identity components, malformed
+The SDK decoder rejects null identity components, malformed
 digests, unknown outcomes, and nonzero reserved fields and is checked against
 Sophia's generated golden corpus. Sophia requests the capability only for the
 explicit pre-graphics activation path; normal policy startup remains unchanged.

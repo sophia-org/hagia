@@ -1,46 +1,17 @@
-import std/[net, os, posix, strutils, tempfiles, unittest]
+import std/net
+import std/os
+import std/posix
+import std/strutils
+import std/tempfiles
+import std/unittest
 import config/profile
-import types/[config_values, wm_file_bodies, wm_files, wm_v1]
-import sophia/[wm_file_bodies, wm_file_client]
-import ninep/client
-import support/wm_file_transcript
+import types/config_values
+import types/wm_v1
+import sophia/[policy_transport, wm_file_client]
+import support/sdk_admission_peer
 
-## Exercise the path wrapper and its candidate-derived offer. The prescribed
-## peer refuses submit; this is neither admission nor Session settlement proof.
-
-peerResults.open()
-
-proc serveListener(script: PeerScript) {.thread.} =
-  var descriptor = TPollfd(fd: script.fd, events: POLLIN)
-  if posix.poll(addr descriptor, Tnfds(1), 2_000) <= 0:
-    peerResults.send(PeerLog(failure: "wrapper did not connect"))
-    return
-  let accepted = posix.accept(SocketHandle(script.fd), nil, nil)
-  if cint(accepted) < 0:
-    peerResults.send(PeerLog(failure: "wrapper accept failed"))
-    return
-  serve(PeerScript(fd: cint(accepted), steps: script.steps))
-
-proc offerSteps(): seq[PeerStep] =
-  var api: seq[byte]
-  for character in "sophia-wm-files version=1 output_transport=current_ipc\n":
-    api.add(byte(character))
-  let limits = WmFileHeader(kind: WmFileKind.limits, connectionEpoch: 9).encodeLimits(
-    WmFileLimits(capabilityCeiling: (1'u64 shl 20) - 1)
-  )
-  @[versionStep(), attachStep()] & objectSteps(api, 10) & objectSteps(limits, 11) &
-    @[
-      walkStep(20),
-      openStep(3, 20),
-      walkStep(21),
-      openStep(4, 21),
-      walkStep(22),
-      openStep(5, 22),
-      walkStep(30),
-      openStep(6, 30),
-      writeStep(6),
-      writeStep(4, refusal = 13),
-    ]
+## Path selection and candidate-derived capabilities through the real SDK.
+## The scripted peer refuses configuration; no policy settlement is claimed.
 
 proc candidate(focus, assignments: bool): AuthorityCandidate =
   result = AuthorityCandidate(
@@ -68,31 +39,35 @@ suite "file endpoint path wrapper":
           newSocket(Domain.AF_UNIX, SockType.SOCK_STREAM, Protocol.IPPROTO_IP)
         listener.bindUnix(path)
         listener.listen()
-        let steps = offerSteps()
-        var thread: Thread[PeerScript]
+        var log: PeerResult
+        var thread: Thread[PeerTask]
         createThread(
-          thread, serveListener, PeerScript(fd: cint(listener.getFd()), steps: steps)
+          thread,
+          servePeer,
+          PeerTask(
+            fd: cint(listener.getFd()),
+            listener: true,
+            ceiling: (1'u64 shl 20) - 1,
+            selected:
+              ((1'u64 shl 20) - 1) and not capabilityProfileActivation and
+              (if focus: high(uint64) else: not capabilityPointerFocus),
+            result: addr log,
+          ),
         )
         try:
-          expect NinepRemoteError:
+          expect PolicyClientError:
             path.runFilePolicySession(candidate(focus, assignments), false)
         finally:
           joinThread(thread)
           listener.close()
           removeDir(directory)
-        let log = peerResults.recv()
-        check log.failure == ""
-        check log.stepsDone == steps.len
-        var offers = 0
-        for request in log.seen:
-          if request.kind == twrite and request.fid == 6:
-            let offer = request.data.decodeNegotiate(9)
-            check ((offer.required and capabilityPointerFocus) != 0) == focus
-            let outputBits = capabilityOutputActions or capabilityOutputPolicyKeys
-            check ((offer.required and outputBits) == outputBits) == assignments
-            check (offer.required and offer.optional) == 0
-            inc offers
-        check offers == 1
+        check log.status == 0
+        check log.offers == 1
+        check log.configurations == 1
+        check ((log.required and capabilityPointerFocus) != 0) == focus
+        let outputBits = capabilityOutputActions or capabilityOutputPolicyKeys
+        check ((log.required and outputBits) == outputBits) == assignments
+        check (log.required and log.optional) == 0
 
   test "invalid settings refuse before connecting":
     let directory = createTempDir("hagia-file-client-invalid-", "")

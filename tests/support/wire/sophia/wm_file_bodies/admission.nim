@@ -1,6 +1,11 @@
 import std/options
-import ../../types/[handoff, wm_file_bodies, wm_files, wm_v1]
-import ../[policy_semantics, wm_file_payload, wm_files]
+import ../../../../../src/types/handoff
+import ../../types/wm_file_bodies
+import ../../types/wm_files
+import ../../../../../src/types/wm_v1
+import ../../../../../src/sophia/policy_semantics
+import ../wm_file_payload
+import ../wm_files
 
 ## Admission bodies: the published Limits object, the WM's Negotiate offer,
 ## Sophia's Negotiated selection, and the profile handoff commands and

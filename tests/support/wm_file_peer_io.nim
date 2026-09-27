@@ -1,7 +1,7 @@
 import std/[monotimes, net, options, os, times]
 import types/[ninep, wm_files]
-import ninep/client
-import sophia/wm_files
+import ./wire/ninep/client
+import ./wire/sophia/wm_files
 
 ## Test-only file custody for the independent, prebuilt Session peer. No
 ## endpoint authentication or production WM loop is supplied by this fixture.

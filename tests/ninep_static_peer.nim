@@ -1,6 +1,7 @@
-import std/[net, os]
-import types/ninep
-import ninep/client
+import std/net
+import std/os
+import ./support/wire/types/ninep
+import ./support/wire/ninep/client
 
 ## Independent client for Sophia t247's static test export. No WM or native
 ## acceptance is implied; the executable fails if any expected operation drifts.

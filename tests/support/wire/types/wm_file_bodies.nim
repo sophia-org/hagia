@@ -1,6 +1,6 @@
-import ./session
+import ../../../../src/types/session
 import ./wm_files
-import ./wm_presentation
+import ../../../../src/types/wm_presentation
 
 ## Passive records for the typed bodies of `sophia_wm_fs_v1` above the
 ## envelope: admission, cycles and scalar controls. Where Hagia already has a

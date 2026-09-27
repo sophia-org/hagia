@@ -1,12 +1,14 @@
-import sophia/wm_translation
-import sophia/wm_tab_groups
-import sophia/wm_presentation
+import ./support/wire/sophia/wm_translation
+import ./support/wire/sophia/wm_tab_groups
+import ./support/wire/sophia/presentation_oracle
 import types/wm_presentation
 import types/core
 import types/session
-import std/[os, strutils, unittest]
+import std/os
+import std/strutils
+import std/unittest
 
-import sophia/wm_v1
+import ./support/wire/sophia/wm_v1
 import types/wm_v1 as wmTypes
 
 proc hexNibble(character: char): int =
@@ -29,112 +31,11 @@ proc decodeHex(text: string): seq[byte] =
       raise newException(ValueError, "invalid hexadecimal input")
     result[index] = byte((high shl 4) or low)
 
-proc kindFor(name: string): MessageKind =
-  case name
-  of "client_hello":
-    MessageKind.clientHello
-  of "server_welcome":
-    MessageKind.serverWelcome
-  of "snapshot_begin":
-    MessageKind.snapshotBegin
-  of "snapshot_chunk":
-    MessageKind.snapshotChunk
-  of "snapshot_end":
-    MessageKind.snapshotEnd
-  of "output_action_request":
-    MessageKind.outputActionRequest
-  of "presentation_action_request":
-    MessageKind.presentationActionRequest
-  of "presentation_outcome":
-    MessageKind.presentationOutcome
-  of "projection_request":
-    MessageKind.projectionRequest
-  of "projection_begin":
-    MessageKind.projectionBegin
-  of "projection_chunk":
-    MessageKind.projectionChunk
-  of "projection_end":
-    MessageKind.projectionEnd
-  of "projection_outcome":
-    MessageKind.projectionOutcome
-  of "policy_configuration":
-    MessageKind.policyConfiguration
-  of "policy_configuration_outcome":
-    MessageKind.policyConfigurationOutcome
-  of "policy_dirty":
-    MessageKind.policyDirty
-  of "session_operation_request":
-    MessageKind.sessionOperationRequest
-  of "session_operation_outcome":
-    MessageKind.sessionOperationOutcome
-  of "profile_prepare":
-    MessageKind.profilePrepare
-  of "profile_prepared":
-    MessageKind.profilePrepared
-  of "profile_activate":
-    MessageKind.profileActivate
-  of "profile_active":
-    MessageKind.profileActive
-  of "profile_rollback":
-    MessageKind.profileRollback
-  of "profile_rolled_back":
-    MessageKind.profileRolledBack
-  else:
-    raise newException(ValueError, "unknown corpus message")
-
-proc errorFor(name: string): PolicyProtocolErrorKind =
-  case name
-  of "truncated":
-    PolicyProtocolErrorKind.truncated
-  of "bad_magic":
-    PolicyProtocolErrorKind.badMagic
-  of "unsupported_frame_version":
-    PolicyProtocolErrorKind.unsupportedFrameVersion
-  of "wrong_message_kind":
-    PolicyProtocolErrorKind.wrongMessageKind
-  of "payload_too_large":
-    PolicyProtocolErrorKind.payloadTooLarge
-  of "reserved_nonzero":
-    PolicyProtocolErrorKind.reservedNonzero
-  of "trailing_bytes":
-    PolicyProtocolErrorKind.trailingBytes
-  of "invalid_transaction":
-    PolicyProtocolErrorKind.invalidTransaction
-  of "field_too_large":
-    PolicyProtocolErrorKind.fieldTooLarge
-  else:
-    raise newException(ValueError, "unknown corpus error")
-
 proc corpusLines(path: string): seq[string] =
   for line in readFile(path).splitLines():
     let stripped = line.strip()
     if stripped.len > 0 and not stripped.startsWith("#"):
       result.add(stripped)
-
-proc checkValidFrames(path: string) =
-  let lines = path.corpusLines()
-  check lines.len == 24
-  for line in lines:
-    let fields = line.split('|')
-    check fields.len == 3
-    let bytes = fields[2].decodeHex()
-    let frame = bytes.decodeFrame(fields[0].kindFor())
-    check frame.transaction == uint64(parseBiggestUInt(fields[1]))
-    check frame.encodeFrame() == bytes
-
-proc checkMalformedFrames(path: string) =
-  let lines = path.corpusLines()
-  check lines.len == 11
-  for line in lines:
-    let fields = line.split('|')
-    check fields.len == 4
-    var rejected = false
-    try:
-      discard fields[3].decodeHex().decodeFrame(fields[1].kindFor())
-    except PolicyProtocolError as error:
-      rejected = true
-      check error.kind == fields[2].errorFor()
-    check rejected
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
@@ -289,67 +190,9 @@ proc checkRecords(path: string) =
     else:
       check false
 
-suite "independent Sophia WM v1 wire":
-  test "shared golden and malformed corpora":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    checkValidFrames(sophiaRoot / "protocol/golden/sophia-wm-v1.frames")
-    checkMalformedFrames(sophiaRoot / "protocol/golden/sophia-wm-v1-malformed.frames")
-    checkRecords(sophiaRoot / "protocol/golden/sophia-wm-v1.records")
-
-  test "typed profile controls retain exact identity and closed outcomes":
-    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
-    for index in 0 ..< profileDigestLen:
-      identity.profileDigest[index] = byte(index + 1)
-
-    for kind in {
-      MessageKind.profilePrepare, MessageKind.profileActivate,
-      MessageKind.profileRollback,
-    }:
-      let command =
-        kind.profileCommandFrame(11, identity).encodeFrame().decodeFrame(kind)
-      check command.decodeProfileCommand() ==
-        ProfileCommand(transaction: 11, identity: identity)
-
-    for kind in {
-      MessageKind.profilePrepared, MessageKind.profileActive,
-      MessageKind.profileRolledBack,
-    }:
-      let completion =
-        kind.profileCompletionFrame(11, identity, ProfileOutcomeKind.accepted)
-      check completion.encodeFrame().decodeFrame(kind).decodeProfileCompletion() ==
-        ProfileCompletion(
-          transaction: 11, identity: identity, outcome: ProfileOutcomeKind.accepted
-        )
-
-  test "typed profile controls reject every null identity field":
-    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
-    identity.profileDigest[0] = 1
-
-    for invalid in [
-      ProfileIdentity(
-        connectionEpoch: 0,
-        profileGeneration: identity.profileGeneration,
-        profileDigest: identity.profileDigest,
-      ),
-      ProfileIdentity(
-        connectionEpoch: identity.connectionEpoch,
-        profileGeneration: 0,
-        profileDigest: identity.profileDigest,
-      ),
-      ProfileIdentity(connectionEpoch: 9, profileGeneration: 7),
-    ]:
-      expect PolicyProtocolError:
-        discard MessageKind.profilePrepare.profileCommandFrame(11, invalid)
-
-  test "typed profile controls reject null transactions":
-    var identity = ProfileIdentity(connectionEpoch: 9, profileGeneration: 7)
-    identity.profileDigest[0] = 1
-    let command = MessageKind.profilePrepare.profileCommandFrame(11, identity)
-    expect PolicyProtocolError:
-      discard Frame(kind: command.kind, transaction: 0, payload: command.payload).decodeProfileCommand()
-    let completion = MessageKind.profilePrepared.profileCompletionFrame(
-      11, identity, ProfileOutcomeKind.accepted
+suite "independent Sophia WM fixed rows":
+  test "shared row corpus used by WM file objects":
+    let root = currentSourcePath().parentDir.parentDir
+    checkRecords(
+      root / "vendor/sophia-desktop-sdk/source/spec/golden/sophia-wm-v1.records"
     )
-    expect PolicyProtocolError:
-      discard Frame(kind: completion.kind, transaction: 0, payload: completion.payload).decodeProfileCompletion()

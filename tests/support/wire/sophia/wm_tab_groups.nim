@@ -1,4 +1,4 @@
-import ../types/session
+import ../../../../src/types/session
 import ./wm_v1
 
 proc encodeTabGroup*(g: ProjectionTabGroup): seq[byte] =

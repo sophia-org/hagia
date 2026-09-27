@@ -85,12 +85,9 @@ The modules are:
 | `types/policy_endpoint.nim` | explicit WM transport selection and its Session-owned endpoint path |
 | `types/policy_environment.nim` | Sophia's WM policy environment names, their legacy fallbacks, and the environment contract identity |
 | `types/handoff.nim` | startup profile handoff phase, model, and disposition |
-| `types/wm_v1.nim` | `sophia_wm_v1` message kinds, records, offsets, and bounds |
-| `types/ninep.nim` | independent base 9P2000.L requests, replies, qids, attributes and bounds |
-| `types/wm_files.nim` | `sophia_wm_fs_v1` envelope kinds, classes, header, section, submit and ack records, and bounds |
-| `types/wm_file_bodies.nim` | typed scalar and admission WM file bodies: limits, negotiation, cycle, dirty, session operation, outcomes, receipts, Submitted, and their sizes |
-| `types/wm_file_arrays.nim` | complete WM file array values and their prefix widths |
-| `types/wm_file_wire.nim` | bounded file-connection custody: fids, counters, event assembly, held event and receipts |
+| `types/wm_v1.nim` | neutral policy rows, capability bits and record bounds |
+| `types/desktop_sdk.nim` | public C SDK FFI records and enum layouts |
+| `types/sdk_candidate.nim` | immutable candidate backing storage |
 | `types/shell_v1.nim` | shell descriptor records, bounds, and reducer model |
 | `types/observability.nim` | evidence records and rotation bounds |
 
@@ -101,7 +98,7 @@ Three kinds of declaration stay outside this layer, each for a stated reason:
 - a closure vtable such as `RuntimeEffectExecutor` or `PolicyWire` is injected behavior, not
   passive data; and
 - an encapsulated state machine whose fields are private on purpose, such as
-  `PolicyAdapter`, `PolicySession` and the direct socket/tag owner `NinepClient`,
+  `PolicyAdapter`, `PolicySession` and the private SDK adapter `FileWireOwner`,
   stays private. Exporting its fields to
   satisfy a file-location rule would trade a real authority boundary for a
   cosmetic one.

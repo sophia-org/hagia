@@ -1,18 +1,38 @@
-import
-  std/[
-    json, jsonutils, net, options, os, posix, sequtils, sets, strutils, tables,
-    tempfiles, unittest,
-  ]
+import std/json
+import std/jsonutils
+import std/options
+import std/os
+import std/sequtils
+import std/sets
+import std/strutils
+import std/tables
+import std/tempfiles
+import std/unittest
 
 import config/profile
 import types/config_values
-import policy/[actions, entity_store, projection, state]
-import types/[actions, core, model, policy_environment, projection, session, wm_v1]
-import
-  sophia/[
-    policy_adapter, policy_checkpoint, policy_client, policy_codec, policy_session,
-    wm_v1,
-  ]
+import ./support/wire/types/wm_files
+import ./support/wire/types/wm_file_bodies
+import support/file_requests
+import policy/actions
+import policy/entity_store
+import policy/projection
+import policy/state
+import types/actions
+import types/core
+import types/model
+import types/policy_environment
+import types/projection
+import types/session
+import types/wm_v1
+import sophia/policy_adapter
+import sophia/policy_checkpoint
+import sophia/policy_codec
+import sophia/policy_session
+import sophia/policy_transport
+import ./support/wire/sophia/wm_v1
+import ./support/wire/sophia/wm_files
+import ./support/wire/sophia/wm_file_bodies
 
 proc focusableCapabilities(): WindowCapabilities =
   WindowCapabilities(
@@ -44,329 +64,19 @@ proc snapshot(
     surfaces: surfaces,
   )
 
-proc binaryString(bytes: openArray[byte]): string =
-  result = newString(bytes.len)
-  for index, value in bytes:
-    result[index] = char(value)
-
-proc appendFrame(bytes: var seq[byte], frame: Frame) =
-  bytes.add(frame.encodeFrame())
-
-proc projectionRequestFrame(
-    phase: InteractionPhase,
-    kind: InteractionKind,
-    axis: InteractionAxis,
-    x, y, width, height: int32,
-): Frame =
-  var payload: seq[byte]
-  payload.addU64(7)
-  payload.addU64(1)
-  payload.addU64(1)
-  payload.addU64(1)
-  payload.addU16(uint16(ord(ProjectionCauseKind.interaction)))
-  payload.addU16(uint16(ord(phase)))
-  payload.addU16(uint16(ord(kind)))
-  payload.addU16(uint16(ord(axis)))
-  payload.addU64(0)
-  payload.addU64(0)
-  payload.addU32(1)
-  payload.addU32(1)
-  payload.addU32(cast[uint32](x))
-  payload.addU32(cast[uint32](y))
-  payload.addU32(cast[uint32](width))
-  payload.addU32(cast[uint32](height))
-  payload.addU16(1)
-  payload.addU16(0)
-  payload.addU64(10)
-  Frame(kind: MessageKind.projectionRequest, transaction: 1, payload: payload)
-
-proc appendWireCycle(
-    bytes: var seq[byte],
-    epoch, generation, requestId, snapshotTransaction, requestTransaction,
-      proposalTransaction: uint64,
-    outcome: ProjectionOutcomeKind,
-    policyGeneration = 1'u64,
-    action = 0'u64,
-    launchClassification = 0'u64,
-) =
-  var beginPayload: seq[byte]
-  beginPayload.addU64(epoch)
-  beginPayload.addU64(generation)
-  beginPayload.addU64(10)
-  beginPayload.addU16(2)
-  beginPayload.addU16(1)
-  beginPayload.addU32(1)
-  beginPayload.addU16(0)
-  beginPayload.addU16(0)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.snapshotBegin,
-      transaction: snapshotTransaction,
-      payload: beginPayload,
-    )
-  )
-
-  var outputRecord: seq[byte]
-  outputRecord.addU64(10)
-  outputRecord.addU64(1)
-  outputRecord.addU32(1)
-  outputRecord.addU32(1)
-  outputRecord.addU32(0)
-  outputRecord.addU32(0)
-  outputRecord.addU32(800)
-  outputRecord.addU32(600)
-  outputRecord.addU32(0)
-  outputRecord.addU32(0)
-  outputRecord.addU32(800)
-  outputRecord.addU32(600)
-  var outputPayload: seq[byte]
-  outputPayload.addU64(epoch)
-  outputPayload.addU16(0)
-  outputPayload.addU16(1)
-  outputPayload.addU32(1)
-  outputPayload.add(outputRecord)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.snapshotChunk,
-      transaction: snapshotTransaction,
-      payload: outputPayload,
-    )
-  )
-
-  var surfaceRecord: seq[byte]
-  surfaceRecord.addU32(1)
-  surfaceRecord.addU32(1)
-  surfaceRecord.addU64(generation)
-  surfaceRecord.addU64(10)
-  surfaceRecord.addU16(31)
-  surfaceRecord.addU16(1)
-  surfaceRecord.addU16(0)
-  surfaceRecord.addU16(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(800)
-  surfaceRecord.addU32(600)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  surfaceRecord.addU32(0)
-  var surfacePayload: seq[byte]
-  surfacePayload.addU64(epoch)
-  surfacePayload.addU16(1)
-  surfacePayload.addU16(2)
-  surfacePayload.addU32(1)
-  surfacePayload.add(surfaceRecord)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.snapshotChunk,
-      transaction: snapshotTransaction,
-      payload: surfacePayload,
-    )
-  )
-
-  if launchClassification != 0:
-    var classificationRecord: seq[byte]
-    classificationRecord.addU32(1)
-    classificationRecord.addU32(1)
-    classificationRecord.addU64(launchClassification)
-    var classificationPayload: seq[byte]
-    classificationPayload.addU64(epoch)
-    classificationPayload.addU16(2)
-    classificationPayload.addU16(0xFF00)
-    classificationPayload.addU32(1)
-    classificationPayload.add(classificationRecord)
-    bytes.appendFrame(
-      Frame(
-        kind: MessageKind.snapshotChunk,
-        transaction: snapshotTransaction,
-        payload: classificationPayload,
-      )
-    )
-
-  var endPayload: seq[byte]
-  endPayload.addU64(epoch)
-  endPayload.addU64(generation)
-  endPayload.addU16(2)
-  endPayload.addU16(0)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.snapshotEnd,
-      transaction: snapshotTransaction,
-      payload: endPayload,
-    )
-  )
-
-  var requestPayload: seq[byte]
-  requestPayload.addU64(epoch)
-  requestPayload.addU64(requestId)
-  requestPayload.addU64(generation)
-  requestPayload.addU64(policyGeneration)
-  requestPayload.addU16(if action == 0: 0 else: 1)
-  requestPayload.addU16(0)
-  requestPayload.addU16(0)
-  requestPayload.addU16(0)
-  requestPayload.addU64(if action == 0: 0'u64 else: requestId)
-  requestPayload.addU64(action)
-  requestPayload.addU32(0)
-  requestPayload.addU32(0)
-  requestPayload.addU32(0)
-  requestPayload.addU32(0)
-  requestPayload.addU32(0)
-  requestPayload.addU32(0)
-  requestPayload.addU16(1)
-  requestPayload.addU16(0)
-  requestPayload.addU64(10)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.projectionRequest,
-      transaction: requestTransaction,
-      payload: requestPayload,
-    )
-  )
-
-  var outcomePayload: seq[byte]
-  outcomePayload.addU64(epoch)
-  outcomePayload.addU64(requestId)
-  outcomePayload.addU64(generation + 1)
-  outcomePayload.addU16(uint16(ord(outcome)))
-  outcomePayload.addU16(0)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.projectionOutcome,
-      transaction: proposalTransaction,
-      payload: outcomePayload,
-    )
-  )
-
-proc appendWelcome(bytes: var seq[byte], epoch: uint64) =
-  var payload: seq[byte]
-  payload.addU16(3)
-  payload.addU16(0)
-  # bindings, actions, multi_output, pointer_interactions, indicators,
-  # launch_placement — the set hagia requires, mirroring Sophia's own
-  # POLICY_SUPPORTED_CAPABILITIES for these bits.
-  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10))
-  payload.addU64(epoch)
-  payload.addU16(16)
-  payload.addU16(256)
-  payload.addU32(1024)
-  payload.addU32(65520)
-  bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
-
-proc appendWelcomeChunkLimit(bytes: var seq[byte], epoch: uint64, limit: uint32) =
-  ## A welcome advertising a smaller chunk limit than the protocol maximum, so
-  ## the client can be observed honouring the negotiated value.
-  var payload: seq[byte]
-  payload.addU16(3)
-  payload.addU16(0)
-  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10))
-  payload.addU64(epoch)
-  payload.addU16(16)
-  payload.addU16(256)
-  payload.addU32(1024)
-  payload.addU32(limit)
-  bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
-
-proc appendWelcomeWith(bytes: var seq[byte], epoch: uint64, extra: uint64) =
-  ## A welcome granting one capability beyond the socket-session set. The
-  ## ordinary welcome models `runPolicySessionOnSocket`, which negotiates
-  ## without configuration and so never receives policy_dirty or
-  ## session_operations.
-  var payload: seq[byte]
-  payload.addU16(3)
-  payload.addU16(0)
-  payload.addU64(7 or (1'u64 shl 3) or (1'u64 shl 8) or (1'u64 shl 10) or extra)
-  payload.addU64(epoch)
-  payload.addU16(16)
-  payload.addU16(256)
-  payload.addU32(1024)
-  payload.addU32(65520)
-  bytes.appendFrame(Frame(kind: MessageKind.serverWelcome, payload: payload))
-
-proc appendPresentationReceipt(bytes: var seq[byte], outcome: uint16) =
-  var payload: seq[byte]
-  for value in [9'u64, 1, 10, 1, 17]:
-    payload.addU64(value)
-  payload.addU16(outcome)
-  payload.addU16(0)
-  bytes.appendFrame(
-    Frame(
-      kind: MessageKind.presentationOutcome,
-      transaction: 500 + uint64(outcome),
-      payload: payload,
-    )
-  )
-
-proc runWireSession(serverBytes: seq[byte]): seq[byte] =
-  var handles: array[0 .. 1, cint]
-  doAssert posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, handles) == 0
-  let clientSocket =
-    newSocket(SocketHandle(handles[0]), net.AF_UNIX, net.SOCK_STREAM, net.IPPROTO_IP)
-  let encodedServer = serverBytes.binaryString()
-  var sent = 0
-  while sent < encodedServer.len:
-    let count =
-      posix.write(handles[1], unsafeAddr encodedServer[sent], encodedServer.len - sent)
-    doAssert count > 0
-    sent += count
-  clientSocket.runPolicySessionOnSocket()
-  var buffer: array[4096, char]
-  while true:
-    let count = posix.read(handles[1], addr buffer[0], buffer.len)
-    if count == 0:
-      break
-    doAssert count > 0
-    for index in 0 ..< count:
-      result.add(byte(buffer[index]))
-  discard posix.close(handles[1])
-
-proc proposalTransactions(clientWire: seq[byte]): seq[uint64] =
-  var offset = 0
-  while offset < clientWire.len:
-    doAssert clientWire.len - offset >= frameHeaderLen
-    let payloadLen = int(clientWire.u32At(offset + 16))
-    let frameLen = frameHeaderLen + payloadLen
-    doAssert offset + frameLen <= clientWire.len
-    let kind = clientWire.u16At(offset + 6)
-    if kind == uint16(ord(MessageKind.projectionBegin)):
-      result.add(clientWire.u64At(offset + 8))
-    offset += frameLen
-
-proc policyDirtyFrames(clientWire: seq[byte]): seq[Frame] =
-  var offset = 0
-  while offset < clientWire.len:
-    doAssert clientWire.len - offset >= frameHeaderLen
-    let payloadLen = int(clientWire.u32At(offset + 16))
-    let frameLen = frameHeaderLen + payloadLen
-    doAssert offset + frameLen <= clientWire.len
-    if clientWire.u16At(offset + 6) == uint16(ord(MessageKind.policyDirty)):
-      result.add(
-        clientWire[offset ..< offset + frameLen].decodeFrame(MessageKind.policyDirty)
-      )
-    offset += frameLen
-
-proc projectionPlacementCounts(clientWire: seq[byte]): seq[uint32] =
-  var offset = 0
-  while offset < clientWire.len:
-    doAssert clientWire.len - offset >= frameHeaderLen
-    let payloadLen = int(clientWire.u32At(offset + 16))
-    let frameLen = frameHeaderLen + payloadLen
-    doAssert offset + frameLen <= clientWire.len
-    if clientWire.u16At(offset + 6) == uint16(ord(MessageKind.projectionBegin)):
-      result.add(clientWire.u32At(offset + frameHeaderLen + 36))
-    offset += frameLen
-
 suite "Hagia private policy model":
-  test "revision three interaction vocabulary has one exact wire contract":
+  test "file interaction vocabulary has one exact wire contract":
     for kind in [InteractionKind.move, InteractionKind.resize, InteractionKind.drag]:
-      let frame = projectionRequestFrame(
-        InteractionPhase.update, kind, InteractionAxis.none, 20, 30, 800, 600
+      let frame = interactionRecord(
+        uint16(ord(InteractionPhase.update)),
+        uint16(ord(kind)),
+        uint16(ord(InteractionAxis.none)),
+        20,
+        30,
+        800,
+        600,
       )
-      let decoded = frame.encodeFrame().decodeFrame().decodeProjectionRequest(7)
+      let decoded = frame.decodeCycle(7, capabilityPointerInteractions).request
       check decoded.cause.interactionKind == kind
       check decoded.cause.interactionAxis == InteractionAxis.none
       check decoded.cause.width == 800
@@ -378,52 +88,88 @@ suite "Hagia private policy model":
       (InteractionPhase.finish, -30'i32),
       (InteractionPhase.cancel, 0'i32),
     ]:
-      let decoded = projectionRequestFrame(
-          phase, InteractionKind.scroll, InteractionAxis.vertical, 0, delta, 0, 0
+      let decoded = interactionRecord(
+          uint16(ord(phase)),
+          uint16(ord(InteractionKind.scroll)),
+          uint16(ord(InteractionAxis.vertical)),
+          0,
+          delta,
+          0,
+          0,
         )
-        .decodeProjectionRequest(7)
+        .decodeCycle(7, capabilityPointerInteractions).request
       check decoded.cause.interactionPhase == phase
       check decoded.cause.interactionKind == InteractionKind.scroll
       check decoded.cause.interactionAxis == InteractionAxis.vertical
       check decoded.cause.y == delta
 
-  test "revision three interaction payload rejects ambiguous encodings":
+  test "file interaction payload rejects ambiguous encodings":
     for frame in [
-      projectionRequestFrame(
-        InteractionPhase.update, InteractionKind.scroll, InteractionAxis.none, 0, -60,
-        0, 0,
+      interactionRecord(
+        uint16(ord(InteractionPhase.update)),
+        uint16(ord(InteractionKind.scroll)),
+        uint16(ord(InteractionAxis.none)),
+        0,
+        -60,
+        0,
+        0,
       ),
-      projectionRequestFrame(
-        InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0,
-        -60, 1, 0,
+      interactionRecord(
+        uint16(ord(InteractionPhase.update)),
+        uint16(ord(InteractionKind.scroll)),
+        uint16(ord(InteractionAxis.vertical)),
+        0,
+        -60,
+        1,
+        0,
       ),
-      projectionRequestFrame(
-        InteractionPhase.update, InteractionKind.move, InteractionAxis.horizontal, 20,
-        30, 800, 600,
+      interactionRecord(
+        uint16(ord(InteractionPhase.update)),
+        uint16(ord(InteractionKind.move)),
+        uint16(ord(InteractionAxis.horizontal)),
+        20,
+        30,
+        800,
+        600,
       ),
-      projectionRequestFrame(
-        InteractionPhase.finish, InteractionKind.scroll, InteractionAxis.horizontal, 0,
-        0, 0, 0,
+      interactionRecord(
+        uint16(ord(InteractionPhase.finish)),
+        uint16(ord(InteractionKind.scroll)),
+        uint16(ord(InteractionAxis.horizontal)),
+        0,
+        0,
+        0,
+        0,
       ),
     ]:
-      expect PolicyClientError:
-        discard frame.decodeProjectionRequest(7)
+      expect WmFileError:
+        discard frame.decodeCycle(7, capabilityPointerInteractions).request
 
-    var unknownAxis = projectionRequestFrame(
-      InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0, -60,
-      0, 0,
+    var unknownAxis = interactionRecord(
+      uint16(ord(InteractionPhase.update)),
+      uint16(ord(InteractionKind.scroll)),
+      uint16(ord(InteractionAxis.vertical)),
+      0,
+      -60,
+      0,
+      0,
     )
-    unknownAxis.payload[38] = 3
-    expect PolicyClientError:
-      discard unknownAxis.decodeProjectionRequest(7)
+    unknownAxis[wmFileHeaderBytes + wmFileCyclePrefixBytes + 8 + 4] = 3
+    expect WmFileError:
+      discard unknownAxis.decodeCycle(7, capabilityPointerInteractions).request
 
-    var unknownKind = projectionRequestFrame(
-      InteractionPhase.update, InteractionKind.scroll, InteractionAxis.vertical, 0, -60,
-      0, 0,
+    var unknownKind = interactionRecord(
+      uint16(ord(InteractionPhase.update)),
+      uint16(ord(InteractionKind.scroll)),
+      uint16(ord(InteractionAxis.vertical)),
+      0,
+      -60,
+      0,
+      0,
     )
-    unknownKind.payload[36] = 5
-    expect PolicyClientError:
-      discard unknownKind.decodeProjectionRequest(7)
+    unknownKind[wmFileHeaderBytes + wmFileCyclePrefixBytes + 8 + 2] = 5
+    expect WmFileError:
+      discard unknownKind.decodeCycle(7, capabilityPointerInteractions).request
 
   test "view action identities have one bounded symbolic mapping":
     var names = initHashSet[string]()
@@ -2692,185 +2438,6 @@ suite "Sophia policy session":
     var session = initPolicySession()
     expect PolicySessionError:
       discard session.prepare(scene, request, 1)
-
-  test "a socket session settles several outcomes with monotonic transactions":
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcome(9)
-    serverBytes.appendWireCycle(
-      9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed, launchClassification = 2
-    )
-    serverBytes.appendWireCycle(
-      9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.rejectedStale
-    )
-    serverBytes.appendWireCycle(
-      9, 2, 13, 103, 203, 3, ProjectionOutcomeKind.disconnected
-    )
-    let clientWire = serverBytes.runWireSession()
-    check clientWire.u16At(6) == uint16(ord(MessageKind.clientHello))
-    check clientWire.proposalTransactions() == @[1'u64, 2'u64, 3'u64]
-
-  test "presentation receipts interleave snapshot chunks and transaction settlement":
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcomeWith(
-      9, capabilitySurfaceInstances or capabilityPresentationActions
-    )
-    var opening: seq[byte]
-    opening.appendWireCycle(
-      9,
-      1,
-      11,
-      101,
-      201,
-      1,
-      ProjectionOutcomeKind.committed,
-      action = PolicyAction.toggleOverview.raw(),
-    )
-    let outcomeStart = opening.len - frameHeaderLen - 28
-    serverBytes.add(opening[0 ..< outcomeStart])
-    serverBytes.appendPresentationReceipt(1) # completed stamp before commit reply
-    serverBytes.add(opening[outcomeStart .. ^1])
-    var revoked: seq[byte]
-    revoked.appendWireCycle(9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.committed)
-    let afterBegin = frameHeaderLen + int(revoked.u32At(16))
-    serverBytes.add(revoked[0 ..< afterBegin])
-    serverBytes.appendPresentationReceipt(2)
-    serverBytes.add(revoked[afterBegin .. ^1])
-    serverBytes.appendWireCycle(
-      9,
-      3,
-      13,
-      103,
-      203,
-      3,
-      ProjectionOutcomeKind.committed,
-      action = PolicyAction.toggleOverview.raw(),
-    )
-    serverBytes.appendPresentationReceipt(2) # old publication after reopening
-    serverBytes.appendWireCycle(
-      9, 4, 14, 104, 204, 4, ProjectionOutcomeKind.disconnected
-    )
-    let clientWire = serverBytes.runWireSession()
-    check clientWire.proposalTransactions() == @[1'u64, 2, 3, 4]
-    var publications: seq[uint64]
-    var offset = 0
-    while offset < clientWire.len:
-      let payloadLen = int(clientWire.u32At(offset + 16))
-      if clientWire.u16At(offset + 6) == uint16(MessageKind.projectionChunk) and
-          clientWire.u16At(offset + frameHeaderLen + 10) == 0xff09:
-        publications.add(clientWire.u64At(offset + frameHeaderLen + 16))
-      offset += frameHeaderLen + payloadLen
-    check publications == @[1'u64, 2, 2]
-
-  test "a timed-out action cannot alter the next complete projection":
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcome(9)
-    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
-    serverBytes.appendWireCycle(
-      9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.timedOut, 1, 3
-    )
-    serverBytes.appendWireCycle(
-      9, 2, 13, 103, 203, 3, ProjectionOutcomeKind.disconnected
-    )
-    let clientWire = serverBytes.runWireSession()
-    check clientWire.proposalTransactions() == @[1'u64, 2'u64, 3'u64]
-    check clientWire.projectionPlacementCounts() == @[1'u32, 0'u32, 1'u32]
-
-  test "a supervised reconnect negotiates a fresh epoch and transaction space":
-    var firstServer: seq[byte]
-    firstServer.appendWelcome(9)
-    firstServer.appendWireCycle(
-      9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.disconnected
-    )
-    check firstServer.runWireSession().proposalTransactions() == @[1'u64]
-
-    var replacementServer: seq[byte]
-    replacementServer.appendWelcome(10)
-    replacementServer.appendWireCycle(
-      10, 2, 21, 102, 202, 1, ProjectionOutcomeKind.disconnected
-    )
-    check replacementServer.runWireSession().proposalTransactions() == @[1'u64]
-
-  test "a reconciled private checkpoint requests one bounded fresh cycle":
-    # policy_dirty is granted explicitly: the ordinary socket welcome withholds
-    # it, and a refresh is only legal once it has been negotiated.
-    let directory = createTempDir("hagia-refresh-", "")
-    defer:
-      delEnv(policyCheckpointEnvironment.sophia)
-      if fileExists(directory / "policy.checkpoint"):
-        removeFile(directory / "policy.checkpoint")
-      removeDir(directory)
-    let path = directory / "policy.checkpoint"
-    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
-    var adapter = initPolicyAdapter()
-    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
-    path.savePolicyCheckpoint(adapter)
-    putEnv(policyCheckpointEnvironment.sophia, path)
-
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcomeWith(9, 1'u64 shl 5)
-    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
-    serverBytes.appendWireCycle(
-      9, 2, 12, 102, 202, 3, ProjectionOutcomeKind.disconnected, 2
-    )
-    let clientWire = serverBytes.runWireSession()
-    check clientWire.proposalTransactions() == @[1'u64, 3'u64]
-    let refreshes = clientWire.policyDirtyFrames()
-    require refreshes.len == 1
-    check refreshes[0].transaction == 2
-    check refreshes[0].payload.u64At(0) == 9
-    check refreshes[0].payload.u64At(8) == 2
-    check refreshes[0].payload.u16At(16) == 1
-    check refreshes[0].payload.u64At(20) == 10
-
-  test "a refresh is skipped when policy_dirty was not negotiated":
-    # A session started without configuration never requests policy_dirty, and
-    # Sophia answers an unnegotiated PolicyDirty with UnsupportedCapability and
-    # drops the connection. Skipping the enhancement keeps the session alive.
-    let directory = createTempDir("hagia-refresh-ungated-", "")
-    defer:
-      delEnv(policyCheckpointEnvironment.sophia)
-      if fileExists(directory / "policy.checkpoint"):
-        removeFile(directory / "policy.checkpoint")
-      removeDir(directory)
-    let path = directory / "policy.checkpoint"
-    let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)
-    var adapter = initPolicyAdapter()
-    adapter.reconcile(snapshot(1, @[output], @[surface(1, 10)]))
-    path.savePolicyCheckpoint(adapter)
-    putEnv(policyCheckpointEnvironment.sophia, path)
-
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcome(9)
-    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
-    serverBytes.appendWireCycle(
-      9, 2, 12, 102, 202, 2, ProjectionOutcomeKind.disconnected, 2
-    )
-    let clientWire = serverBytes.runWireSession()
-    # The session settles both cycles. Because no refresh is sent, the second
-    # proposal takes transaction 2 rather than 3.
-    check clientWire.proposalTransactions() == @[1'u64, 2'u64]
-    check clientWire.policyDirtyFrames().len == 0
-
-  test "a projection chunk honours the negotiated limit, not the compiled one":
-    # Sophia may advertise less than the protocol maximum. The client compiles
-    # with 65536 and would otherwise send a chunk this server never allowed.
-    var serverBytes: seq[byte]
-    serverBytes.appendWelcomeChunkLimit(9, 8)
-    serverBytes.appendWireCycle(9, 1, 11, 101, 201, 1, ProjectionOutcomeKind.committed)
-    expect PolicyClientError:
-      discard serverBytes.runWireSession()
-
-  test "projection outcomes reject unknown status values":
-    var payload: seq[byte]
-    payload.addU64(7)
-    payload.addU64(1)
-    payload.addU64(2)
-    payload.addU16(6)
-    payload.addU16(0)
-    expect PolicyClientError:
-      discard Frame(
-        kind: MessageKind.projectionOutcome, transaction: 1, payload: payload
-      ).decodeProjectionOutcome()
 
   test "only a committed outcome promotes reconciled state":
     let output = SnapshotOutput(output: 10, generation: 1, width: 800, height: 600)

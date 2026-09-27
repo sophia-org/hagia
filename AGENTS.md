@@ -39,14 +39,13 @@ Sophia's authority boundaries to every port.
    erode silently: the separation in rule 5 was declared once and then lost
    across twenty of twenty-six modules before anyone noticed. Do not rely on a
    summary of them.
-6. Run Nim builds and tests serially because they share Nim caches. The
-   cross-repository gate is:
-
-   ```sh
-   SOPHIA_ROOT=~/dev/sophia-stack nimble test
-   ```
-
-   Use `nimble verify` for the formatting-plus-test contributor gate.
+6. Run Nim builds and tests serially. `nimble test` runs the vendored SDK,
+   independent file corpus and local policy tests in a private per-run cache;
+   it needs no Sophia checkout. Use `nimble verify` for formatting, those tests
+   and the formal models. The optional `nimble exportProof` takes explicit
+   `SOPHIA_ROOT`, `CARGO_TARGET_DIR` and `SOPHIA_WM_FILE_PEER_EVIDENCE` paths
+   and exercises the production file export. It supplies admission and policy
+   outcomes; authenticated launch and physical acceptance are separate.
 
 7. Do not run or reload Hagia inside a live Sophia session without explicit
    approval. Offline unit and local socket-conformance tests are safe.

@@ -1,6 +1,13 @@
-import std/[options, sequtils, unittest]
-import types/[session, wm_v1, wm_files, wm_file_arrays, wm_presentation]
-import sophia/[wm_files, wm_file_arrays]
+import std/options
+import std/sequtils
+import std/unittest
+import types/session
+import types/wm_v1
+import ./support/wire/types/wm_files
+import ./support/wire/types/wm_file_arrays
+import types/wm_presentation
+import ./support/wire/sophia/wm_files
+import ./support/wire/sophia/wm_file_arrays
 import support/wm_file_projection_fixture
 
 proc header(): WmFileHeader =

@@ -578,3 +578,32 @@ both Hagia scrolling directions. The
 [sizing investigation](notes/investigations/1ncr7rbo-expanded-overview-preview-sizing-differs-from-niri-column-geometry.md)
 records the Niri baseline, tests and remaining differences, including Hagia's
 derived camera on backward navigation and floating expansion semantics.
+
+
+### C desktop SDK and 9P-only WM adapter (h006)
+
+Hagia now uses thin Nim bindings over the standalone C desktop SDK. The vendor
+snapshot is SDK `93bdf3c3b47c837af79023bec482760e1f1ceb80`, with its raw signed
+commit and a complete file manifest. The SDK owns file transport, submission
+custody, journal acknowledgements and snapshot pins. Independent Nim codecs
+remain test oracles. The IPC WM backend and `hagia-policy-proof` are removed;
+the old WM socket variable and `--socket` option are refused.
+
+The isolated local contributor gate passed all 449 Nim tests, the vendored SDK
+strict checks with `WITH_IPC=0`, and the CLI checks. The rebuilt SDK PolicyWire
+peer passed both supplied-stream startup and cycle cases against Sophia
+`3d8c4ac3bfaf50f13bb575c9e7ea9562747b0209`'s production WM file export. Development
+inputs were staged, with devices, network and display access hidden. These are
+development builds, not reviewed release builds. The unchanged formal-model
+gates are separate from this run.
+
+The migration exposed two SDK admission defects: presentation receipts without
+the required capability, and a bootstrap offer whose required capabilities
+exceeded Limits. Both have regression tests and guard-removal controls. Two
+additional SDK timing tests cover complete retained events and partial intake
+while an acknowledgement is outstanding. The [test migration map](sdk-test-migration.md)
+records replacement evidence and retired IPC cases.
+
+Authenticated production launch, restart/profile replacement acceptance and a
+reviewed dependency-bound release build remain open under h006. An older paired
+IPC run does not qualify this candidate. Nothing was installed or reloaded.

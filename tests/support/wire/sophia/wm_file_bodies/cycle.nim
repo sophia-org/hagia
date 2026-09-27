@@ -1,6 +1,12 @@
 import std/options
-import ../../types/[session, wm_file_bodies, wm_files, wm_presentation, wm_v1]
-import ../[policy_semantics, wm_file_payload, wm_files]
+import ../../../../../src/types/session
+import ../../types/wm_file_bodies
+import ../../types/wm_files
+import ../../../../../src/types/wm_presentation
+import ../../../../../src/types/wm_v1
+import ../../../../../src/sophia/policy_semantics
+import ../wm_file_payload
+import ../wm_files
 
 ## Cycle bodies: an immutable snapshot's transaction, the request's own
 ## transaction, and one complete projection request with exactly one cause.

@@ -1,19 +1,29 @@
-import std/[options, os]
+import std/options
+import std/os
 
-import ../config/[policy_candidate, policy_environment]
-import ../types/[config_values, handoff, session, wm_presentation, wm_v1]
-import ../types/[observability, policy_environment]
+import ../config/policy_candidate
+import ../config/policy_environment
+import ../types/config_values
+import ../types/handoff
+import ../types/session
+import ../types/wm_presentation
+import ../types/wm_v1
+import ../types/observability
+import ../types/policy_environment
 import ../observability
-import
-  ./[
-    policy_adapter, policy_checkpoint, policy_session, policy_signals, policy_trace,
-    policy_transport, policy_wire, profile_handoff,
-  ]
+import ./policy_adapter
+import ./policy_checkpoint
+import ./policy_session
+import ./policy_signals
+import ./policy_trace
+import ./policy_transport
+import ./policy_wire
+import ./profile_handoff
 
 ## The policy loop over any admitted wire: startup profile activation, the
 ## optional configuration, and settled cycles with their session operations,
 ## refreshes, checkpoints and reload. The bytes live with each wire; the policy
-## state lives in `PolicySession`. Moved unchanged from policy_client.nim, with
+## state lives in `PolicySession`. Extracted from the retired IPC connection owner, with
 ## each frame call replaced by its typed wire operation.
 
 proc settleProfileCommand(

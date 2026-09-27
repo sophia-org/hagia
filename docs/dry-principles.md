@@ -15,20 +15,20 @@ must share an abstraction.
 Derived values are recomputed or updated by the owning transition. Do not add a
 second mutable copy merely to make a caller convenient.
 
-## Intentional Independent Wire Duplication
+## SDK Ownership and Independent Test Oracles
 
-Hagia's Nim `sophia_wm_v1` codec deliberately repeats Sophia's fixed offsets and
-record sizes. Importing generated Sophia code would violate the standalone
-boundary and remove independent conformance evidence. This duplication is
-acceptable only because:
+The standalone C desktop SDK owns Hagia's production 9P2000.L connection,
+WM file codecs, submission custody, journal acknowledgements and snapshot pins.
+Hagia vendors an exact SDK revision and keeps thin Nim bindings. Hagia owns
+conversion to its policy values and its spatial-policy validation.
 
-- the shared corpus detects drift;
-- Hagia implements the codec independently;
-- semantic values are converted at one adapter boundary; and
-- protocol changes update schema, generated artifacts, corpus, and independent
-  decoder in the same reviewed change.
+Independent Nim file encoders and decoders live under `tests/support/wire`.
+They provide byte comparisons and malformed-record fixtures without entering
+the production import graph. Keep their provenance and corpus checks when the
+contract changes. They do not provide a second production transport.
 
-Do not use this exception to duplicate Sophia runtime policy or authority.
+The SDK is a separate client library; it does not make Hagia depend on Sophia's
+server runtime or transfer server authority to Hagia.
 
 ## Useful Reuse
 

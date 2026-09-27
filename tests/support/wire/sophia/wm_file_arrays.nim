@@ -1,12 +1,18 @@
 import std/sets
 
-import ../types/[session, wm_v1, wm_files, wm_file_arrays]
-import ./[wm_files, wm_file_payload, policy_snapshot, policy_transport]
+import ../../../../src/types/session
+import ../../../../src/types/wm_v1
+import ../types/wm_files
+import ../types/wm_file_arrays
+import ./wm_files
+import ./wm_file_payload
+import ../../../../src/sophia/policy_snapshot
+import ../../../../src/sophia/policy_transport
 from ./wm_v1 import
   PolicyProtocolError, decodeSnapshotOutput, decodeSnapshotSurface,
   decodeSnapshotAction, decodeSnapshotSessionOperation,
   decodeSnapshotSurfaceClassification, decodeLaunchOriginRecord, encodeSnapshotAction
-from ./policy_codec import validateLaunchOrigins
+from ../../../../src/sophia/policy_codec import validateLaunchOrigins
 import ./wm_file_arrays/projection
 export projection
 

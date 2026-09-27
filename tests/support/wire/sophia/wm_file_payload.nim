@@ -1,5 +1,6 @@
 import std/strutils
-import ../types/[wm_files, wm_v1]
+import ../types/wm_files
+import ../../../../src/types/wm_v1
 import ./wm_files
 
 ## Strict-file checks every typed body codec shares, scalar and array alike:

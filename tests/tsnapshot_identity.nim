@@ -32,24 +32,24 @@ proc snapshot(index: uint32): PolicySnapshot =
     ],
   )
 
-suite "legacy snapshot identity characterization":
-  # These pin the direct validator, not runtime admission or file semantics.
-  test "legacy permits index zero as a surface but refuses it as focus":
+suite "direct snapshot validator follows file identities":
+  test "index zero is a valid surface and focus":
     var value = snapshot(0)
     value.validateSnapshot()
     value.outputs[0].focusIndex = 0
     value.outputs[0].focusGeneration = 1
+    value.validateSnapshot()
+
+  test "the all-ones surface index is rejected":
     expect PolicyClientError:
-      value.validateSnapshot()
+      snapshot(high(uint32)).validateSnapshot()
 
-  test "legacy direct validator does not reject the all-ones surface index":
-    snapshot(high(uint32)).validateSnapshot()
-
-  test "legacy ignores a transient index when its generation is zero":
+  test "an absent transient cannot retain an index":
     var value = snapshot(1)
     value.surfaces[0].transientIndex = 9
     value.surfaces[0].transientGeneration = 0
-    value.validateSnapshot()
+    expect PolicyClientError:
+      value.validateSnapshot()
 
 suite "strict snapshot identities":
   test "index zero can be focused when the live surface is eligible":

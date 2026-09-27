@@ -9,37 +9,6 @@ const
   profileDigestLen* = 32
 
 type
-  MessageKind* {.pure.} = enum
-    clientHello = 32
-    serverWelcome = 33
-    snapshotBegin = 34
-    snapshotChunk = 35
-    snapshotEnd = 36
-    projectionRequest = 37
-    projectionBegin = 38
-    projectionChunk = 39
-    projectionEnd = 40
-    projectionOutcome = 41
-    policyConfiguration = 42
-    policyConfigurationOutcome = 43
-    policyDirty = 44
-    sessionOperationRequest = 45
-    sessionOperationOutcome = 46
-    profilePrepare = 47
-    profilePrepared = 48
-    profileActivate = 49
-    profileActive = 50
-    profileRollback = 51
-    profileRolledBack = 52
-    outputActionRequest = 53
-    presentationActionRequest = 54
-    presentationOutcome = 55
-
-  Frame* = object
-    kind*: MessageKind
-    transaction*: uint64
-    payload*: seq[byte]
-
   ProfileIdentity* = object
     connectionEpoch*: uint64
     profileGeneration*: uint64
@@ -227,8 +196,6 @@ const
   maxTabGroups* = 1024
   maxTabMembers* = 2048
 
-  frameHeaderLen* = 24
-  maxPayloadLen* = 65536
   maxOutputs* = 16
   maxSurfaces* = 1024
   maxBindings* = 256

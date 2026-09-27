@@ -1,6 +1,7 @@
-import std/[strutils, unittest]
-import types/wm_files
-import sophia/wm_files
+import std/strutils
+import std/unittest
+import ./support/wire/types/wm_files
+import ./support/wire/sophia/wm_files
 
 ## Bytes below are written from `sophia-wm-files-v1.kdl` (Sophia cade1bae),
 ## little-endian, field by field; none comes from a Sophia encoder.

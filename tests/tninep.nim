@@ -1,6 +1,13 @@
-import std/[monotimes, net, options, posix, strutils, times, unittest]
-import types/ninep
-import ninep/[client, codec]
+import std/monotimes
+import std/net
+import std/options
+import std/posix
+import std/strutils
+import std/times
+import std/unittest
+import ./support/wire/types/ninep
+import ./support/wire/ninep/client
+import ./support/wire/ninep/codec
 
 ## Bytes below are written from the .L field tables, not a Sophia encoder.
 ## These are client boundary controls; real-server conformance is separate.
