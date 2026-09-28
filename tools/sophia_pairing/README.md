@@ -1,7 +1,8 @@
 > Pairing candidate: Hagia `69f427ab`, C SDK `8decca1d`, Sophia `2d69924a9`.
-> The Go-built release candidate binary SHA-256 is `24cf71ac50d942f657689462e7e6dd54b8b91711c8b52e7c8beee663cb647506`.
-> This exact binary passed all 24 protected pairing phases against Sophia
-> `2d69924a9`. Earlier development and reviewed-closure runs remain separate.
+> The Lom readiness release rebuild binds Hagia SHA-256
+> `7314ee9c3b49285bc117fcd5e316cc1b31e7c00dba4019895584ecbfde6cb6c7`. Qualification of this exact binary is pending.
+> The prior release binary `24cf71ac50d942f657689462e7e6dd54b8b91711c8b52e7c8beee663cb647506`
+> passed all 24 protected pairing phases; its evidence remains separate.
 > No installed or physical acceptance is claimed.
 > See [SDK-MIGRATION.md](SDK-MIGRATION.md). The older procedure below is historical.
 
