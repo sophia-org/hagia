@@ -1,4 +1,5 @@
 import std/[oserrors, posix]
+import posix/linux
 
 ## Process signals a developer or supervisor can send a running Hagia.
 ##
@@ -15,12 +16,17 @@ type StopRequestedError* = object of CatchableError
   ## the process to stop. It unwinds through the normal close paths.
 
 var
-  reloadFlag: cint = 0
-  dumpFlag: cint = 0
-  stopSignal: cint = 0
+  # Handler-shared: volatile int, the storage sig_atomic_t names on Linux.
+  reloadFlag {.volatile.}: cint = 0
+  dumpFlag {.volatile.}: cint = 0
+  stopSignal {.volatile.}: cint = 0
   # Self-pipe: the read end is polled beside the session socket, so a stop
   # that lands just before a wait still ends that wait at once.
   stopWake: array[2, cint] = [-1'i32, -1]
+
+# Handlers run asynchronously: no stack-trace frames, line tracking or checks,
+# only stores and one write(2), which is async-signal-safe.
+{.push stackTrace: off, lineTrace: off, checks: off.}
 
 proc onReload(signalNumber: cint) {.noconv.} =
   reloadFlag = 1
@@ -35,6 +41,8 @@ proc onStop(signalNumber: cint) {.noconv.} =
     var token = 1'u8
     discard posix.write(stopWake[1], addr token, 1)
     errno = saved
+
+{.pop.}
 
 proc installPolicySignals*() =
   ## SIGHUP asks for a supervised reload: Sophia restarts the process and the
@@ -51,18 +59,30 @@ proc installStopSignals*() =
   ## checkpoint keeps the last committed cycle, exactly as a disconnect would
   ## leave it. Installed before connecting, because as a namespace init
   ## without a handler Hagia would ignore both signals.
-  if stopWake[0] < 0:
-    if posix.pipe(stopWake) != 0:
-      raiseOSError(osLastError(), "stop wake pipe")
-    for descriptor in stopWake:
-      discard fcntl(descriptor, F_SETFD, FD_CLOEXEC)
-      discard fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) or O_NONBLOCK)
+  ##
+  ## Either both handlers and the wake pipe are in place, or none is: a
+  ## failure restores the previous dispositions and closes the pipe.
+  if stopWake[0] >= 0:
+    return
+  # The handler writes without blocking, and the pipe never reaches a child.
+  var wake: array[2, cint]
+  if pipe2(wake, O_NONBLOCK or O_CLOEXEC) != 0:
+    raiseOSError(osLastError(), "stop wake pipe")
+  stopWake = wake
+  const numbers = [SIGTERM, SIGINT]
   var action: Sigaction
+  var previous: array[numbers.len, Sigaction]
   action.sa_handler = onStop
   discard sigemptyset(action.sa_mask)
-  for number in [SIGTERM, SIGINT]:
-    if sigaction(number, action, nil) != 0:
-      raiseOSError(osLastError(), "stop signal handler")
+  for index, number in numbers:
+    if sigaction(number, action, previous[index]) != 0:
+      let error = osLastError()
+      for restored in 0 ..< index:
+        discard sigaction(numbers[restored], previous[restored], nil)
+      stopWake = [-1'i32, -1]
+      discard posix.close(wake[0])
+      discard posix.close(wake[1])
+      raiseOSError(error, "stop signal handler")
 
 proc stopWakeFd*(): cint =
   ## Readable once a stop was requested; -1 before `installStopSignals`, which
