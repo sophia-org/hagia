@@ -100,3 +100,22 @@ separate from the development binary in run2. Both use Hagia `69f427ab`,
 C SDK `8decca1d` and Sophia `3d8c4ac3` plus the recorded Hagia-owned overlay.
 The behavior gaps above, formal-model rerun, full desktop packaging and
 installed/physical acceptance remain open. The running session was untouched.
+
+## Go-built final desktop candidate
+
+Release `niltempus-583dcced3b89e9319866` carries Hagia source `69f427ab`,
+C SDK `8decca1d`, and the reviewed dependency closure. Its exact Hagia SHA-256
+is `24cf71ac50d942f657689462e7e6dd54b8b91711c8b52e7c8beee663cb647506`.
+The Go installer rebuilt it using the staged Nim installation and reviewed
+dependencies; this is distinct from the earlier `8c2fc4c4` artifact.
+
+The protected pairing at Sophia `2d69924a9` passed all 24 phases in
+`hagia-sdk-pairing/run5-final-release/report.json`. All mount contexts are
+byte-identical to `3d8c4ac3`; the pinned Cargo.lock changed only to remove the
+relocated desktop comparison dependencies. Fixtures and assertions are unchanged
+except for the exact executable hash. The outer sandbox hid devices, network
+and live endpoints. Physical presentation and performance remain unclaimed.
+
+The first attempt, `run4-final-release`, refused before exercising Hagia:
+the runner binding had been updated but the fixture's second hash constant
+still named `8c2fc4c4`. Commit `44371ff` aligned it; the failed report is kept.
