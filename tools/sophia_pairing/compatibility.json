@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "sophia_commit": "3d8c4ac3bfaf50f13bb575c9e7ea9562747b0209",
+  "sophia_commit": "2d69924a9cac3ed1164089c7d1fae23b46d19d71",
   "mount_sha256": "88ca331ea60089f0230d542a841a78322fc2fd22155e35ac8ae8a81d635c673e",
   "qid_mount_sha256": "91a1d042dd3f2ce962a01fb0ca90e06c6bd2340ff434181714ae07c7f50af4bc",
   "session_manifest_sha256": "37c9a4e72f2e9fb46a0685e19ea3402103dc7651bda5917d8bfdcdc03119f1d8",
-  "cargo_lock_sha256": "3148b50df9ecb606f9f7f2dca5aef619c3c23d006d52bb1440ad8902fdd80576",
+  "cargo_lock_sha256": "ebe58dfd889c7e3e6b86823476fee4aca0044fb1732379b04bca6f3a18ac73d8",
   "hagia_source": "69f427abb0565d10c04dab302915396048252dcf",
-  "hagia_sha256": "8c2fc4c400b141c9b23ff87a44f2bc80b9c0457bd9c5a550409283f4728ddeae",
+  "hagia_sha256": "24cf71ac50d942f657689462e7e6dd54b8b91711c8b52e7c8beee663cb647506",
   "legacy_mount_sha256": {
     "crates/sophia-runtime/tests/policy_transport.rs": "a13c21f43596926b28197c78ecb9a185c8734272ca13a937a2585d0f898d1fa2",
     "crates/sophia-session/tests/support/live_session/profile_preparation_tests.rs": "13d09c5cd68e6f315afebab34108c9949b801dd06bf51e7b2cc1269f0b86e4c5",
