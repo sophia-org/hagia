@@ -34,6 +34,11 @@ alone retries EAGAIN with the same identity; Hagia does not reinterpret a
 refusal as permission to replay. A server `Submitted` is custody, not policy
 commit. `tpolicy_wire` and `tpolicy_model` keep candidate settlement assertions.
 
+`tgraceful_stop` signals the built `hagia` binary while the same scripted SDK
+engine holds it in bootstrap, at the idle wait, and waiting on the outcome of a
+projection whose custody was taken, including after a committed checkpoint and
+as a PID namespace init. It proves the stop path, not Session's supervision.
+
 The SDK peer used by admission tests comes from the pinned SDK's test support.
 It is scripted and shares that codec; it is not an independent encoder or a
 production Session. `tdesktop_sdk` compares all projection families and a full

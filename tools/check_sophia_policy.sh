@@ -62,6 +62,10 @@ nice -n 19 nim c -r --hints:off --path:src --parallelBuild:2 --nimcache:"$build_
     -o:"$build_dir/twm-file-client" tests/twm_file_client.nim
 nice -n 19 nim c --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache-hagia" \
     -o:"$build_dir/hagia" src/hagia.nim
+# Stop signals are exercised against the binary itself, not a linked loop.
+nice -n 19 nim c --hints:off --path:src --parallelBuild:2 --nimcache:"$build_dir/nimcache" \
+    -o:"$build_dir/tgraceful-stop" tests/tgraceful_stop.nim
+HAGIA_BINARY="$build_dir/hagia" nice -n 19 "$build_dir/tgraceful-stop"
 # The environment contract probe is what an installer matches before trusting
 # a binary with the generic names; its exact line is part of the contract.
 contract=$("$build_dir/hagia" config check-environment-contract)

@@ -43,6 +43,8 @@ usage:
 signals:
   SIGHUP   checkpoint and hand over to a rebuilt binary
   SIGUSR1  write the committed model to $HAGIA_POLICY_DUMP
+  SIGTERM, SIGINT
+           close the session at the next wait and exit 0
 
 common environment:
   SOPHIA_WM_9P_SOCKET       session-owned 9P WM socket

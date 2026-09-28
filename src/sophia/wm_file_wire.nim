@@ -16,6 +16,7 @@ import ./sdk_candidate
 import ./sdk_cycle
 import ./sdk_rows
 import ./sdk_snapshot
+import ./policy_signals
 import ./policy_transport
 import ./policy_wire
 
@@ -53,6 +54,7 @@ template closing(owner: FileWireOwner, body: untyped): untyped =
 proc step(owner: FileWireOwner, deadline = 0'u64) =
   if owner.session == nil:
     fail("WM SDK session is closed")
+  requireRunning()
   let now = nowMillis()
   if deadline != 0 and now >= deadline:
     fail("WM policy wait deadline expired")
@@ -61,11 +63,14 @@ proc step(owner: FileWireOwner, deadline = 0'u64) =
     wait = 1000
   if deadline != 0:
     wait = min(wait, cint(min(deadline - now, 1000)))
-  var descriptor =
-    TPollfd(fd: wsPollFd(owner.session), events: wsPollEvents(owner.session))
-  if posix.poll(addr descriptor, Tnfds(1), wait) < 0 and errno != EINTR:
+  var descriptors = [
+    TPollfd(fd: wsPollFd(owner.session), events: wsPollEvents(owner.session)),
+    TPollfd(fd: stopWakeFd(), events: POLLIN),
+  ]
+  if posix.poll(addr descriptors[0], Tnfds(2), wait) < 0 and errno != EINTR:
     fail("WM SDK poll failed")
-  let status = wsDispatch(owner.session, descriptor.revents, 65536, nowMillis())
+  requireRunning()
+  let status = wsDispatch(owner.session, descriptors[0].revents, 65536, nowMillis())
   if status != 0:
     fail(
       "WM SDK dispatch failed: " & $status & " remote=" & $wsRemoteError(owner.session)
@@ -113,6 +118,7 @@ proc expect(record: WfRecord, kind: uint16) =
     fail("unexpected policy message kind")
 
 proc submit(owner: FileWireOwner, value: var WfRecord) =
+  requireRunning()
   let deadline = nowMillis() + 4000
   var ticket: uint64
   while true:

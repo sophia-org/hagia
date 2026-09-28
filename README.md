@@ -64,6 +64,8 @@ Sessions survive restarts. An optional `SOPHIA_WM_POLICY_CHECKPOINT` file is
 written atomically after every committed cycle, and a restarted Hagia
 revalidates it against a complete snapshot before trusting it. `SIGHUP` asks a
 running Hagia to hand over to a rebuilt binary; `SIGUSR1` dumps its state;
+`SIGTERM` or `SIGINT` closes the session at the next wait and exits cleanly,
+leaving the last committed checkpoint in place;
 `HAGIA_POLICY_TRACE` records a session that `hagia replay` can re-run offline,
 byte for byte, on any machine.
 

@@ -99,6 +99,7 @@ Not environment, but the same surface. See `README.md`.
 | --- | --- |
 | `SIGHUP` | Save the checkpoint at the next committed cycle and exit, so Sophia restarts a rebuilt binary and the next generation restores. Refused with a warning when no checkpoint path is set (`SOPHIA_WM_POLICY_CHECKPOINT`, or legacy `HAGIA_POLICY_CHECKPOINT`), because exiting would drop the session rather than reload it. |
 | `SIGUSR1` | Write the committed model to `HAGIA_POLICY_DUMP`. Read-only. |
+| `SIGTERM`, `SIGINT` | Stop at the next wait: close the session, log `stopped` and exit 0. A candidate in flight is discarded and never replayed, a new submission or cycle is never begun, and the checkpoint keeps the last committed cycle. Handled from before the socket is connected, so the stop also works when Hagia is a PID namespace init. |
 
 ## Tooling
 

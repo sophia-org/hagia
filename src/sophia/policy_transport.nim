@@ -2,6 +2,7 @@ import std/[net, os, strutils]
 
 import ../types/observability
 import ../observability
+import ./policy_signals
 
 ## Socket primitives for the policy connection: byte conversion, exact reads
 ## with a timeout, readiness retry, and the fault injection the conformance
@@ -55,6 +56,7 @@ proc receiveExact*(socket: Socket, length: int, timeoutMsec = -1): seq[byte] =
 
 proc connectWhenReady*(path: string): Socket =
   for _ in 0 ..< 200:
+    requireRunning()
     let socket = newSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP)
     try:
       socket.connectUnix(path)

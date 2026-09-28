@@ -337,7 +337,10 @@ A complete Sophia snapshot is the restart boundary. Hagia reconciles it into a
 candidate cloned from the last committed private model. A committed outcome
 promotes that candidate; stale, invalid, timed-out, disconnected, malformed, or
 interrupted attempts discard it. Connection loss terminates the client so the
-Sophia supervisor owns restart and a fresh connection epoch.
+Sophia supervisor owns restart and a fresh connection epoch. `SIGTERM` and
+`SIGINT` end it the same way at the next wait, after closing the session: a
+candidate in flight is discarded, never replayed, and the checkpoint keeps the
+last committed cycle.
 
 The live recovery harness may arm one named, marker-bounded crash hook after
 negotiation, complete snapshot assembly, projection phases, checkpoint writes,

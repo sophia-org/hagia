@@ -195,6 +195,9 @@ proc runPolicySession*(
       )
       injectConfiguredFault("configuration_installed")
     while true:
+      # A stop between cycles never starts the next one, even when its Cycle
+      # is already buffered.
+      requireRunning()
       let snapshot = wire.receiveSnapshot()
       injectConfiguredFault("snapshot_received")
       let request = wire.receiveRequest()
