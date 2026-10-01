@@ -17,6 +17,9 @@ int sophia_sf_client_upload_begin(struct sophia_sf_client *c, struct sophia_sf_r
     int status;
     if (!c)
         return SOPHIA_9P_ARGUMENT;
+    if (c->profile == SOPHIA_SF_DESCRIPTOR &&
+        !sf_descriptor_record_allowed(c, SOPHIA_SF_RESOURCE_BEGIN))
+        return SOPHIA_9P_ARGUMENT;
     if (!sophia_sf_client_ready(c) || c->upload_stage)
         return SOPHIA_9P_BUSY;
     row = (uint64_t)v.width_px * 4;
@@ -26,9 +29,9 @@ int sophia_sf_client_upload_begin(struct sophia_sf_client *c, struct sophia_sf_r
         v.width_px > c->limits.max_width_px || v.height_px > c->limits.max_height_px ||
         v.total_bytes > c->limits.max_resource_bytes)
         return SOPHIA_9P_ARGUMENT;
-    chunk = c->limits.max_frame_payload - 48u;
-    if (chunk > c->limits.max_chunk_bytes)
-        chunk = c->limits.max_chunk_bytes;
+    /* Limits validation still enforces the legacy relationships. On the file
+     * wire the upload owns a chunk budget, independent of socket framing. */
+    chunk = c->limits.max_chunk_bytes;
     rows = chunk / row;
     if (!rows || v.chunk_count != (v.height_px + rows - 1) / rows)
         return SOPHIA_9P_ARGUMENT;

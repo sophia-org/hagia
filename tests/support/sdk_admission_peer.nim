@@ -16,11 +16,16 @@ type
     fd*: cint
     ceiling*, selected*: uint64
     profileRequired*: cuint
+    api*: cstring ## nil serves the pinned SDK's current `api` bytes.
     listener*: bool
     result*: ptr PeerResult
 
 proc serve(
-  fd: cint, ceiling, selected: uint64, profileRequired: cuint, result: ptr PeerResult
+  fd: cint,
+  ceiling, selected: uint64,
+  profileRequired: cuint,
+  api: cstring,
+  result: ptr PeerResult,
 ) {.
   importc: "hagia_sdk_admission_peer",
   header: "sdk_admission_peer.h",
@@ -40,7 +45,7 @@ proc servePeer*(task: PeerTask) {.thread.} =
     if fd < 0:
       task.result.status = -3
       return
-  serve(fd, task.ceiling, task.selected, task.profileRequired, task.result)
+  serve(fd, task.ceiling, task.selected, task.profileRequired, task.api, task.result)
 
 proc runPeer*(
     ceiling, selected: uint64, body: proc(socket: Socket), profileRequired = false

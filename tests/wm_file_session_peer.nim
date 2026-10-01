@@ -33,7 +33,7 @@ proc startup(peer: WmFileTestPeer) =
   for index, value in api:
     apiText[index] = char(value)
   requirePeer(
-    apiText == "sophia-wm-files version=1 output_transport=current_ipc\n",
+    apiText == "sophia-wm-files version=1 output_transport=9p2000.L\n",
     "wrong API/output-role discovery",
   )
   let limitsBytes = peer.readObject("limits")

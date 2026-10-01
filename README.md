@@ -95,8 +95,8 @@ nimble exportProof
 That gate compiles Hagia's actual `PolicyWire` peer and runs Sophia's production
 file export startup/cycle tests offline and locked. Admission and policy outcomes
 are supplied by the fixture. It claims no authenticated launch, native rendering
-or physical acceptance. The old optional pairing overlay contains historical IPC
-cases and needs migration before it can qualify this 9P-only candidate.
+or physical acceptance. The optional pairing overlay is historical: it runs only
+against its pinned pre-retirement Sophia and does not qualify this candidate.
 [The test migration map](docs/sdk-test-migration.md) records ownership and gaps.
 
 ## Configuration

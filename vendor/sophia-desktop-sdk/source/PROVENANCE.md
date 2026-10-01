@@ -54,10 +54,210 @@ The WM file layer uses these additional unmodified contract inputs from Sophia
 - `protocol/golden/sophia-wm-v1.records` → `spec/golden/sophia-wm-v1.records`
 - `docs/sophia-wm-api.md` → `spec/sophia-wm-api.md`
 
-The fixed rows in the older WM schema are neutral values also used by the file
-contract. Importing those rows does not import its socket framing into the file
-library. The row corpus tests those values independently of the file encoder.
 The WM file KDL, rows, corpus and WM file lifecycle document are byte-identical
-between Sophia `9fcaec782` and this revision. The existing lifecycle copy retains
-its earlier provenance above. These pinned documents still describe transitional
-IPC support in Sophia; they do not weaken this SDK's complete 9P migration target.
+between Sophia `9fcaec782` and this revision. These pinned documents still
+describe transitional IPC support in Sophia; they do not weaken this SDK's
+complete 9P migration target.
+
+## WM file row layouts
+
+`spec/sophia-wm-files-v1.kdl` is copied unmodified from Sophia
+`264080faeeabb1df69765a1c3cb26eb1bd30d265` (signed), which moves the 8 ordinary
+and 14 extension fixed row layouts, the extension capability gates and scalar
+constants into the file contract's `row-layouts` block and spells its booleans
+`#true`. `spec/sophia-wm-files.md` is copied unmodified from the later signed
+Sophia `4a03927421d13a9084295c5ace62c6d9de81d381`, which only narrows that
+document's claim: the schema owns extension gates, while ordinary row
+disclosure and additional capability dependencies stay in the typed file
+validators. The KDL is identical at both commits. The copies at `264080fae`'s
+parent were byte-identical to the previous pins, so these two files replace the
+`de776c68a` and `e9750572` copies above; no other contract input changes.
+Widths, kinds, maxima and values are unchanged.
+
+`tools/generate_wm_rows.py` now takes rows only from that block. The generated
+`src/sophia_wm_records.h` and `src/wm_files/rows.c` are byte-identical to the
+previous output except for the first comment line naming the source. The
+socket schema stays pinned while the compatibility library remains; the
+generator refuses any drift between its rows and the file rows, but it no
+longer defines the file codec. The golden row corpus still tests the row codecs.
+
+## Native shell queue and welcome bounds
+
+`spec/sophia-shell-files-v1.kdl` and `spec/sophia-shell-files.md` are copied
+unmodified from signed Sophia
+`d040013bbdd9e84716faa1e06aeb7b7e020ba44a`. They specify native record queue
+charges and exact journal reserves, and name `max_chunk_bytes` as the file
+upload budget. The existing Limits layout and its mandatory relationships
+remain unchanged. On every valid Limits value this budget equals the previous
+`min(max_frame_payload - 48, max_chunk_bytes)` calculation.
+
+The same contract makes the existing role welcome bounds explicit on the file
+wire: 1–16 descriptors, 1–128 label bytes and 1–16 pending activations. Invalid
+welcomes are refused during encoding and decoding. This replaces the two shell
+file references above; every other contract copy retains its earlier pin.
+
+## Persistent catalog identity rule
+
+The shell file KDL and lifecycle document above are refreshed from signed
+Sophia `1ae31f132105b5e178c62d3689f1f3d73bf95412`. They explicitly require
+byte-exact distinct identity names when a catalog discloses identities. This
+documents the existing persistent identity bijection; labels may still repeat
+and plain launcher catalogs have no identities. No layout or code changes
+accompany this reference update. Other contract copies keep their earlier pins.
+
+## Proposed descriptor records (development only)
+
+`spec/proposed/descriptor-layout.kdl` and `descriptor-records.md` are unmodified
+copies of Sophia's proposed ADR `4oapm903` and its layout fragment from signed
+commit `0cbb7ea5b3aade7fee6ee271fe03e57e3cf2e78f`. Their original paths are
+`docs/notes/decisions/4oapm903-descriptor-layout-proposal.kdl` and
+`docs/notes/decisions/4oapm903-carry-descriptor-families-as-native-shell-file-records.md`.
+`spec/proposed/SHA256SUMS` binds these development inputs separately from the
+published contracts; `make check-spec` checks both sets. Relative links and the
+proposal's historical implementation status are preserved in the copied ADR.
+
+The ADR copy is subsequently refreshed from signed Sophia
+`348dee082260706158447bc2e65745992a071423`. It clarifies that hidden descriptor
+candidates have no entries and that generations may repeat across distinct
+slots. The KDL is byte-identical; no field layout changes.
+
+The ADR is refreshed again from signed Sophia
+`731c5295bb2bf5bc875a1704a27f76a9e44e5086` to state shortcut slot uniqueness and
+mandatory chord/action text explicitly. This preserves the prior shortcut
+validator's rules; the proposed byte layout is still unchanged.
+
+The descriptor codec implements all seventeen proposed envelopes: three whole
+objects, eight event bodies, two activation acknowledgements and four
+presentation candidates. Literal native file vectors test them independently
+of the Rust codec and the old socket frames. Development profile selection,
+metadata/combined readiness and snapshot fetch/ack holds have scripted-peer
+coverage. Large queued candidates use explicit caller-owned staging with
+scripted capacity, reservation and custody controls. Real-export conformance
+remains pending in the C SDK path. This is not acceptance of the contract or a
+release claim.
+
+## Accepted descriptor file contract
+
+`spec/sophia-shell-files-v1.kdl`, `spec/sophia-shell-files.md` and
+`spec/sophia-shell-descriptors.md` are copied unmodified from signed Sophia
+`3330ecf7701356ffc42eb986c294ab6ffe422229`. The seventeen descriptor kinds and
+twenty-four body/prefix/row layouts are now part of the normative file KDL;
+their bytes and validation rules match the earlier proposal. The separate
+proposal copies are removed. This supersedes the development-only contract
+status above, without changing the library's wire behavior.
+
+Sophia's independent C production-export test covers all seventeen kinds
+(`8fa095da3`); its protected C CPU work-area test (`6e7ddf8ea`) checks matching
+presentation before reservation changes. Descriptor proof/serve/bar-proof and
+launcher hosts (`85158df80`) use the C SDK peer. Session startup is fixed to
+9P at `6fdee6049`, with 704 passing tests and the protected C presentation
+assertions retained. Narthex's thin C bindings at `c49dd92` pass local and
+protected host tests. These are deterministic and isolated development gates;
+no installed-desktop or physical GPU claim is added by this contract update.
+
+## Descriptor contract documentation correction
+
+`spec/sophia-shell-files.md` is refreshed from signed Sophia `086cd6e75ba4d12e30735de5b9aad7df9c687e18`.
+The role table now uses the accepted native descriptor sizes and feed bounds,
+and removes superseded client-migration observations. Wire layouts, library
+sources and tests are unchanged from the accepted-contract revision above.
+
+## WM Session source retirement
+
+`spec/sophia-wm-files.md` is copied unmodified from signed Sophia
+`8c4c58d6e99ac98b59d5f0d4d07e9e11bee2c2fe`. Session now defaults to WM files and refuses
+current-ipc selection. Rollback selects a previously verified compatible release;
+latency qualification stays open. Wire layouts, custody rules and SDK library
+sources are unchanged. SDK compatibility removal is a separate follow-up.
+
+## Shell Session default retirement
+
+`spec/sophia-shell-files.md` is copied unmodified from signed Sophia
+`49d63533d235d94574f9b32b9cd476cfbdb319b1`. Every Session shell role now defaults to 9P
+and refuses explicit current-ipc selection. Protected launch supplies the
+owner's 9P endpoint; recovery uses a compatible older whole release. The
+default remains experimental while latency and physical qualification are
+open. This reference update changes no library source, wire layout or custody
+rule. SDK compatibility source removal remains a separate follow-up.
+
+## Release 0.2.0: socket compatibility retirement
+
+Sophia's signed source retirement at `5b1d9ac4e` follows the accepted
+whole-release rollback decision. This SDK removes the shell/WM socket library,
+its headers, frame tests, socket schemas and frame corpora. Surviving spec
+files and the WM row corpus retain their original digests. The row generator
+reads the file contract alone; its generated codecs are unchanged.
+
+`sophia_desktop_select_shell` now takes the file path and output argument.
+Environment selection refuses the retired socket variable, including empty
+values. File connection authentication, bounded retry and ownership stay with
+the existing connection helper. The C file suites and generator checks pass
+in device-hidden isolation; release integration is recorded by Sophia's pin.
+The initial checksum-pruning attempt incorrectly treated already prefixed
+paths as relative to spec; the checksum gate refused it. The corrected list
+retains every existing file and passes without changing retained digests.
+
+The release also imports `spec/sophia-shell-files.md` from signed Sophia
+`2ea546bac9836aa1aed61ddeb52cc552710a9b8a`. This documentation correction points
+to the file schema and records that the existing Limits fields and validation
+relations survive adapter retirement. No wire layout changes. Its new digest
+is recorded in `spec/SHA256SUMS`; all other retained digests are unchanged.
+
+## Release 0.3.0: output file role
+
+`spec/sophia-output-files-v1.kdl` and `spec/sophia-output-files.md` are copied
+unmodified from signed Sophia `2f3264c432cc50af93e4fd911a71fc83117ca78e`.
+The KDL is the layout authority for `sophia_output_files.h`; the document
+supplies the file lifecycle, snapshot invariants and the revision-1 limitation
+that current transform and VRR are not published. The codec and session were
+written from these files, not translated from Sophia's Rust implementation.
+Their digests are recorded in `spec/SHA256SUMS`; all other digests are
+unchanged. Scripted-peer tests enforce the documented export rules. Sophia's
+independent C fixture at that commit passes negotiation, exact topology fetch,
+proposal delivery, terminal outcome and cumulative acknowledgement against the
+production OutputFileService. Evidence is
+`t253-c-peer-lifecycle-exchange.log` in Sophia's development evidence directory.
+The final 0.3.0 candidate also passes `make -j1 all check` (contract digests and
+17 test programs) in device-hidden isolation, recorded in
+`t253-sdk-030-check.log`. The peer linked against those built libraries passes
+the same production export fixture in `t253-sdk-030-export.log`.
+The SDK sources were the release candidate; version and provenance edits do not
+change those sources. This qualifies the C file client, not physical topology
+effects, native presentation, Rust client parity or output default selection.
+
+## Release 0.4.0: 9P2000.L output transport in the WM api
+
+`spec/sophia-wm-files.md` and `spec/sophia-output-files.md` are copied
+unmodified from signed Sophia contract commit
+`b0721d0de6a03cb44e57b0a923c6c385cf40b676`. The WM document names the WM
+`api` file's exact bytes and removes the WM's output grant. The output document
+becomes revision 1 and takes over physical ownership and recovery from the
+retired output IPC contract. Their new digests replace both entries in
+`spec/SHA256SUMS`. No other imported contract changes; every other digest is
+unchanged. That commit is a contract source, not a qualifying Session build.
+
+The WM session (`src/wm_session/bootstrap.c`) requires the exact `api` bytes
+`sophia-wm-files version=1 output_transport=9p2000.L` followed by a newline.
+The retired `current_ipc` value, a missing newline, a different letter case and
+an api without the transport field are refused before negotiation. Scripted
+tests assert each refusal with no submission. A private mutant accepting the
+retired string alongside the current one fails that test. The output session's
+wrong-api negative (a WM api offered to the output role) is unchanged. The
+output codec already keeps the outcome reason as an open u16 value, as revision 1
+requires. No output codec or session source changes in this release.
+
+`output_files` stays true. It is backed by Sophia's output file role at signed
+Sophia `ddd27bd6d9ac6d8e73394d9326705a7a62916f35`: native proof preparation
+(13 export tests and the protected Session fixture), performance qualification,
+and an attended four-stage native run (validate, reject, commit-restore and
+peer-death rollback) assembled by niltempus `bec6db137d7e`. The evidence is
+`t253-native-run-bec6db1-01` and `t253-perf-ddd27bd6d-01` in Sophia's development
+evidence directory. The run covered one DRM card with two heads and a
+refresh-only change on one head, verified by KMS and owner readback records.
+Resolution, position, enable, transform, mirror and multi-card changes are not
+qualified by it.
+
+`make all check` passes in device-hidden isolation at normal priority with the
+available CPUs (17 test programs). Build and test guidance no longer prescribes
+a fixed nice value or job count.
+

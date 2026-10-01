@@ -23,7 +23,10 @@ int sf_take_negotiate(const uint8_t *b, struct sophia_sf_negotiate *v)
 }
 int sf_check_negotiated(const struct sophia_sf_negotiated *v)
 {
-    if (!v->connection_epoch || v->limits_published > 1)
+    if (!v->connection_epoch || v->limits_published > 1 ||
+        !v->max_descriptors || v->max_descriptors > 16 ||
+        !v->max_label_bytes || v->max_label_bytes > 128 ||
+        !v->max_pending_activations || v->max_pending_activations > 16)
         return -1;
     return 0;
 }
@@ -77,7 +80,7 @@ int sf_take_refused(const uint8_t *b, struct sophia_sf_refused *v)
 }
 int sf_check_submitted(const struct sophia_sf_submitted *v)
 {
-    if (!v->submission_id || v->candidate_kind < 256 || v->candidate_kind > 272)
+    if (!v->submission_id || v->candidate_kind < 256 || v->candidate_kind > 278)
         return -1;
     return 0;
 }
@@ -97,7 +100,7 @@ int sf_take_submitted(const uint8_t *b, struct sophia_sf_submitted *v)
 }
 int sf_check_object_published(const struct sophia_sf_object_published *v)
 {
-    if (v->object_kind < 1 || v->object_kind > 4 || !v->qid)
+    if (v->object_kind < 1 || v->object_kind > 7 || !v->qid)
         return -1;
     return 0;
 }

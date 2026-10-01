@@ -11,7 +11,7 @@ static uint64_t milliseconds(void) {
   return (uint64_t)value.tv_sec * 1000 + (uint64_t)value.tv_nsec / 1000000;
 }
 void hagia_sdk_admission_peer(int fd, uint64_t ceiling, uint64_t selected, unsigned profile_required,
-                             struct hagia_sdk_peer_result *result) {
+                             const char *api, struct hagia_sdk_peer_result *result) {
   struct wm_peer *peer = calloc(1, sizeof(*peer));
   struct sophia_wf_record limits = {0};
   uint64_t deadline = milliseconds() + 4000;
@@ -19,6 +19,7 @@ void hagia_sdk_admission_peer(int fd, uint64_t ceiling, uint64_t selected, unsig
   assert(peer);
   memset(result, 0, sizeof(*result));
   peer->fd = fd;
+  peer->api = api;
   peer->selected = selected;
   peer->submit_count = 24;
   peer->ack_count = 16;

@@ -1,37 +1,39 @@
 # WM files over 9P2000.L
 
 Status: implementation contract for the t249 and Hagia h006 development
-candidates; full role acceptance remains open. The existing WM IPC remains
-the default. This document specifies the WM role only;
-output control still uses its separately admitted existing IPC connection.
+candidates; latency qualification remains open. Session uses only the WM file
+transport. This document specifies the WM role only;
+output control uses the separately admitted [output file role](sophia-output-files.md).
 The first checkpoint is a direct Unix socket, not a kernel mount.
 
 ## Explicit Session selection
 
 Session selects the WM transport with
-`--wm-transport=current-ipc|9p2000.L`. Omission selects `current-ipc`; an
+`--wm-transport=9p2000.L`. Omission selects 9P2000.L; `current-ipc` is refused. An
 explicit selection requires a configured WM using the existing
 `sophia_wm_v1` semantic interface. The interface name does not select the wire.
-The profile schema and output-role transport are unchanged.
+The profile schema is unchanged. Output uses 9P2000.L under its own assignment.
 
-A protected launch receives only the selected WM socket variable:
-`SOPHIA_WM_SOCKET` for current IPC or `SOPHIA_WM_9P_SOCKET` for files. The
-existing cleared launch environment removes inherited alternatives. The
-output socket, staged policy candidate and checkpoint keep their existing
-grants. The WM must not sniff the protocol or fall back to the other socket;
+A protected launch receives `SOPHIA_WM_9P_SOCKET`. The cleared launch environment
+removes the retired `SOPHIA_WM_SOCKET` and inherited alternatives. The
+staged policy candidate and checkpoint keep their existing grants. The WM
+receives no output endpoint or output-authority grant. It must not sniff the
+protocol or fall back to another socket;
 ambiguous client selection refuses.
 
 The selected transport is retained through automatic restart, control restart
 and profile rollback. Each replacement receives a fresh admitted epoch. One
 checked qid allocator belongs to the logical Session WM filesystem and continues
 across those replacements; recreating a socket never resets it. Exhaustion
-refuses allocation. The existing output acceptance pause and supervised-PID
-replacement barrier still precede the replacement worker.
+refuses allocation. Output supervision has its own epoch and lifetime; a WM
+restart does not replace the output assignee or cancel its work.
 
-Rollback to current IPC is an explicit subsequent launch selection with its
-compatible WM and profile. A failed file negotiation or profile activation
-does not select another transport. File diagnostics identify
-`sophia_wm_fs_v1`; current-IPC diagnostics retain `sophia_wm_v1`.
+Rollback selects a previously verified complete release with its compatible WM
+and profile for a subsequent login. It does not select an IPC backend in this
+build. A failed file negotiation or profile activation closes the attempt;
+diagnostics identify `sophia_wm_fs_v1`. See the accepted
+[source-retirement decision](notes/decisions/twkn9fsp-retire-wm-and-shell-ipc-with-release-rollback-while-latency-qualification-remains-open.md).
+The latency budgets and failed qualification campaign remain unchanged.
 
 The Session production entrypoints have focused protected-child checks. The
 independent production Hagia loop, combined output restart and real Session/
@@ -44,7 +46,7 @@ for exact checkpoints and limits.
 Session creates the endpoint for one supervised, protected WM launch. The
 existing admission owner binds the accepted peer and connection epoch before
 the export becomes accessible. There is one WM writer. The endpoint cannot be
-used alongside a current-IPC WM writer or acquire authority from `uname`,
+used alongside another WM writer or acquire authority from `uname`,
 `aname`, a numeric UID, a fid or a qid. An unauthorized second attach refuses;
 cloning the admitted root does not create another role or epoch.
 
@@ -78,9 +80,18 @@ cannot activate a profile.
 API-1 Limits publishes fixed file custody bounds. Role maxima remain the
 compile-time record contract: 16 outputs, 1024 surfaces/placements and 256
 actions or presentation bindings. The remaining per-kind maxima and row layouts
-are the shared records in [the WM schema](../protocol/sophia-wm-v1.kdl), enforced
+are the `row-layouts` in [the WM file schema](../protocol/sophia-wm-files-v1.kdl), enforced
 by the neutral `policy_record_layout` owner and `POLICY_MAX_*` constants. Limits
 does not renegotiate those maxima or change active connection bounds.
+
+The file schema owns these complete row layouts, their extension capability
+gates and their scalar constants. Ordinary row disclosure and additional
+capability dependencies remain enforced by the typed file validators described
+below; the row declarations do not replace those checks.
+The generated `wm_rows` codec has no socket framing
+dependency. While the frozen socket adapter remains, generation checks that
+its historical rows agree with this contract; the socket schema does not
+define the file codec's rows.
 
 Revocation invalidates every operation through retained fids immediately.
 Clunk and disconnect still release their local resources. Reconnect creates a
@@ -97,7 +108,7 @@ mutations refuse; `Tread` on the root remains `EISDIR`.
 | Path | Access | Meaning |
 | --- | --- | --- |
 | `/` | 0500 | Fixed directory vocabulary; stateless enumeration cookies |
-| `api` | read | Small immutable ASCII family/version, with `output_transport=current_ipc` |
+| `api` | read | Exact ASCII `sophia-wm-files version=1 output_transport=9p2000.L\n` |
 | `limits` | read | Immutable binary epoch, capabilities and bounds |
 | `snapshot` | read | Latest complete binary scene; open pins that exact immutable object |
 | `events` | read | Ordered binary records, read by byte offset and retained until explicit acknowledgement |
@@ -106,6 +117,9 @@ mutations refuse; `Tread` on the root remains `EISDIR`.
 | `ack` | write | Acknowledgement of a complete event sequence number |
 
 Opening `snapshot` with no complete snapshot available returns `EAGAIN`.
+The API line includes its final newline. Clients requiring this release refuse
+the retired `output_transport=current_ipc` value; no compatibility fallback is
+provided. Release rollback restores a compatible Session and client together.
 At most one snapshot fid and one candidate buffer may be pinned per attach.
 Repeated opens of other files share the same attach-owned bounds. `getattr`
 reports the pinned snapshot length and qid, not a later scene's length. Reads
@@ -378,7 +392,8 @@ pressure, shutdown, and no extra commit or receipt from an acknowledgement.
 
 The paired executable checkpoint joins real Hagia with existing Session
 prepare/commit and backend receipt owners. It covers the current capability
-matrix, restart/profile rollback and all-output/topology behavior. Output IPC
-must remain labelled in evidence. Simulated completion, direct sockets and
-physical acceptance are distinct. Compare identical old/new workloads before
-claiming a performance gain or proposing retirement of current IPC.
+matrix, restart/profile rollback and all-output/topology behavior. Output
+evidence names the independent 9P assignment. Simulated completion, direct
+sockets and physical acceptance are distinct. Compare identical workloads
+before claiming a performance gain; source retirement alone makes no latency
+or physical acceptance claim.

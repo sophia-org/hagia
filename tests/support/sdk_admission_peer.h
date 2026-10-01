@@ -6,6 +6,7 @@ struct hagia_sdk_peer_result {
   unsigned offers, configurations;
   int status;
 };
+/* A null api serves the pinned SDK's current contract bytes. */
 void hagia_sdk_admission_peer(int fd, uint64_t ceiling, uint64_t selected, unsigned profile_required,
-                             struct hagia_sdk_peer_result *result);
+                             const char *api, struct hagia_sdk_peer_result *result);
 #endif

@@ -8,7 +8,7 @@ cd "$root"
 # Release dependency custody is a separate bound build. This contributor gate
 # uses the developer's Nim toolchain and private per-run output/cache paths.
 unset DISPLAY WAYLAND_DISPLAY
-make -C vendor/sophia-desktop-sdk/source -j"${CARGO_BUILD_JOBS:-$(nproc)}" WITH_IPC=0 \
+make -C vendor/sophia-desktop-sdk/source -j"${CARGO_BUILD_JOBS:-$(nproc)}" \
     BUILD="$build_dir/c-sdk" check
 nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tdesktop-sdk" tests/tdesktop_sdk.nim

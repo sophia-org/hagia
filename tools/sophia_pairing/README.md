@@ -1,5 +1,11 @@
 # Optional Sophia pairing
 
+Historical. This overlay compares Hagia over Sophia's retired current IPC and
+over WM files at Sophia `be6e5888d79f2e89bd7fdfbee3455f8aa7eb6390`. Current
+Sophia has neither the IPC transport nor the legacy mount anchors, and the
+runner refuses any other Sophia revision. Its logs remain evidence for that
+revision only; it is not a gate for 9P-only candidates and is not rebased.
+
 These are Hagia-owned integration assertions. They exercise real Sophia owners
 against a frozen normal Hagia executable, including Hagia's action vocabulary,
 camera rules and checkpoint format. They are not part of Sophia's required

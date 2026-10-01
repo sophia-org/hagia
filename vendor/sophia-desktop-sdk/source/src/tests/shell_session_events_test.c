@@ -341,6 +341,56 @@ static void uploads(void)
     assert(rig_until(&r, first, 32) == SOPHIA_SS_SUBMITTED);
     rig_close(&r);
 }
+/* A complete row never straddles canonical chunks. The spare socket-frame
+ * capacity does not enlarge a smaller file upload budget. These cases retain
+ * the existing Limits relations, so the change preserves admitted layouts. */
+static void upload_uses_the_file_chunk_budget(void)
+{
+    static const struct {
+        uint32_t width, height, chunk, frame, count;
+    } cases[] = {
+        {1, 3, 4, 52, 3},
+        {3, 7, 32, 65536, 4},
+        {64, 9, 768, 1024, 3},
+        {8192, 128, 65488, 65536, 128},
+    };
+    size_t i;
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        struct rig r;
+        struct sophia_sf_resource_begin begin;
+        struct sophia_sf_record limits = {0};
+        uint8_t encoded[512];
+        size_t length;
+        rig_ready(&r, &rig_config);
+        begin = resource(&r, 1);
+        begin.width_px = cases[i].width;
+        begin.height_px = cases[i].height;
+        begin.total_bytes = (uint64_t)begin.width_px * 4 * begin.height_px;
+        begin.chunk_count = cases[i].count;
+        limits.header.kind = SOPHIA_SF_LIMITS;
+        limits.header.epoch = PEER_EPOCH;
+        limits.value.limits = r.s.files.limits;
+        limits.value.limits.max_width_px = begin.width_px;
+        limits.value.limits.max_height_px = begin.height_px;
+        limits.value.limits.max_resource_bytes = begin.total_bytes;
+        limits.value.limits.max_staging_bytes = begin.total_bytes;
+        limits.value.limits.max_resident_bytes = begin.total_bytes;
+        limits.value.limits.max_retiring_bytes = begin.total_bytes;
+        limits.value.limits.max_session_retiring_bytes = begin.total_bytes * 3;
+        limits.value.limits.max_chunk_bytes = cases[i].chunk;
+        limits.value.limits.max_frame_payload = cases[i].frame;
+        limits.value.limits.max_input_queue_bytes = cases[i].frame + 24;
+        assert(!sophia_sf_encode(encoded, sizeof(encoded), &limits, &length));
+        r.s.files.limits = limits.value.limits;
+        begin.chunk_count++;
+        assert(sophia_sf_client_upload_begin(&r.s.files, begin) == SOPHIA_9P_ARGUMENT);
+        assert(!sophia_sf_client_upload_pending(&r.s.files));
+        begin.chunk_count--;
+        assert(!sophia_sf_client_upload_begin(&r.s.files, begin));
+        assert(sophia_sf_client_upload_pending(&r.s.files));
+        rig_close(&r);
+    }
+}
 /* ESTALE on an object fid fails that fetch; on events it ends the session. */
 static void object_stale_is_not_terminal(void)
 {
@@ -454,6 +504,28 @@ static void transaction_reopen_waits_for_object_hold(void)
     assert(!r.p.transaction_busy);
     rig_close(&r);
 }
+static void unsupported_descriptor_publications_cannot_be_acknowledged(void)
+{
+    for (uint16_t kind = SOPHIA_SF_DESCRIPTORS; kind <= SOPHIA_SF_SHORTCUTS; kind++) {
+        struct rig r;
+        rig_ready(&r, &rig_config);
+        peer_published(&r.p, kind, 1, 1234);
+        rig_run(&r, 8);
+        assert(sophia_ss_state(&r.s) == SOPHIA_SS_FAILED);
+        assert(sophia_ss_ack_limit(&r.s) == 2 && r.s.files.consumed_sequence == 2);
+        assert(sophia_ss_ack(&r.s) == SOPHIA_9P_INVALID && r.p.acked == 2);
+        rig_close(&r);
+    }
+    struct rig r;
+    struct sophia_sf_record event = {{SOPHIA_SF_DESCRIPTOR_OUTCOME, PEER_EPOCH, 0, 1},
+        .value.descriptor_outcome = {1, PEER_EPOCH, 1, 0, 1}};
+    rig_ready(&r, &rig_config);
+    peer_record(&r.p, &event);
+    rig_run(&r, 8);
+    assert(sophia_ss_state(&r.s) == SOPHIA_SS_FAILED);
+    assert(sophia_ss_ack_limit(&r.s) == 2 && r.p.acked == 2);
+    rig_close(&r);
+}
 int main(void)
 {
     ack_bounded_by_undelivered_events();
@@ -464,11 +536,13 @@ int main(void)
     superseded_fetch_then_consume();
     poll_reports_queued_output();
     uploads();
+    upload_uses_the_file_chunk_budget();
     object_stale_is_not_terminal();
     negotiation_refusal();
     outcome_eviction();
     transaction_reopen_waits_for_custody_ack();
     transaction_reopen_waits_for_object_hold();
+    unsupported_descriptor_publications_cannot_be_acknowledged();
     puts("shell session: ack bounds, object obligations, poll, uploads, node ESTALE, refusal, "
          "outcome ring passed");
     return 0;

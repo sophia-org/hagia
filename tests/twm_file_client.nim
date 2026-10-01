@@ -69,6 +69,37 @@ suite "file endpoint path wrapper":
         check ((log.required and outputBits) == outputBits) == assignments
         check (log.required and log.optional) == 0
 
+  test "a retired output transport in the WM api refuses before negotiation":
+    let directory = createTempDir("hagia-file-client-api-", "")
+    let path = directory / "wm.sock"
+    let listener = newSocket(Domain.AF_UNIX, SockType.SOCK_STREAM, Protocol.IPPROTO_IP)
+    listener.bindUnix(path)
+    listener.listen()
+    var log: PeerResult
+    var thread: Thread[PeerTask]
+    createThread(
+      thread,
+      servePeer,
+      PeerTask(
+        fd: cint(listener.getFd()),
+        listener: true,
+        ceiling: (1'u64 shl 20) - 1,
+        selected: ((1'u64 shl 20) - 1) and not capabilityProfileActivation,
+        api: "sophia-wm-files version=1 output_transport=current_ipc\n",
+        result: addr log,
+      ),
+    )
+    try:
+      expect PolicyClientError:
+        path.runFilePolicySession(candidate(false, false), false)
+    finally:
+      joinThread(thread)
+      listener.close()
+      removeDir(directory)
+    check log.status == 0
+    check log.offers == 0
+    check log.configurations == 0
+
   test "invalid settings refuse before connecting":
     let directory = createTempDir("hagia-file-client-invalid-", "")
     let path = directory / "wm.sock"

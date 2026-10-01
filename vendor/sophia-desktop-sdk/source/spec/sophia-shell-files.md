@@ -1,10 +1,9 @@
 # Shell files over 9P2000.L
 
 Status: **accepted contract (t251, accepted by the operator on 2026-09-26).**
-Nothing here is implemented yet; t252 implements it. `sophia_shell_v1` over its
-existing socket remains the only shell transport and the installed default
-until t252's gates pass. The items under "Open decisions" stay open and do not
-block t252. Source references
+The content and descriptor exports are implemented. Descriptor contract
+acceptance is recorded under t271; remaining IPC compatibility retirement is
+tracked separately. The items under "Open decisions" stay open. Source references
 are to the tree this draft was written against (signed `2f9c2220`, based on
 `11d6deef9`).
 
@@ -18,9 +17,10 @@ contract in the [control bus](sophia-9p-control-bus.md).
 
 ### Protocol and revisions
 
-`protocol/sophia-shell-v1.kdl:1` declares frame-version 1, interface-major 1,
-interface-revision 8, max-descriptors 16, max-label-bytes 128,
-max-pending-activations 16 and max-shortcuts 256. The content design is ADR
+`protocol/sophia-shell-files-v1.kdl` defines the file records and objects.
+The role retains interface-major 1, interface-revision 8, max-descriptors 16,
+max-label-bytes 128, max-pending-activations 16 and max-shortcuts 256. The
+retired socket envelope has no role in file encoding. The content design is ADR
 [6ndjwffd](notes/decisions/6ndjwffd-content-capability-design-for-sophia_shell_v1.md).
 The GPU permission is ADR
 [mn4mzcnf](notes/decisions/mn4mzcnf-separate-shell-presentation-from-gpu-execution-permission.md). Capability bits are revision-gated:
@@ -54,12 +54,12 @@ refused, never silently downgraded (`docs/sophia-shell-v1-direction.md`).
 | One private 0700 endpoint per component, one active peer, protected launch under Bubblewrap | `crates/sophia-runtime/src/policy_socket.rs`, `crates/sophia-session/src/live_session/metadata_shell/component_session.rs` |
 | Peer admission by supervisor evidence; the evidence "is a declaration the supervisor makes, not a proof" | `policy_socket.rs:270-274` (`authorize_protected_peer`) |
 | One content epoch registry for all components: 64 MiB, three active epochs, sixteen retained | `shell_component_connections.rs:86`; `crates/sophia-runtime/src/shell_content/epoch_registry.rs:59-61, 93-95` |
-| Legacy descriptor shell (Narthex): one endpoint, mutually exclusive with components | `crates/sophia-session/src/live_session/metadata_shell.rs` |
+| Descriptor component: one 9P endpoint, mutually exclusive with independent content components | `crates/sophia-session/src/live_session/metadata_shell.rs` |
 | Direct GPU: a separate per-component grant; content and GPU permissions do not imply each other | ADR `mn4mzcnf`, `live_session/metadata_shell/gpu.rs` |
 
 ### Content limits
 
-`ContentLimits::prototype` (`crates/sophia-protocol/src/ipc/shell_content/limits.rs:283-340`)
+`ContentLimits::prototype` (`vendor/rust-desktop-sdk/source/crates/sophia-shell-protocol/src/shell/content/limits.rs`)
 is the starting grant. `role_limits` (`shell_component_connections.rs:378-394`)
 lowers it per role: with a dock present, staging is 4 MiB, resident 12 MiB for
 the bar and 8 MiB otherwise, and retiring 8 MiB. A launcher without a dock gets
@@ -78,6 +78,14 @@ depends on:
 | transfer / transfer idle / candidate / prepare / present timeout | 2000 / 500 / 1000 / 1000 / 2000 ms |
 | permit timeout / action-ack timeout / peer write | 250 / 1000 / 2000 ms |
 | candidate rate | 120 Hz |
+
+The file wire uses `max_chunk_bytes` directly for upload chunks. The
+`max_frame_payload` and `max_input_queue_bytes` fields remain in the Limits
+layout only for socket compatibility; their existing scalar bounds and
+`+24`/`+48` validation relationships remain mandatory. Production grants keep
+their prototype values, 65,536 and 131,072. Removing those fields requires a
+coordinated contract and SDK change; it does not follow from ignoring them in
+file owners.
 
 ### Resource custody
 
@@ -206,6 +214,12 @@ The r8 catalog maximum is 3,014,740 bytes in old framing, and 3,145,876 bytes
 conservative with headers, which fits the 4 MiB cap. The new codec must
 enforce count, row, and header bounds independently.
 
+When a catalog carries persistent identities (`identities_present=1`), each
+entry has one nonempty identity name and those names are distinct by exact
+UTF-8 bytes. Distinct slots cannot name the same persistent application.
+Display labels and keywords do not establish identity and may repeat. A plain
+launcher catalog (`identities_present=0`) carries no identity names.
+
 ### Negotiation is a candidate, not a node
 
 The WM contract negotiates through a submitted candidate. This draft does the
@@ -218,6 +232,14 @@ change shell negotiation rather than transport it. The result is one
 limits generation, or a `Refused` event with the current reason (1 permission
 denied, 2 unsupported, 3 invalid dependencies, 4 unavailable) followed by
 revocation.
+
+The `Negotiated` body preserves the shell role's welcome limits:
+`max_descriptors` is 1–16, `max_label_bytes` is 1–128 UTF-8 bytes, and
+`max_pending_activations` is 1–16. These bounds apply to every selected profile,
+including a content profile that does not consume descriptors. Both encoders
+and decoders refuse values outside these ranges; a zero value is not an
+unused-field marker. This makes the existing role maxima explicit on the file
+wire without changing the body layout.
 
 There is exactly one selection per epoch. Replaying the same submission ID
 replays its Submitted custody and cannot negotiate again. A separate node
@@ -235,11 +257,11 @@ below the watermark is `EALREADY`. A submit refused with `EAGAIN` has
 transferred nothing.
 
 Candidate Begin/Chunk/End collapse into one complete record, which stays
-within `max_candidate_bytes` (8192 bytes, `crates/sophia-protocol/src/ipc/shell_content/limits.rs:309`). As in the WM contract, each attach has one
+within `max_candidate_bytes` (8192 bytes in the Limits contract). As in the WM contract, each attach has one
 candidate buffer, and `submit` refers to that attach's staged candidate. The
 buffer therefore needs no more than the largest control record, not the WM's
-1 MiB. The shell transaction cap is 64 KiB per attach transaction buffer, equal to
-`max_frame_payload` (65,536 bytes, `crates/sophia-protocol/src/ipc/shell_content/limits.rs:294`).
+1 MiB. The shell transaction cap is independently fixed at 64 KiB per attach
+transaction buffer; it is not derived from the socket's frame limit.
 
 ### Resource staging without client-created files
 
@@ -293,8 +315,10 @@ One slot carries at most `max_resource_bytes` (4 MiB), which exceeds the WM's
 **Chunking.** The store accepts only canonical chunks: each chunk must be
 exactly `rows_per_chunk * row_bytes` bytes, the last one the remainder, at the
 next ordinal and offset (`crates/sophia-runtime/src/shell_content/resources.rs:286-298`).
-`rows_per_chunk` is `min(max_frame_payload - 48, max_chunk_bytes) / row_bytes`
-(`crates/sophia-protocol/src/ipc/shell_content/validation.rs:393-399`). A 9P
+`rows_per_chunk` is `max_chunk_bytes / row_bytes`. The earlier expression
+`min(max_frame_payload - 48, max_chunk_bytes) / row_bytes` is equal for every
+valid Limits object because `max_chunk_bytes + 48 <= max_frame_payload`
+remains required. Thus the change preserves every admitted upload layout. A 9P
 write can split anywhere. After validating the binding, offset and entire
 declared request range, the adapter accepts at most the prefix completing the
 current canonical chunk. A positive short `Rwrite` reports that prefix; the
@@ -318,7 +342,7 @@ partial bytes buffered; those writes cannot keep a transfer alive indefinitely.
 
 Scratch is a separate transport charge, not part of the resource store's
 staging allowance. The file export reserves
-`max_open_transfers * min(max_frame_payload - 48, max_chunk_bytes)` bytes at
+`max_open_transfers * max_chunk_bytes` bytes at
 admission: 261,952 bytes for the prototype, under 768 KiB across three active
 component exports. Before accepting Begin custody or calling the store,
 acquire the slot buffer and response capacity; an early capacity refusal
@@ -346,8 +370,7 @@ below the retention floor. Acknowledgement releases transport retention only.
 Shell traffic is denser than WM traffic: frame permits, candidate outcomes and
 resource statuses. A component journal holds at most 256 records. 64 of them
 are the terminal reserve, equal to `max_control_records`
-(`crates/sophia-protocol/src/ipc/shell_content/limits.rs:317`, enforced in aggregate
-by `crates/sophia-runtime/src/shell_transport/control_budget.rs:18-41`). Only
+(enforced in aggregate by `crates/sophia-runtime/src/shell_transport/control_budget.rs`). Only
 records that already hold a counted credit may use the reserve, so every
 promised response always has space. The other 192 hold unsolicited Session
 events (snapshot announcements, allocation invalidation, focus revocation,
@@ -355,7 +378,9 @@ opening, content actions, closed) and unacknowledged history.
 
 Byte bounds are derived from the largest Session-to-client record of each role
 profile. The file envelope's 32-byte header (as in [WM files](sophia-wm-files.md))
-replaces the 24-byte frame header, adding 8 bytes per record. The journal byte
+replaces the 24-byte frame header. These file bodies also include an 8-byte
+transaction, making the whole record 16 bytes larger than the old frame.
+Use the native layouts when sizing the journal. The journal byte
 bound is 256 times that record, rounded up to the next power of two and capped at
 1 MiB. The terminal reserve is 64 times the largest terminal record. Snapshot
 objects are not journal records; their events only name the object.
@@ -378,18 +403,16 @@ shared 4 MiB build scratch.
 
 | Role profile | Root names | Snapshot feeds and caps | Largest S-to-C record (file framing) | Journal bytes | Terminal reserve | Snapshot bound |
 | --- | --- | --- | --- | --- | --- | --- |
-| Bar (Lom, r6) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `upload/N`; `indicators` with bit 9 | outputs 1 KiB; indicators 32 KiB | AllocationResult, 192 B (`crates/sophia-protocol/src/ipc/shell_content/fields.rs:332-351`) | 65,536 (256 x 192 = 49,152, rounded) | 12,288 | 4,261,888 |
-| Launcher (Bemenu, r7) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `catalog`, `upload/N` | outputs 1 KiB; catalog 4 MiB | native Input, up to 420 B (`crates/sophia-protocol/src/ipc/shell_native_launcher/records.rs:100`) | 131,072 (256 x 420 = 107,520, rounded) | 26,880 | 12,584,960 |
-| Dock (Provlita, r8) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `catalog`, `upload/N` | outputs 1 KiB; catalog 4 MiB with r8 identities | AllocationResult, 192 B | 65,536 | 12,288 | 12,584,960 |
-| Legacy descriptor (Narthex, r1-r8) | `api`, `events`, `transaction`, `submit`, `ack`, `descriptors`, `tabs`, `shortcuts`; `catalog` when r4 and bit 5 are selected | descriptors 4 KiB; tabs 1 MiB; shortcuts 128 KiB; catalog 4 MiB when selected | LauncherRequest, 342 B (`crates/sophia-protocol/src/ipc/shell_launcher.rs:130-146`; query at most 256 B, `crates/sophia-protocol/src/packets/shell_launcher.rs:8`) | 131,072 (256 x 342 = 87,552, rounded) | 21,888 | 6,561,792; 14,950,400 with catalog |
+| Bar (r6) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `upload/N`; `indicators` with bit 9 | outputs 1 KiB; indicators 32 KiB | AllocationResult, 200 B (32-byte header + 168-byte body) | 65,536 (256 x 200 = 51,200, rounded) | 12,800 | 4,261,888 |
+| Launcher (r7) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `catalog`, `upload/N` | outputs 1 KiB; catalog 4 MiB | NativeInput, 430 B (32-byte header + 398-byte body) | 131,072 (256 x 430 = 110,080, rounded) | 27,520 | 12,584,960 |
+| Dock (r8) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`, `outputs`, `catalog`, `upload/N` | outputs 1 KiB; catalog 4 MiB with r8 identities | AllocationResult, 200 B | 65,536 | 12,800 | 12,584,960 |
+| Descriptor (r1-r8) | `api`, `limits`, `events`, `transaction`, `submit`, `ack`; selected `descriptors`, `tabs`, `shortcuts`, `catalog`, `indicators` feeds | descriptors 4 KiB; tabs 1 MiB; shortcuts 128 KiB; catalog 4 MiB; indicators 32 KiB | LauncherRequest, 352 B | 131,072 (256 x 352 = 90,112, rounded) | 22,528 | 6,561,792 with descriptors, tabs and shortcuts; add 8,388,608 for catalog and 65,536 for indicators |
 
-The bar and dock record sizes come from the terminal-debt inventory (184-byte
-AllocationResult and up to 412-byte native Input in today's framing, plus 8).
-For the legacy descriptor profile, the records that become snapshot objects
-(descriptor snapshots of at most 3,084 bytes framed, tabs, shortcut and application
-entries, catalog identities) are excluded; the largest record that stays a journal
-event is the launcher request. Its reserve is sized on that record rather than on a
-separately derived terminal record, which over-reserves.
+All rows use native file record sizes. Descriptor feed disclosure, selected-feed
+accounting and combined descriptor/content grants follow
+[the descriptor contract](sophia-shell-descriptors.md). Snapshot objects do not
+consume journal bytes. The descriptor terminal reserve uses its largest event,
+LauncherRequest, conservatively exceeding the actual terminal-record size.
 
 Note: The component bar's inert bit 0 discloses no descriptor, tab, or shortcut feed.
 
@@ -510,12 +533,12 @@ B5 moves the seam up to typed values on both sides of the transport:
   each wire enforces its own byte bounds. This removes the socket-shaped
   charge the file wire inherited in B4.
 
-Legacy descriptor paths (`reference.rs`, `tabs.rs` and the descriptor launcher
-flow) keep sending frames until that profile moves to files.
-
-The legacy descriptor profile's feeds (`descriptors`, `tabs`, `shortcuts`)
-and records get kinds when that profile moves to files; until then it stays
-on its socket, and the purge inventory lists it.
+The descriptor profile carries its feeds and owner records as native objects,
+events and candidates. Its admission, exact values, semantic refusals and
+presentation rules are specified in [descriptor shell files](sophia-shell-descriptors.md).
+Its seventeen kinds and twenty-four body/prefix/row layouts are included in
+`sophia-shell-files-v1.kdl`. Session selects this role before negotiation;
+capability bit 0 on an ordinary content component grants no descriptor authority.
 
 Objects are published as `outputs` is: fits-then-qid-then-announce, pinned on
 open, `EBUSY` for a second pin, a fresh qid whenever the bytes change. Each
@@ -871,43 +894,43 @@ unchanged and still cannot retract an already-open render-node descriptor.
 
 ## Compatibility and revision skew
 
-| Client | Role | Revision | Codec and transport seam | Notes |
-| --- | --- | --- | --- | --- |
-| Lom | bar | r6 | Sophia's `sophia-shell-client`, pinned to git `2e569301` | Moving that crate's transport moves Lom; not independent evidence |
-| Bemenu (`bemenu-sophia`) | launcher | r7 | Vendored Sophia C `shell_wire`, manifest-pinned to `sophia-stack` `c2ff3fcd`; I/O in `shell_wire/io.c` and `frame.c` | Frame kinds are hard-coded in `connection_receive.c` |
-| Provlita | dock | r8 | Sophia's `sophia-shell-client` through path dependencies on `../sophia-stack` | **Cannot build as-is**: that directory does not exist |
-| Narthex | legacy descriptor reference | r1-r9 | Its own Nim codec in `src/wire/*`; socket I/O in four procedures in `src/narthex.nim` | Independent, but sends no content, allocations or resources |
+| Role | Revision | Client boundary |
+| --- | --- | --- |
+| Bar | r6 | Standalone desktop SDK content session |
+| Native launcher | r7 | Standalone desktop SDK native launcher session |
+| Dock | r8 | Standalone desktop SDK persistent catalog session |
+| Descriptor | r1-r8 | Standalone desktop SDK descriptor session |
 
-Narthex offers revision 9 with overview capability bit 13 (`src/types/shell_overview.nim:2-3`).
-That capability exists only on Sophia's unmerged `overview` branch
-(`cf1c33ed2`, `46dfc4da8`), not in this base. Against this base, Narthex must
-negotiate at most r8. The file profile carries the same per-role revisions as
-today, so skew is resolved by the same negotiation, not by the transport.
+The C and Rust desktop SDKs expose native records over standard 9P2000.L.
+Client implementations and their dependency pins belong in their repositories.
+Revision 9 and overview capability bit 13 are not part of this accepted contract.
+Skew is resolved by revision and capability negotiation, with no wire fallback.
+Supervisor replacement starts a fresh process and epoch; reconnect never replays
+unsettled submissions.
 
-No client reconnects in-process. Each relies on supervisor restart with a
-fresh process, which matches one attach per epoch.
+Every Session shell component uses 9P2000.L. Omitted `transport` selects it;
+an explicit `9p2000.L` is accepted and `current-ipc` is refused. A descriptor
+component excludes other shell components; the single-shell CLI selectors are
+retired. Clients and inherited environment do not choose the server's protocol.
+Protected launch supplies only the owner's `SOPHIA_SHELL_9P_SOCKET`, removing
+supplied endpoint variables including the retired `SOPHIA_SHELL_SOCKET`.
+There is no sniffing or fallback. Components share one `ContentEpochRegistry`;
+the transport default neither creates another budget nor changes role grants.
 
-Current IPC remains the default. Session-owned configuration selects transport
-per component at startup; the mutually exclusive legacy descriptor shell has
-its own selection. Clients and inherited environment do not choose the
-server's protocol, and there is no sniffing or fallback. Mixed transports can
-use the same one `ContentEpochRegistry`; selection neither creates another
-budget nor changes a role's grants.
-
-A transport change is a complete component replacement: stop, revoke, settle
-the existing retirement claims, then issue a fresh grant and connection epoch.
-It never migrates a live grant. Until a reload owner implements that complete
-transition, a reload requesting a transport change must refuse it and retain
-the startup selection. Explicit Session relaunch is the rollback path; an
-installed-default change remains a separate acceptance decision.
+Replacement stops and revokes the old component, retains outstanding retirement
+claims and issues a fresh grant and connection epoch. It never migrates a live
+grant. Profile reload does not replace the startup component selection. Recovery
+to an IPC client requires a verified compatible older release as a whole for the
+next login, rather than substitution in a running 9P Session. The default remains
+experimental: source retirement does not close the outstanding t250/t252 latency
+and physical qualification, or authorize installation.
 
 ## Independent clients and evidence
 
-No independent client covers content today. Lom and Provlita use Sophia's own
-library, Bemenu uses Sophia's own C binding, and Narthex covers descriptors
-only. t252 therefore needs one independently written file client for the
-content profiles. Upload alone (r5) is not enough; it must cover both the r7
-launcher and the r8 dock profiles:
+Independent checks include the Go file oracle and the C desktop SDK peer,
+implemented separately from the server's Rust codecs. Product integration is
+separate evidence in client repositories and desktop tooling. Upload alone (r5)
+is not enough; content-profile evidence must also cover the r7 launcher and r8 dock:
 
 - negotiation for each exact profile;
 - allocation;
@@ -918,17 +941,12 @@ launcher and the r8 dock profiles:
 - r8: catalog snapshot with identities, and catalog activation by generation
   and slot.
 
-The independent Go oracle will carry these scenarios, written from
-this file contract alone (amendment 1), without Sophia codec reuse.
-Its test admission is supplied, so it cannot prove supervisor authentication.
-The product clients then prove integration, not independence; Narthex remains
-the descriptor reference rather than acquiring content work for this gate.
-Because Provlita cannot build as-is (due to missing `../sophia-stack` path
-dependencies), its r8 dock bounds (catalog with r8 identities at the 4 MiB cap,
-per-output allocations and reservations, journal and snapshot bounds) are proven first through the
-independent Go oracle's r8 profile. Provlita's own integration evidence requires
-repairing its dependency pin, which is a prerequisite recorded here and not a
-transport change.
+The Go oracle's admission is supplied, so that fixture does not prove supervisor
+authentication. Protected C descriptor and content peers exercise the production
+launch and presentation owners separately. Each test's limits remain explicit;
+codec independence alone establishes neither physical presentation nor a product
+client's behavior. The descriptor proof includes work-area changes only after
+the matching presentation, tabs, shortcuts and launcher exchanges.
 
 Required evidence follows the control bus's five retirement criteria, per
 profile:
@@ -987,26 +1005,27 @@ alive as the file format, so it is replaced before more families build on it:
   counted row tables; limits, outputs, catalog and indicators are objects
   with their own layouts. Slice-1 kinds are re-encoded; nothing shipped.
 - **Budgets are wire-neutral.** Owners charge response credit per record,
-  not in socket-frame bytes; each wire enforces its own byte bounds.
+  and bulk records in native record-body bytes. The content registry and typed
+  FIFO use the same charge; each wire enforces its own byte bounds. A record
+  stays queued and charged until a journal append accepts it or the socket
+  writes its last byte. A refused or partial transfer never releases custody.
 - **Clients seam at typed values.** `sophia-shell-client` queues typed
   records and objects; each wire encodes natively. No frame translation.
-- **The independent oracle is written from this contract alone**, never
-  from `protocol/sophia-shell-v1.kdl`.
+- **The independent oracle is written from this file contract alone.**
 
 The per-role behaviour, owners, bounds and budgets above are unchanged.
 
 ### IPC purge inventory (t255)
 
-Nothing new may depend on these; each is deleted when its role's file wire
-is the accepted default:
+WM and shell socket implementations and SDK compatibility retire under t269
+and t270. The file contract keeps its existing Limits layout: removing a client
+adapter does not authorize changing negotiated fields or validation relations.
+The remaining public IPC is tracked separately:
 
 | Area | IPC code |
 | --- | --- |
-| Shell | socket transport (`shell_transport` socket branch, inbox/outbox frames), `ipc::shell_*` codecs (`fields.rs`, `codec.rs`), `packets/shell_*` |
-| Shell clients | Rust desktop SDK `sophia-shell-client` socket wire; C desktop SDK `src/shell_wire` socket half (Sophia pins the latter under `vendor/c-desktop-sdk/source`) |
-| Shell file contract | the socket-shaped `Limits` fields (`max_frame_payload`, `max_input_queue_bytes`) and the relations that use the socket header sizes (+24, +48); with them, the response budget's byte charges (`control_budget.rs`: bulk records charged in socket-frame bytes, `max_output_queue_bytes` and the control reserve) become per-record credits with each wire enforcing its own byte bounds. Until then the budget holds its bounds on both wires; control credits are already per record |
-| WM | `policy_transport_worker/current_ipc.rs`, `ipc::wm_v1*` and `ipc::policy_*` codecs, Hagia's legacy policy wire |
-| WM file wire (relocate, not delete) | the neutral row-section codec now under `ipc::wm_v1_records` and `ipc::policy_records`, and the row layouts `sophia-wm-files-v1.kdl` cites from `sophia-wm-v1.kdl`, move to wire-neutral homes before the WM IPC codecs go |
+| Shell file contract (retained) | `Limits` fields `max_frame_payload`, `max_input_queue_bytes` and their +24/+48 validation relations remain wire-compatible. Owners charge native record-body bytes and per-record control credits; `max_output_queue_bytes` and the control reserve remain Session retention bounds. A layout change needs a separate coordinated contract amendment |
+| WM file wire (retained) | `wm_records`, `wm_rows`, `policy_scalars` and `BinaryCodecError` are neutral owners; `sophia-wm-files-v1.kdl` owns the fixed row layouts |
 | Output | output socket role (`ipc::output_v1`), migrated by t253 |
 | Control | control socket (`ipc::control_v1`), per the control-bus plan |
 | Broker/portal | `ipc::broker*`, `ipc::portal` (t254 inventory) |

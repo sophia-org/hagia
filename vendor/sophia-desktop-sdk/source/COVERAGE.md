@@ -17,13 +17,13 @@ Clients retain their own policy and UI logic. No missing file operation falls
 back to IPC. Former descriptor-based operations require a reviewed file or
 protected-grant contract, rather than a hidden ancillary-data channel.
 
-## Current C snapshot
+## Release 0.4.0
 
 | Role | File contract | Client status |
 | --- | --- | --- |
 | Shell: bar, native launcher, catalog/dock, indicators, content | Pinned API 1, revisions 6–8 | Implemented; scope and evidence in README and tests |
-| WM: negotiation, profile handoff, configuration, snapshots, cycles, projections, session operations, presentation receipts | Sophia WM file API 1 | File codecs and session pass literal/scripted tests; production-export gate and Hagia migration remain open |
-| Output authority | Separate role; the pinned WM contract still advertises `output_transport=current_ipc` | File contract and SDK client gap |
+| WM: negotiation, profile handoff, configuration, snapshots, cycles, projections, session operations, presentation receipts | Sophia WM file API 1 (`b0721d0de`); `api` names the 9P2000.L output transport | Implemented: literal/scripted tests including exact `api` refusal of `current_ipc`, Sophia production WM export gate (`c4e17899e`) and Hagia thin bindings (`b3d8496`) |
+| Output authority: negotiation, topology publication, validate/apply proposals, outcomes | Sophia output file API 1, revision 1 (`b0721d0de`) | Codec/session, literal and scripted-peer tests, independent C exchange against the production export, and Sophia's attended native acceptance (`ddd27bd6d`; one card, two heads, refresh-only change) |
 | Admin/control: the public control operations and their results | Existing control schema does not establish a 9P file contract | File contract and SDK client gap |
 
 This table does not claim that a transport codec provides a session client, or
@@ -31,6 +31,32 @@ that a unit test proves operation against a live Session. `compatibility.json`
 continues to describe implemented support until the relevant gates pass.
 
 ## Parity gate
+
+Descriptor support covers all seventeen native envelopes:
+three whole objects, eight events, two activation acknowledgements and four
+presentation candidates in `spec/sophia-shell-files-v1.kdl`. It validates envelopes, identities,
+bounded text, row counts and uniqueness, action/connection bindings, style and
+outcome relationships using literal vectors. Snapshots and larger candidate
+rows borrow caller-owned encoded storage; fixed candidate arrays remain bounded.
+The descriptor profile validates its explicit api role and exact
+selected capabilities, supports metadata-only and combined content readiness,
+and tracks fetch/ack holds for every disclosed feed. Scripted tests exercise
+partial reads, EOF, supersession, qid/generation matching and capability
+refusals. Existing content roles refuse descriptor disclosure before consumption.
+The low-level file client accepts caller-owned transaction scratch through
+`sophia_sf_client_init_buffers`; scripted tests send complete maximum tab and
+reference candidates, preserving custody and explicit same-id EAGAIN retry.
+The queued session accepts separate caller-owned transaction storage through
+`sophia_ss_open_fd_staging`. Scripted tests cover maximum tab/reference groups,
+fragmented writes, immutable hand-off, atomic refusal, reservations, paced
+same-id retry and disconnect custody. Existing initializers retain 8 KiB inline
+staging; per-kind codec limits and the total queue bound remain unchanged.
+Sophia's independent C peer exercises all seventeen families against the
+production export, all three descriptor host modes and the launcher host.
+Its protected CPU presentation test checks reservation changes only after
+matching presentation. These are deterministic gates, not physical GPU or
+installed-desktop acceptance.
+These descriptor records are part of the published API-1 contract.
 
 For each role, inventory every former IPC request, response, event, capability,
 resource grant and terminal outcome against a named file-contract operation.
