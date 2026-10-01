@@ -36,7 +36,7 @@ pub(crate) fn exercise(
         "kernel":fs::read_to_string("/proc/version").map_err(|e|e.to_string())?,
         "cpu_affinity":fs::read_to_string("/proc/self/status").map_err(|e|e.to_string())?.lines()
             .find(|line|line.starts_with("Cpus_allowed_list:")).ok_or("missing CPU affinity")?,
-        "nice":19,"cargo_jobs":2,"load":LOAD,"measurement_thread":"Session fixture owner",
+        "nice":crate::acceptance::niceness()?,"cargo_jobs":crate::acceptance::cargo_jobs()?,"load":LOAD,"measurement_thread":"Session fixture owner",
         "physical_input":false,"native_retirement":false});
     let machine_bytes = serde_json::to_vec_pretty(&machine).map_err(|e| e.to_string())?;
     fs::write(

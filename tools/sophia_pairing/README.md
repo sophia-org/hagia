@@ -50,7 +50,8 @@ Rust 1.96.1 (Sophia's pinned toolchain), cached Cargo dependencies, Git,
 bubblewrap and GNU timeout. `nimble pairing` is the short launcher; it requires
 `SOPHIA_ROOT`, `HAGIA_PAIRING_BIN`, `HAGIA_PAIRING_SHA256`,
 `HAGIA_PAIRING_EVIDENCE` and `HAGIA_PAIRING_TARGET`. It hides
-devices, removes live-session variables, uses nice 19/jobs 2, runs cases
+devices, removes live-session variables, runs at the caller's priority with
+the caller's `CARGO_BUILD_JOBS` (or every CPU) and records both, runs cases
 serially and gives isolated phases one shared deadline; source Git commands have
 separate 60-second process limits. This is device hiding, not read-only filesystem
 confinement: the bubblewrap root bind remains writable. Log reads are bounded

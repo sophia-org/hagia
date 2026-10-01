@@ -24,7 +24,7 @@ unset DISPLAY WAYLAND_DISPLAY
 build=$(mktemp -d "${TMPDIR:-/tmp}/hagia-export.XXXXXXXX")
 trap 'rm -rf -- "$build"' EXIT HUP INT TERM
 cd "$root"
-timeout -s KILL 300 nice -n 19 nim c --hints:off --path:src --parallelBuild:2 \
+timeout -s KILL 300 nim c --hints:off --path:src \
     --nimcache:"$build/nimcache" -o:"$build/wm-sdk-session-peer" tests/wm_sdk_session_peer.nim
 export SOPHIA_WM_FILE_PEER="$build/wm-sdk-session-peer"
 SOPHIA_WM_FILE_PEER_SHA256=$(sha256sum "$SOPHIA_WM_FILE_PEER" | cut -d ' ' -f1)
@@ -32,7 +32,7 @@ export SOPHIA_WM_FILE_PEER_SHA256
 mkdir -m 700 "$SOPHIA_WM_FILE_PEER_EVIDENCE"
 cd "$source"
 # Refuse a checkout lacking the tests instead of allowing a zero-test success.
-tests=$(timeout -s KILL 600 env CARGO_BUILD_JOBS=2 nice -n 19 cargo test \
+tests=$(timeout -s KILL 600 cargo test \
     --offline --locked -p sophia-session --all-features --lib \
     independent_nim_supplied_stream -- --ignored --list)
 for name in startup cycle; do
@@ -41,6 +41,6 @@ for name in startup cycle; do
         exit 1
     fi
 done
-timeout -s KILL 600 env CARGO_BUILD_JOBS=2 nice -n 19 cargo test --offline --locked \
+timeout -s KILL 600 cargo test --offline --locked \
     -p sophia-session --all-features --lib independent_nim_supplied_stream \
     -- --ignored --test-threads=1 --nocapture

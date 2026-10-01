@@ -163,8 +163,6 @@ fn exercise(
             "test",
             "--offline",
             "--locked",
-            "-j",
-            "2",
             "-p",
             "sophia-protocol",
             "--tests",
@@ -177,8 +175,6 @@ fn exercise(
         "test",
         "--offline",
         "--locked",
-        "-j",
-        "2",
         "-p",
         "sophia-session",
         "--features",
@@ -248,8 +244,6 @@ fn exercise(
             "clippy",
             "--offline",
             "--locked",
-            "-j",
-            "2",
             "-p",
             "sophia-session",
             "--features",
@@ -268,8 +262,6 @@ fn exercise(
             "clippy",
             "--offline",
             "--locked",
-            "-j",
-            "2",
             "-p",
             "sophia-runtime",
             "--all-targets",
@@ -287,8 +279,6 @@ fn exercise(
             "run",
             "--offline",
             "--locked",
-            "-j",
-            "2",
             "-p",
             "xtask",
             "--",
@@ -447,15 +437,9 @@ pub(crate) fn stage_with_env(
     let stderr = stdout.try_clone().map_err(|e| e.to_string())?;
     // Killing the PID-namespace init collects its descendants, including a
     // hung protected peer. A bounded phase never falls back to the host.
-    let mut command = Command::new("nice");
+    let mut command = Command::new("timeout");
     command
-        .args([
-            "-n",
-            "19",
-            "timeout",
-            "--signal=KILL",
-            &format!("{:.3}s", remaining.as_secs_f64()),
-        ])
+        .args(["--signal=KILL", &format!("{:.3}s", remaining.as_secs_f64())])
         .args([
             "bwrap",
             "--die-with-parent",
@@ -476,7 +460,7 @@ pub(crate) fn stage_with_env(
         .args(["--", program])
         .args(args)
         .current_dir(repo)
-        .env("CARGO_BUILD_JOBS", "2")
+        .env("CARGO_BUILD_JOBS", cargo_jobs()?.to_string())
         .env("RUSTUP_TOOLCHAIN", "1.96.1")
         .env("CARGO_TERM_COLOR", "never")
         .env("CARGO_TARGET_DIR", &options.target)
@@ -527,6 +511,30 @@ pub(crate) fn stage_with_env(
             log.display()
         ))
     }
+}
+
+/// Cargo parallelism for every phase: the caller's `CARGO_BUILD_JOBS`, which
+/// must be a canonical positive integer, or every available CPU. Phases run at
+/// the caller's priority; reports record what ran rather than a fixed cap.
+pub(crate) fn cargo_jobs() -> Result<usize, String> {
+    let Some(value) = std::env::var_os("CARGO_BUILD_JOBS") else {
+        return Ok(std::thread::available_parallelism().map_or(1, usize::from));
+    };
+    value
+        .to_str()
+        .filter(|v| !v.starts_with('0') && v.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|v| v.parse().ok())
+        .ok_or_else(|| format!("CARGO_BUILD_JOBS must be a positive integer, not {value:?}"))
+}
+
+/// This process's nice value (proc_pid_stat(5) field 19), which every phase
+/// inherits. Fields are counted from the last `)`, which ends the command name.
+pub(crate) fn niceness() -> Result<i32, String> {
+    let stat = fs::read_to_string("/proc/self/stat").map_err(|e| e.to_string())?;
+    stat.rsplit_once(')')
+        .and_then(|(_, fields)| fields.split_ascii_whitespace().nth(16))
+        .and_then(|nice| nice.parse().ok())
+        .ok_or_else(|| "unreadable nice value in /proc/self/stat".to_owned())
 }
 
 pub(crate) fn required_tests(list: &str) -> Result<Vec<String>, String> {
@@ -661,7 +669,7 @@ fn write_report(
 ) -> Result<(), String> {
     fs::write(options.output.join("report.json"), serde_json::to_vec_pretty(&json!({
         "schema": 1, "status": status, "error": error, "identity": before, "final_identity": after,
-        "phases": phases, "device_hidden": true, "cargo_jobs": 2, "serial_tests": true,
+        "phases": phases, "device_hidden": true, "cargo_jobs": cargo_jobs()?, "nice": niceness()?, "serial_tests": true,
         "source_description": "pinned Sophia base plus Hagia-owned test overlay",
         "wm_transport": ["current-ipc", "9p2000.L"], "output_transport": "current-ipc",
         "native_acceptance": false, "performance_claim": false, "application_execution_claim": false,

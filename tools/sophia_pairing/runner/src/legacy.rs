@@ -227,7 +227,7 @@ pub fn exercise(
         ),
     ] {
         let list_name = format!("legacy-{family}-list");
-        let mut command = vec!["test", "--offline", "--locked", "-j", "2"];
+        let mut command = vec!["test", "--offline", "--locked"];
         command.extend_from_slice(selection);
         command.extend(["--", "--list"]);
         phase(&list_name, "cargo", &command, |_| Ok(()))?;
