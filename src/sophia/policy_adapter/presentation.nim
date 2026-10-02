@@ -203,7 +203,9 @@ proc revokeChangedPresentation(adapter: var PolicyAdapter, snapshot: PolicySnaps
   if adapter.presentation.isNone:
     return
   let publication = adapter.presentation.get()
-  if publication.outputs.len != snapshot.outputs.len:
+  # The overview covers every output, so a new one revokes it; the switcher
+  # covers only the output it opened on and survives one being added.
+  if adapter.model.overview.active and publication.outputs.len != snapshot.outputs.len:
     adapter.clearPresentation()
     return
   for old in publication.outputs:
@@ -284,6 +286,8 @@ proc applyPresentationAction(adapter: var PolicyAdapter, request: ProjectionRequ
     else:
       adapter.model.setOverviewSelection(selection)
       adapter.model.confirmOverview()
+  # Presentation actions bypass the reducer, which otherwise records this.
+  adapter.model.noteRecentFocus()
 
 proc receivePresentationReceipt*(
     adapter: var PolicyAdapter, receipt: PresentationReceipt

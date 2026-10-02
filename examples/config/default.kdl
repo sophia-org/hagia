@@ -92,11 +92,13 @@ shortcut {
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"
   bind "Super+o" "policy:toggle-overview" label="Workspace overview" group="Workspaces"
-  // Recent windows, as niri: hold Alt and tap Tab to step back through recently
-  // focused windows; release Alt to switch. Any modifier chord works here.
+  // Recent windows, after niri: Alt+Tab steps back through recently focused
+  // windows, Alt+Shift+Tab the other way. Until Sophia reports when a chord is
+  // released the switcher is modal: once it shows, Tab or the arrows step it
+  // with any modifiers held, Enter switches and Escape cancels. A chord on a
+  // key other than Tab opens it but does not step it.
   bind "Alt+Tab" "policy:recent-window-next" label="Recent windows" group="Workspaces"
   bind "Alt+Shift+Tab" "policy:recent-window-prev"
-  bind "Alt+Escape" "policy:recent-window-cancel"
   bind "Super+?" "session:shortcut-help" label="Show keyboard shortcuts" group="Session"
   bind "Super+q" "session:close-window"
   bind "Super+h" "policy:focus-column-prev"

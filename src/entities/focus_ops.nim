@@ -3,7 +3,6 @@ import std/[options, sequtils, tables]
 import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[queries, values]
-import ./recent_windows_ops
 
 ## Focus assignment and the bounded focus history an output keeps. Both window
 ## and output lifecycle need this, so it owns no other concern.
@@ -29,7 +28,6 @@ proc setFocus*(model: var PolicyModel, outputId: OutputId, windowId: WindowId) =
   model.outputs[outputId].focusHistory.add(windowId)
   if model.outputs[outputId].focusHistory.len > maxFocusHistory:
     model.outputs[outputId].focusHistory.delete(0)
-  model.touchRecentFocus(windowId)
   model.activeOutput = outputId
 
 proc clearFocus*(model: var PolicyModel, outputId: OutputId) =

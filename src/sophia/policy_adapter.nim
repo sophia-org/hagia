@@ -1213,6 +1213,9 @@ proc reconcile*(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   # two-output desktop where both remember a focused window, that is the wrong
   # one. The handle was proved live when it was first established above.
   adapter.model.setActiveOutput(adapter.outputToLogical[snapshot.activeOutput])
+  # Only now is the focus Sophia reports settled; restoring each output's
+  # remembered window above must not reorder the recent-focus history.
+  adapter.model.noteRecentFocus()
   if adapter.model.overview.active:
     try:
       adapter.model.setOverviewSelection(adapter.model.overview.selection)

@@ -1,8 +1,9 @@
 import std/[options, sequtils, unittest]
 
-import policy/[actions, recent_windows, state]
+import policy/[actions, recent_windows, reducer, state]
+import entities/recent_windows_ops
 import systems/recent_windows
-import types/[actions, core, model, recent_windows]
+import types/[actions, core, model, policy_messages, recent_windows]
 
 ## The recent-windows switcher's pure policy: niri's order and selection rules,
 ## commit and cancel, and the strip layout. Sophia's chord lifecycle drives
@@ -12,6 +13,11 @@ import types/[actions, core, model, recent_windows]
 proc capabilities(): WindowCapabilities =
   WindowCapabilities(movable: true, resizable: true, focusable: true)
 
+proc userFocus(model: var PolicyModel, output: OutputId, window: WindowId) =
+  ## A focus the operator chose: one cause, recorded once it settles.
+  model.setFocus(output, window)
+  model.noteRecentFocus()
+
 proc threeWindows(): (PolicyModel, OutputId, seq[WindowId]) =
   ## Focused in order a, b, c, so the most recent order is c, b, a.
   var model = initPolicyModel()
@@ -19,7 +25,7 @@ proc threeWindows(): (PolicyModel, OutputId, seq[WindowId]) =
   var windows: seq[WindowId]
   for _ in 0 ..< 3:
     let window = model.addWindow(output, capabilities(), SizeConstraints())
-    model.setFocus(output, window)
+    model.userFocus(output, window)
     windows.add(window)
   (model, output, windows)
 
@@ -31,7 +37,7 @@ suite "recent-windows switcher":
     var (model, output, windows) = threeWindows()
     check model.recentWindowCandidates(RecentWindowScope.all) ==
       @[windows[2], windows[1], windows[0]]
-    model.setFocus(output, windows[0])
+    model.userFocus(output, windows[0])
     check model.recentWindowCandidates(RecentWindowScope.all) ==
       @[windows[0], windows[2], windows[1]]
 
@@ -59,7 +65,13 @@ suite "recent-windows switcher":
   test "a quick tap commits without ever being drawn":
     var (model, output, windows) = threeWindows()
     model.applyAction(output, PolicyAction.recentWindowNext)
-    model.commitRecentWindows()
+    model = model.reducePolicy(
+      PolicyMsg(
+        kind: PolicyMsgKind.action,
+        output: output,
+        action: PolicyAction.recentWindowConfirm,
+      )
+    ).candidate
     check model.focused(output) == windows[1]
     check not model.recentWindows.active
     check model.recentFocus[^1] == windows[1]
@@ -105,6 +117,23 @@ suite "recent-windows switcher":
     check not model.recentWindows.active
     model.validate()
 
+  test "focus that is not the operator's does not reorder the history":
+    var model = initPolicyModel()
+    let left = model.addOutput(Rect(width: 1200, height: 900))
+    let right = model.addOutput(Rect(x: 1200, width: 1600, height: 1000))
+    let older = model.addWindow(left, capabilities(), SizeConstraints())
+    let away = model.addWindow(right, capabilities(), SizeConstraints())
+    let current = model.addWindow(left, capabilities(), SizeConstraints())
+    model.userFocus(left, older)
+    model.userFocus(right, away)
+    model.userFocus(left, current)
+    # Restoring the other output's remembered focus, as reconciliation does,
+    # makes that output active; it is put back and the cause settles.
+    model.setFocus(right, away)
+    model.setActiveOutput(left)
+    model.noteRecentFocus()
+    check model.recentWindowCandidates(RecentWindowScope.all) == @[current, away, older]
+
   test "an empty desk does not open the switcher":
     var model = initPolicyModel()
     let output = model.addOutput(Rect(width: 1920, height: 1080))
@@ -114,7 +143,7 @@ suite "recent-windows switcher":
   test "a window never focused follows the focused ones":
     var (model, output, windows) = threeWindows()
     let background = model.addWindow(output, capabilities(), SizeConstraints())
-    model.setFocus(output, windows[2])
+    model.userFocus(output, windows[2])
     check model.recentWindowCandidates(RecentWindowScope.all)[^1] == background
 
   test "commit reaches a window on a hidden workspace of another output":
@@ -125,10 +154,10 @@ suite "recent-windows switcher":
     let rightViews = model.output(right).get().views
     model.activateView(right, rightViews[1])
     let hidden = model.addWindow(right, capabilities(), SizeConstraints())
-    model.setFocus(right, hidden)
+    model.userFocus(right, hidden)
     model.activateView(right, rightViews[0])
     let current = model.addWindow(left, capabilities(), SizeConstraints())
-    model.setFocus(left, current)
+    model.userFocus(left, current)
     model.applyAction(left, PolicyAction.recentWindowNext)
     check model.recentWindows.candidates[model.recentWindows.selected] == hidden
     model.commitRecentWindows()
@@ -144,13 +173,13 @@ suite "recent-windows switcher":
     model.ensureViewCount(left, 2)
     let leftViews = model.output(left).get().views
     let other = model.addWindow(right, capabilities(), SizeConstraints())
-    model.setFocus(right, other)
+    model.userFocus(right, other)
     model.activateView(left, leftViews[1])
     let hidden = model.addWindow(left, capabilities(), SizeConstraints())
-    model.setFocus(left, hidden)
+    model.userFocus(left, hidden)
     model.activateView(left, leftViews[0])
     let shown = model.addWindow(left, capabilities(), SizeConstraints())
-    model.setFocus(left, shown)
+    model.userFocus(left, shown)
     check model.recentWindowCandidates(RecentWindowScope.workspace) == @[shown]
     check model.recentWindowCandidates(RecentWindowScope.output) == @[shown, hidden]
     check model.recentWindowCandidates(RecentWindowScope.all) == @[shown, hidden, other]
@@ -198,7 +227,7 @@ suite "recent-windows strip layout":
     let output = model.addOutput(Rect(width: 1920, height: 1080))
     for _ in 0 ..< 12:
       let window = model.addWindow(output, capabilities(), SizeConstraints())
-      model.setFocus(output, window)
+      model.userFocus(output, window)
     for _ in 0 ..< 6:
       model.applyAction(output, PolicyAction.recentWindowNext)
     model.showRecentWindows()

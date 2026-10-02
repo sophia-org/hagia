@@ -37,6 +37,35 @@ proc scene(): PolicySnapshot =
       )
     )
 
+proc twoOutputs(active: uint64, leftFocus: uint32): PolicySnapshot =
+  ## Left (10) holds a (1) and c (3); right (20) holds b (2) and keeps it
+  ## focused. Both outputs report a focus, as Sophia's snapshots do.
+  result = PolicySnapshot(generation: 1, activeOutput: active)
+  for (output, x, focus) in [(10'u64, 0'i32, leftFocus), (20'u64, 1920'i32, 2'u32)]:
+    result.outputs.add(
+      SnapshotOutput(
+        output: output,
+        generation: 1,
+        x: x,
+        width: 1920,
+        height: 1080,
+        focusIndex: focus,
+        focusGeneration: 1,
+      )
+    )
+  for (index, output) in [(1'u32, 10'u64), (2'u32, 20'u64), (3'u32, 10'u64)]:
+    result.surfaces.add(
+      SnapshotSurface(
+        surfaceIndex: index,
+        surfaceGeneration: 1,
+        stateGeneration: 1,
+        currentOutput: output,
+        capabilityBits: 31,
+        width: 800,
+        height: 600,
+      )
+    )
+
 proc request(
     snapshot: PolicySnapshot, id: uint64, action: PolicyAction
 ): ProjectionRequest =
@@ -102,9 +131,20 @@ suite "recent-windows switcher presentation":
       it.action == PolicyAction.recentWindowConfirm.raw() and it.destination.width < 800
     )
     check publication.regions.anyIt(it.role == PresentationRegionRole.emphasis)
-    check publication.bindings.anyIt(
-      it.action == PolicyAction.recentWindowCancel.raw() and it.keycode == 1
-    )
+    # Capture matches modifiers exactly, so every chord the operator may still
+    # hold must step, confirm, or cancel rather than be swallowed.
+    proc bound(keycode, modifiers: uint32): uint64 =
+      for binding in publication.bindings:
+        if binding.keycode == keycode and binding.modifiers == modifiers:
+          return binding.action
+
+    check publication.bindings.len == 96
+    check publication.bindings.mapIt((it.keycode, it.modifiers)).deduplicate().len == 96
+    check bound(15, 2) == PolicyAction.recentWindowNext.raw()
+    check bound(15, 5) == PolicyAction.recentWindowPrevious.raw()
+    check bound(15, 15) == PolicyAction.recentWindowPrevious.raw()
+    check bound(28, 4) == PolicyAction.recentWindowConfirm.raw()
+    check bound(1, 4) == PolicyAction.recentWindowCancel.raw()
     check opened.focus() == 3
 
   test "a keyboard confirm commits the selection and withdraws the strip":
@@ -168,3 +208,26 @@ suite "recent-windows switcher presentation":
     check not publication.bindings.anyIt(
       it.action == PolicyAction.recentWindowConfirm.raw()
     )
+
+  test "restoring each output's focus does not reorder the recent windows":
+    # The operator works in b on the right, then focuses a on the left. Every
+    # later snapshot still reports both outputs' focus, left first; the
+    # previous window must stay b, not the never-used c beside a.
+    var session = initPolicySession()
+    let onRight = twoOutputs(20, 3)
+    discard session.cycle(onRight, onRight.request(1, PolicyAction.recentWindowCancel))
+    var focusA = onRight.request(2, PolicyAction.recentWindowCancel)
+    focusA.cause = ProjectionCause(
+      kind: ProjectionCauseKind.focus, targetIndex: 1, targetGeneration: 1
+    )
+    discard session.cycle(onRight, focusA)
+    let onLeft = twoOutputs(10, 1)
+    let opened = session.cycle(onLeft, onLeft.request(3, PolicyAction.recentWindowNext))
+    let publication = opened.presentation.get()
+    check publication.instances.mapIt(it.sourceIndex) == @[1'u32, 2, 3]
+    var confirm = publication.presented(onLeft, 4, PolicyAction.recentWindowConfirm)
+    confirm.affectedOutputs = @[10'u64, 20]
+    let confirmed = session.cycle(onLeft, confirm)
+    check confirmed.presentation.isNone
+    check confirmed.activeOutput == 20
+    check confirmed.outputs.filterIt(it.output.output == 20)[0].output.focusIndex == 2

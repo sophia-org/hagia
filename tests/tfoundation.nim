@@ -598,10 +598,11 @@ suite "Hagia foundation":
       check implemented
       inc policyBindings
     # The overview binding adds one WM action, and the recent-windows switcher
-    # three (next, previous, cancel). The session actions retain their
-    # existing authority, including reload and process replacement.
-    check shortcuts.values.len == 98
-    check policyBindings == 89
+    # two (next, previous); its cancel waits for Sophia's chord lifecycle,
+    # since the modal switcher binds Escape itself. The session actions retain
+    # their existing authority, including reload and process replacement.
+    check shortcuts.values.len == 97
+    check policyBindings == 88
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
     # A chord that passes the character check but names no key used to reach

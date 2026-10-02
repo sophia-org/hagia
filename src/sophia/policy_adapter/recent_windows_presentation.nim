@@ -1,21 +1,28 @@
 # Included by policy_adapter after presentation.nim: it shares the identity maps
 # and `finishPublication`.
 
-const recentWindowModalBindings = [
+const recentWindowModalBindings = block:
   # Used only when Sophia cannot report the chord ending: the switcher is then
   # a modal one, drawn once the modifier is up, and confirmed explicitly.
-  (15'u32, 0'u32, PolicyAction.recentWindowNext),
-  (15'u32, 1'u32, PolicyAction.recentWindowPrevious),
-  (15'u32, 4'u32, PolicyAction.recentWindowNext),
-  (15'u32, 5'u32, PolicyAction.recentWindowPrevious),
-  (15'u32, 8'u32, PolicyAction.recentWindowNext),
-  (15'u32, 9'u32, PolicyAction.recentWindowPrevious),
-  (106'u32, 0'u32, PolicyAction.recentWindowNext),
-  (105'u32, 0'u32, PolicyAction.recentWindowPrevious),
-  (28'u32, 0'u32, PolicyAction.recentWindowConfirm),
-  (96'u32, 0'u32, PolicyAction.recentWindowConfirm),
-  (1'u32, 0'u32, PolicyAction.recentWindowCancel),
-]
+  # Modal capture matches modifiers exactly and swallows every unbound key,
+  # and the policy does not learn which chord opened the switcher. So each key
+  # is bound under all sixteen masks (Shift, Ctrl, Alt, Super): a chord on Tab
+  # steps with any modifiers held, and Shift+Tab steps back. A trigger on
+  # another key opens the switcher but does not step it until the lifecycle.
+  var bindings: seq[(uint32, uint32, PolicyAction)]
+  for modifiers in 0'u32 .. 15'u32:
+    let tab =
+      if (modifiers and 1) != 0:
+        PolicyAction.recentWindowPrevious
+      else:
+        PolicyAction.recentWindowNext
+    bindings.add((15'u32, modifiers, tab))
+    bindings.add((106'u32, modifiers, PolicyAction.recentWindowNext))
+    bindings.add((105'u32, modifiers, PolicyAction.recentWindowPrevious))
+    bindings.add((28'u32, modifiers, PolicyAction.recentWindowConfirm))
+    bindings.add((96'u32, modifiers, PolicyAction.recentWindowConfirm))
+    bindings.add((1'u32, modifiers, PolicyAction.recentWindowCancel))
+  bindings
 
 proc reaches(rect, bounds: Rect): bool =
   ## Whether any of a scrolled preview is on the output at all.

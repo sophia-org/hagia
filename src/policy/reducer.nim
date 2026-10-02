@@ -2,7 +2,7 @@ import std/options
 
 import ../types/[core, model, policy_messages]
 import ./[actions, entity_store, state]
-import ../entities/tab_tree_ops
+import ../entities/[recent_windows_ops, tab_tree_ops]
 import ../systems/overview
 
 proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
@@ -54,6 +54,7 @@ proc reducePolicy*(model: PolicyModel, message: PolicyMsg): PolicyUpdate =
       message.output, message.interactionWindow, message.geometry
     )
   result.candidate.syncTabTrees()
+  result.candidate.noteRecentFocus()
   result.candidate.validate()
   # Projection replacement is complete per affected output. Return all outputs
   # for now because existing actions can move membership across authorities.
