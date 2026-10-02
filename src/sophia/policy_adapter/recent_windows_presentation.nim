@@ -36,14 +36,14 @@ proc recentWindowsPresentation(
     snapshot: PolicySnapshot,
     physicalBounds: openArray[(OutputId, Rect)],
 ): Option[WmPresentation] =
-  ## With Sophia's chord lifecycle the strip is an Overlay: no keyboard
-  ## capture, so the held modifier and the chord's further presses keep
-  ## reaching Sophia's shortcut authority. Without it the strip is modal.
+  ## A switcher owned by a chord is an Overlay: no keyboard capture, so the
+  ## held modifier and the chord's further presses keep reaching Sophia's
+  ## shortcut authority. One opened by a plain invocation is modal.
   let strip = adapter.model.recentWindowStrip(physicalBounds)
   if strip.isNone:
     adapter.clearPresentation()
     return none(WmPresentation)
-  let modal = not adapter.actionLifecycle
+  let modal = adapter.model.recentWindows.owners.len == 0
   let logical = strip.get().output
   let handle = adapter.logicalToOutput[logical]
   var generation = 0'u64

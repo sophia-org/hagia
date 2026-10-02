@@ -2,6 +2,7 @@ import std/sequtils
 
 import ../types/[core, model]
 import ../policy/entity_store
+import ../state/values
 
 ## The global recent-focus order and the switcher's transient state. The order
 ## records the effective focus -- the active output's focused window -- after
@@ -14,7 +15,32 @@ import ../policy/entity_store
 
 proc clearRecentWindows*(model: var PolicyModel) =
   ## The scope outlives one use of the switcher, as niri's previous scope does.
-  model.recentWindows = RecentWindowsState(scope: model.recentWindows.scope)
+  ## Its owning chords are released with it.
+  model.recentWindows = RecentWindowsState(
+    scope: model.recentWindows.scope, lastChord: model.recentWindows.lastChord
+  )
+
+proc ownsRecentChord*(model: PolicyModel, chord: RecentChordId): bool =
+  chord in model.recentWindows.owners
+
+proc claimRecentChord*(model: var PolicyModel): RecentChordId =
+  ## The chord whose opening ChordAction opened or stepped the switcher now
+  ## owns it, within the bound on chords Sophia can owe. Returns its new
+  ## identity, or the null identity when it owns nothing.
+  if not model.recentWindows.active or
+      model.recentWindows.owners.len >= maxRecentWindowChords:
+    return nullRecentChordId
+  if model.recentWindows.lastChord == high(uint32):
+    fail("recent-windows chord identities are exhausted")
+  inc model.recentWindows.lastChord
+  result = RecentChordId(model.recentWindows.lastChord)
+  model.recentWindows.owners.add(result)
+
+proc forgetRecentChords*(model: var PolicyModel) =
+  ## A new connection epoch: none of the old chords will report again, so a
+  ## switcher they owned closes with them.
+  if model.recentWindows.owners.len > 0:
+    model.clearRecentWindows()
 
 proc touchRecentFocus(model: var PolicyModel, windowId: WindowId) =
   if windowId == nullWindowId or windowId notin model.windows:

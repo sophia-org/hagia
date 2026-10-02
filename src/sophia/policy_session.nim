@@ -140,6 +140,7 @@ proc prepare*(
   # refused.
   candidate.synchronizeLaunchEpoch(request.connectionEpoch)
   candidate.synchronizePresentationEpoch(request.connectionEpoch)
+  candidate.synchronizeChordEpoch(request.connectionEpoch)
   candidate.reconcile(snapshot)
   if request.cause.kind == ProjectionCauseKind.outputAction:
     discard candidate.targetOutputAction(request)
@@ -164,6 +165,13 @@ proc prepare*(
     )
   ).model
 
+proc setActionLifecycle*(session: var PolicySession, negotiated: bool) =
+  ## Fixed for a connection, so it is set on the committed adapter before any
+  ## projection is prepared from it.
+  if session.pending.isSome:
+    fail("action lifecycle changed during a pending projection")
+  session.committed.setActionLifecycle(negotiated)
+
 proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
   if session.pending.isNone:
     fail("policy outcome has no pending projection")
@@ -176,6 +184,8 @@ proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
     session.committed = pending.adapter
     session.committedSceneGeneration = outcome.sceneGeneration
     session.committedPolicyGeneration = pending.request.policyGeneration
+  else:
+    session.committed.observeLifecycleTerminal(pending.request)
   session.runtime = session.runtime.reduceRuntime(
     RuntimeMsg(
       kind: RuntimeMsgKind.projectionSettled,

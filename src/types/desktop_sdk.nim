@@ -21,6 +21,8 @@ type
     interaction* {.importc: "interaction".}: WfInteraction
     outputAction* {.importc: "output_action".}: WfOutputAction
     presentationAction* {.importc: "presentation_action".}: WfPresentationAction
+    actionLifecycle* {.importc: "action_lifecycle".}: WfActionLifecycle
+    chordAction* {.importc: "chord_action".}: WfChordAction
 
   WfRecordValue* {.union, bycopy.} = object
     limits* {.importc: "limits".}: WfLimits
@@ -144,6 +146,30 @@ type
     presentationEpoch* {.importc: "presentation_epoch".}: uint64
     targetId* {.importc: "target_id".}: uint64
     targetGeneration* {.importc: "target_generation".}: uint64
+
+  WfActionLifecycle* {.
+    importc: "struct sophia_wf_action_lifecycle", header: "sophia_wm_files.h", bycopy
+  .} = object
+    serial* {.importc: "serial".}: uint64
+    action* {.importc: "action".}: uint64
+    phase* {.importc: "phase".}: uint16
+    reason* {.importc: "reason".}: uint16
+    count* {.importc: "count".}: uint32
+
+  WfChordAction* {.
+    importc: "struct sophia_wf_chord_action", header: "sophia_wm_files.h", bycopy
+  .} = object
+    serial* {.importc: "serial".}: uint64
+    chordSerial* {.importc: "chord_serial".}: uint64
+    action* {.importc: "action".}: uint64
+
+  WfConfigurationActionLifecycle* {.
+    importc: "struct sophia_wf_configuration_action_lifecycle",
+    header: "sophia_wm_records.h",
+    bycopy
+  .} = object
+    action* {.importc: "action".}: uint64
+    heldMs* {.importc: "held_ms".}: uint32
 
   WfCycle* {.importc: "struct sophia_wf_cycle", header: "sophia_wm_files.h", bycopy.} = object
     snapshotTransaction* {.importc: "snapshot_transaction".}: uint64

@@ -33,6 +33,10 @@ proc fileCauseKind*(code: uint16): Option[WmFileCauseKind] =
     some(WmFileCauseKind.outputAction)
   of 6:
     some(WmFileCauseKind.presentationAction)
+  of 7:
+    some(WmFileCauseKind.actionLifecycle)
+  of 8:
+    some(WmFileCauseKind.chordAction)
   else:
     none(WmFileCauseKind)
 
@@ -47,6 +51,8 @@ proc projectionCauseKind*(kind: WmFileCauseKind): ProjectionCauseKind =
   of WmFileCauseKind.interaction: ProjectionCauseKind.interaction
   of WmFileCauseKind.outputAction: ProjectionCauseKind.outputAction
   of WmFileCauseKind.presentationAction: ProjectionCauseKind.presentationAction
+  of WmFileCauseKind.actionLifecycle: ProjectionCauseKind.actionLifecycle
+  of WmFileCauseKind.chordAction: ProjectionCauseKind.chordAction
 
 proc fileCauseKind*(kind: ProjectionCauseKind): WmFileCauseKind =
   case kind
@@ -57,6 +63,8 @@ proc fileCauseKind*(kind: ProjectionCauseKind): WmFileCauseKind =
   of ProjectionCauseKind.interaction: WmFileCauseKind.interaction
   of ProjectionCauseKind.outputAction: WmFileCauseKind.outputAction
   of ProjectionCauseKind.presentationAction: WmFileCauseKind.presentationAction
+  of ProjectionCauseKind.actionLifecycle: WmFileCauseKind.actionLifecycle
+  of ProjectionCauseKind.chordAction: WmFileCauseKind.chordAction
 
 proc interactionPhaseFromFileCode*(code: uint16): Option[InteractionPhase] =
   ## The file has no `none` phase; its End is Hagia's `finish`.
@@ -128,6 +136,8 @@ proc causeBytes*(kind: WmFileCauseKind): int =
   of WmFileCauseKind.interaction: 32
   of WmFileCauseKind.outputAction: 32
   of WmFileCauseKind.presentationAction: 64
+  of WmFileCauseKind.actionLifecycle: 24
+  of WmFileCauseKind.chordAction: 24
 
 proc causeCapabilities*(kind: WmFileCauseKind): uint64 =
   ## What a connection must have negotiated to receive each cause.
@@ -140,6 +150,11 @@ proc causeCapabilities*(kind: WmFileCauseKind): uint64 =
     capabilityActions or capabilityOutputActions
   of WmFileCauseKind.presentationAction:
     capabilityActions or capabilitySurfaceInstances or capabilityPresentationActions
+  of WmFileCauseKind.actionLifecycle:
+    capabilityActions or capabilityConfiguration or capabilityActionLifecycle
+  of WmFileCauseKind.chordAction:
+    capabilityActions or capabilityConfiguration or capabilityActionLifecycle or
+      capabilityChordActions
   of WmFileCauseKind.pointerFocus:
     capabilityPointerFocus
   of WmFileCauseKind.interaction:
@@ -158,6 +173,13 @@ proc validFileCause(cause: ProjectionCause, affected: openArray[uint64]): bool =
   let noOutput = cause.output == 0 and cause.outputGeneration == 0
   let noPresentation = cause.presentation == PresentationIdentity()
   let noAction = cause.activationSerial == 0 and cause.action == 0
+  let noLifecycle =
+    cause.lifecyclePhase == 0 and cause.lifecycleReason == 0 and
+    cause.lifecycleCount == 0
+  if cause.kind != ProjectionCauseKind.actionLifecycle and not noLifecycle:
+    return false
+  if cause.kind != ProjectionCauseKind.chordAction and cause.chordSerial != 0:
+    return false
   case cause.kind
   of ProjectionCauseKind.sceneChanged:
     noInteraction and noGeometry and noTarget and noOutput and noPresentation and
@@ -188,6 +210,17 @@ proc validFileCause(cause: ProjectionCause, affected: openArray[uint64]): bool =
       validPresentationIdentity(cause.presentation) and
       cause.presentation.output in affected and noInteraction and noGeometry and noTarget and
       noOutput
+  of ProjectionCauseKind.actionLifecycle:
+    # Held carries reason 0 only; Ended one of the five reasons.
+    let pairing =
+      (cause.lifecyclePhase == 1 and cause.lifecycleReason == 0) or
+      (cause.lifecyclePhase == 2 and cause.lifecycleReason in 1'u16 .. 5'u16)
+    cause.activationSerial != 0 and cause.action != 0 and cause.lifecycleCount != 0 and
+      pairing and noInteraction and noGeometry and noTarget and noOutput and
+      noPresentation
+  of ProjectionCauseKind.chordAction:
+    cause.activationSerial != 0 and cause.chordSerial != 0 and cause.action != 0 and
+      noInteraction and noGeometry and noTarget and noOutput and noPresentation
 
 proc requireCycle(cycle: WmFileCycle) =
   let request = cycle.request
@@ -226,6 +259,15 @@ proc addCause(body: var seq[byte], cause: ProjectionCause) =
     for value in [
       cause.activationSerial, cause.action, cause.output, cause.outputGeneration
     ]:
+      body.addU64(value)
+  of ProjectionCauseKind.actionLifecycle:
+    body.addU64(cause.activationSerial)
+    body.addU64(cause.action)
+    body.addU16(cause.lifecyclePhase)
+    body.addU16(cause.lifecycleReason)
+    body.addU32(cause.lifecycleCount)
+  of ProjectionCauseKind.chordAction:
+    for value in [cause.activationSerial, cause.chordSerial, cause.action]:
       body.addU64(value)
   of ProjectionCauseKind.presentationAction:
     let identity = cause.presentation
@@ -277,6 +319,16 @@ proc readCause(
     result.action = bytes.readU64(at + 8)
     result.output = bytes.readU64(at + 16)
     result.outputGeneration = bytes.readU64(at + 24)
+  of WmFileCauseKind.actionLifecycle:
+    result.activationSerial = bytes.readU64(at)
+    result.action = bytes.readU64(at + 8)
+    result.lifecyclePhase = bytes.readU16(at + 16)
+    result.lifecycleReason = bytes.readU16(at + 18)
+    result.lifecycleCount = bytes.readU32(at + 20)
+  of WmFileCauseKind.chordAction:
+    result.activationSerial = bytes.readU64(at)
+    result.chordSerial = bytes.readU64(at + 8)
+    result.action = bytes.readU64(at + 16)
   of WmFileCauseKind.presentationAction:
     result.activationSerial = bytes.readU64(at)
     result.action = bytes.readU64(at + 8)

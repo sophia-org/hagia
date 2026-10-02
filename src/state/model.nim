@@ -16,6 +16,7 @@ proc clone*(model: PolicyModel): PolicyModel =
   result.overview = model.overview
   result.recentWindows = model.recentWindows
   result.recentWindows.candidates = @(model.recentWindows.candidates)
+  result.recentWindows.owners = @(model.recentWindows.owners)
   result.recentFocus = @(model.recentFocus)
   for view, tree in model.tabTrees.pairs:
     result.tabTrees[view] = tree.cloneTabTree()
@@ -268,8 +269,18 @@ proc validate*(model: PolicyModel) =
     if switcher.candidates.len == 0 or
         switcher.selected notin 0 .. switcher.candidates.high:
       fail("recent-windows selection is invalid")
-  elif switcher.visible or switcher.candidates.len != 0 or switcher.selected != 0:
+  elif switcher.visible or switcher.candidates.len != 0 or switcher.selected != 0 or
+      switcher.owners.len != 0:
     fail("closed recent-windows switcher retains state")
+  # Chord identities are issued, unique, and bounded by the terminals Sophia
+  # can owe.
+  var seenChords = initHashSet[RecentChordId]()
+  for chord in switcher.owners:
+    if uint32(chord) notin 1'u32 .. switcher.lastChord or chord in seenChords:
+      fail("recent-windows chord ownership is invalid")
+    seenChords.incl(chord)
+  if seenChords.len > maxRecentWindowChords:
+    fail("recent-windows chord ownership exceeds its bound")
   for windowId in model.windowOrder:
     let window = model.windows[windowId]
     if window.id != windowId or window.homeOutput notin model.outputs or

@@ -11,12 +11,15 @@ import sophia/sdk_candidate
 import sophia/sdk_cycle
 import sophia/sdk_rows
 import sophia/sdk_snapshot
+import sophia/policy_wire
+import policy/actions
+import types/actions
 import ./support/wire/sophia/wm_file_bodies
 import ./support/wire/sophia/wm_file_arrays
 import support/wm_file_projection_fixture
 import support/wm_file_snapshot_fixture
 
-const allCaps = (1'u64 shl 20) - 1
+const allCaps = (1'u64 shl 22) - 1
 
 proc encoded(candidate: var SdkCandidate): seq[byte] =
   candidate.bindRows()
@@ -59,6 +62,30 @@ suite "Hagia typed C SDK binding":
       kind: WmFileKind.configuration, connectionEpoch: 9, submissionId: 1
     ).encodeFileConfiguration(value, allCaps)
     check candidate.encoded() == expected
+
+  test "the switcher declares its chords only when Sophia reports them":
+    let presentation = capabilitySurfaceInstances or capabilityPresentationActions
+    let value = hagiaConfiguration(allCaps, 9, 1)
+    check value.actionLifecycles ==
+      @[
+        ActionLifecycleInterest(
+          action: PolicyAction.recentWindowNext.raw(), heldMs: 150
+        ),
+        ActionLifecycleInterest(
+          action: PolicyAction.recentWindowPrevious.raw(), heldMs: 150
+        ),
+      ]
+    var candidate = value.configurationCandidate()
+    let expected = WmFileHeader(
+      kind: WmFileKind.configuration, connectionEpoch: 9, submissionId: 1
+    ).encodeFileConfiguration(value, allCaps)
+    check candidate.encoded() == expected
+    check hagiaConfiguration(allCaps and not capabilityActionLifecycle, 9, 1).actionLifecycles.len ==
+      0
+    check hagiaConfiguration(allCaps and not capabilityChordActions, 9, 1).actionLifecycles.len ==
+      0
+    check hagiaConfiguration(allCaps and not presentation, 9, 1).actionLifecycles.len ==
+      0
 
   test "pointer focus keeps the reducer's output-as-action convention":
     let request = ProjectionRequest(
@@ -112,6 +139,27 @@ suite "Hagia typed C SDK binding":
         action: 11,
         output: 7,
         outputGeneration: 1,
+      ),
+      ProjectionCause(
+        kind: ProjectionCauseKind.actionLifecycle,
+        activationSerial: 2,
+        action: 11,
+        lifecyclePhase: 1,
+        lifecycleCount: 1,
+      ),
+      ProjectionCause(
+        kind: ProjectionCauseKind.actionLifecycle,
+        activationSerial: 2,
+        action: 11,
+        lifecyclePhase: 2,
+        lifecycleReason: 2,
+        lifecycleCount: 3,
+      ),
+      ProjectionCause(
+        kind: ProjectionCauseKind.chordAction,
+        activationSerial: 4,
+        chordSerial: 2,
+        action: 11,
       ),
       ProjectionCause(
         kind: ProjectionCauseKind.presentationAction,

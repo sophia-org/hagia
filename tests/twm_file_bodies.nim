@@ -410,7 +410,7 @@ suite "WM file cycle bodies":
     check decoded.interactionAxis == InteractionAxis.vertical
     check decoded.y == -5
     refuses WmFileErrorKind.value:
-      discard interactionCycle.patch16(b + 40, 7).decodeCycle(epoch, allCaps)
+      discard interactionCycle.patch16(b + 40, 9).decodeCycle(epoch, allCaps)
     refuses WmFileErrorKind.value:
       discard interactionCycle.patch16(b + 56, 0).decodeCycle(epoch, allCaps)
 
@@ -435,6 +435,12 @@ suite "WM file cycle bodies":
     var presentation: Le
     presentation.u64(61).u64(62).u64(64).u64(2).u64(65).u64(66).u64(0).u64(0)
     causes.add((6'u16, presentation.bytes))
+    var lifecycle: Le
+    lifecycle.u64(61).u64(62).u16(2).u16(1).u32(3)
+    causes.add((7'u16, lifecycle.bytes))
+    var chord: Le
+    chord.u64(63).u64(61).u64(62)
+    causes.add((8'u16, chord.bytes))
     for (code, causeBytes) in causes:
       let bytes = event(22, cycleBody(code, [1'u64, 2], causeBytes))
       let cycle = bytes.decodeCycle(epoch, allCaps)
@@ -476,6 +482,20 @@ suite "WM file cycle bodies":
       discard outputCycle.decodeCycle(epoch, allCaps xor capabilityOutputActions)
     refuses WmFileErrorKind.capability:
       discard outputCycle.decodeCycle(epoch, allCaps xor capabilityActions)
+    # A ChordAction needs the whole chord vocabulary, and both serials.
+    var chord: Le
+    chord.u64(63).u64(61).u64(62)
+    let chordCycle = event(22, cycleBody(8, [1'u64], chord.bytes))
+    check chordCycle.decodeCycle(epoch, allCaps).request.cause.chordSerial == 61
+    for capability in [
+      capabilityChordActions, capabilityActionLifecycle, capabilityActions,
+      capabilityConfiguration,
+    ]:
+      refuses WmFileErrorKind.capability:
+        discard chordCycle.decodeCycle(epoch, allCaps xor capability)
+    for offset in [0, 8, 16]:
+      refuses WmFileErrorKind.value:
+        discard chordCycle.patch64(b + 56 + offset, 0).decodeCycle(epoch, allCaps)
     refuses WmFileErrorKind.value:
       discard
         event(22, cycleBody(0, [1'u64, 1], newSeq[byte]())).decodeCycle(epoch, allCaps)

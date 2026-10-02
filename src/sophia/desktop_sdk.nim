@@ -274,6 +274,13 @@ proc wfProjectionPresentationBindingDecode*(
   header: "sophia_wm_records.h"
 .}
 
+proc wfConfigurationActionLifecycleEncode*(
+  dst: pointer, bytes: csize_t, value: ptr WfConfigurationActionLifecycle
+): cint {.
+  importc: "sophia_wf_configuration_action_lifecycle_encode",
+  header: "sophia_wm_records.h"
+.}
+
 proc wfProjectionPresentationBindingEncode*(
   dst: pointer, bytes: csize_t, value: ptr WfProjectionPresentationBinding
 ): cint {.

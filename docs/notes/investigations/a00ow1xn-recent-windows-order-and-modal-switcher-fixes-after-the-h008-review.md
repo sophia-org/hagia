@@ -78,8 +78,53 @@ Mutant note: putting the old `setFocus` recording back on its own survives,
 because the reconcile-end record re-records the active focus last. The
 faithful red is the run against the h008 sources.
 
-Remaining: h008's lifecycle half (Overlay presentation, Held and Ended) waits on
-Sophia t277 and C SDK 0.5.0. There is no live acceptance yet.
+The lifecycle half followed once Sophia t277 delivered the chord lifecycle and
+its ChordAction cause (feature/generic-chording through 39c0d442) and C SDK
+0.6.0 (8f59a9cd):
+
+- Hagia vendors SDK 0.6.0, byte-identical to Sophia's pin, and decodes causes
+  7 (ActionLifecycle) and 8 (ChordAction).
+- It offers `action_lifecycle` and `chord_actions` as optional. Only when both
+  are selected, together with both presentation capabilities, does the
+  Configuration declare `recent-window-next` and `recent-window-prev` with Held
+  at 150 ms, niri's open delay. Otherwise it declares no chords, and every
+  invocation is modal.
+- A switcher is owned by chord identities, not by a per-connection mode. The
+  opening ChordAction (equal serials) opens or steps the switcher and its chord
+  becomes an owner; joins step it only while their chord owns it. Chords of
+  the same action on two seats are distinct owners, at most nine (Sophia's
+  eight open chords plus one terminal in flight).
+- Owners are Hagia identities, issued once by the policy model. The adapter
+  alone keeps which Sophia chord serial of the current connection each one
+  is, pruned to the live owners, so Sophia's serials never enter policy
+  state.
+- An owner's Held draws the strip as an Overlay, with no keyboard capture, so
+  the held modifier and further Tab presses still reach Sophia. An owner's
+  Ended(released) commits the selection, and any other end closes it without
+  moving focus. Closing the switcher in any way releases every owner. The
+  events of a chord whose switcher closed (cancelled while its keys are down,
+  or the other chord sharing the modifier) then act on nothing, not on a
+  later switcher.
+- A plain invocation (control, indicator, presentation, or a peer without the
+  chord capabilities) owes no Ended. A switcher it opens is drawn at once and
+  is modal. While a chord owns the switcher, a plain invocation only steps it.
+- An Ended whose projection is refused, times out or is disconnected still
+  ends its chord: the committed switcher closes if that chord owned it, and
+  the refused candidate's focus is never promoted. A new connection epoch
+  closes a switcher its chords owned.
+- Each trace entry records whether its connection followed the switcher's
+  chords. `hagia replay` restores it before reducing every entry, including
+  connections appended to an older trace, and an entry without it keeps the
+  modal default. The gate replays such traces through the real binary.
+- Cancelling a held strip with Escape needs a binding, because the Overlay
+  captures no keys; Sophia's own cancellations (a VT switch, device removal,
+  a routing change) still end the chord without a switch. The default profile
+  leaves `Alt+Escape` as a commented opt-in: bound, it is taken from
+  applications even while the switcher is closed. There is no exact niri
+  Escape without a binding scoped to the open switcher.
+
+There is no live acceptance yet. The installable release combines this with
+Sophia t276 and is assembled by Sophia's director.
 
 ## Connections
 

@@ -7,7 +7,7 @@ import support/sdk_admission_peer
 ## SDK transport/custody controls and the real Sophia export gate are separate;
 ## docs/sdk-test-migration.md maps the retired direct-client assertions.
 const
-  everyBit = (1'u64 shl 20) - 1
+  everyBit = (1'u64 shl 22) - 1
   required =
     capabilityBindings or capabilityActions or capabilityMultiOutput or
     capabilityPointerInteractions or capabilityIndicators or capabilityLaunchPlacement or
@@ -16,7 +16,8 @@ const
   extras =
     capabilityTabGroups or capabilityTranslationGroups or capabilityOutputActions or
     capabilityOutputPolicyKeys or capabilityLaunchOrigin or capabilityOutputLaunchContext or
-    capabilitySurfaceInstances or capabilityPresentationActions
+    capabilitySurfaceInstances or capabilityPresentationActions or
+    capabilityActionLifecycle or capabilityChordActions
 
 suite "Hagia SDK file admission":
   test "admission offers exactly the implemented vocabulary and adopts selection":

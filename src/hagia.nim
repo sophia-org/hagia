@@ -140,10 +140,16 @@ proc run(arguments: seq[string]) =
       inc cycle
       for receipt in entry.presentationReceipts:
         session.receivePresentationReceipt(receipt)
+      # Restored before the reduction, so each Action means what it meant live.
+      session.setActionLifecycle(entry.actionLifecycle)
       let projection = session.prepare(entry.snapshot, entry.request, entry.transaction)
+      var presented = "none"
+      if projection.presentation.isSome and projection.presentation.get().outputs.len > 0:
+        presented = $projection.presentation.get().outputs[0].mode
       stdout.writeLine(
         "cycle=" & $cycle & " request=" & $entry.request.requestId & " outputs=" &
-          $projection.outputs.len & " active=" & $projection.activeOutput
+          $projection.outputs.len & " active=" & $projection.activeOutput &
+          " presentation=" & presented
       )
       session.settle(
         ProjectionOutcome(

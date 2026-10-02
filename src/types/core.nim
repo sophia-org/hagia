@@ -13,6 +13,7 @@ type
   TagId* = distinct uint32
   ScratchpadSlotId* = distinct uint32
   GroupId* = distinct uint32
+  RecentChordId* = distinct uint32
   TagMask* = distinct uint64
   Scale* = distinct uint32
 
@@ -63,6 +64,7 @@ const
   nullTagId* = TagId(0)
   nullScratchpadSlotId* = ScratchpadSlotId(0)
   nullGroupId* = GroupId(0)
+  nullRecentChordId* = RecentChordId(0)
   emptyTagMask* = TagMask(0)
   autoScale* = Scale(0)
   scaleOne* = Scale(1'u32 shl 16)
@@ -93,6 +95,7 @@ proc `==`*(left, right: ColumnId): bool {.borrow.}
 proc `==`*(left, right: TagId): bool {.borrow.}
 proc `==`*(left, right: ScratchpadSlotId): bool {.borrow.}
 proc `==`*(left, right: GroupId): bool {.borrow.}
+proc `==`*(left, right: RecentChordId): bool {.borrow.}
 proc `==`*(left, right: TagMask): bool {.borrow.}
 proc `==`*(left, right: Scale): bool {.borrow.}
 
@@ -103,6 +106,7 @@ proc `$`*(id: ColumnId): string {.borrow.}
 proc `$`*(id: TagId): string {.borrow.}
 proc `$`*(id: ScratchpadSlotId): string {.borrow.}
 proc `$`*(id: GroupId): string {.borrow.}
+proc `$`*(id: RecentChordId): string {.borrow.}
 
 proc hash*(id: WindowId): Hash =
   hash(uint32(id))
@@ -123,6 +127,9 @@ proc hash*(id: ScratchpadSlotId): Hash =
   hash(uint32(id))
 
 proc hash*(id: GroupId): Hash =
+  hash(uint32(id))
+
+proc hash*(id: RecentChordId): Hash =
   hash(uint32(id))
 
 proc hash*(mask: TagMask): Hash =

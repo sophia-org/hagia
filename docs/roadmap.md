@@ -494,8 +494,11 @@ Subsystems, each needing an authority decision before any key:
   Hagia has `shell { enabled; panel }`; the rest is session-authority work.
 - **Overview** and its modal bindings — implemented on the h002 candidate with
   generic Sophia presentation support; joined acceptance is pending.
-- **Recent-windows MRU** — the Alt+Tab family, a bounded focus history with
-  its own presentation.
+- **Recent-windows MRU** — implemented as h008 after niri. A bounded global
+  focus order and a strip of live previews follow Sophia's generic chord
+  lifecycle and ChordAction (t277): shown once its chord is held, committed
+  when it is released, and modal for plain invocations or a Sophia without
+  them. Joined acceptance is pending.
 - **Hotkey overlay** — needs bind properties (`hotkey-overlay-title`), and
   the profile grammar rejects properties on `bind` today.
 - **Screenshot**, **screen-lock** — portal and security authorities.

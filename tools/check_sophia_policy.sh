@@ -72,6 +72,9 @@ nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tgraceful-stop" tests/tgraceful_stop.nim
 HAGIA_BINARY="$build_dir/hagia" "$build_dir/tgraceful-stop"
+nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
+    -o:"$build_dir/trecent-windows-replay" tests/trecent_windows_replay.nim
+HAGIA_BINARY="$build_dir/hagia" "$build_dir/trecent-windows-replay"
 # The environment contract probe is what an installer matches before trusting
 # a binary with the generic names; its exact line is part of the contract.
 contract=$("$build_dir/hagia" config check-environment-contract)

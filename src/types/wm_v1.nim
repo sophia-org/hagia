@@ -166,6 +166,15 @@ const
   capabilityOutputLaunchContext* = 1'u64 shl 17
   capabilitySurfaceInstances* = 1'u64 shl 18
   capabilityPresentationActions* = 1'u64 shl 19
+  ## Optional capability: Sophia reports Held and Ended for the chords behind
+  ## the actions a Configuration declares, in `configurationActionLifecycleKind`
+  ## rows. Without it the recent-windows switcher falls back to a modal one.
+  capabilityActionLifecycle* = 1'u64 shl 20
+  ## Optional capability: a followed chord's keyboard activations arrive as
+  ## ChordAction, naming the activation and its chord, so the switcher can tell
+  ## them from the same action invoked another way.
+  capabilityChordActions* = 1'u64 shl 21
+  configurationActionLifecycleKind* = 65294'u16
   capabilityOutputActions* = 1'u64 shl 15
   capabilityOutputPolicyKeys* = 1'u64 shl 16
   snapshotOutputPolicyKeyRecordKind* = 65287'u16

@@ -157,6 +157,32 @@ proc encodeFileConfiguration*(
   var sections: seq[WmFileSection]
   if value.actions.len > 0:
     sections.add(WmFileSection(kind: 3, count: uint32(value.actions.len), rows: rows))
+  if value.actionLifecycles.len > 0:
+    # Each row names a registered policy action, not a session operation,
+    # once, with Held off or within 50..5000 ms.
+    selected.requireCapabilities(
+      capabilityActionLifecycle or capabilityActions or capabilityConfiguration
+    )
+    var policyActions = initHashSet[uint64]()
+    for action in value.actions:
+      if action.sessionOperationSlot == 0:
+        policyActions.incl(action.action)
+    var declared = initHashSet[uint64]()
+    var lifecycle: seq[byte]
+    for interest in value.actionLifecycles:
+      if interest.action notin policyActions or declared.containsOrIncl(interest.action) or
+          (interest.heldMs != 0 and interest.heldMs notin 50'u32 .. 5000'u32):
+        failWmFile(WmFileErrorKind.value, "configuration action lifecycle is invalid")
+      lifecycle.addU64(interest.action)
+      lifecycle.addU32(interest.heldMs)
+      lifecycle.addU32(0)
+    sections.add(
+      WmFileSection(
+        kind: configurationActionLifecycleKind,
+        count: uint32(value.actionLifecycles.len),
+        rows: lifecycle,
+      )
+    )
   var body: seq[byte]
   body.addU64(value.transaction)
   body.addU64(value.generation)

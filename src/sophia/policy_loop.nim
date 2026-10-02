@@ -185,6 +185,11 @@ proc runPolicySession*(
           kind: EvidenceKind.checkpoint, event: "checkpoint", status: "discarded"
         )
       )
+  # After any checkpoint restore replaced the session: whether Held and Ended
+  # drive the switcher, or it falls back to a modal one. Only a configuration
+  # this connection installs declares the switcher's chords.
+  let actionLifecycle = configure and wire.capabilities.switcherFollowsChords()
+  session.setActionLifecycle(actionLifecycle)
   try:
     if configure:
       let configuration = hagiaConfiguration(
@@ -210,6 +215,7 @@ proc runPolicySession*(
             request: request,
             transaction: transaction,
             presentationReceipts: receipts,
+            actionLifecycle: actionLifecycle,
           )
         )
       let projection = session.prepare(snapshot, request, transaction)

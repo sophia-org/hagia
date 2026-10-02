@@ -1,6 +1,6 @@
 import std/[options, sets]
 import ../policy/actions
-import ../types/[actions, handoff, session, wm_presentation, wm_v1]
+import ../types/[actions, handoff, recent_windows, session, wm_presentation, wm_v1]
 import ./policy_transport
 
 ## One admitted WM connection as the policy loop sees it, whatever carries it.
@@ -37,6 +37,16 @@ type PolicyWire* = object
   takeReceipts*: proc(): seq[PresentationReceipt] {.gcsafe.}
   close*: proc() {.gcsafe.}
 
+proc switcherFollowsChords*(capabilities: uint64): bool =
+  ## The recent-windows switcher follows its chords when Sophia reports them
+  ## and marks their own activations as ChordAction, and its actions are
+  ## offered, which needs both presentation capabilities. Otherwise it stays
+  ## the modal switcher and declares no chords.
+  const needed =
+    capabilityActionLifecycle or capabilityChordActions or capabilitySurfaceInstances or
+    capabilityPresentationActions
+  (capabilities and needed) == needed
+
 proc hagiaConfiguration*(
     capabilities, connectionEpoch, transaction: uint64
 ): PolicyConfiguration =
@@ -69,6 +79,13 @@ proc hagiaConfiguration*(
         name: action.profileName(),
       )
     )
+  # The switcher is drawn once its chord has been held for niri's open delay
+  # and commits when the chord ends.
+  if capabilities.switcherFollowsChords():
+    for action in [PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious]:
+      result.actionLifecycles.add(
+        ActionLifecycleInterest(action: action.raw(), heldMs: recentWindowsOpenDelayMs)
+      )
 
 proc requireConfigurationOutcome*(
     outcome: PolicyConfigurationOutcome, configuration: PolicyConfiguration

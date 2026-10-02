@@ -77,5 +77,24 @@ proc policyRequest*(record: WfRecord): ProjectionRequest =
         targetGeneration: v.targetGeneration,
       ),
     )
+  of 7:
+    # The SDK refused every phase and reason pairing but the valid ones.
+    let v = cycle.value.actionLifecycle
+    result.cause = ProjectionCause(
+      kind: ProjectionCauseKind.actionLifecycle,
+      activationSerial: v.serial,
+      action: v.action,
+      lifecyclePhase: v.phase,
+      lifecycleReason: v.reason,
+      lifecycleCount: v.count,
+    )
+  of 8:
+    let v = cycle.value.chordAction
+    result.cause = ProjectionCause(
+      kind: ProjectionCauseKind.chordAction,
+      activationSerial: v.serial,
+      chordSerial: v.chordSerial,
+      action: v.action,
+    )
   else:
     fail("unsupported SDK Cycle cause")

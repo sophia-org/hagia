@@ -52,6 +52,14 @@ proc configurationCandidate*(value: PolicyConfiguration): SdkCandidate =
   for action in value.actions:
     rows.add(action.sdkValue().encodeRow())
   result.addSection(3, value.actions.len, rows)
+  var lifecycles: seq[byte]
+  for interest in value.actionLifecycles:
+    lifecycles.add(
+      WfConfigurationActionLifecycle(action: interest.action, heldMs: interest.heldMs).encodeRow()
+    )
+  result.addSection(
+    configurationActionLifecycleKind, value.actionLifecycles.len, lifecycles
+  )
 
 proc addPresentation(value: var SdkCandidate, p: WmPresentation) =
   let header = WfProjectionPresentation(

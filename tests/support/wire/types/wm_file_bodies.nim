@@ -36,6 +36,8 @@ type
     interaction = 4
     outputAction = 5
     presentationAction = 6
+    actionLifecycle = 7
+    chordAction = 8
 
   WmFileLimits* = object
     capabilityCeiling*: uint64

@@ -83,7 +83,11 @@ proc advanceRecentWindows*(model: var PolicyModel, forward: bool) =
     else:
       candidates.high
   model.recentWindows = RecentWindowsState(
-    active: true, scope: scope, candidates: candidates, selected: selected
+    active: true,
+    scope: scope,
+    candidates: candidates,
+    selected: selected,
+    lastChord: model.recentWindows.lastChord,
   )
 
 proc showRecentWindows*(model: var PolicyModel) =
@@ -111,6 +115,27 @@ proc recentWindowView(model: PolicyModel, windowId: WindowId): ViewId =
     if model.windowTagIds(windowId).intersects(model.viewTagIds(viewId)):
       return viewId
   fail("recent-windows selection has no workspace")
+
+proc observeRecentChordHeld*(model: var PolicyModel, chord: RecentChordId) =
+  ## Held draws the switcher only for a chord that owns it; the Held of a
+  ## chord whose switcher closed may arrive after a newer switcher opened and
+  ## must not show it early.
+  if model.ownsRecentChord(chord):
+    model.showRecentWindows()
+
+proc commitRecentWindows*(model: var PolicyModel)
+
+proc observeRecentChordEnded*(
+    model: var PolicyModel, chord: RecentChordId, released: bool
+) =
+  ## An owning chord released commits, ended otherwise closes; either way
+  ## every owner is released. Any other chord's Ended changes nothing.
+  if not model.ownsRecentChord(chord):
+    return
+  if released:
+    model.commitRecentWindows()
+  else:
+    model.clearRecentWindows()
 
 proc commitRecentWindows*(model: var PolicyModel) =
   ## Focus the selection and close. A selection that stopped being eligible

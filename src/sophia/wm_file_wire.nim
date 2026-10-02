@@ -376,7 +376,8 @@ proc fileWire*(
         capabilityTabGroups or capabilityTranslationGroups or capabilityOutputActions or
         capabilityOutputPolicyKeys or capabilityLaunchOrigin or
         capabilityOutputLaunchContext or capabilitySurfaceInstances or
-        capabilityPresentationActions
+        capabilityPresentationActions or capabilityActionLifecycle or
+        capabilityChordActions
       ) and not config.offer.required
     socket.getFd().setBlocking(false)
     owner.session = cast[ptr Ws](alloc0(int(wsStateBytes())))

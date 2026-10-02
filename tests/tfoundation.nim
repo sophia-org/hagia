@@ -598,8 +598,8 @@ suite "Hagia foundation":
       check implemented
       inc policyBindings
     # The overview binding adds one WM action, and the recent-windows switcher
-    # two (next, previous); its cancel waits for Sophia's chord lifecycle,
-    # since the modal switcher binds Escape itself. The session actions retain
+    # two (next, previous); its cancel is a commented opt-in, since a global
+    # Alt+Escape would be taken from applications. The session actions retain
     # their existing authority, including reload and process replacement.
     check shortcuts.values.len == 97
     check policyBindings == 88

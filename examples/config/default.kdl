@@ -92,13 +92,21 @@ shortcut {
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"
   bind "Super+o" "policy:toggle-overview" label="Workspace overview" group="Workspaces"
-  // Recent windows, after niri: Alt+Tab steps back through recently focused
-  // windows, Alt+Shift+Tab the other way. Until Sophia reports when a chord is
-  // released the switcher is modal: once it shows, Tab or the arrows step it
-  // with any modifiers held, Enter switches and Escape cancels. A chord on a
-  // key other than Tab opens it but does not step it.
+  // Recent windows, after niri: hold Alt and tap Tab to step back through
+  // recently focused windows (Shift+Tab steps the other way). The strip shows
+  // 150 ms after the first Tab if the chord is still held, and the switch
+  // happens when the last modifier is released: letting go of Alt while Shift
+  // is still down does not switch yet. A quick tap switches without the strip.
+  // Any modifier chord works, not only Alt. With a Sophia that does not report
+  // chords, or when it is opened other than by its chord, the switcher is
+  // modal instead: Tab or the arrows step it, Enter switches and Escape
+  // cancels.
   bind "Alt+Tab" "policy:recent-window-next" label="Recent windows" group="Workspaces"
   bind "Alt+Shift+Tab" "policy:recent-window-prev"
+  // The held strip does not capture the keyboard, so cancelling it with
+  // Escape needs a binding. This one takes Alt+Escape from every application,
+  // even while the switcher is closed:
+  // bind "Alt+Escape" "policy:recent-window-cancel"
   bind "Super+?" "session:shortcut-help" label="Show keyboard shortcuts" group="Session"
   bind "Super+q" "session:close-window"
   bind "Super+h" "policy:focus-column-prev"

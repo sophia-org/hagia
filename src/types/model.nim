@@ -288,6 +288,17 @@ type
     scope*: RecentWindowScope
     candidates*: seq[WindowId] ## Most recently focused first.
     selected*: int
+    ## The chords that own this switcher, as Hagia identities (the adapter
+    ## keeps which Sophia chord each one is): their joins step it, their Held
+    ## draws it and their Ended commits or closes it. Chords of one action on
+    ## different seats are distinct owners. Closing the switcher releases them
+    ## all, so the events of a chord still open in Sophia then act on nothing,
+    ## not on a later switcher. A switcher with no owner was opened by a plain
+    ## invocation and is modal.
+    owners*: seq[RecentChordId]
+    ## The last chord identity issued. It outlives the switcher, as `scope`
+    ## does, so an identity is never issued twice.
+    lastChord*: uint32
 
   PolicyModel* = object
     overview*: OverviewState ## Transient spatial policy, absent from checkpoints.
@@ -325,6 +336,9 @@ const
   maxFocusHistory* = 32
   ## Bounds the global recent-focus order across every output.
   maxRecentFocus* = 64
+  ## Chords owning one switcher: Sophia keeps at most eight chords open, plus
+  ## one terminal already in flight.
+  maxRecentWindowChords* = 9
   maxMinimizedHistory* = 64
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64

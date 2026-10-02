@@ -39,6 +39,13 @@ type
     pointerFocus = 4
     outputAction = 5
     presentationAction = 6
+    ## Held or Ended for the chord behind a declared action: `activationSerial`
+    ## names the chord's first Action, `lifecycleCount` its admitted Actions.
+    actionLifecycle = 7
+    ## A keyboard activation of a followed chord: `activationSerial` names it
+    ## and `chordSerial` the chord's first activation, which its Held and Ended
+    ## name in their `activationSerial`.
+    chordAction = 8
 
   InteractionPhase* {.pure.} = enum
     none = 0
@@ -71,6 +78,12 @@ type
     targetIndex*: uint32
     targetGeneration*: uint32
     x*, y*, width*, height*: int32
+    ## `actionLifecycle` only: phase 1 held, 2 ended; the reason is 0 when held,
+    ## otherwise 1 released, 2 cancelled, 3 completed, 4 aborted, 5 timed out.
+    lifecyclePhase*, lifecycleReason*: uint16
+    lifecycleCount*: uint32
+    ## `chordAction` only.
+    chordSerial*: uint64
 
   ProjectionRequest* = object
     connectionEpoch*: uint64
@@ -139,6 +152,12 @@ type
     focusWidth*, focusRgb*: uint32
     frameWidth*, frameFocusedRgb*, frameUnfocusedRgb*: uint32
     actions*: seq[SnapshotAction]
+    ## Declared only when `action_lifecycle` was negotiated.
+    actionLifecycles*: seq[ActionLifecycleInterest]
+
+  ActionLifecycleInterest* = object
+    action*: uint64
+    heldMs*: uint32
 
   PolicyConfigurationOutcome* = object
     transaction*, connectionEpoch*, generation*: uint64
@@ -162,3 +181,8 @@ type
     request*: ProjectionRequest
     transaction*: uint64
     presentationReceipts*: seq[PresentationReceipt]
+    ## Whether this connection declared the switcher's chords, which changes
+    ## what its Actions mean. Recorded on every cycle so a replay reduces each
+    ## Action as the live session did; traces without it predate the
+    ## lifecycle and replay as false.
+    actionLifecycle*: bool

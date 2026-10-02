@@ -1,6 +1,7 @@
 import std/[options, sequtils, unittest]
 
 import policy/[actions, recent_windows, reducer, state]
+import state/values
 import entities/recent_windows_ops
 import systems/recent_windows
 import types/[actions, core, model, policy_messages, recent_windows]
@@ -198,6 +199,100 @@ suite "recent-windows switcher":
     check model.recentWindows.candidates[model.recentWindows.selected] == windows[0]
     expect PolicyStateError:
       model.selectRecentWindow(WindowId(999))
+
+suite "recent-windows chord ownership":
+  test "a closed switcher releases its chords; their events act on nothing":
+    var (model, output, windows) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    let first = model.claimRecentChord()
+    model.applyAction(output, PolicyAction.recentWindowCancel)
+    check not model.ownsRecentChord(first)
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    let second = model.claimRecentChord()
+    check second != first
+    model.observeRecentChordHeld(first)
+    check not model.recentWindows.visible
+    model.observeRecentChordEnded(first, released = true)
+    check model.recentWindows.active
+    check model.focused(output) == windows[2]
+    model.observeRecentChordHeld(second)
+    check model.recentWindows.visible
+    model.observeRecentChordEnded(second, released = true)
+    check model.focused(output) == windows[1]
+    check model.recentWindows.owners.len == 0
+    model.validate()
+
+  test "an owner ended otherwise closes without moving focus":
+    var (model, output, windows) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    discard model.claimRecentChord()
+    let second = model.claimRecentChord()
+    model.observeRecentChordEnded(second, released = false)
+    check not model.recentWindows.active
+    check model.recentWindows.owners.len == 0
+    check model.focused(output) == windows[2]
+    model.validate()
+
+  test "owners stay within the bound Sophia can owe":
+    var (model, output, _) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    for _ in 1 .. maxRecentWindowChords:
+      check model.claimRecentChord() != nullRecentChordId
+      model.validate()
+    check model.claimRecentChord() == nullRecentChordId
+    check model.recentWindows.owners.len == maxRecentWindowChords
+    model.recentWindows.owners.setLen(maxRecentWindowChords - 1)
+    model.recentWindows.owners.add(model.recentWindows.owners[0])
+    expect PolicyStateError:
+      model.validate()
+
+  test "identities are issued once and never by a closed switcher":
+    var (model, output, _) = threeWindows()
+    check model.claimRecentChord() == nullRecentChordId
+    check model.recentWindows.lastChord == 0
+    var issued: seq[RecentChordId]
+    for _ in 0 ..< 3:
+      model.applyAction(output, PolicyAction.recentWindowNext)
+      issued.add(model.claimRecentChord())
+      model.applyAction(output, PolicyAction.recentWindowCancel)
+    check issued.deduplicate().len == 3
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    model.recentWindows.owners.add(RecentChordId(model.recentWindows.lastChord + 1))
+    expect PolicyStateError:
+      model.validate()
+
+  test "more owners than the bound are refused":
+    var (model, output, _) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    model.recentWindows.lastChord = 10
+    for chord in 1'u32 .. 10:
+      model.recentWindows.owners.add(RecentChordId(chord))
+    expect PolicyStateError:
+      model.validate()
+
+  test "a new connection closes only a switcher its chords owned":
+    var (model, output, windows) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    discard model.claimRecentChord()
+    model.forgetRecentChords()
+    check not model.recentWindows.active
+    check model.recentWindows.owners.len == 0
+    check model.focused(output) == windows[2]
+    # A modal switcher is not the chords' to close.
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    model.forgetRecentChords()
+    check model.recentWindows.active
+    model.validate()
+
+  test "cloned ownership is independent":
+    var (model, output, _) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    let first = model.claimRecentChord()
+    var candidate = model.clone()
+    discard candidate.claimRecentChord()
+    check model.recentWindows.owners == @[first]
+    candidate.applyAction(output, PolicyAction.recentWindowCancel)
+    check model.recentWindows.owners == @[first]
 
 suite "recent-windows strip layout":
   test "previews keep aspect within niri's bounds and centre when they fit":

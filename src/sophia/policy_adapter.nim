@@ -54,10 +54,15 @@ type
     presentationEpoch, publicationCounter, targetCounter: uint64
     presentationKeys: Table[string, uint64]
     presentationTargets: Table[uint64, OverviewSelection]
-    # Whether this connection negotiated Sophia's chord lifecycle. Without it
-    # the recent-windows switcher cannot learn when its chord ends, so it is
-    # drawn at once as a modal switcher instead.
+    # Whether this connection follows the switcher's chords: Sophia reports
+    # their lifecycle and marks their own activations as ChordAction. Without
+    # it every invocation draws the switcher at once as a modal switcher.
     actionLifecycle: bool
+    # The connection the switcher's chord serials belong to, and which owner
+    # of the switcher each of its chords is. Pruned to the live owners, so it
+    # stays within their bound.
+    chordEpoch: uint64
+    chordOwners: Table[uint64, RecentChordId]
 
   TagRelationDto = object
     owner: uint32
@@ -124,6 +129,43 @@ include policy_adapter/recent_windows_presentation
 proc setActionLifecycle*(adapter: var PolicyAdapter, negotiated: bool) =
   adapter.actionLifecycle = negotiated
 
+proc synchronizeChordEpoch*(adapter: var PolicyAdapter, epoch: uint64) =
+  ## Chord serials name chords of one connection. None of an earlier one's
+  ## will report again, so a switcher they owned closes with them.
+  if epoch == 0:
+    fail("chord connection epoch is invalid")
+  if adapter.chordEpoch != epoch:
+    adapter.model.forgetRecentChords()
+    adapter.chordEpoch = epoch
+
+proc chordOwner(adapter: PolicyAdapter, serial: uint64): RecentChordId =
+  ## The switcher owner a Sophia chord is, or the null identity once its
+  ## switcher has closed. A previous connection's chords resolve to null as
+  ## well: its switcher closed with it, and the next claim prunes them.
+  result = adapter.chordOwners.getOrDefault(serial, nullRecentChordId)
+  if not adapter.model.ownsRecentChord(result):
+    result = nullRecentChordId
+
+proc pruneChordOwners(adapter: var PolicyAdapter) =
+  var released: seq[uint64]
+  for serial, owner in adapter.chordOwners.pairs:
+    if not adapter.model.ownsRecentChord(owner):
+      released.add(serial)
+  for serial in released:
+    adapter.chordOwners.del(serial)
+
+proc observeLifecycleTerminal*(adapter: var PolicyAdapter, request: ProjectionRequest) =
+  ## An Ended whose projection was not committed still ended its chord: the
+  ## switcher closes if that chord owned it, and the rejected candidate's
+  ## focus and layout are never promoted.
+  let cause = request.cause
+  if cause.kind != ProjectionCauseKind.actionLifecycle or cause.lifecyclePhase != 2:
+    return
+  adapter.model.observeRecentChordEnded(
+    adapter.chordOwner(cause.activationSerial), released = false
+  )
+  adapter.pruneChordOwners()
+
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
 
@@ -184,6 +226,9 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   for id, selection in adapter.presentationTargets.pairs:
     result.presentationTargets[id] = selection
   result.actionLifecycle = adapter.actionLifecycle
+  result.chordEpoch = adapter.chordEpoch
+  for serial, owner in adapter.chordOwners.pairs:
+    result.chordOwners[serial] = owner
 
 proc destinationKey(destination: LaunchDestination): string =
   result = $int(destination.output)
@@ -813,6 +858,87 @@ proc targetOutputAction*(
   adapter.model.setActiveOutput(target)
   target
 
+proc followedChordAction(adapter: PolicyAdapter, action: uint64): PolicyAction =
+  if not adapter.actionLifecycle or not action.isPolicyAction():
+    fail("policy chord cause is not followed")
+  result = action.policyAction()
+  if result notin {PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious}:
+    fail("policy chord cause names an undeclared action")
+
+proc applyChordAction(adapter: var PolicyAdapter, request: ProjectionRequest) =
+  ## A switcher chord's own activation. Its opener (equal serials) opens or
+  ## steps the switcher and then owns it, hidden until Held; a join steps it
+  ## only while its chord owns it. A join of a chord whose switcher closed,
+  ## or whose opener changed nothing, changes nothing.
+  let cause = request.cause
+  if cause.activationSerial == 0 or cause.chordSerial == 0:
+    fail("policy chord action cause is invalid")
+  let action = adapter.followedChordAction(cause.action)
+  let chord = cause.chordSerial
+  let opens = cause.activationSerial == chord
+  let owner = adapter.chordOwner(chord)
+  if not opens and owner == nullRecentChordId:
+    return
+  if opens and owner != nullRecentChordId:
+    fail("policy chord action reopens a known chord")
+  adapter.model = adapter.model.reducePolicy(
+    PolicyMsg(
+      kind: PolicyMsgKind.action, output: adapter.model.activeOutput, action: action
+    )
+  ).candidate
+  adapter.pruneChordOwners()
+  if opens:
+    let claimed = adapter.model.claimRecentChord()
+    if claimed != nullRecentChordId:
+      adapter.chordOwners[chord] = claimed
+      if adapter.chordOwners.len > maxRecentWindowChords:
+        fail("policy chord correlation exceeds its bound")
+  recordEvidence(
+    EvidenceEvent(
+      kind: EvidenceKind.reducer,
+      event: "chord_action",
+      epoch: request.connectionEpoch,
+      generation: request.policyGeneration,
+      requestId: request.requestId,
+      status: (if opens: "opened" else: "joined"),
+    )
+  )
+
+proc applyActionLifecycle(adapter: var PolicyAdapter, request: ProjectionRequest) =
+  ## Sophia follows the switcher's chords, named by their opening serial:
+  ## Held draws a switcher its chord owns, Ended(released) commits it, and any
+  ## other end closes it without moving focus. Events of a chord whose
+  ## switcher closed never act on a later switcher.
+  let cause = request.cause
+  if cause.activationSerial == 0 or cause.lifecycleCount == 0:
+    fail("policy lifecycle cause is invalid")
+  discard adapter.followedChordAction(cause.action)
+  case cause.lifecyclePhase
+  of 1:
+    if cause.lifecycleReason != 0:
+      fail("policy lifecycle reason is invalid")
+    adapter.model.observeRecentChordHeld(adapter.chordOwner(cause.activationSerial))
+  of 2:
+    if cause.lifecycleReason notin 1'u16 .. 5'u16:
+      fail("policy lifecycle reason is invalid")
+    adapter.model.observeRecentChordEnded(
+      adapter.chordOwner(cause.activationSerial), released = cause.lifecycleReason == 1
+    )
+    adapter.model.noteRecentFocus()
+    adapter.pruneChordOwners()
+  else:
+    fail("policy lifecycle phase is invalid")
+  recordEvidence(
+    EvidenceEvent(
+      kind: EvidenceKind.reducer,
+      event: "action_lifecycle",
+      epoch: request.connectionEpoch,
+      generation: request.policyGeneration,
+      requestId: request.requestId,
+      status: (if cause.lifecyclePhase == 1: "held" else: "ended"),
+    )
+  )
+
 proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
   if request.affectedOutputs.len == 0:
     fail("policy cause has no affected output")
@@ -826,6 +952,12 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
     discard
   of ProjectionCauseKind.presentationAction:
     adapter.applyPresentationAction(request)
+    return
+  of ProjectionCauseKind.actionLifecycle:
+    adapter.applyActionLifecycle(request)
+    return
+  of ProjectionCauseKind.chordAction:
+    adapter.applyChordAction(request)
     return
   of ProjectionCauseKind.outputAction:
     let target = adapter.targetOutputAction(request)
@@ -931,9 +1063,10 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
     else:
       fail("policy interaction kind is invalid")
   adapter.model = adapter.model.reducePolicy(message).candidate
-  # Without the chord lifecycle no Held will arrive, so the switcher is drawn
-  # at once and becomes modal (see recentWindowsPresentation).
-  if message.kind == PolicyMsgKind.action and not adapter.actionLifecycle and
+  # A plain invocation (no chord of its own, or none followed) owes no Ended,
+  # so a switcher it opens is drawn at once and is modal. One already owned by
+  # a chord just steps, and still ends with that chord.
+  if message.kind == PolicyMsgKind.action and adapter.model.recentWindows.owners.len == 0 and
       message.action in
       {PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious}:
     adapter.model.showRecentWindows()

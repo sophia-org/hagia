@@ -316,6 +316,13 @@ proc encodeRow*(value: WfProjectionPresentationRegion): seq[byte] =
     wfProjectionPresentationRegionEncode(addr result[0], csize_t(result.len), addr row)
   )
 
+proc encodeRow*(value: WfConfigurationActionLifecycle): seq[byte] =
+  result = newSeq[byte](16)
+  var row = value
+  sdkCheck(
+    wfConfigurationActionLifecycleEncode(addr result[0], csize_t(result.len), addr row)
+  )
+
 proc encodeRow*(value: WfProjectionPresentationBinding): seq[byte] =
   result = newSeq[byte](16)
   var row = value
