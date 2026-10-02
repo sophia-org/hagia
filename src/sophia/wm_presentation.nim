@@ -68,9 +68,8 @@ proc validatePresentation*(presentation: WmPresentation) =
           backdrop = true
       if not backdrop:
         fail("replacement presentation has no full backdrop")
-    if presentation.keyboardOutput != 0 and
-        output.mode != PresentationMode.replaceApplications:
-      fail("modal presentation must replace applications")
+    if presentation.keyboardOutput != 0 and output.mode != presentation.outputs[0].mode:
+      fail("a keyboard scope must not mix replacement and Overlay outputs")
   if presentation.keyboardOutput == 0:
     if presentation.bindings.len != 0:
       fail("presentation bindings require a modal scope")

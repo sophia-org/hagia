@@ -174,6 +174,10 @@ const
   ## ChordAction, naming the activation and its chord, so the switcher can tell
   ## them from the same action invoked another way.
   capabilityChordActions* = 1'u64 shl 21
+  ## Optional capability: an Overlay presentation may take non-modifier keys
+  ## while a chord is held, so the held switcher answers Escape, Enter and
+  ## the arrows as niri's does. Modifiers keep their ordinary routing.
+  capabilityHeldCapture* = 1'u64 shl 22
   configurationActionLifecycleKind* = 65294'u16
   capabilityOutputActions* = 1'u64 shl 15
   capabilityOutputPolicyKeys* = 1'u64 shl 16

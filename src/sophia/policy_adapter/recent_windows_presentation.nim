@@ -1,6 +1,15 @@
 # Included by policy_adapter after presentation.nim: it shares the identity maps
 # and `finishPublication`.
 
+proc addScopeKeys(
+    bindings: var seq[(uint32, uint32, PolicyAction)], modifiers: uint32
+) =
+  ## niri's scope keys while the switcher is open: a, w, o and s.
+  bindings.add((30'u32, modifiers, PolicyAction.recentWindowScopeAll))
+  bindings.add((17'u32, modifiers, PolicyAction.recentWindowScopeWorkspace))
+  bindings.add((24'u32, modifiers, PolicyAction.recentWindowScopeOutput))
+  bindings.add((31'u32, modifiers, PolicyAction.recentWindowScopeCycle))
+
 const recentWindowModalBindings = block:
   # Used only when Sophia cannot report the chord ending: the switcher is then
   # a modal one, drawn once the modifier is up, and confirmed explicitly.
@@ -22,6 +31,26 @@ const recentWindowModalBindings = block:
     bindings.add((28'u32, modifiers, PolicyAction.recentWindowConfirm))
     bindings.add((96'u32, modifiers, PolicyAction.recentWindowConfirm))
     bindings.add((1'u32, modifiers, PolicyAction.recentWindowCancel))
+    bindings.addScopeKeys(modifiers)
+  bindings
+
+const recentWindowHeldBindings = block:
+  # With the held capture, a chord-owned switcher answers niri's keys while
+  # the chord is held. Sophia passes every modifier through and keeps the
+  # chord's own further presses, so Tab needs no binding here; each key is
+  # bound under all sixteen masks because the policy does not learn which
+  # modifiers hold the chord.
+  var bindings: seq[(uint32, uint32, PolicyAction)]
+  for modifiers in 0'u32 .. 15'u32:
+    bindings.add((1'u32, modifiers, PolicyAction.recentWindowCancel))
+    bindings.add((28'u32, modifiers, PolicyAction.recentWindowConfirm))
+    bindings.add((96'u32, modifiers, PolicyAction.recentWindowConfirm))
+    bindings.add((57'u32, modifiers, PolicyAction.recentWindowConfirm))
+    bindings.add((105'u32, modifiers, PolicyAction.recentWindowPrevious))
+    bindings.add((106'u32, modifiers, PolicyAction.recentWindowNext))
+    bindings.add((102'u32, modifiers, PolicyAction.recentWindowFirst))
+    bindings.add((107'u32, modifiers, PolicyAction.recentWindowLast))
+    bindings.addScopeKeys(modifiers)
   bindings
 
 proc reaches(rect, bounds: Rect): bool =
@@ -36,9 +65,10 @@ proc recentWindowsPresentation(
     snapshot: PolicySnapshot,
     physicalBounds: openArray[(OutputId, Rect)],
 ): Option[WmPresentation] =
-  ## A switcher owned by a chord is an Overlay: no keyboard capture, so the
-  ## held modifier and the chord's further presses keep reaching Sophia's
-  ## shortcut authority. One opened by a plain invocation is modal.
+  ## A switcher owned by a chord is an Overlay, so the held modifier and the
+  ## chord's further presses keep reaching Sophia's shortcut authority. With
+  ## the held capture it also takes niri's keys while the chord is held. One
+  ## opened by a plain invocation is modal.
   let strip = adapter.model.recentWindowStrip(physicalBounds)
   if strip.isNone:
     adapter.clearPresentation()
@@ -82,8 +112,6 @@ proc recentWindowsPresentation(
     )
   )
   var zIndex = 1'u16
-  let selected =
-    adapter.model.recentWindows.candidates[adapter.model.recentWindows.selected]
   for preview in strip.get().previews:
     if preview.window notin adapter.surfaceFacts or
         not preview.geometry.reaches(coverage):
@@ -107,7 +135,11 @@ proc recentWindowsPresentation(
     )
     inc zIndex
   let highlight = strip.get().highlight
-  if highlight.width > 0 and highlight.height > 0:
+  # An empty switcher draws its backdrop and no highlight.
+  if highlight.width > 0 and highlight.height > 0 and
+      adapter.model.recentWindows.candidates.len > 0:
+    let selected =
+      adapter.model.recentWindows.candidates[adapter.model.recentWindows.selected]
     let selection = OverviewSelection(output: logical, window: selected)
     let id =
       adapter.presentationTarget(selection.presentationKey("recent-emphasis"), nextKeys)
@@ -123,9 +155,10 @@ proc recentWindowsPresentation(
         action: PolicyAction.recentWindowConfirm.raw(),
       )
     )
-  if modal:
+  if modal or adapter.heldCapture:
     publication.keyboardOutput = handle.output
-    for (keycode, modifiers, action) in recentWindowModalBindings:
+    let bindings = if modal: recentWindowModalBindings else: recentWindowHeldBindings
+    for (keycode, modifiers, action) in bindings:
       publication.bindings.add(
         PresentationBinding(
           action: action.raw(), keycode: keycode, modifiers: modifiers

@@ -96,8 +96,11 @@ suite "recent-windows switcher presentation":
         if binding.keycode == keycode and binding.modifiers == modifiers:
           return binding.action
 
-    check publication.bindings.len == 96
-    check publication.bindings.mapIt((it.keycode, it.modifiers)).deduplicate().len == 96
+    check publication.bindings.len == 10 * 16
+    check publication.bindings.mapIt((it.keycode, it.modifiers)).deduplicate().len ==
+      10 * 16
+    check bound(30, 0) == PolicyAction.recentWindowScopeAll.raw()
+    check bound(24, 8) == PolicyAction.recentWindowScopeOutput.raw()
     check bound(15, 2) == PolicyAction.recentWindowNext.raw()
     check bound(15, 5) == PolicyAction.recentWindowPrevious.raw()
     check bound(15, 15) == PolicyAction.recentWindowPrevious.raw()
@@ -200,6 +203,13 @@ proc refuse(
 proc chordSession(): PolicySession =
   var adapter = initPolicyAdapter()
   adapter.setActionLifecycle(true)
+  initPolicySession(adapter)
+
+proc heldKeysSession(): PolicySession =
+  ## A chord session on a Sophia that selected the held capture.
+  var adapter = initPolicyAdapter()
+  adapter.setActionLifecycle(true)
+  adapter.setHeldCapture(true)
   initPolicySession(adapter)
 
 proc mode(projection: PolicyProjection): PresentationMode =
@@ -504,6 +514,170 @@ proc replay(entries: openArray[PolicyTraceEntry]): seq[PolicyProjection] =
     )
     result.add(projection)
 
+suite "recent-windows switcher with Sophia's held capture":
+  test "the held strip takes niri's keys and leaves Tab to the chord":
+    var session = heldKeysSession()
+    let snapshot = scene()
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    let publication =
+      session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    publication.validatePresentation()
+    check publication.outputs[0].mode == PresentationMode.overlay
+    check publication.keyboardOutput == 10
+    proc bound(keycode, modifiers: uint32): uint64 =
+      for binding in publication.bindings:
+        if binding.keycode == keycode and binding.modifiers == modifiers:
+          return binding.action
+
+    check bound(1, 4) == PolicyAction.recentWindowCancel.raw()
+    check bound(28, 4) == PolicyAction.recentWindowConfirm.raw()
+    check bound(57, 8) == PolicyAction.recentWindowConfirm.raw()
+    check bound(102, 4) == PolicyAction.recentWindowFirst.raw()
+    check bound(107, 4) == PolicyAction.recentWindowLast.raw()
+    check bound(15, 4) == 0
+    check bound(17, 4) == PolicyAction.recentWindowScopeWorkspace.raw()
+    check bound(31, 8) == PolicyAction.recentWindowScopeCycle.raw()
+    check publication.bindings.len == 12 * 16
+
+  test "Escape while held cancels, and the chord's release then commits nothing":
+    var session = heldKeysSession()
+    let snapshot = scene()
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    let publication =
+      session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    let cancelled = session.cycle(
+      snapshot, publication.presented(snapshot, 3, PolicyAction.recentWindowCancel)
+    )
+    check cancelled.presentation.isNone
+    let released = session.cycle(snapshot, snapshot.lifecycle(4, 2, 1))
+    check released.presentation.isNone
+    check released.focus() == 3
+
+  test "End then Return while held commits the last candidate":
+    var session = heldKeysSession()
+    let snapshot = scene()
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    var publication =
+      session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    let last = session.cycle(
+      snapshot, publication.presented(snapshot, 3, PolicyAction.recentWindowLast)
+    )
+    check last.selection() == 2
+    publication = last.presentation.get()
+    let confirmed = session.cycle(
+      snapshot, publication.presented(snapshot, 4, PolicyAction.recentWindowConfirm)
+    )
+    check confirmed.presentation.isNone
+    check confirmed.focus() == 2
+
+  test "closing a window while the switcher is open closes the selected one":
+    var session = heldKeysSession()
+    var snapshot = scene()
+    snapshot.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
+    snapshot.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    discard session.cycle(snapshot, snapshot.lifecycle(2, 1, 0))
+    let projection =
+      session.prepare(snapshot, snapshot.request(3, PolicyAction.sessionClose), 3)
+    let operation = session.pendingOperation().get()
+    check operation.operation == 700
+    # The selection, window 1, not the focused window 3.
+    check (operation.targetIndex, operation.targetGeneration) == (1'u32, 1'u32)
+    check projection.presentation.isSome
+
+  test "closing a window with the switcher closed still closes the focused one":
+    var session = heldKeysSession()
+    var snapshot = scene()
+    snapshot.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
+    snapshot.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    discard session.prepare(snapshot, snapshot.request(1, PolicyAction.sessionClose), 1)
+    check session.pendingOperation().get().targetIndex == 3
+
+  test "with nothing focused, close still closes the switcher's selection":
+    var session = heldKeysSession()
+    var snapshot = twoOutputs(active = 10, leftFocus = 0)
+    snapshot.outputs[0].focusGeneration = 0
+    snapshot.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
+    snapshot.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    let opened =
+      session.cycle(snapshot, snapshot.request(1, PolicyAction.recentWindowNext))
+    let selected = opened.selection()
+    discard session.prepare(snapshot, snapshot.request(2, PolicyAction.sessionClose), 2)
+    let operation = session.pendingOperation().get()
+    check operation.operation == 700
+    check (operation.targetIndex, operation.targetGeneration) == (selected, 1'u32)
+
+  test "with nothing focused and the switcher closed, close still refuses":
+    var session = heldKeysSession()
+    var snapshot = twoOutputs(active = 10, leftFocus = 0)
+    snapshot.outputs[0].focusGeneration = 0
+    snapshot.actions =
+      @[SnapshotAction(action: 31, name: "close-window", sessionOperationSlot: 3)]
+    snapshot.sessionOperations =
+      @[SnapshotSessionOperation(operation: 700, slot: 3, targetBits: 1)]
+    expect CatchableError:
+      discard
+        session.prepare(snapshot, snapshot.request(1, PolicyAction.sessionClose), 1)
+
+  test "an empty held strip keeps its backdrop and keys until a scope repopulates it":
+    var session = heldKeysSession()
+    # Every window is on the right output (20); the active left output (10)
+    # has none, so its output scope is empty.
+    var snapshot = twoOutputs(active = 10, leftFocus = 0)
+    snapshot.outputs[0].focusGeneration = 0
+    for surface in snapshot.surfaces.mitems:
+      surface.currentOutput = 20
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    let held = session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    let empty = session
+      .cycle(
+        snapshot, held.presented(snapshot, 3, PolicyAction.recentWindowScopeOutput)
+      ).presentation
+      .get()
+    empty.validatePresentation()
+    check empty.outputs[0].mode == PresentationMode.overlay
+    check empty.keyboardOutput == 10
+    check empty.instances.len == 0
+    check empty.regions.mapIt(it.role) == @[PresentationRegionRole.backdrop]
+    let refilled = session
+      .cycle(snapshot, empty.presented(snapshot, 4, PolicyAction.recentWindowScopeAll)).presentation
+      .get()
+    check refilled.instances.len == 3
+
+  test "an empty held strip on a narrow output still publishes":
+    var session = heldKeysSession()
+    var snapshot = twoOutputs(active = 10, leftFocus = 0)
+    snapshot.outputs[0].focusGeneration = 0
+    snapshot.outputs[0].width = 300
+    snapshot.outputs[1].x = 300
+    for surface in snapshot.surfaces.mitems:
+      surface.currentOutput = 20
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    let held = session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    let empty = session
+      .cycle(
+        snapshot, held.presented(snapshot, 3, PolicyAction.recentWindowScopeOutput)
+      ).presentation
+      .get()
+    empty.validatePresentation()
+    check empty.instances.len == 0
+    check empty.regions.mapIt(it.role) == @[PresentationRegionRole.backdrop]
+
+  test "without the held capture the held strip takes no keys":
+    var session = chordSession()
+    let snapshot = scene()
+    discard session.cycle(snapshot, snapshot.chordAction(1, 1))
+    let publication =
+      session.cycle(snapshot, snapshot.lifecycle(2, 1, 0)).presentation.get()
+    check publication.keyboardOutput == 0
+    check publication.bindings.len == 0
+
 suite "recent-windows switcher replay":
   test "a live-mode trace replays the hidden switcher and its held strip":
     let snapshot = scene()
@@ -517,6 +691,7 @@ suite "recent-windows switcher replay":
       )
       entries.add(recorded.traceLine().parseTraceLine())
     check entries.allIt(it.actionLifecycle)
+    check entries.allIt(not it.heldCapture)
     let projections = entries.replay()
     check projections[0].presentation.isNone
     check projections[1].presentation.get().outputs[0].mode == PresentationMode.overlay

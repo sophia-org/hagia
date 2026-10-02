@@ -199,3 +199,12 @@ type PolicyAction* {.pure.} = enum
   ## Commits the selection: a click on a preview, or Enter when Sophia cannot
   ## report the chord ending and the switcher falls back to a modal one.
   recentWindowConfirm = 189
+  ## Jump to the first or the last candidate, Home and End in niri.
+  recentWindowFirst = 190
+  recentWindowLast = 191
+  ## Narrow the open switcher to every window, the active workspace or the
+  ## active output, or step through those three: niri's a, w, o and s.
+  recentWindowScopeAll = 192
+  recentWindowScopeWorkspace = 193
+  recentWindowScopeOutput = 194
+  recentWindowScopeCycle = 195

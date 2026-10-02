@@ -41,6 +41,18 @@ proc profileName*(action: PolicyAction): string =
     "recent-window-cancel"
   of PolicyAction.recentWindowConfirm:
     "recent-window-confirm"
+  of PolicyAction.recentWindowFirst:
+    "recent-window-first"
+  of PolicyAction.recentWindowLast:
+    "recent-window-last"
+  of PolicyAction.recentWindowScopeAll:
+    "recent-window-scope-all"
+  of PolicyAction.recentWindowScopeWorkspace:
+    "recent-window-scope-workspace"
+  of PolicyAction.recentWindowScopeOutput:
+    "recent-window-scope-output"
+  of PolicyAction.recentWindowScopeCycle:
+    "recent-window-scope-cycle"
   of PolicyAction.focusNext:
     "focus-next"
   of PolicyAction.focusPrevious:
@@ -370,6 +382,9 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
       action notin {
         PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious,
         PolicyAction.recentWindowCancel, PolicyAction.recentWindowConfirm,
+        PolicyAction.recentWindowFirst, PolicyAction.recentWindowLast,
+        PolicyAction.recentWindowScopeAll, PolicyAction.recentWindowScopeWorkspace,
+        PolicyAction.recentWindowScopeOutput, PolicyAction.recentWindowScopeCycle,
       }:
     model.clearRecentWindows()
   case action
@@ -381,6 +396,18 @@ proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction
     model.clearRecentWindows()
   of PolicyAction.recentWindowConfirm:
     model.commitRecentWindows()
+  of PolicyAction.recentWindowFirst:
+    model.selectRecentEnd(first = true)
+  of PolicyAction.recentWindowLast:
+    model.selectRecentEnd(first = false)
+  of PolicyAction.recentWindowScopeAll:
+    model.setRecentScope(RecentWindowScope.all)
+  of PolicyAction.recentWindowScopeWorkspace:
+    model.setRecentScope(RecentWindowScope.workspace)
+  of PolicyAction.recentWindowScopeOutput:
+    model.setRecentScope(RecentWindowScope.output)
+  of PolicyAction.recentWindowScopeCycle:
+    model.cycleRecentScope()
   of PolicyAction.toggleOverview:
     if model.overview.active:
       model.clearOverview()

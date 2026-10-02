@@ -58,6 +58,9 @@ type
     # their lifecycle and marks their own activations as ChordAction. Without
     # it every invocation draws the switcher at once as a modal switcher.
     actionLifecycle: bool
+    # Whether Sophia selected the held capture, so a chord-owned switcher
+    # takes its own keys while the chord is held.
+    heldCapture: bool
     # The connection the switcher's chord serials belong to, and which owner
     # of the switcher each of its chords is. Pruned to the live owners, so it
     # stays within their bound.
@@ -128,6 +131,21 @@ include policy_adapter/recent_windows_presentation
 
 proc setActionLifecycle*(adapter: var PolicyAdapter, negotiated: bool) =
   adapter.actionLifecycle = negotiated
+
+proc recentSelectionSurface*(adapter: PolicyAdapter): Option[(uint32, uint32)] =
+  ## The surface of the open switcher's selected window, as index and
+  ## generation: what the close action closes while the switcher is open.
+  let state = adapter.model.recentWindows
+  if not state.active or state.selected >= state.candidates.len:
+    return none((uint32, uint32))
+  let window = state.candidates[state.selected]
+  if window notin adapter.windowToSurface:
+    return none((uint32, uint32))
+  let key = adapter.windowToSurface[window]
+  some((uint32(key and 0xffffffff'u64), uint32(key shr 32)))
+
+proc setHeldCapture*(adapter: var PolicyAdapter, negotiated: bool) =
+  adapter.heldCapture = negotiated
 
 proc synchronizeChordEpoch*(adapter: var PolicyAdapter, epoch: uint64) =
   ## Chord serials name chords of one connection. None of an earlier one's
@@ -226,6 +244,7 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
   for id, selection in adapter.presentationTargets.pairs:
     result.presentationTargets[id] = selection
   result.actionLifecycle = adapter.actionLifecycle
+  result.heldCapture = adapter.heldCapture
   result.chordEpoch = adapter.chordEpoch
   for serial, owner in adapter.chordOwners.pairs:
     result.chordOwners[serial] = owner

@@ -142,6 +142,7 @@ proc run(arguments: seq[string]) =
         session.receivePresentationReceipt(receipt)
       # Restored before the reduction, so each Action means what it meant live.
       session.setActionLifecycle(entry.actionLifecycle)
+      session.setHeldCapture(entry.heldCapture)
       let projection = session.prepare(entry.snapshot, entry.request, entry.transaction)
       var presented = "none"
       if projection.presentation.isSome and projection.presentation.get().outputs.len > 0:

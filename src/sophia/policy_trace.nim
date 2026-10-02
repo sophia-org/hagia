@@ -22,6 +22,7 @@ proc traceLine*(entry: PolicyTraceEntry): string =
       "transaction": entry.transaction,
       "presentationReceipts": entry.presentationReceipts.toJson(),
       "actionLifecycle": entry.actionLifecycle,
+      "heldCapture": entry.heldCapture,
     }
   )
 
@@ -47,6 +48,10 @@ proc parseTraceLine*(line: string): PolicyTraceEntry =
     if node["actionLifecycle"].kind != JBool:
       raise newException(PolicyTraceError, "trace action lifecycle is not a boolean")
     result.actionLifecycle = node["actionLifecycle"].getBool()
+  if node.hasKey("heldCapture"):
+    if node["heldCapture"].kind != JBool:
+      raise newException(PolicyTraceError, "trace held capture is not a boolean")
+    result.heldCapture = node["heldCapture"].getBool()
 
 proc appendTrace*(path: string, entry: PolicyTraceEntry) =
   ## Append-only. A trace that rewrites earlier cycles could not be replayed

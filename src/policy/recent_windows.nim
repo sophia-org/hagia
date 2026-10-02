@@ -71,6 +71,11 @@ proc recentWindowStrip*(
       break
   if bounds.width <= 0 or bounds.height <= 0:
     return none(RecentWindowStrip)
+  # An empty switcher (a scope with no window) has a strip with no previews
+  # and no highlight. Return it before the layout, which centres or scrolls
+  # around a selection that does not exist.
+  if switcher.candidates.len == 0:
+    return some(RecentWindowStrip(output: model.activeOutput, bounds: bounds))
   let sizes = model.windowSizes(physicalBounds)
   let maxHeight = min(
     int64(recentWindowsMaxHeight), int64(bounds.height) div recentWindowsMaxScaleDivisor

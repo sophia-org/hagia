@@ -186,3 +186,6 @@ type
     ## Action as the live session did; traces without it predate the
     ## lifecycle and replay as false.
     actionLifecycle*: bool
+    ## Whether the held switcher took its own keys on this connection. Traces
+    ## without it predate the held capture and replay as false.
+    heldCapture*: bool

@@ -266,8 +266,12 @@ proc validate*(model: PolicyModel) =
       if windowId notin model.windows or windowId in seenCandidates:
         fail("recent-windows candidate is invalid")
       seenCandidates.incl(windowId)
-    if switcher.candidates.len == 0 or
-        switcher.selected notin 0 .. switcher.candidates.high:
+    # An open switcher may be empty: its scope holds no window, as niri's
+    # can. It then selects nothing, recorded as index 0.
+    if (switcher.candidates.len == 0 and switcher.selected != 0) or (
+      switcher.candidates.len > 0 and
+      switcher.selected notin 0 .. switcher.candidates.high
+    ):
       fail("recent-windows selection is invalid")
   elif switcher.visible or switcher.candidates.len != 0 or switcher.selected != 0 or
       switcher.owners.len != 0:

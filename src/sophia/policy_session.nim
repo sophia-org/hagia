@@ -1,6 +1,7 @@
 import std/options
 
 import ../policy/actions
+import ../types/actions
 import ../types/runtime
 import ../runtime/reducer
 import ../types/wm_v1
@@ -55,8 +56,13 @@ proc pendingOperation*(session: PolicySession): Option[SessionOperationIntent] =
     none(SessionOperationIntent)
 
 proc operationFor(
-    snapshot: PolicySnapshot, request: ProjectionRequest
+    snapshot: PolicySnapshot,
+    request: ProjectionRequest,
+    closeTarget = none((uint32, uint32)),
 ): Option[SessionOperationIntent] =
+  ## `closeTarget`, the open switcher's selection, replaces the focused target
+  ## of the close action, as niri's close does while its switcher is open. It
+  ## must name a surface of this snapshot; the focus is then not needed.
   if request.cause.kind notin
       {ProjectionCauseKind.action, ProjectionCauseKind.outputAction}:
     return none(SessionOperationIntent)
@@ -88,7 +94,22 @@ proc operationFor(
     fail("session operation slot is unavailable")
 
   var targetIndex, targetGeneration: uint32
-  if (selected.get().targetBits and 1) != 0:
+  let override =
+    if request.cause.action == PolicyAction.sessionClose.raw():
+      closeTarget
+    else:
+      none((uint32, uint32))
+  if (selected.get().targetBits and 1) != 0 and override.isSome:
+    let (index, generation) = override.get()
+    var present = false
+    for surface in snapshot.surfaces:
+      if surface.surfaceIndex == index and surface.surfaceGeneration == generation:
+        present = true
+    if not present:
+      fail("switcher close target is not in the snapshot")
+    targetIndex = index
+    targetGeneration = generation
+  elif (selected.get().targetBits and 1) != 0:
     for output in snapshot.outputs:
       if output.output == (
         if request.cause.kind == ProjectionCauseKind.outputAction: request.cause.output
@@ -144,7 +165,10 @@ proc prepare*(
   candidate.reconcile(snapshot)
   if request.cause.kind == ProjectionCauseKind.outputAction:
     discard candidate.targetOutputAction(request)
-  let operation = snapshot.operationFor(request)
+  # While the switcher is open, closing a window closes the selected one, as
+  # niri's close does, and the switcher stays open on its neighbour. The
+  # selection may be on another output while nothing is focused here.
+  let operation = snapshot.operationFor(request, candidate.recentSelectionSurface())
   if operation.isNone:
     candidate.applyCause(request)
   result = candidate.projection(snapshot, request)
@@ -171,6 +195,12 @@ proc setActionLifecycle*(session: var PolicySession, negotiated: bool) =
   if session.pending.isSome:
     fail("action lifecycle changed during a pending projection")
   session.committed.setActionLifecycle(negotiated)
+
+proc setHeldCapture*(session: var PolicySession, negotiated: bool) =
+  ## Fixed for a connection, like the action lifecycle.
+  if session.pending.isSome:
+    fail("held capture changed during a pending projection")
+  session.committed.setHeldCapture(negotiated)
 
 proc settle*(session: var PolicySession, outcome: ProjectionOutcome) =
   if session.pending.isNone:

@@ -190,6 +190,8 @@ proc runPolicySession*(
   # this connection installs declares the switcher's chords.
   let actionLifecycle = configure and wire.capabilities.switcherFollowsChords()
   session.setActionLifecycle(actionLifecycle)
+  let heldCapture = configure and wire.capabilities.switcherTakesHeldKeys()
+  session.setHeldCapture(heldCapture)
   try:
     if configure:
       let configuration = hagiaConfiguration(
@@ -216,6 +218,7 @@ proc runPolicySession*(
             transaction: transaction,
             presentationReceipts: receipts,
             actionLifecycle: actionLifecycle,
+            heldCapture: heldCapture,
           )
         )
       let projection = session.prepare(snapshot, request, transaction)

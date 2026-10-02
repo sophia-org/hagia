@@ -47,6 +47,11 @@ proc switcherFollowsChords*(capabilities: uint64): bool =
     capabilityPresentationActions
   (capabilities and needed) == needed
 
+proc switcherTakesHeldKeys*(capabilities: uint64): bool =
+  ## A chord-owned switcher answers its own keys while the chord is held when
+  ## it follows chords and Sophia selected the held capture.
+  capabilities.switcherFollowsChords() and (capabilities and capabilityHeldCapture) != 0
+
 proc hagiaConfiguration*(
     capabilities, connectionEpoch, transaction: uint64
 ): PolicyConfiguration =

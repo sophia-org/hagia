@@ -63,6 +63,18 @@ suite "recent-windows switcher":
     model.applyAction(output, PolicyAction.recentWindowNext)
     check model.recentWindows.candidates[model.recentWindows.selected] == windows[1]
 
+  test "first and last jump to the ends and leave a closed switcher closed":
+    var (model, output, windows) = threeWindows()
+    model.applyAction(output, PolicyAction.recentWindowLast)
+    check not model.recentWindows.active
+    model.applyAction(output, PolicyAction.recentWindowNext)
+    model.applyAction(output, PolicyAction.recentWindowLast)
+    check model.recentWindows.active
+    check model.recentWindows.candidates[model.recentWindows.selected] == windows[0]
+    model.applyAction(output, PolicyAction.recentWindowFirst)
+    check model.recentWindows.candidates[model.recentWindows.selected] == windows[2]
+    model.validate()
+
   test "a quick tap commits without ever being drawn":
     var (model, output, windows) = threeWindows()
     model.applyAction(output, PolicyAction.recentWindowNext)
@@ -184,6 +196,105 @@ suite "recent-windows switcher":
     check model.recentWindowCandidates(RecentWindowScope.workspace) == @[shown]
     check model.recentWindowCandidates(RecentWindowScope.output) == @[shown, hidden]
     check model.recentWindowCandidates(RecentWindowScope.all) == @[shown, hidden, other]
+
+  test "a scope change keeps the selection, or the nearest one to its left":
+    var model = initPolicyModel()
+    let left = model.addOutput(Rect(width: 1200, height: 900))
+    let right = model.addOutput(Rect(x: 1200, width: 1600, height: 1000))
+    model.ensureViewCount(left, 2)
+    let leftViews = model.output(left).get().views
+    let other = model.addWindow(right, capabilities(), SizeConstraints())
+    model.userFocus(right, other)
+    model.activateView(left, leftViews[1])
+    let hidden = model.addWindow(left, capabilities(), SizeConstraints())
+    model.userFocus(left, hidden)
+    model.activateView(left, leftViews[0])
+    let shown = model.addWindow(left, capabilities(), SizeConstraints())
+    model.userFocus(left, shown)
+    proc selected(model: PolicyModel): WindowId =
+      model.recentWindows.candidates[model.recentWindows.selected]
+
+    # Closed: a scope key does nothing.
+    model.applyAction(left, PolicyAction.recentWindowScopeOutput)
+    check model.recentWindows.scope == RecentWindowScope.all
+    model.applyAction(left, PolicyAction.recentWindowNext)
+    check model.selected() == hidden
+    model.applyAction(left, PolicyAction.recentWindowScopeOutput)
+    check model.recentWindows.candidates == @[shown, hidden]
+    check model.selected() == hidden
+    model.applyAction(left, PolicyAction.recentWindowScopeWorkspace)
+    check model.recentWindows.candidates == @[shown]
+    check model.selected() == shown
+    model.applyAction(left, PolicyAction.recentWindowScopeAll)
+    model.applyAction(left, PolicyAction.recentWindowLast)
+    check model.selected() == other
+    model.applyAction(left, PolicyAction.recentWindowScopeOutput)
+    check model.selected() == hidden
+    # Cycle: output, then all, then workspace.
+    model.applyAction(left, PolicyAction.recentWindowScopeCycle)
+    check model.recentWindows.scope == RecentWindowScope.all
+    model.applyAction(left, PolicyAction.recentWindowScopeCycle)
+    check model.recentWindows.scope == RecentWindowScope.workspace
+    check model.recentWindows.active
+    model.validate()
+
+  test "an empty scope leaves the switcher open, empty and cycling":
+    var model = initPolicyModel()
+    let left = model.addOutput(Rect(width: 1200, height: 900))
+    model.ensureViewCount(left, 2)
+    let leftViews = model.output(left).get().views
+    let first = model.addWindow(left, capabilities(), SizeConstraints())
+    model.userFocus(left, first)
+    model.activateView(left, leftViews[1])
+    let second = model.addWindow(left, capabilities(), SizeConstraints())
+    model.userFocus(left, second)
+    model.activateView(left, leftViews[0])
+    model.applyAction(left, PolicyAction.recentWindowNext)
+    # The active workspace loses its only window while the switcher is open.
+    model.removeWindow(first)
+    check model.recentWindows.active
+    model.applyAction(left, PolicyAction.recentWindowScopeWorkspace)
+    check model.recentWindows.scope == RecentWindowScope.workspace
+    check model.recentWindows.active
+    check model.recentWindows.candidates.len == 0
+    model.validate()
+    # Stepping, first and last do nothing; nothing is selected.
+    model.applyAction(left, PolicyAction.recentWindowNext)
+    model.applyAction(left, PolicyAction.recentWindowPrevious)
+    model.applyAction(left, PolicyAction.recentWindowLast)
+    check model.recentWindows.candidates.len == 0
+    check model.recentWindows.selected == 0
+    model.validate()
+    # Cycling passes through the empty scope and repopulates.
+    model.applyAction(left, PolicyAction.recentWindowScopeCycle)
+    check model.recentWindows.scope == RecentWindowScope.output
+    check model.recentWindows.candidates == @[second]
+    model.applyAction(left, PolicyAction.recentWindowScopeWorkspace)
+    check model.recentWindows.candidates.len == 0
+    # Confirming an empty switcher closes it and moves no focus.
+    let focusedBefore = model.focused(left)
+    model.applyAction(left, PolicyAction.recentWindowConfirm)
+    check not model.recentWindows.active
+    check model.focused(left) == focusedBefore
+    model.validate()
+
+  test "an empty switcher on a narrow output lays out an empty strip":
+    var model = initPolicyModel()
+    # Narrower than the two struts the scrolling layout keeps.
+    let narrow = model.addOutput(Rect(width: 300, height: 600))
+    let other = model.addOutput(Rect(x: 300, width: 1600, height: 1000))
+    let window = model.addWindow(other, capabilities(), SizeConstraints())
+    model.userFocus(other, window)
+    model.setActiveOutput(narrow)
+    model.applyAction(narrow, PolicyAction.recentWindowNext)
+    model.showRecentWindows()
+    model.applyAction(narrow, PolicyAction.recentWindowScopeOutput)
+    check model.recentWindows.candidates.len == 0
+    let strip = model.recentWindowStrip()
+    check strip.isSome
+    check strip.get().previews.len == 0
+    check strip.get().highlight == Rect()
+    model.validate()
 
   test "minimized windows are not offered":
     var (model, output, windows) = threeWindows()

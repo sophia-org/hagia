@@ -62,8 +62,9 @@ proc advanceRecentWindows*(model: var PolicyModel, forward: bool) =
   let step = if forward: 1 else: -1
   if model.recentWindows.active:
     let count = model.recentWindows.candidates.len
-    model.recentWindows.selected =
-      (model.recentWindows.selected + step + count) mod count
+    if count > 0:
+      model.recentWindows.selected =
+        (model.recentWindows.selected + step + count) mod count
     return
   let scope = model.recentWindows.scope
   let candidates = model.recentWindowCandidates(scope)
@@ -93,6 +94,47 @@ proc advanceRecentWindows*(model: var PolicyModel, forward: bool) =
 proc showRecentWindows*(model: var PolicyModel) =
   if model.recentWindows.active:
     model.recentWindows.visible = true
+
+proc selectRecentEnd*(model: var PolicyModel, first: bool) =
+  ## Select the first or the last candidate of an open switcher, as niri's
+  ## Home and End do. A closed switcher stays closed.
+  if not model.recentWindows.active or model.recentWindows.candidates.len == 0:
+    return
+  model.recentWindows.selected =
+    if first:
+      0
+    else:
+      model.recentWindows.candidates.len - 1
+
+proc setRecentScope*(model: var PolicyModel, scope: RecentWindowScope) =
+  ## Narrow or widen an open switcher as niri does: keep the selected window,
+  ## or else the nearest one to its left in the unscoped order, or else the
+  ## first. A scope with no window is taken too and leaves the switcher open
+  ## and empty, so cycling passes through it, and a later scope repopulates.
+  if not model.recentWindows.active or model.recentWindows.scope == scope:
+    return
+  let scoped = model.recentWindowCandidates(scope)
+  let state = model.recentWindows
+  var selected = 0
+  if state.selected < state.candidates.len:
+    let full = model.recentWindowCandidates(RecentWindowScope.all)
+    let current = full.find(state.candidates[state.selected])
+    for index, window in scoped:
+      let position = full.find(window)
+      if current >= 0 and position >= 0 and position <= current:
+        selected = index
+  model.recentWindows.scope = scope
+  model.recentWindows.candidates = scoped
+  model.recentWindows.selected = selected
+
+proc cycleRecentScope*(model: var PolicyModel) =
+  ## All, then workspace, then output, then all again: niri's cycle order.
+  let next =
+    case model.recentWindows.scope
+    of RecentWindowScope.all: RecentWindowScope.workspace
+    of RecentWindowScope.workspace: RecentWindowScope.output
+    of RecentWindowScope.output: RecentWindowScope.all
+  model.setRecentScope(next)
 
 proc selectRecentWindow*(model: var PolicyModel, windowId: WindowId) =
   ## Pointer selection of a drawn preview.
@@ -141,6 +183,10 @@ proc commitRecentWindows*(model: var PolicyModel) =
   ## Focus the selection and close. A selection that stopped being eligible
   ## while the switcher was open closes it without moving focus.
   if not model.recentWindows.active:
+    return
+  # An empty switcher selects nothing: confirming it closes it in place.
+  if model.recentWindows.candidates.len == 0:
+    model.clearRecentWindows()
     return
   let windowId = model.recentWindows.candidates[model.recentWindows.selected]
   if not model.eligibleRecentWindow(windowId):
