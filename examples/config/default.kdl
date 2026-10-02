@@ -77,8 +77,9 @@ shortcut {
   bind "Ctrl+Alt+r" "session:reload-profile"
   // Replace the policy client without re-reading anything: the escape for a
   // window manager that has stopped behaving, kept away from the letters so it
-  // cannot be reached by accident.
-  bind "Ctrl+Alt+f5" "session:restart-wm"
+  // cannot be reached by accident. Ctrl+Alt+F1..F12 belong to virtual-terminal
+  // switching, which Sophia handles before any shortcut, so it is not there.
+  bind "Super+Ctrl+f5" "session:restart-wm"
 
   // Camera keys. The first two move the view without moving focus, which
   // nothing else does; the third grows a column into whatever space its
