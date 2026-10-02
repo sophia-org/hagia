@@ -39,7 +39,7 @@ proc corpusLines(path: string): seq[string] =
 
 proc checkRecords(path: string) =
   let lines = path.corpusLines()
-  check lines.len == 22
+  check lines.len == 23
   for line in lines:
     let fields = line.split('|')
     check fields.len == 2
@@ -187,6 +187,16 @@ proc checkRecords(path: string) =
       check status.layout[0] == byte('T')
       check status.layout[3] == byte('l')
       check status.layout[4] == 0
+    of "configuration_action_lifecycle":
+      # action u64, held_ms u32, reserved u32, little endian.
+      proc le(at, width: int): uint64 =
+        for index in countdown(at + width - 1, at):
+          result = (result shl 8) or uint64(bytes[index])
+
+      check bytes.len == 16
+      check le(0, 8) == 5
+      check le(8, 4) == 150
+      check le(12, 4) == 0
     else:
       check false
 
