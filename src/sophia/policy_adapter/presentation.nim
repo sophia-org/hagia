@@ -33,6 +33,39 @@ proc presentationTarget(
     result = adapter.targetCounter.nextIdentity()
   nextKeys[key] = result
 
+proc finishPublication(
+    adapter: var PolicyAdapter,
+    publication: var WmPresentation,
+    previous: WmPresentation,
+    nextKeys: Table[string, uint64],
+    targets: Table[uint64, OverviewSelection],
+): Option[WmPresentation] =
+  ## A source content commit is not a new target identity. Only passive
+  ## spatial/action records change target and publication generations.
+  var oldInstances = initTable[uint64, SurfaceInstance]()
+  var oldRegions = initTable[uint64, PresentationRegion]()
+  for item in previous.instances:
+    oldInstances[item.id] = item
+  for item in previous.regions:
+    oldRegions[item.id] = item
+  for item in publication.instances.mitems:
+    let old = oldInstances.getOrDefault(item.id)
+    item.generation = old.generation
+    if item != old:
+      discard item.generation.nextIdentity()
+  for item in publication.regions.mitems:
+    let old = oldRegions.getOrDefault(item.id)
+    item.generation = old.generation
+    if item != old:
+      discard item.generation.nextIdentity()
+  if publication != previous:
+    publication.generation = adapter.publicationCounter.nextIdentity()
+  publication.validatePresentation()
+  adapter.presentation = some(publication)
+  adapter.presentationKeys = nextKeys
+  adapter.presentationTargets = targets
+  adapter.presentation
+
 proc overviewPresentation(
     adapter: var PolicyAdapter,
     snapshot: PolicySnapshot,
@@ -46,12 +79,6 @@ proc overviewPresentation(
   var nextKeys = initTable[string, uint64]()
   var targets = initTable[uint64, OverviewSelection]()
   var zOrders = initTable[uint64, uint16]()
-  var oldInstances = initTable[uint64, SurfaceInstance]()
-  var oldRegions = initTable[uint64, PresentationRegion]()
-  for item in previous.instances:
-    oldInstances[item.id] = item
-  for item in previous.regions:
-    oldRegions[item.id] = item
 
   for output in snapshot.outputs:
     let logical = adapter.outputToLogical[output.output]
@@ -170,26 +197,7 @@ proc overviewPresentation(
       action: PolicyAction.toggleOverview.raw(), keycode: 24, modifiers: 8
     )
   )
-
-  # A source content commit is not a new target identity. Only these passive
-  # spatial/action records change target and publication generations.
-  for item in publication.instances.mitems:
-    let old = oldInstances.getOrDefault(item.id)
-    item.generation = old.generation
-    if item != old:
-      discard item.generation.nextIdentity()
-  for item in publication.regions.mitems:
-    let old = oldRegions.getOrDefault(item.id)
-    item.generation = old.generation
-    if item != old:
-      discard item.generation.nextIdentity()
-  if publication != previous:
-    publication.generation = adapter.publicationCounter.nextIdentity()
-  publication.validatePresentation()
-  adapter.presentation = some(publication)
-  adapter.presentationKeys = nextKeys
-  adapter.presentationTargets = targets
-  adapter.presentation
+  adapter.finishPublication(publication, previous, nextKeys, targets)
 
 proc revokeChangedPresentation(adapter: var PolicyAdapter, snapshot: PolicySnapshot) =
   if adapter.presentation.isNone:
@@ -224,7 +232,9 @@ proc revokeChangedPresentation(adapter: var PolicyAdapter, snapshot: PolicySnaps
 proc applyPresentationAction(adapter: var PolicyAdapter, request: ProjectionRequest) =
   let cause = request.cause
   let identity = cause.presentation
-  if adapter.presentation.isNone or not adapter.model.overview.active or
+  let switcher =
+    not adapter.model.overview.active and adapter.model.recentWindows.active
+  if adapter.presentation.isNone or not (adapter.model.overview.active or switcher) or
       request.connectionEpoch != adapter.presentationEpoch or cause.activationSerial == 0 or
       identity.presentationEpoch == 0 or not cause.action.isPolicyAction():
     fail("presentation action has no active policy publication")
@@ -247,9 +257,12 @@ proc applyPresentationAction(adapter: var PolicyAdapter, request: ProjectionRequ
         bound = true
     if not bound:
       fail("presentation action is not bound")
-    adapter.model.applyAction(
-      adapter.model.overview.selection.output, cause.action.policyAction()
-    )
+    let output =
+      if switcher:
+        adapter.model.activeOutput
+      else:
+        adapter.model.overview.selection.output
+    adapter.model.applyAction(output, cause.action.policyAction())
   else:
     var found = false
     for item in publication.instances:
@@ -261,11 +274,16 @@ proc applyPresentationAction(adapter: var PolicyAdapter, request: ProjectionRequ
           item.output == identity.output and item.action == cause.action:
         found = true
     let selection = adapter.presentationTargets.getOrDefault(identity.targetId)
-    if not found or cause.action != PolicyAction.confirmOverview.raw() or
-        selection.output == nullOutputId:
+    let expected =
+      if switcher: PolicyAction.recentWindowConfirm else: PolicyAction.confirmOverview
+    if not found or cause.action != expected.raw() or selection.output == nullOutputId:
       fail("presentation target is stale or unbound")
-    adapter.model.setOverviewSelection(selection)
-    adapter.model.confirmOverview()
+    if switcher:
+      adapter.model.selectRecentWindow(selection.window)
+      adapter.model.commitRecentWindows()
+    else:
+      adapter.model.setOverviewSelection(selection)
+      adapter.model.confirmOverview()
 
 proc receivePresentationReceipt*(
     adapter: var PolicyAdapter, receipt: PresentationReceipt
@@ -278,5 +296,8 @@ proc receivePresentationReceipt*(
   for output in publication.outputs:
     if output.output == receipt.output and output.generation == receipt.outputGeneration:
       if receipt.outcome != PresentationOutcomeKind.presented:
+        # A refused switcher is closed too: a modal one could not otherwise
+        # be confirmed, and republishing it would only be refused again.
+        adapter.model.clearRecentWindows()
         adapter.clearPresentation()
       return

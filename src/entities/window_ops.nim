@@ -5,7 +5,7 @@ import ../types/[core, model]
 import ../policy/entity_store
 import ../state/[id_gen, queries, values]
 
-import ./[focus_ops, group_ops, tag_ops]
+import ./[focus_ops, group_ops, recent_windows_ops, tag_ops]
 
 ## Window and column lifecycle. Closing a window touches arrays, tags, columns,
 ## and histories, so every one of those updates happens here in one pass.
@@ -193,6 +193,7 @@ proc removeWindow*(model: var PolicyModel, id: WindowId) =
     ):
       model.views[view].openedColumn = nullColumnId
       model.views[view].openingFocus = nullWindowId
+  model.forgetRecentWindow(id)
   model.windows.del(id)
   model.windowTags.del(id)
   model.windowOrder.keepItIf(it != id)

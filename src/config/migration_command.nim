@@ -112,13 +112,22 @@ proc classifyTriadCommand*(command: string): CommandMigration =
       "policy", MigrationDisposition.retained,
       "WM-owned overview through negotiated generic presentation", command,
     )
-  of "toggle-hotkey-overlay", "focus-shell-ui", "recent-window-next",
-      "recent-window-prev", "recent-window-next --filter app-id",
-      "recent-window-prev --filter app-id", "focus-window-or-workspace-down",
+  of "recent-window-next", "recent-window-prev":
+    commandMigration(
+      "policy", MigrationDisposition.retained,
+      "WM-owned recent-windows switcher; release-to-commit needs Sophia's chord lifecycle",
+      command,
+    )
+  of "recent-window-next --filter app-id", "recent-window-prev --filter app-id":
+    commandMigration(
+      "policy", MigrationDisposition.excluded,
+      "excluded: policy receives no application identity to filter by",
+    )
+  of "toggle-hotkey-overlay", "focus-shell-ui", "focus-window-or-workspace-down",
       "focus-window-or-workspace-up":
     commandMigration(
       "shell", MigrationDisposition.excluded,
-      "excluded from the WM freeze profile; requires broader shell state or MRU semantics",
+      "excluded from the WM freeze profile; requires broader shell state",
     )
   of "screenshot", "screenshot-screen", "screenshot-window",
       "screenshot --clipboard-only", "screenshot --show-pointer",

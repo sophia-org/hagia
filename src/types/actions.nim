@@ -191,3 +191,11 @@ type PolicyAction* {.pure.} = enum
   overviewDown = 183
   overviewPreviousWorkspace = 184
   overviewNextWorkspace = 185
+  ## The recent-windows switcher. Next and previous both open it; the chord
+  ## that fired them decides when it is drawn and when it commits.
+  recentWindowNext = 186
+  recentWindowPrevious = 187
+  recentWindowCancel = 188
+  ## Commits the selection: a click on a preview, or Enter when Sophia cannot
+  ## report the chord ending and the switcher falls back to a modal one.
+  recentWindowConfirm = 189

@@ -272,8 +272,29 @@ type
     active*: bool
     selection*: OverviewSelection
 
+  RecentWindowScope* {.pure.} = enum
+    ## Which windows the switcher offers: every window, the active output's
+    ## active workspace, or everything on the active output.
+    all
+    workspace
+    output
+
+  RecentWindowsState* = object
+    ## The recent-windows switcher. It opens on its first action, becomes
+    ## visible only once Sophia reports that chord still held, and commits when
+    ## the chord ends, so a quick tap switches without drawing anything.
+    active*: bool
+    visible*: bool
+    scope*: RecentWindowScope
+    candidates*: seq[WindowId] ## Most recently focused first.
+    selected*: int
+
   PolicyModel* = object
     overview*: OverviewState ## Transient spatial policy, absent from checkpoints.
+    recentWindows*: RecentWindowsState ## Transient, absent from checkpoints.
+    ## Every output's focus in one order, newest last. Transient: a restarted
+    ## WM starts with no history rather than a guessed one.
+    recentFocus*: seq[WindowId]
     tabTrees*: Table[ViewId, TabTree]
     settings*: PolicySettings
     windows*: EntityStore[WindowId, WindowData]
@@ -302,6 +323,8 @@ type
 const
   maxOutputAffinities* = 16
   maxFocusHistory* = 32
+  ## Bounds the global recent-focus order across every output.
+  maxRecentFocus* = 64
   maxMinimizedHistory* = 64
   maxWorkspaceNameBytes* = 64
   maxScratchpads* = 64

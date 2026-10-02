@@ -33,6 +33,10 @@ nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
 nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/toverview-adapter" tests/toverview_adapter.nim
 nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
+    -o:"$build_dir/trecent-windows" tests/trecent_windows.nim
+nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
+    -o:"$build_dir/trecent-windows-adapter" tests/trecent_windows_adapter.nim
+nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/ttab-trees" tests/ttab_trees.nim
 nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/tedge-maximized" tests/tedge_maximized.nim

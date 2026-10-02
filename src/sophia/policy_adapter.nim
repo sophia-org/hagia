@@ -13,6 +13,9 @@ import ../types/[overview, wm_presentation]
 import ../policy/overview
 import ../entities/overview_ops
 import ../systems/overview
+import ../entities/recent_windows_ops
+import ../policy/recent_windows
+import ../systems/recent_windows
 import ./wm_presentation
 import ./policy_codec
 import ./snapshot_convert
@@ -51,6 +54,10 @@ type
     presentationEpoch, publicationCounter, targetCounter: uint64
     presentationKeys: Table[string, uint64]
     presentationTargets: Table[uint64, OverviewSelection]
+    # Whether this connection negotiated Sophia's chord lifecycle. Without it
+    # the recent-windows switcher cannot learn when its chord ends, so it is
+    # drawn at once as a modal switcher instead.
+    actionLifecycle: bool
 
   TagRelationDto = object
     owner: uint32
@@ -112,6 +119,10 @@ type
 proc applyPolicyCandidate*(adapter: var PolicyAdapter, candidate: AuthorityCandidate)
 
 include policy_adapter/presentation
+include policy_adapter/recent_windows_presentation
+
+proc setActionLifecycle*(adapter: var PolicyAdapter, negotiated: bool) =
+  adapter.actionLifecycle = negotiated
 
 proc initPolicyAdapter*(): PolicyAdapter =
   PolicyAdapter(model: initPolicyModel())
@@ -172,6 +183,7 @@ proc clone*(adapter: PolicyAdapter): PolicyAdapter =
     result.presentationKeys[key] = id
   for id, selection in adapter.presentationTargets.pairs:
     result.presentationTargets[id] = selection
+  result.actionLifecycle = adapter.actionLifecycle
 
 proc destinationKey(destination: LaunchDestination): string =
   result = $int(destination.output)
@@ -919,6 +931,12 @@ proc applyCause*(adapter: var PolicyAdapter, request: ProjectionRequest) =
     else:
       fail("policy interaction kind is invalid")
   adapter.model = adapter.model.reducePolicy(message).candidate
+  # Without the chord lifecycle no Held will arrive, so the switcher is drawn
+  # at once and becomes modal (see recentWindowsPresentation).
+  if message.kind == PolicyMsgKind.action and not adapter.actionLifecycle and
+      message.action in
+      {PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious}:
+    adapter.model.showRecentWindows()
   recordEvidence(
     EvidenceEvent(
       kind: EvidenceKind.reducer,
@@ -1240,7 +1258,14 @@ proc projection*(
           ),
         )
       )
-  result.presentation = adapter.overviewPresentation(snapshot, physicalBounds)
+  result.presentation =
+    if adapter.model.overview.active:
+      adapter.overviewPresentation(snapshot, physicalBounds)
+    elif adapter.model.recentWindows.active and adapter.model.recentWindows.visible:
+      adapter.recentWindowsPresentation(snapshot, physicalBounds)
+    else:
+      adapter.clearPresentation()
+      none(WmPresentation)
   for logical in adapter.model.projectLayout(
     affected, outerGap, innerGap, adapter.model.settings.viewportOffset, physicalBounds
   ):

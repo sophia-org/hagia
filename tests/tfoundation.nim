@@ -597,10 +597,11 @@ suite "Hagia foundation":
           break
       check implemented
       inc policyBindings
-    # The overview binding adds one WM action. The session actions retain
-    # their existing authority, including reload and process replacement.
-    check shortcuts.values.len == 95
-    check policyBindings == 86
+    # The overview binding adds one WM action, and the recent-windows switcher
+    # three (next, previous, cancel). The session actions retain their
+    # existing authority, including reload and process replacement.
+    check shortcuts.values.len == 98
+    check policyBindings == 89
 
   test "a trigger Sophia cannot bind is refused before a session is attempted":
     # A chord that passes the character check but names no key used to reach
@@ -1195,8 +1196,9 @@ cursor {
     check unsupportedBindings == 0
     check excludedBindings > 0
     check deferredBindings == 0
-    # Overview and reload have distinct WM and session owners.
-    check report.outputProfile.count("\n  bind ") == 109
+    # Overview and reload have distinct WM and session owners. Triad's
+    # recent-window next and previous binds carry over as WM actions.
+    check report.outputProfile.count("\n  bind ") == 111
     check "bind Super+o \"policy:toggle-overview\"" in report.outputProfile
     check report.outputProfile.count("\n  pointer-bind ") == 2
     check "bind Super+p \"session:window-switcher\"" in report.outputProfile
@@ -1260,7 +1262,8 @@ cursor {
         "duplicate shortcut identity" in item.result or
         "contextual shell modes" in item.result or
         "pointer binding cannot cross" in item.result or
-        "retains only move and resize pointer actions" in item.result
+        "retains only move and resize pointer actions" in item.result or
+        "no application identity" in item.result
       )
 
   test "evidence is opt-in, schema-versioned, bounded, and metadata-free":

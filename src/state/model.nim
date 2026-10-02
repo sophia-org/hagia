@@ -14,6 +14,9 @@ proc initPolicyModel*(): PolicyModel =
 
 proc clone*(model: PolicyModel): PolicyModel =
   result.overview = model.overview
+  result.recentWindows = model.recentWindows
+  result.recentWindows.candidates = @(model.recentWindows.candidates)
+  result.recentFocus = @(model.recentFocus)
   for view, tree in model.tabTrees.pairs:
     result.tabTrees[view] = tree.cloneTabTree()
   result.settings = model.settings
@@ -248,6 +251,25 @@ proc validate*(model: PolicyModel) =
       seenFocus.incl(windowId)
   if seenViews.len != model.views.len:
     fail("policy contains a detached view")
+  if model.recentFocus.len > maxRecentFocus:
+    fail("policy recent focus is excessive")
+  var seenRecent = initHashSet[WindowId]()
+  for windowId in model.recentFocus:
+    if windowId notin model.windows or windowId in seenRecent:
+      fail("policy recent focus is invalid")
+    seenRecent.incl(windowId)
+  let switcher = model.recentWindows
+  if switcher.active:
+    var seenCandidates = initHashSet[WindowId]()
+    for windowId in switcher.candidates:
+      if windowId notin model.windows or windowId in seenCandidates:
+        fail("recent-windows candidate is invalid")
+      seenCandidates.incl(windowId)
+    if switcher.candidates.len == 0 or
+        switcher.selected notin 0 .. switcher.candidates.high:
+      fail("recent-windows selection is invalid")
+  elif switcher.visible or switcher.candidates.len != 0 or switcher.selected != 0:
+    fail("closed recent-windows switcher retains state")
   for windowId in model.windowOrder:
     let window = model.windows[windowId]
     if window.id != windowId or window.homeOutput notin model.outputs or

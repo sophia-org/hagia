@@ -92,6 +92,11 @@ shortcut {
   bind "Super+b" "session:spawn-browser"
   bind "Super+p" "session:window-switcher"
   bind "Super+o" "policy:toggle-overview" label="Workspace overview" group="Workspaces"
+  // Recent windows, as niri: hold Alt and tap Tab to step back through recently
+  // focused windows; release Alt to switch. Any modifier chord works here.
+  bind "Alt+Tab" "policy:recent-window-next" label="Recent windows" group="Workspaces"
+  bind "Alt+Shift+Tab" "policy:recent-window-prev"
+  bind "Alt+Escape" "policy:recent-window-cancel"
   bind "Super+?" "session:shortcut-help" label="Show keyboard shortcuts" group="Session"
   bind "Super+q" "session:close-window"
   bind "Super+h" "policy:focus-column-prev"

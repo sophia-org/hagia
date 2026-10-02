@@ -5,6 +5,8 @@ import ../entities/tab_tree_ops
 import ../entities/overview_ops
 import ../systems/overview
 import ../types/overview
+import ../entities/recent_windows_ops
+import ../systems/recent_windows
 
 proc raw*(action: PolicyAction): uint64 =
   uint64(ord(action))
@@ -31,6 +33,14 @@ proc profileName*(action: PolicyAction): string =
     "overview-workspace-prev"
   of PolicyAction.overviewNextWorkspace:
     "overview-workspace-next"
+  of PolicyAction.recentWindowNext:
+    "recent-window-next"
+  of PolicyAction.recentWindowPrevious:
+    "recent-window-prev"
+  of PolicyAction.recentWindowCancel:
+    "recent-window-cancel"
+  of PolicyAction.recentWindowConfirm:
+    "recent-window-confirm"
   of PolicyAction.focusNext:
     "focus-next"
   of PolicyAction.focusPrevious:
@@ -354,7 +364,23 @@ proc policyAction*(raw: uint64): PolicyAction =
 proc applyAction*(model: var PolicyModel, output: OutputId, action: PolicyAction) =
   ## Reducer actions mutate private logical state only. Sophia validates the
   ## resulting complete projection before any change becomes authoritative.
+  # niri disables ordinary binds while its switcher is open. A WM cannot, so
+  # any other action closes the switcher before it runs.
+  if model.recentWindows.active and
+      action notin {
+        PolicyAction.recentWindowNext, PolicyAction.recentWindowPrevious,
+        PolicyAction.recentWindowCancel, PolicyAction.recentWindowConfirm,
+      }:
+    model.clearRecentWindows()
   case action
+  of PolicyAction.recentWindowNext:
+    model.advanceRecentWindows(forward = true)
+  of PolicyAction.recentWindowPrevious:
+    model.advanceRecentWindows(forward = false)
+  of PolicyAction.recentWindowCancel:
+    model.clearRecentWindows()
+  of PolicyAction.recentWindowConfirm:
+    model.commitRecentWindows()
   of PolicyAction.toggleOverview:
     if model.overview.active:
       model.clearOverview()
