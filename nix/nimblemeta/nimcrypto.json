@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/cheatfate/nimcrypto",
+    "downloadMethod": "git",
+    "vcsRevision": "b3dbc9c4d08e58c5b7bfad6dc7ef2ee52f2f4c08",
+    "files": [
+      "/nimcrypto/bcmode.nim",
+      "/nimcrypto/utils.nim",
+      "/nimcrypto/scrypt.nim",
+      "/nimcrypto/blowfish.nim",
+      "/nimcrypto/twofish.nim",
+      "/nimcrypto/hmac.nim",
+      "/nimcrypto/hash.nim",
+      "/nimcrypto/sha2/sha2_common.nim",
+      "/nimcrypto/keccak.nim",
+      "/nimcrypto/sha2/sha2_ref.nim",
+      "/nimcrypto/sha2/sha2.nim",
+      "/nimcrypto/ripemd.nim",
+      "/nimcrypto.nim",
+      "/nimcrypto/sha2/sha2_avx.nim",
+      "/nimcrypto/sha2/sha2_neon.nim",
+      "/nimcrypto/sha2/sha2_avx2.nim",
+      "/nimcrypto/sysrand.nim",
+      "/nimcrypto/sha.nim",
+      "/nimcrypto/blake2.nim",
+      "/nimcrypto.nimble",
+      "/nimcrypto/sha2/sha2_sha.nim",
+      "/nimcrypto/sha2.nim",
+      "/nimcrypto/pbkdf2.nim",
+      "/nimcrypto/cpufeatures.nim",
+      "/nimcrypto/rijndael.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.7.3"
+    ]
+  }
+}

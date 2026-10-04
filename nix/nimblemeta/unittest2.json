@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/status-im/nim-unittest2.git",
+    "downloadMethod": "git",
+    "vcsRevision": "26f2ef3ae0ec72a2a75bfe557e02e88f6a31c189",
+    "files": [
+      "/unittest2.nimble",
+      "/unittest2.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.2.5"
+    ]
+  }
+}

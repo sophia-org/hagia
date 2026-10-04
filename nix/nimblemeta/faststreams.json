@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/status-im/nim-faststreams",
+    "downloadMethod": "git",
+    "vcsRevision": "50889cd16ec8771106cdd0eeea460039e8571e06",
+    "files": [
+      "/faststreams/stdout.nim",
+      "/faststreams/buffers.nim",
+      "/faststreams/async_backend.nim",
+      "/faststreams/chronos_adapters.nim",
+      "/faststreams/textio.nim",
+      "/faststreams/std_adapters.nim",
+      "/faststreams/multisync.nim",
+      "/faststreams/inputs.nim",
+      "/faststreams.nimble",
+      "/faststreams/asynctools_adapters.nim",
+      "/faststreams/stdin.nim",
+      "/faststreams/pipelines.nim",
+      "/faststreams.nim",
+      "/faststreams/outputs.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.5.1"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/arnetheduck/nim-results",
+    "downloadMethod": "git",
+    "vcsRevision": "df8113dda4c2d74d460a8fa98252b0b771bf1f27",
+    "files": [
+      "/results.nim",
+      "/results.nimble"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.5.1"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/status-im/nim-chronicles",
+    "downloadMethod": "git",
+    "vcsRevision": "27ec507429a4eb81edc20f28292ee8ec420be05b",
+    "files": [
+      "/chronicles/timings.nim",
+      "/chronicles/ansicolors.nim",
+      "/chronicles/json_records.nim",
+      "/chronicles.nimble",
+      "/chronicles.nim",
+      "/chronicles/chronos_tools.nim",
+      "/chronicles/textblocks.nim",
+      "/chronicles/helpers.nim",
+      "/chronicles/log_output.nim",
+      "/chronicles/scope_helpers.nim",
+      "/chronicles/formats.nim",
+      "/chronicles/dynamic_scope.nim",
+      "/chronicles/topics_registry.nim",
+      "/chronicles/dynamic_scope_types.nim",
+      "/chronicles/textlines.nim",
+      "/chronicles/timestamp.nim",
+      "/chronicles/options.nim",
+      "/chronicles/textformats.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.12.2"
+    ]
+  }
+}

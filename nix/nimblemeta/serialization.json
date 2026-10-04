@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/status-im/nim-serialization",
+    "downloadMethod": "git",
+    "vcsRevision": "4092500cea76154576539371709ae801afbd2a9d",
+    "files": [
+      "/serialization/testing/generic_suite.nim",
+      "/serialization/formats.nim",
+      "/serialization/object_serialization.nim",
+      "/serialization/macros.nim",
+      "/serialization/errors.nim",
+      "/serialization/case_objects.nim",
+      "/serialization/testing/tracing.nim",
+      "/serialization.nimble",
+      "/serialization/flavor_auto_serialization.nim",
+      "/serialization.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.5.3"
+    ]
+  }
+}

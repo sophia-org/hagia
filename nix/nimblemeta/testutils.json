@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "metaData": {
+    "url": "https://github.com/status-im/nim-testutils",
+    "downloadMethod": "git",
+    "vcsRevision": "74588b8b55d116ca057431ae3a0ca359e0825fcd",
+    "files": [
+      "/testutils/moduletests.nim",
+      "/testutils.nimble",
+      "/scripts/install_honggfuzz.sh",
+      "/testutils.nim",
+      "/testutils/spec.nim",
+      "/testutils/helpers.nim",
+      "/ntu",
+      "/testutils/fuzzing.nim",
+      "/testutils/fuzzing/fuzzing_on_windows.md",
+      "/testutils/config.nim",
+      "/testutils/nimbletasks.nim",
+      "/testutils/readme.md",
+      "/testutils/fuzzing/readme.md",
+      "/testutils/markdown_reports.nim",
+      "/testutils/fuzzing_engines.nim",
+      "/testutils/unittests.nim"
+    ],
+    "binaries": [],
+    "specialVersions": [
+      "0.8.2"
+    ]
+  }
+}
