@@ -6,6 +6,42 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-10 presented chord owner join
+
+Signed fixture `3960c83752743805cfbe3a17843296c6fef4947e` and niltempus runner
+`beb125b744f0d18467c16b9bb5dc233ac45409e6` qualify a tenth current-SDK case
+against Sophia `f77244abe`. Three owned CPU sources pass through the ordinary
+production cycle. Real Hagia's preview publication passes unchanged preflight,
+a supplied completion enables the captured action, stale identities are refused,
+and chord release commits the expected third window with credit and debt settled.
+The earlier nine cases retain their non-native capability selection.
+
+`t249-presented-01` passes ten cases with clean signed fixture source; manifest
+`32e64d8b45db223c74f0a1a0d3f902070c666a8341177810d479bf1d6b11b623`.
+`t249-presented-controls-01` manifest
+`836e6638d74f264bb0b4ad91f169a5529821e6e2d48208939f312f1e02e4ff79`
+records two compiled named failures: missing completion prevents the captured
+Right action; ignored Ended leaves focus W1 instead of W3. F1 does not proceed
+to prove its predicted W2 final focus. Inputs were restored. The final fixture,
+overlay and runner match the development source used by the controls; production
+Hagia source is identical, but separate Nim builds have different binary hashes.
+
+`t249-presented-checks-01`, manifest
+`a2ef23105d82f86fbb0ff03621b73655b1a0801bba485f0b9bd5593fca85fcfa`,
+passes restored-source comparison, overlay/runner clippy, three runner controls,
+formatting and layout. The initial dev01 STOP (Ready before the last receipt
+flush) is preserved. The fixture now polls a bounded drain with new cycles
+disabled. All manifests independently verify; no tests were rerun at integration.
+
+Heads, completion stamps, time and content are supplied; Session pixel admission
+and visual readiness are bypassed. Receipt drainage proves transport progress,
+not a particular ACK. Hagia ignores Presented in its model. Copied owner glue
+is disclosed and reviewed against hash-pinned production spans. Native retirement,
+pixels, physical input, latency, revocation-to-model, disconnect/release debt,
+cancel and AbortSettlement remain open. No full product gate or installed change;
+h006/t249 remain open. Future Rust runs use cargo-slot and do not archive build
+products in evidence under the updated global resource rules.
+
 ## 2026-10-10 stalled live peer slice
 
 Signed `651763e2dff1102a0b7380b3347ce7fc19c44fea` adds external
