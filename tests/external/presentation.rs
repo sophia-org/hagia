@@ -17,6 +17,9 @@ use sophia_backend_live::{
 use sophia_protocol::*;
 use std::sync::Arc;
 
+#[path = "presentation_revocation.rs"]
+mod revocation;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),
@@ -665,10 +668,24 @@ fn preflight(run: &Lifecycle, content: &Content, owner: u64, publication: &Polic
     );
 }
 
-#[test]
-#[ignore = "requires current ordinary Hagia and isolated external overlay"]
-fn sdk_presented_chord_switcher() {
-    let mut run = Lifecycle::native_ceiling("presented-chord", DESKTOP);
+/// State after the shared prefix: Alt+Tab opened a followed chord and real
+/// Hagia's Held publication is installed and settled, with no completed frame,
+/// receipt, captured key or release debt yet.
+struct Held {
+    run: Lifecycle,
+    content: Content,
+    routing: Routing,
+    idle: Vec<LivePresentedInputProjection>,
+    first: PolicyPresentation,
+    next: WmActionId,
+    /// Checkpoint windows in the documented candidate order.
+    candidates: Vec<u64>,
+    /// Their surfaces: W1 (the settled focus), W2, W3.
+    expected: Vec<SurfaceId>,
+}
+
+fn held(case: &str) -> Held {
+    let mut run = Lifecycle::native_ceiling(case, DESKTOP);
     let profile =
         std::fs::read(run.source.config.desktop_profile_source.as_ref().unwrap()).unwrap();
     assert_eq!(profile, DESKTOP.as_bytes());
@@ -822,6 +839,33 @@ fn sdk_presented_chord_switcher() {
         assert!(!public.presentation_input.modal_ready(false));
         assert!(public.presentation_receipts.is_empty());
     }
+    Held {
+        run,
+        content,
+        routing,
+        idle,
+        first,
+        next,
+        candidates,
+        expected,
+    }
+}
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_chord_switcher() {
+    let Held {
+        mut run,
+        mut content,
+        mut routing,
+        idle,
+        first,
+        next,
+        candidates,
+        expected,
+    } = held("presented-chord");
+    let output = first.outputs[0];
+    let w3 = expected[2];
     // Without a completed frame the capture is not actionable: Right reaches
     // client routing (no focus) and nothing is owed.
     let (report, ingress) = routing.route(&mut run, &idle, &[(RIGHT, true), (RIGHT, false)], 1200);

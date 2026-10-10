@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The ten explicitly ignored cases must be listed and invoked individually:
+The eleven explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -61,6 +61,19 @@ The ten explicitly ignored cases must be listed and invoked individually:
   Alt's release commits the third window, expected from the checkpoint and
   Hagia's documented candidate order before the run. Chord credit and capture
   debt are checked at each step.
+- `sdk_presented_revocation_closes_switcher` in `presentation_revocation.rs`,
+  a child of `presentation.rs` that reuses its prefix through the installed Held
+  publication: no Right press and no release debt. A supplied completion issues
+  Presented. A supplied completed frame that still shows policy content but
+  lacks the publication stamp makes Session revoke: Revoked carries the
+  original identity and leaves before the next cycle. The first cycle admitted
+  afterwards is captured at admission; no other cycle is admitted until it is
+  answered. That exact SceneChanged answer must be a staged proposal with no
+  presentation and unchanged W1 focus. A refusal of that request, or a
+  proposal that still draws the switcher, fails a named assertion. Only after
+  that answer is committed does a supplied replacement frame withdraw the
+  revoked identity. Alt's release then returns the chord credit without
+  committing a selection, and W1 stays focused.
 
 The original three cases use an empty headless scene. The two occupied cases
 supply mapped authority facts and source-less layers, and directly complete
@@ -87,8 +100,13 @@ CPU pixels; display heads, frame completions and router time are supplied.
 It is semantic owner qualification, not native retirement, pixels, physical
 input or latency. A receipt leaving Session's queue is transport progress, not
 proof that the peer consumed or acknowledged that receipt, and Hagia's model
-ignores Presented receipts. Session-initiated revocation reaching the model,
-disconnect with release debt, cancel paths and AbortSettlement remain open.
+ignores Presented receipts. The revocation case observes that the answer
+closes the switcher. Session exposes no refusal-reason record for a staged
+projection rejection, so a refused answer's cause, such as a stale presentation
+generation, is a source inference; only scene-advanced staleness has
+diagnostic accounting.
+Revocation by native retirement or source loss, disconnect with release debt,
+cancel paths and AbortSettlement remain open.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
 
