@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The nine explicitly ignored cases must be listed and invoked individually:
+The ten explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -45,6 +45,22 @@ The nine explicitly ignored cases must be listed and invoked individually:
   its own Dirty exchange and answers a fresh action. Detection and replacement
   times are recorded observations, not a latency qualification. A guard resumes
   the exact paused process if an assertion fails first.
+- `sdk_presented_chord_switcher` in `presentation.rs`: Session's native
+  presentation ceiling is selected without a device, and the case's own profile
+  binds Alt+Tab to recent-window-next; Hagia's configuration declares the
+  chord's lifecycle. Three supplied surfaces carry owned CPU buffers committed
+  through one ordinary CPU production cycle. Alt+Tab, routed by Session's
+  production routing and the real router, opens a chord; Held, at a supplied
+  router time, makes real Hagia publish its held switcher. That unmodified
+  publication is refused by a runtime without the sources and with no head,
+  then passes production preflight. Installed without a completed frame it
+  issues no receipt and captures nothing. A supplied completion issues one
+  Presented receipt; a captured Right then carries that exact identity, owes
+  its release until released, and steps the switcher in Hagia. The republished
+  switcher rejects the old identity. Revoked and Withdrawn follow in order, and
+  Alt's release commits the third window, expected from the checkpoint and
+  Hagia's documented candidate order before the run. Chord credit and capture
+  debt are checked at each step.
 
 The original three cases use an empty headless scene. The two occupied cases
 supply mapped authority facts and source-less layers, and directly complete
@@ -65,6 +81,16 @@ owner state and real peer continuations, not every byte the peer might send.
 Protection evidence is the supervisor's observation, not an
 independent namespace inventory or a new 9P authentication claim. The requested
 restart calls the Session owner directly, not the public control socket.
+
+The presentation case bypasses Session admission and visual readiness for its
+CPU pixels; display heads, frame completions and router time are supplied.
+It is semantic owner qualification, not native retirement, pixels, physical
+input or latency. A receipt leaving Session's queue is transport progress, not
+proof that the peer consumed or acknowledged that receipt, and Hagia's model
+ignores Presented receipts. Session-initiated revocation reaching the model,
+disconnect with release debt, cancel paths and AbortSettlement remain open.
+The copied dispatch arms and routing call mirror pinned production spans,
+which the runner hashes by semantic anchors.
 
 Each case records its profile, checkpoint where present, negotiated
 capabilities, connection epoch and protection evidence. Normal exit checks

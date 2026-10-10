@@ -15,6 +15,9 @@ mod operations;
 #[path = "slow_peer.rs"]
 mod slow_peer;
 
+#[path = "presentation.rs"]
+mod presentation;
+
 struct Lifecycle {
     // Drop the supervised child before its private profile directory.
     wm: LiveWmSession,
@@ -34,6 +37,17 @@ fn hash(path: &Path) -> String {
 
 impl Lifecycle {
     fn new(case: &str) -> Self {
+        Self::start(case, None)
+    }
+
+    /// The presentation case only: Session's native presentation ceiling is
+    /// selected without any device, and the desktop profile is the case's own.
+    /// Capability selection is not native presentation evidence.
+    fn native_ceiling(case: &str, desktop: &str) -> Self {
+        Self::start(case, Some(desktop))
+    }
+
+    fn start(case: &str, native_ceiling: Option<&str>) -> Self {
         let binary =
             std::fs::canonicalize(std::env::var_os("HAGIA_LIFECYCLE_BIN").unwrap()).unwrap();
         let digest = std::env::var("HAGIA_LIFECYCLE_SHA256").unwrap();
@@ -41,11 +55,14 @@ impl Lifecycle {
         let evidence =
             PathBuf::from(std::env::var_os("HAGIA_LIFECYCLE_EVIDENCE").unwrap()).join(case);
         std::fs::create_dir(&evidence).expect("fresh case directory");
-        let mut source = ConfigFixture::new(&[]);
+        let mut source = match native_ceiling {
+            None => ConfigFixture::new(&[]),
+            Some(desktop) => ConfigFixture::from_documents(CORE, desktop, &[]),
+        };
         source.config.wm_socket_path = source.directory.join("wm.sock");
         source.config.wm_process = Some(binary.to_str().unwrap().to_owned());
         source.config.wm_process_args.clear();
-        source.config.native_scanout = false;
+        source.config.native_scanout = native_ceiling.is_some();
         let prepared = LiveWmSession::prepare_public_launch(&mut source.config).unwrap();
         let checkpoint = prepared.as_ref().unwrap().directory.checkpoint_path();
         assert!(!checkpoint.exists());
@@ -83,13 +100,20 @@ impl Lifecycle {
             public.selected_capabilities & sophia_protocol::SOPHIA_WM_CAPABILITY_CONFIGURATION,
             0
         );
-        assert_eq!(
-            public.selected_capabilities
-                & (sophia_protocol::SOPHIA_WM_CAPABILITY_SURFACE_INSTANCES
-                    | sophia_protocol::SOPHIA_WM_CAPABILITY_PRESENTATION_ACTIONS),
-            0
-        );
-        assert!(public.actions.iter().all(|a| a.name != "toggle-overview"));
+        if native_ceiling.is_none() {
+            assert_eq!(
+                public.selected_capabilities
+                    & (sophia_protocol::SOPHIA_WM_CAPABILITY_SURFACE_INSTANCES
+                        | sophia_protocol::SOPHIA_WM_CAPABILITY_PRESENTATION_ACTIONS),
+                0
+            );
+            assert!(public.actions.iter().all(|a| a.name != "toggle-overview"));
+        } else {
+            // Source prediction for this offer and profile: every bit but 13
+            // (pointer focus was not requested).
+            assert_eq!(public.selected_capabilities, 0x7fdfff);
+            assert!(public.actions.iter().any(|a| a.name == "toggle-overview"));
+        }
         let spec = value.wm.supervisor.launch_spec();
         assert_eq!(spec.program, value.binary);
         assert!(spec.args.is_empty(), "ordinary Hagia, not a scripted peer");
