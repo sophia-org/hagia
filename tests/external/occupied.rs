@@ -3,6 +3,9 @@
 use super::*;
 use sophia_protocol::*;
 
+#[path = "abort_settlement.rs"]
+mod abort_settlement;
+
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
 pub(super) fn populate(run: &mut Lifecycle) {

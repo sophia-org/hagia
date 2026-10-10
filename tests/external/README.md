@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The thirteen explicitly ignored cases must be listed and invoked individually:
+The fourteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -95,7 +95,17 @@ The thirteen explicitly ignored cases must be listed and invoked individually:
   The matching transition is supplied, not an actual lock or routing-mode
   change in the owner loop.
 
-The original three cases use an empty headless scene. The two occupied cases
+- `sdk_disconnect_aborts_pending_settlement` in `abort_settlement.rs`, a child
+  of `occupied.rs`: stage real Hagia's fullscreen proposal through the production
+  layout owner, with frontend state acknowledgements withheld. A supplied
+  30-second initial deadline distinguishes forced abort from natural expiry.
+  After the fixture peer exits, AbortSettlement must fence transport and shorten
+  that deadline while retaining the old epoch. The exact TimedOut result must
+  settle without promoting fullscreen; only then may replacement restore the
+  occupied baseline and answer a fresh fullscreen action. Frontend controls stay
+  in a local queue; application delivery, ACKs and physical rollback are absent.
+
+The original three cases use an empty headless scene. The occupied cases
 supply mapped authority facts and source-less layers, and directly complete
 the proposed layout through the layout commit owner. They bypass visual
 readiness: no application, pixels, configure ACK, rendering or native
@@ -126,7 +136,7 @@ projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
 Revocation by native retirement or source loss, pointer release debt,
-other cancellation triggers and AbortSettlement remain open. The disconnect case checks
+other cancellation triggers and native settlement rollback remain open. The disconnect case checks
 keyboard routing with empty input focus, not application delivery.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
