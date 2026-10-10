@@ -97,3 +97,45 @@ controls failed as required. All failed logs remain available.
 
 No formal-model rerun, reviewed release build, installation or live reload is
 claimed. Keep h006 open for the remaining paired acceptance and release work.
+
+### 2026-10-10 current SDK lifecycle slice
+
+Hagia `870bfc68b3d2d8c1239f9f853f63ddb6557bd04a` adds the external
+[`tests/external/lifecycle.rs`](../../../tests/external/lifecycle.rs) assertions.
+niltempus runner `dbda3009b389ab4bd9aec6dce81fd4d5b10ce1c9` mounts them in an
+explicit archived Sophia `0f2ad2386baa063ab92d9567a145148f5232bccb` test overlay.
+The production sources and frozen `tools/sophia_pairing` runner are unchanged.
+The built ordinary Hagia uses vendored SDK `b2a254dcb792e5f9d66f78bdd73f645153504507`.
+
+All three named cases pass: protected startup/profile/catalog; accepted profile
+replacement followed by real view-count rejection and rollback; and automatic
+recovery after terminating the fixture child followed by requested restart.
+Each successor answers the Session-queued scene and then sends its own
+checkpoint reconciliation Dirty. Epochs, peer changes, profile/catalog and
+unchanged checkpoint custody are asserted. This is an **empty headless scene**,
+not occupied-window, focus, native receipt or physical input qualification.
+Requested restart calls its production owner directly, not the control socket.
+Protection is supervisor evidence, not independent namespace inventory or Tauth.
+
+Under `~/.local/state/sophia/development-evidence/`:
+
+- `t249-sdk-lifecycle-01`: `PASS lifecycle=3 native=false`; self-excluding
+  manifest SHA256 `b5ac4542073194c5ba27200a292862eb77489624236549f2b40add43c9df23c6`.
+  The ordinary binary SHA256 is
+  `20581c96e823240460fa09e863f779de53a4851080cefabaa4e46b22172ff5f4`.
+- `t249-sdk-lifecycle-controls-02`: disabled checkpoint restore in a separate
+  Hagia copy causes exactly the restart case to fail on its missing fresh
+  projection; binary/test/fixture inputs are hashed before and after. Manifest
+  SHA256 `6bbfd791ec39a0f752b2bc63682bd3cd29b4f92df296378838294bdab9557aa5`.
+  `controls-01` retains the mutation/build and initial development control.
+- `t249-sdk-lifecycle-checks-01`: overlay Session clippy with warnings denied
+  and the external runner controls. The runner refuses absent, zero or duplicate
+  test listings, records nonzero steps, and detects changed closed records.
+
+Development run 01 omitted the native-session feature and correctly stopped on
+zero tests. Runs 02/03 exercised the evolving fixture; only the final clean,
+committed fixture run above is the qualification record. This tests-only slice
+did not rerun the full Nim/product/formal gates, build a release, install or
+reload anything. h006/t249 remain open for capability-to-evidence mapping,
+occupied-state and remaining lifecycle joins, and the reviewed measurement
+method. Keep the old refused measurement campaign and historical runner intact.
