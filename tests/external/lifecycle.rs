@@ -1,10 +1,13 @@
 //! Current SDK lifecycle assertions, mounted by niltempus in an explicit
-//! Sophia test-source overlay. The scene is headless and empty: no application
-//! admission, pixels, physical input, output peer, or native receipt is claimed.
+//! Sophia test-source overlay. Scenes are empty or supplied occupied facts:
+//! no application admission, pixels, physical input or native receipt is claimed.
 use super::*;
 use sha2::{Digest, Sha256};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::os::unix::fs::MetadataExt;
+
+#[path = "occupied.rs"]
+mod occupied;
 
 struct Lifecycle {
     // Drop the supervised child before its private profile directory.
@@ -172,6 +175,12 @@ impl Lifecycle {
         if enqueue {
             self.wm.enqueue_relayout(&self.layout, self.output).unwrap();
         }
+        let proposal = self.proposal();
+        assert!(proposal.layers.is_empty());
+        self.commit(proposal);
+    }
+
+    fn proposal(&mut self) -> LiveWmProposal {
         let deadline = Instant::now() + Duration::from_secs(5);
         let proposal = loop {
             if let Some(proposal) = self
@@ -189,21 +198,53 @@ impl Lifecycle {
             proposal.policy_settlement.unwrap().connection_epoch,
             self.wm.public.as_ref().unwrap().connection_epoch
         );
-        assert!(proposal.layers.is_empty());
+        let identity = proposal.policy_settlement.unwrap();
+        std::fs::write(
+            self.evidence.join(format!(
+                "projection-e{}-r{}.txt",
+                identity.connection_epoch, identity.request_id
+            )),
+            format!(
+                "identity={identity:?}\nfocus={:?}\nlayers={:#?}\nscene={:#?}\n",
+                proposal.focus,
+                proposal.layers,
+                self.wm.public.as_ref().unwrap().reducer.scene()
+            ),
+        )
+        .unwrap();
+        proposal
+    }
+
+    fn commit(&mut self, proposal: LiveWmProposal) {
+        let previous = std::fs::metadata(&self.checkpoint).ok().map(|m| m.ino());
         let result = self.layout.commit_proposal(proposal);
         assert_eq!(result.update.commit.outcome, TransactionOutcome::Committed);
         self.wm
             .apply_commit_result(result, None, self.output.id)
             .unwrap();
         self.ready(false);
+        // Ready belongs to transport custody; checkpoint fsync/rename belongs
+        // to the peer. Observe that separate completion before reading it.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Some(self.checkpoint().1) == previous {
+            assert!(
+                Instant::now() < deadline,
+                "committed checkpoint replacement deadline"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
     }
 
     fn checkpoint(&self) -> (Vec<u8>, u64) {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            if let Ok(bytes) = std::fs::read(&self.checkpoint) {
+            if let Ok(file) = std::fs::File::open(&self.checkpoint) {
+                // One open file binds bytes and inode across atomic rename.
+                let inode = file.metadata().unwrap().ino();
+                let mut bytes = Vec::new();
+                file.take(1024 * 1024).read_to_end(&mut bytes).unwrap();
                 assert!(bytes.len() < 1024 * 1024);
-                return (bytes, std::fs::metadata(&self.checkpoint).unwrap().ino());
+                return (bytes, inode);
             }
             assert!(Instant::now() < deadline, "checkpoint deadline");
             std::thread::sleep(Duration::from_millis(2));
@@ -232,7 +273,10 @@ impl Lifecycle {
         assert_eq!(hash(&self.binary), self.digest);
         std::fs::write(
             self.evidence.join("RESULT"),
-            "PASS child_reaped=true scene=empty native=false\n",
+            format!(
+                "PASS child_reaped=true surfaces={} native=false\n",
+                self.layout.layers.len()
+            ),
         )
         .unwrap();
     }
