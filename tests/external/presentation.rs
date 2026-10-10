@@ -26,6 +26,9 @@ mod disconnect;
 #[path = "presentation_cancel.rs"]
 mod cancel;
 
+#[path = "presentation_consensus.rs"]
+mod consensus;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),

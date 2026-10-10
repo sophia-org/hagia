@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The sixteen explicitly ignored cases must be listed and invoked individually:
+The seventeen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -95,6 +95,23 @@ The sixteen explicitly ignored cases must be listed and invoked individually:
   The matching transition is supplied, not an actual lock or routing-mode
   change in the owner loop.
 
+- `sdk_presented_receipts_require_all_heads` in `presentation_consensus.rs`:
+  after the shared Held prefix, the installed switcher publication is
+  validated against the two mirror heads of the backend's test-support
+  target, and the production backend composes and queues the retained frames
+  for them. Only the worker/device submit and per-head page flips are
+  simulated; the runtime derives each input projection from the retired frame
+  lists, and no stamp, projection or receipt is supplied. A publication
+  retired by one head must not be Presented; after both it is Presented once,
+  and republishing is not another presentation. Session cancels the chord at
+  matching loss; the exact cancel answer closes the switcher with W1 focused,
+  and installing that state issues Revoked before any replacement retires. The
+  ordinary replacement must retire on both heads before one Withdrawn. CPU
+  sources remain supplied, the `service` mirror omits
+  `service_presented_policy`'s native-target selection tail, and the inherited
+  prefix's first install used one supplied head; there is one output and no
+  physical display.
+
 - `sdk_disconnect_aborts_pending_settlement` in `abort_settlement.rs`, a child
   of `occupied.rs`: stage real Hagia's fullscreen proposal through the production
   layout owner, with frontend state acknowledgements withheld. A supplied
@@ -157,7 +174,7 @@ Protection evidence is the supervisor's observation, not an
 independent namespace inventory or a new 9P authentication claim. The requested
 restart calls the Session owner directly, not the public control socket.
 
-The presentation case bypasses Session admission and visual readiness for its
+The original presentation case bypasses Session admission and visual readiness for its
 CPU pixels; display heads, frame completions and router time are supplied.
 It is semantic owner qualification, not native retirement, pixels, physical
 input or latency. A receipt leaving Session's queue is transport progress, not
@@ -184,4 +201,7 @@ tool versions and test list belong to the external runner's records.
 
 The old `tools/sophia_pairing` suite remains historical and unchanged. This
 small current-source suite does not qualify all negotiated capabilities,
-latency, native receipts, or the rest of h006/Sophia t249.
+latency, physical scanout, or the rest of h006/Sophia t249. The consensus case
+derives receipts through the backend's production composition and publication
+owners with simulated completion; it does not run the concrete native-target
+selection tail of Session's presentation service.
