@@ -6,6 +6,47 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-10 stalled live peer slice
+
+Signed `651763e2dff1102a0b7380b3347ce7fc19c44fea` adds external
+`tests/external/slow_peer.rs`; niltempus runner
+`e441c7fb6b8cd4738ebc3d34fbc51df48d664b85` binds the fourth module and ninth
+case on Sophia `65440ff5d`. The Sophia pin differs from the preceding pin only
+in documentation. No production code or installed release changes.
+
+`t249-slow-peer-01` under Sophia's development evidence reports
+`PASS lifecycle=3 occupied=2 operations=3 slow_peer=1 native=false`, with clean
+signed fixture source. Manifest:
+`537e570a65ce84623dbd00684f10ef304752a4bc1b25955a5cd7aabac961a390`.
+The test verifies the fixture's protected parent/child identity and start time,
+pauses only that Hagia peer, and observes it stopped. Session's unmodified
+twelve-second response deadline requests restart while that peer remains alive.
+Committed state and checkpoint stay unchanged. Replacement clears pending
+authority, reaps the old peer (a zombie still counts as present), restores the
+occupied scene through its own scene/Dirty exchange and commits a fresh action.
+The pause guard resumes the same surviving process on failure; outer PID
+isolation and timeout bound cleanup. Observed detection/replacement times were
+12051/29 ms, not latency qualification. Session log capture ends at detection.
+
+`t249-slow-peer-controls-01` compiles two archived server mutants. Ignoring
+transport failure hits the named forty-second bound; preserving the stalled
+request fails the immediate post-epoch authority assertion. Each exits 101
+with one named failure. Inputs match at start/end and source is restored.
+Manifest `9172a63d50bb671fb8d3250e45898d7550122d261bc4e6c2eecf9935058ba4a3`.
+`t249-slow-peer-checks-01` passes strict overlay and runner clippy, two runner
+controls, formatting, Hagia layout and restoration of both mutated source files
+to their pinned blobs; manifest
+`f35280c03cd458794dce6b5124dd4cd4513419bed6d27faa145d66774a2db098`.
+All manifests independently verify. The unsigned development run remains
+separate; no full Nim/formal/product gate was repeated for these external tests.
+
+Occupied facts and layout completion are supplied. AbortSettlement, paused-peer
+ESTALE consumption, receipt ACK exhaustion, native presentation and actual
+application execution remain outside the case. Generic reactor/SDK credit tests
+were inspected, not rerun. Real-peer receipt credit belongs with the next
+presentation/chord/capture join; the headless cadence does not naturally fill
+the journal. h006/t249 and the measurement-method requirement remain open.
+
 ## 2026-10-10 SDK operation and disconnect slice
 
 Signed `67da6edfb2c5932b59f828b452ab9bf4e17236fe` adds the external
