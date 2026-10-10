@@ -6,6 +6,48 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-10 SDK operation and disconnect slice
+
+Signed `67da6edfb2c5932b59f828b452ab9bf4e17236fe` adds the external
+`tests/external/operations.rs`; niltempus runner
+`7eff07b728a41a7813bd29fb850999f222eb5d09` mounts it with the earlier fixtures
+under Sophia `ea64b1f027ace8b9064935d966697acfac37d004`. The Sophia pin changes
+only documentation from the occupied slice; production Hagia and SDK are
+unchanged. No release or installed process changes.
+
+The clean signed-fixture run `t249-operations-01` under Sophia's development
+evidence reports `PASS lifecycle=3 occupied=2 operations=3 native=false`.
+Manifest SHA256:
+`84e927141e8887cd9eb0ca66b7f317f9edf47aee0663110d5c139fca7dc83189`.
+Real catalog actions produce projections, then SDK operations naming their
+activation serial rather than their projection request ID. The checkpoint is
+saved before the operation arrives. Accepted and refused operation outcomes
+both allow the same peer to answer another cycle; the accepted typed intent
+stays local and is never executed. A refused action produces recovery
+SceneChanged instead of an operation. Killing only the fixture child with a
+projection or operation unsettled clears its obligations; each successor
+restores committed occupied state through its scene/Dirty continuation.
+
+`t249-operations-controls-01` deliberately accepts a refused operation, then
+separately keeps the disconnected owner's pending operation. Each compiled
+server mutant fails its named authority assertion (one failure, exit 101).
+Manifest `b597e4e71aa96e00019713d12af0e50f6a92d6c3fb09ab5b1df409f49be6a78f`.
+Controls use the development overlay, whose three fixture files and overlay
+hash are byte-equal to the final run; Hagia production Git objects are equal.
+`t249-operations-checks-01` records passing strict overlay clippy, then stops
+because Nimble attempts a metadata write in the read-only sandbox after its
+layout check passes. `checks-02` invokes the layout script directly and passes
+layout, two runner controls, runner clippy and formatting; manifest
+`d822a3c6639d8e92d32d479c1e5b25727fa7a36d1164b492ef9144680889abd3`.
+All manifests verify; covered records are read-only. No production fix was needed.
+
+Occupied facts and layout completion remain supplied. This proves neither
+application execution nor exactly-once external effects, native presentation,
+physical input, public control-socket restart, or every peer wire message.
+The full Nim/formal/product gate was not repeated for external tests only.
+h006/t249 remain open: slow-peer/credit coverage, presentation/chord/capture
+joins and the reviewed measurement method still remain.
+
 ## 2026-10-10 occupied SDK recovery slice
 
 Signed `0bbfe3cee3d1efa0b191098c70e64062ab8073b0` adds the external
