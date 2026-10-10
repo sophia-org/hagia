@@ -9,6 +9,9 @@ mod abort_settlement;
 #[path = "manage.rs"]
 mod manage;
 
+#[path = "manage_pixels.rs"]
+mod manage_pixels;
+
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
 pub(super) fn populate(run: &mut Lifecycle) {

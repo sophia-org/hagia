@@ -1,6 +1,7 @@
 //! Current SDK lifecycle assertions, mounted by niltempus in an explicit
-//! Sophia test-source overlay. Scenes are empty or supplied occupied facts:
-//! no application admission, pixels, physical input or native receipt is claimed.
+//! Sophia test-source overlay. Scenes and frontend facts are supplied; child
+//! modules state their admission and CPU-content coverage. No physical input
+//! or native receipt is claimed.
 use super::*;
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};

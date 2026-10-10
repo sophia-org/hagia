@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The fifteen explicitly ignored cases must be listed and invoked individually:
+The sixteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -121,6 +121,22 @@ The fifteen explicitly ignored cases must be listed and invoked individually:
   are not claimed. No later relayout is run, since restaging an AwaitingPixels
   surface re-enters admission control.
 
+- `sdk_occupied_manage_admits_cpu_candidate` in `manage_pixels.rs`, a child of
+  `occupied.rs`: the same supplied request arrives with the client's first
+  frame, a supplied CPU backing snapshot without a Present. Production intake
+  quarantines the frame and selects it as the admission candidate. Real Hagia
+  places and focuses the surface; Session must reconcile that placement to the
+  candidate's extent, and staging must select the exact quarantined frame.
+  After the supplied control answers, which follow the same queue and owner
+  arms as the previous case, the commit admits the surface. The next authority
+  turn releases the frame through the owner loop's projection to an ordinary
+  headless CPU production cycle. That commits generation 1 at Session's
+  geometry; the scene retains the exact source bytes, and one interior pixel of
+  the headless composed frame matches. A second frame must then reach
+  production directly, without quarantine, before the case checks that
+  admission is Managed and the recovery extent is released. A presented
+  candidate would instead wait for native retirement, which is not exercised.
+
 The original three cases use an empty headless scene. The occupied cases
 supply mapped authority facts and source-less layers, and directly complete
 the proposed layout through the layout commit owner. They bypass visual
@@ -152,8 +168,10 @@ projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
 Revocation by native retirement or source loss, pointer release debt,
-other cancellation triggers, native settlement rollback and admission past
-AwaitingPixels remain open. The disconnect case checks
+other cancellation triggers, native settlement rollback and admission through
+a presented candidate's native retirement remain open. The CPU admission case
+reads retained source bytes and a headless composed pixel; no physical head,
+scanout or frontend delivery is involved. The disconnect case checks
 keyboard routing with empty input focus, not application delivery.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
