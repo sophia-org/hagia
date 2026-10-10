@@ -12,6 +12,9 @@ mod occupied;
 #[path = "operations.rs"]
 mod operations;
 
+#[path = "slow_peer.rs"]
+mod slow_peer;
+
 struct Lifecycle {
     // Drop the supervised child before its private profile directory.
     wm: LiveWmSession,
