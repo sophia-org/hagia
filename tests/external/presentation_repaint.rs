@@ -274,6 +274,34 @@ fn sdk_presented_source_repaint_preserves_identity() {
         .presentation_layers(content.runtime.committed_surfaces(), &[repainted]);
     assert_eq!(retained.len(), 1);
     assert_eq!(*retained[0].buffer.bytes, bytes);
+
+    // Poll without admitting work before endpoint teardown. This observes
+    // transport and supervisor health, not a new policy round trip.
+    assert!(
+        run.wm
+            .poll_public_request(&mut run.layout, run.output, false)
+            .unwrap()
+            .is_none(),
+        "source-only repaint must not produce a proposal before teardown"
+    );
+    let public = run.wm.public.as_ref().unwrap();
+    assert!(
+        !run.wm.degraded
+            && !run.wm.force_transport_restart
+            && !public.transport_unavailable
+            && public.connection_epoch == receipt.connection_epoch,
+        "peer healthy before repaint teardown"
+    );
+    assert!(
+        run.wm.requests == requests
+            && public.in_flight_request.is_none()
+            && public.queue.is_empty(),
+        "source-only repaint must not start a WM cycle"
+    );
+    assert!(
+        run.wm.supervisor.poll().unwrap().is_none(),
+        "peer alive before repaint teardown"
+    );
     log(
         &run,
         &format!("phase=repainted source={repainted:?} generation=2 presented={receipt:?}"),
