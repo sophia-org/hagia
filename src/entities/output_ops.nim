@@ -143,6 +143,16 @@ proc restoreOutput*(model: var PolicyModel, id: OutputId, bounds: Rect) =
   for columnId in model.columnOrder:
     if model.columns[columnId].preferredOutput == id:
       model.columns[columnId].homeOutput = id
+  # A migrated window may have been focused on its fallback. Once it returns,
+  # that output no longer owns either its current focus or its history entry.
+  # Keep the order of the windows that still belong to each surviving output.
+  for outputId in model.outputOrder:
+    if outputId == id:
+      continue
+    model.outputs[outputId].focusHistory.keepItIf(model.windows[it].homeOutput != id)
+    let currentFocus = model.outputs[outputId].focusedWindow
+    if currentFocus != nullWindowId and model.windows[currentFocus].homeOutput == id:
+      model.outputs[outputId].focusedWindow = nullWindowId
   let focus = saved.focusedWindow
   if focus in model.windows and model.windows[focus].homeOutput == id and
       model.windows[focus].capabilities.focusable and not model.windows[focus].minimized and

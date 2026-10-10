@@ -2724,6 +2724,8 @@ proc workspaceAction(
     result.cause.output = output
     result.cause.outputGeneration = 1
 
+include support/output_return_focus
+
 suite "configured global workspace ownership":
   test "DP2 click and keyboard target the owning output independently of active output":
     var adapter = initPolicyAdapter(assignedCandidate())
