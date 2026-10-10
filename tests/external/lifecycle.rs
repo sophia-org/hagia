@@ -9,6 +9,9 @@ use std::os::unix::fs::MetadataExt;
 #[path = "occupied.rs"]
 mod occupied;
 
+#[path = "operations.rs"]
+mod operations;
+
 struct Lifecycle {
     // Drop the supervised child before its private profile directory.
     wm: LiveWmSession,

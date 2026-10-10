@@ -5,7 +5,7 @@ use sophia_protocol::*;
 
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
-fn populate(run: &mut Lifecycle) {
+pub(super) fn populate(run: &mut Lifecycle) {
     let client = sophia_x_authority::XServerFrontendClientId::from_raw(1);
     let mut batch = crate::live_session::wm_update_coordinator_batch(TransactionId::from_raw(700));
     batch.client = Some(client);
@@ -87,7 +87,7 @@ fn populate(run: &mut Lifecycle) {
     run.record("occupied-baseline");
 }
 
-fn focus(run: &Lifecycle) -> Option<SurfaceId> {
+pub(super) fn focus(run: &Lifecycle) -> Option<SurfaceId> {
     run.wm.public.as_ref().unwrap().reducer.committed()[0].focus
 }
 
@@ -102,7 +102,7 @@ fn model(run: &Lifecycle) -> serde_json::Value {
     .unwrap()
 }
 
-fn assert_checkpoint(run: &Lifecycle) {
+pub(super) fn assert_checkpoint(run: &Lifecycle) {
     let model = model(run);
     let surfaces = model["surfaces"].as_array().unwrap();
     assert_eq!(surfaces.len(), 2);
