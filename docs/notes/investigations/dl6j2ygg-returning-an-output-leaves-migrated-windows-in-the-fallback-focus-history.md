@@ -2,7 +2,7 @@
 id: dl6j2ygg
 date: 2026-10-10
 kind: investigation
-status: investigating
+status: awaiting-physical-acceptance
 tags: [investigation]
 ---
 # Returning an output leaves migrated windows in the fallback focus history
@@ -69,10 +69,27 @@ adapter fixture did not establish the migrated focus history and was strengthene
 before the final red. An initial compile-only failure from a comment typo is
 preserved separately and is not red evidence.
 
-The full Hagia gate and a matched integration release precede another physical
-reconnect. h018 and Sophia t310 remain open until the window returns to HDMI,
-workspace labels reappear, and keyboard and pointer routing work. No new live
-run has been performed by the agent.
+Signed repair `ed2f30060a09c5796f80f779ff8f8ebf2033c516` passed the full
+device-hidden `nimble verify` gate: 527 reported Nim OK lines, zero failed,
+eight Alloy checks, one Z3 result set and four TLC configurations, plus
+formatting, layout and SDK checks. Gate `t310-hagia-output-return-gate-01` has
+CLOSURE `e976fc2111afc765af83095ca5fe9b76b6e64a5e5be81196d4bff9f9806bd61c`.
+The diagnostic records are closed separately with CLOSURE
+`4f7e8545ea6c13dd30fc5293f62a424bac0798e121d67b071e32ba43fd870b69`.
+All eight supplied return cases using the real checkpoint pass with the repair.
+
+Matched integration `a8067a043` built release
+`niltempus-66f68ee2cef161b3829d`, not installed. It changes only Hagia among the
+ten executables. Sophia remains `adfecd4e1`, and the output profile differs only
+in generated release paths; graphics libraries and other component pins stay
+fixed. `t310-hagia-output-return-release-01/READY.txt` carries installation,
+accepted one-output recovery and the physical sequence; the package CLOSURE is
+`d06ed8faea4e41d2b3a530bb0890ee0d499fc28873db3310172ddb47665bf40c`.
+
+h018 and Sophia t310 remain open until the window returns to HDMI, workspace
+labels reappear, and keyboard and pointer routing work. No new live run has
+been performed by the agent. The failed desktop was stopped with permission;
+niltempus is working from the X13 while Crunch stays at greetd.
 
 The incident also exposed a Sophia supervision limit: negotiation marks the
 process healthy and resets the restart budget before it successfully answers a
