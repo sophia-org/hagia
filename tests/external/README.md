@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The eighteen explicitly ignored cases must be listed and invoked individually:
+The nineteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -166,6 +166,20 @@ The eighteen explicitly ignored cases must be listed and invoked individually:
   production directly, without quarantine, before the case checks that
   admission is Managed and the recovery extent is released. A presented
   candidate would instead wait for native retirement, which is not exercised.
+
+- `sdk_occupied_reused_surface_generation_after_restart` in
+  `reused_identity.rs`, a child of `occupied.rs`: after an actual supervised
+  restart of the fixture peer, and before recovery, the second occupied surface
+  is removed through the owner loop's two calls and its numeric index returns
+  with a new generation as supplied surface facts. Real Hagia's two recovery
+  cycles commit a checkpoint holding the surviving surface and the replacement
+  but not the old identity. With focus on the surviving surface and nothing
+  queued, a focus request naming the old identity is refused synchronously by
+  Session's exact-identity guard, starting no request; a fresh request for the
+  replacement produces the correlated Focus cause and commits its focus. A
+  non-admitting poll then confirms a healthy transport, the same epoch and a
+  running peer before teardown. Only focus-request authority is joined; other
+  surface-keyed authorities, Manage admission, pixels and input are not.
 
 The original three cases use an empty headless scene. The occupied cases
 supply mapped authority facts and source-less layers, and directly complete

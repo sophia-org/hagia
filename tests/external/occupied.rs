@@ -12,6 +12,9 @@ mod manage;
 #[path = "manage_pixels.rs"]
 mod manage_pixels;
 
+#[path = "reused_identity.rs"]
+mod reused_identity;
+
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
 pub(super) fn populate(run: &mut Lifecycle) {
