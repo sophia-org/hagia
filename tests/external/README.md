@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The fourteen explicitly ignored cases must be listed and invoked individually:
+The fifteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -105,6 +105,21 @@ The fourteen explicitly ignored cases must be listed and invoked individually:
   occupied baseline and answer a fresh fullscreen action. Frontend controls stay
   in a local queue; application delivery, ACKs and physical rollback are absent.
 
+- `sdk_occupied_manage_settles_admission` in `manage.rs`, a child of
+  `occupied.rs`: a supplied X authority request for a new policy-managed
+  top-level enters Session's admission owner. The owner's own selection names
+  it; queued and in-flight manage requests coalesce. Real Hagia places and
+  focuses it, and production staging moves admission to ControlPending with
+  exact AdmitSurface and SetPresentationState controls. Those controls are
+  dispatched by the production queue; supplied Delivered answers are correlated
+  by it and applied through the owner loop's two acknowledgement arms. A wrong
+  transaction and repeated answers are refused. The committed Manage answer
+  must end the owner's admission request, with placement and focus matching
+  Hagia's checkpoint. No pixels are supplied, so the surface remains
+  AwaitingPixels: Managed state, extent reconciliation and launch visibility
+  are not claimed. No later relayout is run, since restaging an AwaitingPixels
+  surface re-enters admission control.
+
 The original three cases use an empty headless scene. The occupied cases
 supply mapped authority facts and source-less layers, and directly complete
 the proposed layout through the layout commit owner. They bypass visual
@@ -136,7 +151,8 @@ projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
 Revocation by native retirement or source loss, pointer release debt,
-other cancellation triggers and native settlement rollback remain open. The disconnect case checks
+other cancellation triggers, native settlement rollback and admission past
+AwaitingPixels remain open. The disconnect case checks
 keyboard routing with empty input focus, not application delivery.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
