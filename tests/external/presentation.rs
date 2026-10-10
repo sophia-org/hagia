@@ -20,6 +20,9 @@ use std::sync::Arc;
 #[path = "presentation_revocation.rs"]
 mod revocation;
 
+#[path = "presentation_disconnect.rs"]
+mod disconnect;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),

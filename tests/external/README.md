@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The eleven explicitly ignored cases must be listed and invoked individually:
+The twelve explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -75,6 +75,16 @@ The eleven explicitly ignored cases must be listed and invoked individually:
   revoked identity. Alt's release then returns the chord credit without
   committing a selection, and W1 stays focused.
 
+- `sdk_presented_disconnect_preserves_release_debt` in
+  `presentation_disconnect.rs`: terminate only the fixture peer with a captured
+  Right action staged but uncommitted, and Right still down. Automatic replacement
+  must preserve that release debt while clearing old presentation and chord
+  authority, returning credits and preserving committed focus and checkpoint.
+  The owed release is swallowed; a duplicate release reaches the no-focus path.
+  The replacement restores its occupied state and a fresh routed Alt+Tab chord
+  commits W2. No pending layout settlement is created, so AbortSettlement is
+  outside this case.
+
 The original three cases use an empty headless scene. The two occupied cases
 supply mapped authority facts and source-less layers, and directly complete
 the proposed layout through the layout commit owner. They bypass visual
@@ -105,8 +115,9 @@ closes the switcher. Session exposes no refusal-reason record for a staged
 projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
-Revocation by native retirement or source loss, disconnect with release debt,
-cancel paths and AbortSettlement remain open.
+Revocation by native retirement or source loss, pointer release debt,
+cancel paths and AbortSettlement remain open. The disconnect case checks
+keyboard routing with empty input focus, not application delivery.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
 
