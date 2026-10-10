@@ -6,6 +6,45 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-10 occupied SDK recovery slice
+
+Signed `0bbfe3cee3d1efa0b191098c70e64062ab8073b0` adds the external
+`tests/external/occupied.rs` fixture and checkpoint-completion handling to
+`lifecycle.rs`. niltempus runner `83023216817500f7595d5550f76d6b28016c99ba`
+mounts both under Sophia `9f52403be19346a49ad275481886de9a5d4015a3`.
+There is no Hagia production change or new release. Repository ownership and
+the external test-source overlay remain as described in the lifecycle section.
+
+`t249-occupied-01` under Sophia's development evidence reports
+`PASS lifecycle=3 occupied=2 native=false`. Manifest SHA256:
+`7a340bac1e5b4dfc9cf4458162b6c5ab1fe4077afd8f1d31d5067dc0ce2946b7`.
+Two mapped surfaces with different generational identities exercise an actual
+catalog focus action, refusal with unchanged checkpoint/layout, a fresh recovery
+scene that does not replay the action, and another explicit successful action.
+Automatic and requested restart preserve non-default column sizing, committed
+placements, policy focus and occupied checkpoint relationships. Each replacement
+sends its own restore Dirty. The helper waits for the checkpoint rename separately
+from transport Ready and reads bytes/inode through one open file.
+
+`t249-occupied-controls-01` binds the final fixtures and executable. Disabling
+checkpoint restore fails on occupied placements/focus; promoting and saving a
+refused candidate fails on checkpoint preservation. Both give one named runtime
+assertion, not a build or deadline failure. Manifest:
+`6dcd65ec09d3bfffd2ef3c7cd9106eb0d7832bbfc8d2a13d0705180cc55eea60`.
+`t249-occupied-checks-02` records strict overlay and runner clippy, formatting and
+two runner controls; manifest
+`2855f118dd35575247f03425285c8fe1dfc1bca1395b79c973ac9a685beec5cb`.
+Failed development fixtures are preserved separately; they exposed checkpoint
+completion, cached scene facts and recovery-cycle ordering assumptions, not
+production defects.
+
+Authority facts, source-less layers and layout completion are supplied. No
+application admission, pixels, configure ACK, physical focus or native receipt
+is claimed; timeout is injected at the settlement owner. The full Nim/formal
+gate was not repeated for this external test-only slice. h006/Sophia t249 remain
+open for operation/terminal joins, presentation/input joins and the declared
+measurement method. The installed desktop and physical acceptance are unchanged.
+
 ## 2026-09-27 revised implementation boundary
 
 The operator superseded the independent production-client design: one desktop
