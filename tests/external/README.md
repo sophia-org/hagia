@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The seventeen explicitly ignored cases must be listed and invoked individually:
+The eighteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -111,6 +111,19 @@ The seventeen explicitly ignored cases must be listed and invoked individually:
   `service_presented_policy`'s native-target selection tail, and the inherited
   prefix's first install used one supplied head; there is one output and no
   physical display.
+
+- `sdk_presented_source_repaint_preserves_identity` in
+  `presentation_repaint.rs`: the switcher is Presented on both mirror heads as
+  in the consensus case. One previewed surface then commits new CPU bytes
+  through authority observation, projection and an ordinary CPU cycle, with no
+  WM cause. After the backend recomposes the retained switcher and both heads
+  retire it, no WM request has started, the Presented identity, installed
+  publication and retired stamp are unchanged, and every retired preview of
+  that surface on both heads samples the new committed generation while every
+  other preview and every instance identity is unchanged. The backend, not
+  the WM, resolves those sampled generations. The fixture queues the
+  recomposition itself, so production repaint scheduling is not exercised, and
+  the target does not rasterize, so no preview pixels are claimed.
 
 - `sdk_disconnect_aborts_pending_settlement` in `abort_settlement.rs`, a child
   of `occupied.rs`: stage real Hagia's fullscreen proposal through the production

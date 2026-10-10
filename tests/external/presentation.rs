@@ -29,6 +29,9 @@ mod cancel;
 #[path = "presentation_consensus.rs"]
 mod consensus;
 
+#[path = "presentation_repaint.rs"]
+mod repaint;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),
