@@ -2,7 +2,7 @@
 id: dl6j2ygg
 date: 2026-10-10
 kind: investigation
-status: awaiting-physical-acceptance
+status: closed
 tags: [investigation]
 ---
 # Returning an output leaves migrated windows in the fallback focus history
@@ -60,7 +60,7 @@ History order and focus for windows that remain are preserved. Restored-output
 focus still follows its saved affinity and existing eligibility checks. Scene
 validation, protocol boundaries and authority ownership are unchanged.
 
-## Validation and remaining work
+## Validation and acceptance
 
 Two generic regressions cover current and historical focus on the fallback,
 plus adapter reconciliation with and without checkpoint restoration. Both fail
@@ -86,10 +86,29 @@ fixed. `t310-hagia-output-return-release-01/READY.txt` carries installation,
 accepted one-output recovery and the physical sequence; the package CLOSURE is
 `d06ed8faea4e41d2b3a530bb0890ee0d499fc28873db3310172ddb47665bf40c`.
 
-h018 and Sophia t310 remain open until the window returns to HDMI, workspace
-labels reappear, and keyboard and pointer routing work. No new live run has
-been performed by the agent. The failed desktop was stopped with permission;
-niltempus is working from the X13 while Crunch stays at greetd.
+At that handoff, h018 and Sophia t310 still awaited the window's return to HDMI,
+workspace labels and working keyboard/pointer routing. The agent performed no
+live run; the failed desktop was stopped with permission while niltempus used
+the X13.
+
+On 2026-10-10 the installed successor
+`niltempus-d59a72c27a32a2c05e27` passed that sequence. Hagia remains the gated
+`ed2f30060`; Sophia is `6fd66325b`, and integration is `dc57e532`. niltempus
+opened a workspace-4 window, unplugged HDMI, reached it on DP-1, and reconnected
+the same dGPU HDMI port. The session survived, and niltempus explicitly
+confirmed workspace labels and working keyboard/mouse on both monitors.
+
+The same surface moved output 2 -> output 1 -> output 2 in committed policy;
+the returned owner committed two outputs. Hagia PID 30212 has start ticks at
+session startup and the gated executable hash, so the successful return did
+not require a WM restart. Sophia's investigation `ig4obtxu` owns the integrated
+account and limits. Frozen receipt:
+`~/.local/state/sophia/development-evidence/t310-two-output-attended-06/acceptance-01`,
+manifest `8b02d63a6b4517aa848261c22b07ab756d5eddcd7ace37edba66ef3a791ff13a`.
+The bounded log contains the positive joins but also reports discarded records;
+the user's observation supplies visual/input acceptance. This meets h018's exit.
+The intervening `66f68` run restored Hagia's layout but later failed in Sophia's
+forced topology repaint; that separate repaired failure remains in ig4obtxu.
 
 The incident also exposed a Sophia supervision limit: negotiation marks the
 process healthy and resets the restart budget before it successfully answers a
