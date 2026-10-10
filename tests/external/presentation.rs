@@ -23,6 +23,9 @@ mod revocation;
 #[path = "presentation_disconnect.rs"]
 mod disconnect;
 
+#[path = "presentation_cancel.rs"]
+mod cancel;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),

@@ -6,7 +6,7 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
-The twelve explicitly ignored cases must be listed and invoked individually:
+The thirteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -85,6 +85,16 @@ The twelve explicitly ignored cases must be listed and invoked individually:
   commits W2. No pending layout settlement is created, so AbortSettlement is
   outside this case.
 
+- `sdk_presented_cancel_preserves_focus` in `presentation_cancel.rs`: supply
+  the transition out of keyboard matching to Session's existing owner while
+  the Held switcher is presented. It must emit one Cancelled for the exact
+  chord; a repeated nonmatching turn emits none. The exact terminal cause
+  closes Hagia's switcher without selecting W2, before any Revoked/Withdrawn
+  receipt can mask cancellation. Credits return; the later Alt release emits
+  no second terminal. A fresh distinct chord can still select W2 on Released.
+  The matching transition is supplied, not an actual lock or routing-mode
+  change in the owner loop.
+
 The original three cases use an empty headless scene. The two occupied cases
 supply mapped authority facts and source-less layers, and directly complete
 the proposed layout through the layout commit owner. They bypass visual
@@ -116,7 +126,7 @@ projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
 Revocation by native retirement or source loss, pointer release debt,
-cancel paths and AbortSettlement remain open. The disconnect case checks
+other cancellation triggers and AbortSettlement remain open. The disconnect case checks
 keyboard routing with empty input focus, not application delivery.
 The copied dispatch arms and routing call mirror pinned production spans,
 which the runner hashes by semantic anchors.
