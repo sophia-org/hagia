@@ -114,8 +114,9 @@ The fifteen explicitly ignored cases must be listed and invoked individually:
   dispatched by the production queue; supplied Delivered answers are correlated
   by it and applied through the owner loop's two acknowledgement arms. A wrong
   transaction and repeated answers are refused. The committed Manage answer
-  must end the owner's admission request, with placement and focus matching
-  Hagia's checkpoint. No pixels are supplied, so the surface remains
+  must end the owner's admission request. Session retains Hagia's returned
+  placement, and its committed focus matches the checkpoint. No pixels are
+  supplied, so the surface remains
   AwaitingPixels: Managed state, extent reconciliation and launch visibility
   are not claimed. No later relayout is run, since restaging an AwaitingPixels
   surface re-enters admission control.
