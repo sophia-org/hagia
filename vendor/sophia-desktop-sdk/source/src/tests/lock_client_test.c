@@ -56,6 +56,9 @@ struct peer {
   unsigned events_pending, negotiated, upload_bound;
   /* Faults. */
   unsigned submit_again, reject_begin, stale_events, hold_acks;
+  uint16_t upload_tags[16];
+  uint32_t upload_counts[16], upload_errors[16], upload_iounit;
+  unsigned hold_upload, held_uploads, upload_short, upload_error, upload_ends;
   uint16_t held_tag;
   uint64_t held_sequence;
   uint32_t submit_error, extra_grant;
@@ -250,6 +253,7 @@ static void accept_candidate(struct peer *p, const struct sophia_lf_record *c) {
     resource_status(p, p->begin.transaction, SOPHIA_LF_ADMITTED, 0);
     return;
   case SOPHIA_LF_RESOURCE_END:
+    ++p->upload_ends;
     p->upload_bound = 0;
     if (p->upload_cursor == p->upload_total &&
         c->value.resource_step.total_bytes == p->upload_total)
@@ -390,6 +394,8 @@ static void request(struct peer *p, const uint8_t *m) {
     } else
       assert(flags == (file == F_SUBMIT || file == F_ACK ? 1u : 0u));
     qid(b, 0, file == F_LOCK ? p->qid : file);
+    if (file >= F_UPLOAD)
+      put(b + 13, p->upload_iounit, 4);
     send_reply(p, 13, tag, b, 17);
   } else if (type == 116) {
     uint64_t offset = get(q + 4, 8);
@@ -424,10 +430,32 @@ static void request(struct peer *p, const uint8_t *m) {
       count(p, tag, n);
     } else if (file >= F_UPLOAD) {
       assert(p->upload_fid == fid && p->upload_bound);
-      assert(offset == p->upload_cursor && n <= p->upload_total - offset);
-      memcpy(p->pixels + offset, d, n);
-      p->upload_cursor += n;
-      count(p, tag, n);
+      uint32_t err = 0;
+      assert(n <= p->upload_total - offset);
+      if (p->upload_error) {
+        err = p->upload_error;
+        p->upload_error = 0;
+      } else if (offset != p->upload_cursor) {
+        err = 22; /* The cursor did not advance across a short/failed write. */
+      } else {
+        if (p->upload_short) {
+          assert(n > 1);
+          --n;
+          p->upload_short = 0;
+        }
+        memcpy(p->pixels + offset, d, n);
+        p->upload_cursor += n;
+      }
+      if (p->hold_upload) {
+        unsigned at = p->held_uploads++;
+        assert(at < 16);
+        p->upload_tags[at] = tag;
+        p->upload_counts[at] = n;
+        p->upload_errors[at] = err;
+      } else if (err)
+        error(p, tag, err);
+      else
+        count(p, tag, n);
     } else if (file == F_ACK) {
       uint64_t sequence = get(d + 8, 8);
       assert(!offset && n == 16 && get(d, 8) == EPOCH);
@@ -498,11 +526,11 @@ static struct sophia_lf_negotiate offer(void) {
   o.chords[1].modifiers = SOPHIA_LF_MOD_SUPER | SOPHIA_LF_MOD_SHIFT;
   return o;
 }
-static struct rig *rig_new(const struct sophia_lf_negotiate *o,
-                           const char *api) {
+static struct rig *rig_storage(const struct sophia_lf_negotiate *o,
+                               const char *api, uint16_t capacity, int initialize) {
   struct rig *r = calloc(1, sizeof(*r));
   struct sophia_lf_record l;
-  size_t bytes = sophia_9p_storage_bytes(8192, 8);
+  size_t bytes = sophia_9p_storage_bytes(8192, capacity);
   int sockets[2];
   assert(r && !socketpair(AF_UNIX, SOCK_STREAM, 0, sockets));
   r->client_fd = sockets[0];
@@ -517,10 +545,17 @@ static struct rig *rig_new(const struct sophia_lf_negotiate *o,
   publish(&r->peer, SOPHIA_LF_UNLOCKED, 0, 0);
   r->storage = malloc(bytes);
   assert(r->storage);
-  assert(!sophia_9p_init(&r->wire, r->client_fd, 8192, 8, 32, r->storage,
+  assert(!sophia_9p_init(&r->wire, r->client_fd, 8192, capacity, 32, r->storage,
                          bytes));
-  assert(!sophia_lc_init(&r->client, &r->wire, o));
+  if (initialize) assert(!sophia_lc_init(&r->client, &r->wire, o));
   return r;
+}
+static struct rig *rig_new_capacity(const struct sophia_lf_negotiate *o,
+                                    const char *api, uint16_t capacity) {
+  return rig_storage(o, api, capacity, 1);
+}
+static struct rig *rig_new(const struct sophia_lf_negotiate *o, const char *api) {
+  return rig_new_capacity(o, api, 8);
 }
 static void rig_free(struct rig *r) {
   close(r->client_fd);
@@ -882,11 +917,50 @@ static void refuses_bad_offers(void) {
   free(storage);
 }
 
+#include "lock_upload_pipeline.h"
+
+static struct sophia_9p_reply wire_reply(struct rig *r) {
+  unsigned i;
+  struct sophia_9p_reply reply;
+  for (i=0;i<100;i++) {
+    int status;
+    assert(!sophia_9p_service(&r->wire,65536));
+    pump(&r->peer);
+    status=sophia_9p_peek(&r->wire,&reply);
+    if (!status) return reply;
+    assert(status==SOPHIA_9P_AGAIN);
+  }
+  abort();
+}
+static void an_admitted_root_is_not_reset_or_attached_again(void) {
+  struct sophia_lf_negotiate o=offer();
+  struct rig *r=rig_storage(&o,NULL,8,0);
+  struct sophia_9p_handle h;
+  struct sophia_9p_reply reply;
+  uint32_t root;
+  assert(sophia_lc_init_attached(&r->client,&r->wire,0,&o)==SOPHIA_9P_ARGUMENT);
+  assert(!sophia_9p_version(&r->wire,&h));
+  reply=wire_reply(r);assert(reply.type==101);
+  assert(!sophia_9p_consume(&r->wire,reply.handle));
+  assert(!sophia_9p_attach(&r->wire,"","",&h,&root));
+  reply=wire_reply(r);assert(reply.type==105);
+  assert(sophia_lc_init_attached(&r->client,&r->wire,root,&o)==SOPHIA_9P_ARGUMENT);
+  assert(!sophia_9p_consume(&r->wire,reply.handle));
+  assert(sophia_lc_init_attached(&r->client,&r->wire,UINT32_MAX,&o)==SOPHIA_9P_ARGUMENT);
+  assert(sophia_lc_init_attached(&r->client,&r->wire,root+1,&o)==SOPHIA_9P_ARGUMENT);
+  assert(!sophia_lc_init_attached(&r->client,&r->wire,root,&o));
+  assert(!spin(r));
+  assert(sophia_lc_ready(&r->client) && r->peer.attaches==1);
+  rig_free(r);
+}
+
 int main(void) {
+  an_admitted_root_is_not_reset_or_attached_again();
   bootstrap_and_lock();
   superseded_announcement();
   entry_and_chord();
   upload_and_present();
+  upload_pipeline_tests();
   rejected_and_refused_uploads();
   again_then_retry();
   custody_waits_for_ack();

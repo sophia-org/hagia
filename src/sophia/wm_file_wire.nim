@@ -24,6 +24,9 @@ type FileWireOwner = ref object
   socket: Socket
   session: ptr Ws
   storage: pointer
+  role, relay: ptr NinePClient
+  roleStorage, relayStorage: pointer
+  relayFd: cint
   epoch, selected: uint64
   profileWaits: bool
   pendingRequest: Option[ProjectionRequest]
@@ -40,6 +43,21 @@ proc close(owner: FileWireOwner) =
   if owner.storage != nil:
     dealloc(owner.storage)
     owner.storage = nil
+  for buffer in [
+    cast[pointer](owner.role),
+    cast[pointer](owner.relay),
+    owner.roleStorage,
+    owner.relayStorage,
+  ]:
+    if buffer != nil:
+      dealloc(buffer)
+  owner.role = nil
+  owner.relay = nil
+  owner.roleStorage = nil
+  owner.relayStorage = nil
+  if owner.relayFd >= 0:
+    discard posix.close(owner.relayFd)
+    owner.relayFd = -1
   if owner.socket != nil:
     owner.socket.close()
     owner.socket = nil
@@ -350,14 +368,76 @@ proc wire(owner: FileWireOwner): PolicyWire =
     close: close,
   )
 
+proc authenticate(owner: FileWireOwner, config: var WsConfig): uint32 =
+  ## The SDK owns the conversation. Retain the borrowed role client until the
+  ## WM session closes; keep the generation's relay capability until teardown.
+  let bytes = ninePStorageBytes(config.msize, 8)
+  owner.role = cast[ptr NinePClient](alloc0(int(ninePStateBytes())))
+  owner.relay = cast[ptr NinePClient](alloc0(int(ninePStateBytes())))
+  owner.roleStorage = alloc0(int(bytes))
+  owner.relayStorage = alloc0(int(bytes))
+  sdkCheck(
+    ninePInit(
+      owner.role,
+      cint(owner.socket.getFd()),
+      config.msize,
+      8,
+      16,
+      owner.roleStorage,
+      bytes,
+    )
+  )
+  sdkCheck(
+    ninePInit(
+      owner.relay, owner.relayFd, config.msize, 8, 16, owner.relayStorage, bytes
+    )
+  )
+  let auth = cast[ptr LaunchAuth](alloc0(int(laStateBytes())))
+  try:
+    sdkCheck(laInit(auth, owner.role, owner.relay, "wm", "spatial-policy", nowMillis()))
+    while laReady(auth) == 0:
+      requireRunning()
+      if laService(auth, nowMillis(), 65536) != 0:
+        fail("WM launch authentication failed")
+      if laReady(auth) != 0:
+        break
+      let now = nowMillis()
+      let wake = laNextWake(auth)
+      let wait =
+        if wake <= now:
+          0.cint
+        else:
+          cint(min(wake - now, 100))
+      var descriptors = [
+        TPollfd(fd: cint(owner.socket.getFd()), events: POLLIN),
+        TPollfd(fd: owner.relayFd, events: POLLIN),
+        TPollfd(fd: stopWakeFd(), events: POLLIN),
+      ]
+      if ninePWantsWrite(owner.role) != 0:
+        descriptors[0].events = descriptors[0].events or POLLOUT
+      if ninePWantsWrite(owner.relay) != 0:
+        descriptors[1].events = descriptors[1].events or POLLOUT
+      if posix.poll(addr descriptors[0], Tnfds(3), wait) < 0 and errno != EINTR:
+        fail("WM launch authentication poll failed")
+    result = laRoot(auth)
+  finally:
+    laCancel(auth)
+    dealloc(auth)
+
 proc fileWire*(
     socket: Socket,
     requestProfileActivation = false,
     requestPointerFocus = false,
     requestOutputAssignments = false,
+    launchAuthFd: cint = -1,
 ): PolicyWire =
-  let owner = FileWireOwner(socket: socket, profileWaits: requestProfileActivation)
+  let owner =
+    FileWireOwner(socket: socket, profileWaits: requestProfileActivation, relayFd: -1)
   owner.closing:
+    if launchAuthFd != -1:
+      if launchAuthFd < 3 or launchAuthFd == cint(socket.getFd()):
+        fail("invalid WM launch authentication descriptor")
+      owner.relayFd = launchAuthFd
     var config = WsConfig(msize: 8192, bootstrapDeadlineMs: nowMillis() + 12000)
     config.offer.required =
       capabilityBindings or capabilityActions or capabilityMultiOutput or
@@ -383,16 +463,33 @@ proc fileWire*(
     owner.session = cast[ptr Ws](alloc0(int(wsStateBytes())))
     let bytes = wsStorageBytes(config.msize)
     owner.storage = alloc0(int(bytes))
-    sdkCheck(
-      wsOpenFd(
-        owner.session,
-        cint(socket.getFd()),
-        addr config,
-        owner.storage,
-        bytes,
-        nowMillis(),
+    if owner.relayFd >= 0:
+      let root = owner.authenticate(config)
+      sdkCheck(
+        wsOpenAttached(
+          owner.session,
+          owner.role,
+          root,
+          addr config,
+          owner.storage,
+          bytes,
+          nowMillis(),
+        )
       )
-    )
+    else:
+      # Supplied-admission export fixtures use a fresh unauthenticated root.
+      # A production Session refuses that root; authentication failure never
+      # reaches this branch.
+      sdkCheck(
+        wsOpenFd(
+          owner.session,
+          cint(socket.getFd()),
+          addr config,
+          owner.storage,
+          bytes,
+          nowMillis(),
+        )
+      )
     while wsState(owner.session) == 0:
       owner.step(config.bootstrapDeadlineMs)
     if wsState(owner.session) != 1:

@@ -93,6 +93,9 @@ and [DRY principles](dry-principles.md).
 - `src/sophia/wm_file_wire.nim` adapts the SDK session to `PolicyWire`, owns its
   storage and borrowed socket lifetime, drains receipts and closes on failure.
   It does not allocate fids, encode 9P requests or implement retry custody.
+  With Session's launch descriptor, the same owner polls the SDK authentication
+  helper and retains its role client for the WM session's borrowed-root lifetime.
+  The SDK marks the relay close-on-exec; the owner closes it on teardown.
 - `src/sophia/wm_file_client.nim` validates candidate settings, connects the
   explicitly selected file endpoint and runs the policy loop.
 

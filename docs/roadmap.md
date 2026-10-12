@@ -610,3 +610,16 @@ records replacement evidence and retired IPC cases.
 Authenticated production launch, restart/profile replacement acceptance and a
 reviewed dependency-bound release build remain open under h006. An older paired
 IPC run does not qualify this candidate. Nothing was installed or reloaded.
+
+### Authenticated WM launch (Sophia t317 / Hagia h006)
+
+The C SDK pin is now `93361918dd0213a13a2fc8bd26a7911ff7ae16e1`.
+Hagia drives its launch authentication helper over Session's inherited relay
+and hands the verified root to the WM session. Authentication failure closes
+both connections. An isolated join against Sophia `a24934b15` proves ordinary
+Hagia startup, a committed empty-scene cycle, supervised restart with fresh
+launch custody, and another committed cycle. A forged-name control is refused
+before profile admission. The restored join and full contributor scripts pass.
+This is not occupied recovery, changed-profile or installed-session acceptance.
+The [authentication investigation](notes/investigations/cy81sff5-hagia-authenticates-its-wm-root-through-the-provisioned-launch-relay.md)
+records exact evidence and the remaining h006 boundaries.

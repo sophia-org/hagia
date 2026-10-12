@@ -24,6 +24,11 @@ build or runtime dependency. The SDK owns transport, record validation,
 submission custody, acknowledgements and snapshot pins. Hagia converts complete
 values into its spatial-policy model and returns proposals.
 
+Session's provisioned launch relay authenticates the connection through the
+SDK's Factotum conversation helper. The WM session then borrows that admitted
+root; Hagia neither selects its authority nor implements the authentication
+protocol. Failed authentication closes the connection.
+
 Select the Session-owned endpoint with `SOPHIA_WM_9P_SOCKET` or
 `--9p-socket=PATH`. The old `SOPHIA_WM_SOCKET` variable (even empty) and
 `--socket` option are refused. There is no IPC backend or fallback. This WM

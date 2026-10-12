@@ -1,4 +1,4 @@
-import std/options
+import std/[options, os]
 import ../config/policy_candidate
 import ../types/config_values
 import ../types/observability
@@ -13,11 +13,17 @@ proc runFilePolicySession*(
   ## A stop signal is an ordinary return once the session has closed.
   installStopSignals()
   let settings = candidate.policyCandidateSettings()
+  let authFd =
+    if existsEnv("SOPHIA_LAUNCH_AUTH_FD"):
+      getEnv("SOPHIA_LAUNCH_AUTH_FD").launchAuthenticationFd()
+    else:
+      -1.cint
   try:
     let wire = path.connectWhenReady().fileWire(
         requestProfileActivation = profileActivation,
         requestPointerFocus = settings.focusFollowsMouse,
         requestOutputAssignments = settings.workspaceAssignments.len > 0,
+        launchAuthFd = authFd,
       )
     try:
       if profileActivation:

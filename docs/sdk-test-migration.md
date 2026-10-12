@@ -57,3 +57,12 @@ The supplied-stream SDK peer checks startup and a configuration/snapshot/
 projection/session-operation cycle against the real file export. It does not
 prove authenticated production launch, native presentation or physical input.
 Those remain separate acceptance work before deployment.
+
+The t317 follow-up now adds a distinct authenticated-owner overlay,
+`tests/external/authenticated_launch.rs`. It launches ordinary Hagia through
+Session's protected startup and real Factotum export, commits an empty-scene
+cycle, then proves fresh launch custody and another committed cycle after
+supervised restart. Factotum's trusted Session channel and layout completion
+are supplied. It does not qualify occupied recovery, changed-profile replacement
+or physical presentation. The [authentication investigation](notes/investigations/cy81sff5-hagia-authenticates-its-wm-root-through-the-provisioned-launch-relay.md)
+binds the exact SDK, Sophia pin and evidence.

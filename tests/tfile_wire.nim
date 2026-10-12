@@ -1,4 +1,4 @@
-import std/[net, unittest]
+import std/[net, posix, unittest]
 import types/wm_v1
 import sophia/[policy_transport, wm_file_wire]
 import support/sdk_admission_peer
@@ -88,3 +88,29 @@ suite "Hagia SDK file admission":
       check log.status == 0
       check log.offers == 0
       check log.configurations == 0
+
+  test "a failed launch relay closes both transports without WM fallback":
+    var role, relay: array[2, cint]
+    doAssert posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, role) == 0
+    doAssert posix.socketpair(posix.AF_UNIX, posix.SOCK_STREAM, 0, relay) == 0
+    let socket =
+      newSocket(SocketHandle(role[0]), net.AF_UNIX, net.SOCK_STREAM, net.IPPROTO_IP)
+    discard posix.close(relay[1])
+    try:
+      expect PolicyClientError:
+        discard socket.fileWire(launchAuthFd = relay[0])
+      check fcntl(role[0], F_GETFD) == -1
+      check fcntl(relay[0], F_GETFD) == -1
+    finally:
+      socket.close()
+      discard posix.close(role[1])
+
+  test "launch descriptor syntax rejects absent standard and overflowing values":
+    for value in [
+      "", "0", "1", "2", "-1", "+3", "3 ", " 3", "3x", "2147483648",
+      "999999999999999999999999999",
+    ]:
+      expect PolicyClientError:
+        discard value.launchAuthenticationFd()
+    check "3".launchAuthenticationFd() == 3
+    check "2147483647".launchAuthenticationFd() == high(cint)

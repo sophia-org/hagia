@@ -16,6 +16,7 @@ development sometimes needs one.
 | --- | --- |
 | `SOPHIA_WM_SOCKET` | Retired. Any presence, including an empty value, refuses session startup. `--socket` is also refused. |
 | `SOPHIA_WM_9P_SOCKET` | Path to the session-owned direct 9P2000.L WM file socket. `--9p-socket=PATH` is the standalone equivalent. This selects only the WM role; Hagia does not connect an output-authority endpoint. |
+| `SOPHIA_LAUNCH_AUTH_FD` | Decimal descriptor of Session's provisioned launch relay. The SDK authenticates the WM connection through this relay before opening role files. Empty, malformed, standard-I/O and aliased descriptors refuse. The number conveys no authority without the inherited channel. |
 | `SOPHIA_WM_POLICY_CANDIDATE` | Path to the read-only policy authority slice Sophia has already staged and validated. When non-empty, it replaces profile discovery entirely, and passing `--config` as well is refused. |
 | `SOPHIA_WM_POLICY_CHECKPOINT` | Path to the private read-write policy checkpoint. Hagia uses the path as given and assumes no file name. Written atomically after every committed cycle, owner-only, bounded. Empty or unset disables checkpointing, which also disables `SIGHUP` reload. |
 | `SOPHIA_WM_POLICY_PROFILE_ACTIVATION` | Empty runs an ordinary session. `required` runs the profile-activated path and demands a policy candidate. Any other value is a startup error. |
@@ -52,6 +53,13 @@ replay and checkpoint commands do not open either endpoint.
 
 Sophia must select the WM file transport when launching this binary. The SDK
 negotiates capabilities within that admitted connection; it never falls back.
+The SDK owns the afid conversation and hands the admitted root directly to its
+WM session without another version or attach. Authentication failure closes
+both transports. The launch relay remains open, marked close-on-exec, until
+session teardown. A fresh supervised process authenticates again with fresh
+launch custody. When the variable is absent, the raw attach remains available
+for supplied-admission export fixtures; a production Session requiring an afid
+refuses it. This is not an authentication fallback.
 Candidate settings are validated before connecting, so a bad profile may exit
 before the Session receives a hello. Full installed-session acceptance is a
 separate gate from the supplied-stream export tests.

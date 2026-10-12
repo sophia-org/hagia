@@ -65,3 +65,19 @@ proc connectWhenReady*(path: string): Socket =
       socket.close()
       sleep(10)
   fail("Sophia policy socket did not become ready")
+
+proc launchAuthenticationFd*(value: string): cint =
+  ## The environment advertises a descriptor, never an identity or authority.
+  if value.len == 0:
+    fail("empty SOPHIA_LAUNCH_AUTH_FD")
+  var number = 0'u64
+  for character in value:
+    if character notin {'0' .. '9'}:
+      fail("invalid SOPHIA_LAUNCH_AUTH_FD")
+    let digit = uint64(ord(character) - ord('0'))
+    if number > (uint64(high(cint)) - digit) div 10:
+      fail("SOPHIA_LAUNCH_AUTH_FD exceeds descriptor range")
+    number = number * 10 + digit
+  if number < 3:
+    fail("SOPHIA_LAUNCH_AUTH_FD must not name standard IO")
+  cint(number)

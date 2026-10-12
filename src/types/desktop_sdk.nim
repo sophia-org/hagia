@@ -1,5 +1,13 @@
 ## Thin declarations for the pinned C SDK public headers. No private layouts.
 type
+  NinePClient* {.
+    importc: "struct sophia_9p_client", header: "sophia_9p_client.h", incompleteStruct
+  .} = object
+
+  LaunchAuth* {.
+    importc: "struct sophia_la_client", header: "sophia_launch_auth.h", incompleteStruct
+  .} = object
+
   WsCustody* {.
     importc: "enum sophia_ws_custody",
     header: "sophia_wm_session.h",
