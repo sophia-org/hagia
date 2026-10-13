@@ -23,7 +23,16 @@ restored cases, matching-loss cancellation and lock reset pass. Development
 package `t249-occupied-reload-20261013-01` has manifest
 `02fe58da700892c4881d4ca9c794a3d2caa5a62f37d67485ded35eed5308848a`.
 The audit checks 5,112 Sophia and 481 Hagia base inputs and the overlays.
-The signed 34-case pair remains pending; Sophia production code is unchanged.
+The signed pair (Hagia `42f3fa7`, runner `45b2b68`, Sophia `469371bf4`) passes
+all 34 cases in `t249-occupied-reload-pair01`, manifest
+`5b47871c283bfbce47db0c82b54f3d4c06a27b88fefed5a7d11bed7202cbe2d7`.
+Strict external Clippy, formatting, layout and fourteen runner tests pass.
+The audit verifies signatures, 3,268 pinned inputs, twenty mounted inputs,
+every exact result and unchanged generic-gate inputs and production glue.
+`t249-occupied-reload-pair-audit01` has manifest
+`1d84a01708a09ab3123d87f83ac594c13bc84bc11acfca44c48cbde1062de03d`.
+Both build archives and the clean detached source worktree are removed.
+Sophia production code is unchanged.
 
 Catalog and registry replacements are supplied to their actual owners; the
 profile exchange uses the ordinary authenticated peer. Content, completion
