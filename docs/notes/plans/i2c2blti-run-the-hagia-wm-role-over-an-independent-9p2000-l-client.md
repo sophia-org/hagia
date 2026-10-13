@@ -516,6 +516,17 @@ controls remain Sophia-owned.
 
 ## Connections
 
+The current pointer-focus result is recorded under Sophia investigation
+`5rzn1zue`, section "Profile-gated pointer focus (2026-10-13)". The signed
+Hagia `883561e` / niltempus `bfd6096` pair passes all 26 external cases at
+Sophia `1b476dbdc` in `t249-focus-01`; manifest
+`bee178529fcc8a0523b47fbe69d21d97a2f0ae57055a6bbc167eb2cdaca222ee`.
+Two archived controls discriminate negotiated admission and exact surface
+generation. Hover observations and layout completion are supplied; physical
+routing/debt, the other matrix boundaries and measurement remain open.
+The next bounded assessment is physical pointer routing and release debt;
+do not restart completed pointer-focus or t317/t318 acceptance.
+
 - [Session drag accounting and measurement evidence](../investigations/tzz6apym-session-drag-measurements-retain-admission-and-settlement-accounting.md).
 - [Optional external acceptance ownership and evidence](../investigations/aoivl2yn-hagia-specific-acceptance-lives-in-an-optional-source-pinned-pairing-overlay.md).
 - [Independent client checkpoint](../investigations/uof7k0rr-independent-hagia-9p-client-bounds-request-and-reply-custody.md)
