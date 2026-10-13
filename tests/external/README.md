@@ -80,6 +80,20 @@ workspace algorithm variants separately.
   native Present retirement, GPU image preparation or automatic source-only
   repaint scheduling.
 
+- `sdk_overview_pointer_commits_exact_target` and
+  `sdk_overview_output_loss_preserves_release_debt` in
+  `presentation_overview.rs`: compose real Hagia overview instances and regions
+  on two logical outputs. Read a nonzero target from the retired backend frame,
+  route its press/release through Session, and require exact peer selection with
+  ordinary focus changing only at commit. Old publication/target generations
+  and another live output cannot lend authority. Removing the pressed output
+  revokes input before another frame, closes the peer's overview and preserves
+  one swallowed release; a duplicate returns to ordinary routing. Controls
+  weaken target identity, omit revalidation or discard debt. CPU content,
+  topology, events, initialization and device completion are supplied. The
+  backend fixture retains its original heads to retire withdrawal; this is
+  logical-output loss, not native connector removal or physical acceptance.
+
 - `sdk_pointer_routing_selects_exact_interactions` in `pointer.rs`: route
   supplied Super and button events through production hit testing and gesture
   reduction into real Hagia move/resize requests. Unbound buttons and missing

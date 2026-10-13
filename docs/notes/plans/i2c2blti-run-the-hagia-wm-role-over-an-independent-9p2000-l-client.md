@@ -6,6 +6,32 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 overview targets and output-loss debt
+
+Two external cases compose Hagia's overview on two logical outputs and check
+the retired frames' instance and region identities. A pointer target read from
+the backend reaches the exact peer selection. Ordinary focus and checkpoint
+bytes stay unchanged until commit; stale target/publication generations and
+the other output cannot authorize an action.
+
+Removing the pressed output revokes presentation input before another frame.
+Hagia closes the overview, the withdrawal retires, and the captured release is
+swallowed once. A duplicate release returns to ordinary routing. The supplied
+topology change runs Session's actual output-update and revalidation owners;
+the backend fixture keeps its original heads for withdrawal. Events, CPU
+content, initialization and device completion are supplied. These cases do
+not establish native connector removal, frontend delivery or physical pixels.
+
+Both development cases pass. Controls weaken target generation, omit output-loss
+revalidation or discard capture debt. Each fails its named assertion, and both
+restored cases pass. Package `t249-overview-targets-20261013-01`, manifest
+`ca7a5d4387b579ff6318df715a62e15aad9444490eea3c4c0fdbf13234f8b665`,
+audits 5,112 Sophia and 483 Hagia base inputs plus overlays. Its local-policy
+reuse audit verifies the unchanged inputs against the earlier passing suite.
+The first run exposed a fixture mistake: the CPU scene takes the primary
+output's size, not the combined desktop width. No production change was needed.
+Full-pair qualification is next; DMA retirement and measurement remain open.
+
 ## 2026-10-13 launch and logical-output recovery
 
 Three external cases cover frozen child origin, saved output/workspace context,

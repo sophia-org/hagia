@@ -41,6 +41,9 @@ mod presentation_service;
 #[path = "presentation_installation.rs"]
 mod native_installation;
 
+#[path = "presentation_overview.rs"]
+mod overview;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),
@@ -241,9 +244,12 @@ struct Content {
 
 /// One ordinary CPU production cycle commits owned bytes for each surface.
 fn commit_cpu_sources(run: &Lifecycle) -> Content {
-    let output = run.output;
-    let mut runtime = LiveProductionVisualRuntime::new(&[output], None).unwrap();
-    let mut scene = LiveProductionCpuScene::new(output.size);
+    commit_cpu_sources_on(run, &[run.output])
+}
+
+fn commit_cpu_sources_on(run: &Lifecycle, outputs: &[sophia_engine::HeadlessOutput]) -> Content {
+    let mut runtime = LiveProductionVisualRuntime::new(outputs, None).unwrap();
+    let mut scene = LiveProductionCpuScene::new(outputs[0].size);
     let transaction = TransactionId::from_raw(900);
     let mut observed = crate::live_session::wm_update_coordinator_batch(transaction);
     for (surface, handle) in SURFACES.into_iter().zip(HANDLES) {
@@ -297,7 +303,7 @@ fn commit_cpu_sources(run: &Lifecycle) -> Content {
             focused_surface: focus(run),
             cursor_presentation: LiveProductionCursorPresentation::Software(None),
             defer_frame: false,
-            output_descriptors: &[output],
+            output_descriptors: outputs,
             native_scanout: None,
             wm_update: None,
             presentation_layout: &layers,
