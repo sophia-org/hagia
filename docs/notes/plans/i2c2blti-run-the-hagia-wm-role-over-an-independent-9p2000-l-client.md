@@ -38,7 +38,18 @@ unchanged local-policy inputs to the passing suite in the projection package.
 Development refusals exposed fixture mistakes in indicator selection and
 startup coalescing; exact-output selection, zero-based indicator slots and
 an assigned-workspace profile now make the intended behavior observable.
-The full signed 40-case pair and final source audit remain pending.
+The signed pair (Hagia `b86f181`, runner `46e08e4`, Sophia `469371bf4`) passes
+all 40 cases in `t249-launch-outputs-pair01`, manifest
+`2f3e1ae39851ecf39521d639d3d308c4eced84a105b4b309ef7986dcbe01d6c7`.
+Strict external Clippy, formatting, Hagia layout and fourteen runner tests pass.
+The audit verifies signatures, 3,268 pinned inputs, twenty-two mounted inputs,
+every exact result and unchanged generic-gate inputs and production glue.
+`t249-launch-outputs-pair-audit01` has manifest
+`02f7b21c18af8cbc3926a783e69f607c4bb2d46315c2b95fac55538beef1b6b8`.
+A separate trace audit confirms that the lost output was occupied immediately
+before removal. Both build archives and the clean source worktree are removed.
+Overview pointer targets and output-loss capture/debt remain open alongside
+DMA retirement, measurement and final qualification.
 
 ## 2026-10-13 policy projection families
 
