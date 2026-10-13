@@ -17,6 +17,9 @@ use sophia_backend_live::{
 use sophia_protocol::*;
 use std::sync::Arc;
 
+#[path = "presentation_application_capture.rs"]
+mod application_capture;
+
 #[path = "presentation_revocation.rs"]
 mod revocation;
 

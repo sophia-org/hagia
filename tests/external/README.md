@@ -14,7 +14,25 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-six explicitly ignored cases must be listed and invoked individually:
+The twenty-seven explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_presented_capture_waits_for_focused_application` in
+  `presentation_application_capture.rs`: before the Held switcher is presented,
+  route a non-modifier press to Engine focus on a committed CPU surface. Both
+  mirrors then produce the backend-derived Presented receipt. While the client
+  holds that key, a bound Right press/release must reach local application
+  ingress at the same exact surface, without a WM action or capture debt. The
+  last held release reaches that target too. A fresh Right is then captured,
+  correlated to the receipt and answered by real Hagia; releasing the followed
+  chord commits the new selection. The application ledger is populated by
+  production routing, not fixture insertion. Focus selection and events are
+  supplied; ingress is local, with no frontend delivery or hardware claim.
+  Initial mirror submit/flip is simulated; closing replacement completion is
+  supplied. This does not cover pointer debt, protected session actions, lock
+  or lost outputs.
+  The archived control disables the router's application-held-key term and
+  fails `held capture must leave an application-owned key sequence at its
+  focused target` before any action can reach the peer.
 
 - `sdk_pointer_focus_requires_profile_and_commit` in `pointer_focus_sdk.rs`:
   the default profile refuses hover focus without starting a request. A profile
