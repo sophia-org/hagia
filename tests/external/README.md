@@ -276,7 +276,10 @@ closes the switcher. Session exposes no refusal-reason record for a staged
 projection rejection, so a refused answer's cause, such as a stale presentation
 generation, is a source inference; only scene-advanced staleness has
 diagnostic accounting.
-Revocation by native retirement or source loss, pointer release debt,
+Source-loss notification and its same-turn withdrawal ordering are now joined
+by `sdk_presented_backend_revocation_precedes_withdrawal`. Availability loss
+and requested stopping also call the actual presentation-service owner in
+their dedicated cases. Native installation/retirement, pointer release debt,
 other cancellation triggers, native settlement rollback and admission through
 a presented candidate's native retirement remain open. The CPU admission case
 reads retained source bytes and a headless composed pixel; no physical head,
@@ -297,3 +300,11 @@ latency, physical scanout, or the rest of h006/Sophia t249. The consensus case
 derives receipts through the backend's production composition and publication
 owners with simulated completion; it does not run the concrete native-target
 selection tail of Session's presentation service.
+
+The October 13 coverage reconciliation in Sophia's investigation `5rzn1zue`
+maps all 23 capability bits and explicit acceptance phrases to these cases,
+retained generic/attended evidence and remaining owner boundaries. It supersedes
+the old fourteen-case gap table without changing h006/t249's exit. The next
+bounded external join is pointer move/resize/coalescing/cancel through the real
+Session owner, with per-offer accounting before any rate/load campaign. Frozen
+pairing fixtures may inform its design but must not run against current master.

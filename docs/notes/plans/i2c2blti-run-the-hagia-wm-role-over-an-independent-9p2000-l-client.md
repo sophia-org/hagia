@@ -6,6 +6,27 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 coverage reconciliation and next join
+
+Sophia investigation `5rzn1zue`, section “Twenty-three-case coverage
+reconciliation (2026-10-13)”, is the current cross-repository evidence map.
+It reconciles all capability bits and explicit acceptance phrases, keeping
+generic/attended evidence and supplied boundaries distinct. Its read-only
+audit verifies the retained 23-case results and manifests, with unchanged
+external fixture sources from qualified Hagia `0b1a1c1`. No new integration
+run or production change is implied. The audit package is
+`t249-coverage-audit-20261013-01`, manifest
+`3b7e2dc2bcf1089c2aeda48948a5581201f16fb304bac0d6931c754197e523a5`.
+
+Next is a bounded pointer-interaction join using the current authenticated
+Lifecycle and Session's direct owner: move/resize Begin/Update/End, latest
+queued Update replacement, and Cancel purging obsolete queued work without
+undoing a committed result. Correlate peer answers, geometry and checkpoint.
+The accounting diagnostic must retain each offer and replacement edge before
+rate/load measurement; `Duplicate` alone cannot distinguish coalescing from
+refusal. Frozen historical fixtures remain source references only. New control
+predictions and the measurement comparator are not executed evidence.
+
 ## 2026-10-12 backend revocation before withdrawal settlement
 
 The twenty-third external case removes a sampled switcher source through
