@@ -21,8 +21,14 @@ admission retirement fails its corresponding behavioral assertion; restoring
 the source passes again. Development package `t249-native-cycle-20261013-01`
 has manifest `52a6b6cdcb7299c6e30eafba9f9537915f4c33693e2843eeafdba9619c0d4bc9`.
 Its audit retains all 5,110 Sophia and 481 Hagia base inputs and the overlays.
-Hagia's production code is unchanged. The complete signed 30-case pair remains
-to be bound.
+Hagia's production code is unchanged. The signed pair (Sophia `03600e1c2`, Hagia
+`f5e78d7`, runner `de567db`) passes all 30 cases in `t249-native-cycle-pair01`,
+manifest `df2c855b947ed89f3ecd219c99053096f13a363ff5302ac3be0a058297930ef5`.
+The generic gate and external strict Clippy pass. The audit verifies 3,268
+pinned inputs, twenty mounted inputs, signatures and all exact results, and
+binds the generic gate to the pin. `t249-native-cycle-pair-audit01` has manifest
+`367effa668d467a0d29c1d37f607d80e15c7902b835f6ddc3eda08c6086bc8b5`.
+Both completed build archives were removed under their leases.
 
 Initialization, authority input, control acknowledgements and worker/device
 completion are supplied. DMA retirement, automatic source-only preview
