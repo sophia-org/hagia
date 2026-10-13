@@ -1,5 +1,5 @@
-//! The actual Session presentation-service owner under supplied availability
-//! loss. The prefix still installs against a supplied head and observes the
+//! The actual Session presentation-service owner under availability loss and
+//! authenticated requested restart. The prefix installs against a supplied head and observes the
 //! initial backend-derived Presented through the parent's abbreviated helper.
 //! Thereafter only service_presented_policy revokes, removes runtime policy,
 //! and settles withdrawal. Target submit/flip and availability are supplied;
@@ -13,23 +13,12 @@ fn owner(run: &mut Lifecycle, content: &mut Content, available: bool) {
         .unwrap();
 }
 
-#[test]
-#[ignore = "requires current ordinary Hagia and isolated external overlay"]
-fn sdk_presented_service_withdraws_when_unavailable() {
-    let Held {
-        mut run,
-        mut content,
-        first,
-        candidates,
-        expected,
-        ..
-    } = held("presented-service");
+fn presented_on_mirrors(
+    run: &mut Lifecycle,
+    content: &mut Content,
+    first: &PolicyPresentation,
+) -> (SessionPolicyPresentationFixture, PolicyPresentationReceipt) {
     let output = first.outputs[0];
-    let w1 = expected[0];
-    log(
-        &run,
-        "service_owner=production availability=supplied completion=simulated_per_head receipts=backend_derived",
-    );
     let mut target = SessionPolicyPresentationFixture::new(&[run.output]);
     let heads = target.heads();
     assert_eq!(heads.len(), 2);
@@ -48,7 +37,7 @@ fn sdk_presented_service_withdraws_when_unavailable() {
     for head in 0..2 {
         target.simulate_head_completion(&mut content.runtime, output.output, head);
         let projections = content.runtime.input_projections().to_vec();
-        service(&mut run, &projections);
+        service(run, &projections);
     }
     let receipt = run
         .wm
@@ -69,8 +58,30 @@ fn sdk_presented_service_withdraws_when_unavailable() {
             outcome: PolicyPresentationOutcome::Presented,
         }
     );
-    assert_eq!(receipts(&run), vec![receipt]);
-    drain(&mut run);
+    assert_eq!(receipts(run), vec![receipt]);
+    drain(run);
+
+    (target, receipt)
+}
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_service_withdraws_when_unavailable() {
+    let Held {
+        mut run,
+        mut content,
+        first,
+        candidates,
+        expected,
+        ..
+    } = held("presented-service");
+    let output = first.outputs[0];
+    let w1 = expected[0];
+    log(
+        &run,
+        "service_owner=production availability=supplied completion=simulated_per_head receipts=backend_derived",
+    );
+    let (mut target, receipt) = presented_on_mirrors(&mut run, &mut content, &first);
 
     // Supply only availability loss. A healthy transport and no restart
     // ensure the service's other revocation conditions cannot mask it.
@@ -184,5 +195,146 @@ fn sdk_presented_service_withdraws_when_unavailable() {
         "peer alive before service teardown"
     );
     run.record("service-withdrawn");
+    run.stop();
+}
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_service_revokes_before_requested_restart() {
+    let Held {
+        mut run,
+        mut content,
+        first,
+        expected,
+        ..
+    } = held("presented-service-restart");
+    let (mut target, receipt) = presented_on_mirrors(&mut run, &mut content, &first);
+    let output = first.outputs[0];
+    let peer = run.wm.supervisor.peer_id();
+    let checkpoint = run.checkpoint();
+    let committed = run.wm.public.as_ref().unwrap().reducer.committed();
+    let next_epoch = receipt.connection_epoch + 1;
+
+    // Actual requested-restart admission, before the replacement owner polls.
+    // Authentication routes this through deliberate restart, not the legacy
+    // background control job. It fences inspection but has not revoked input.
+    assert!(run.wm.authentication.is_some());
+    assert_eq!(
+        run.wm.begin_control_restart(run.output).unwrap(),
+        next_epoch
+    );
+    assert!(run.wm.force_transport_restart && !run.wm.degraded);
+    assert!(run.wm.control_restart.is_none());
+    assert!(!run.wm.authenticated_restart_pending());
+    assert!(!run.wm.public.as_ref().unwrap().transport_unavailable);
+    assert!(
+        run.wm
+            .public
+            .as_ref()
+            .unwrap()
+            .presentation_input
+            .publication()
+            .is_some()
+    );
+    assert!(receipts(&run).is_empty());
+
+    // Available remains true: no availability-loss or transport-unavailable
+    // branch can substitute for stopping. The stopping flag also suppresses
+    // the no-native installation tail, including in the revocation control.
+    owner(&mut run, &mut content, true);
+    assert_eq!(
+        receipts(&run),
+        vec![PolicyPresentationReceipt {
+            outcome: PolicyPresentationOutcome::Revoked,
+            ..receipt
+        }],
+        "stopping service must revoke before replacing the peer"
+    );
+    assert!(content.runtime.policy_presentation().is_none());
+    assert_eq!(run.wm.supervisor.peer_id(), peer);
+    assert!(run.wm.supervisor.poll().unwrap().is_none());
+    assert_eq!(
+        run.wm.public.as_ref().unwrap().connection_epoch,
+        receipt.connection_epoch
+    );
+    assert_eq!(run.checkpoint(), checkpoint);
+
+    // The fixture chooses retirement before replacement. Availability permits
+    // withdrawal settlement even while stopping; one mirror is insufficient.
+    target.queue(&content.runtime, &content.scene).unwrap();
+    target.simulate_submit(output.output);
+    target.simulate_head_completion(&mut content.runtime, output.output, 0);
+    owner(&mut run, &mut content, true);
+    let revoked = receipts(&run);
+    assert_eq!(revoked.len(), 1);
+    assert_eq!(revoked[0].outcome, PolicyPresentationOutcome::Revoked);
+    target.simulate_head_completion(&mut content.runtime, output.output, 1);
+    owner(&mut run, &mut content, true);
+    assert_eq!(
+        receipts(&run),
+        vec![
+            PolicyPresentationReceipt {
+                outcome: PolicyPresentationOutcome::Revoked,
+                ..receipt
+            },
+            PolicyPresentationReceipt {
+                outcome: PolicyPresentationOutcome::Withdrawn,
+                ..receipt
+            },
+        ],
+        "available stopping service must settle the retired replacement"
+    );
+    owner(&mut run, &mut content, true);
+    assert_eq!(receipts(&run).len(), 2, "stopping receipts settle once");
+    // Queued receipts are observed locally; no old-peer delivery is claimed.
+    run.record("requested-stop-withdrawn");
+
+    run.ready(true);
+    assert_eq!(run.wm.public.as_ref().unwrap().connection_epoch, next_epoch);
+    assert_ne!(run.wm.supervisor.peer_id(), peer);
+    assert_eq!(
+        run.checkpoint(),
+        checkpoint,
+        "requested replacement preserves the committed checkpoint"
+    );
+    assert_eq!(
+        run.wm.public.as_ref().unwrap().reducer.committed(),
+        committed
+    );
+    assert_eq!(credits(&run), sophia_engine::WM_CHORD_CREDITS);
+    assert!(run.wm.chord_ledger.is_empty());
+    for _ in 0..2 {
+        let proposal = run.proposal();
+        assert!(
+            staged_publication(&run).is_none(),
+            "replacement must not resurrect the stopped switcher"
+        );
+        assert_eq!(proposal.focus, Some(expected[0]));
+        let previous = commit_installed(&mut run, &mut content, proposal);
+        settle(&mut run, previous);
+    }
+    assert_eq!(focus(&run), Some(expected[0]));
+    assert!(content.runtime.policy_presentation().is_none());
+    assert!(
+        run.wm
+            .poll_public_request(&mut run.layout, run.output, false)
+            .unwrap()
+            .is_none()
+    );
+    let public = run.wm.public.as_ref().unwrap();
+    assert!(
+        !run.wm.degraded
+            && !run.wm.force_transport_restart
+            && !public.transport_unavailable
+            && public.connection_epoch == next_epoch
+            && public.in_flight_request.is_none()
+            && public.queue.is_empty(),
+        "replacement healthy before stopping-service teardown"
+    );
+    assert!(
+        run.wm.supervisor.poll().unwrap().is_none(),
+        "replacement alive before stopping-service teardown"
+    );
+    run.record("requested-stop-recovered");
     run.stop();
 }

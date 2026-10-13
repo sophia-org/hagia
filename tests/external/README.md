@@ -14,7 +14,21 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-one explicitly ignored cases must be listed and invoked individually:
+The twenty-two explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_presented_service_revokes_before_requested_restart` in
+  `presentation_service.rs`: request replacement through Session's actual
+  control-restart admission, with an authenticated peer and a backend-derived
+  Presented receipt. Before polling replacement, the production service must
+  revoke and remove the publication while the old peer is alive and the epoch
+  unchanged. Availability stays true; completing both simulated mirror heads
+  lets the stopping service settle Withdrawn once. Replacement then authenticates
+  a new peer, preserves committed state, returns chord credits and answers its
+  two recovery cycles without resurrecting the switcher. The fixture chooses
+  retirement before replacement; queued old-epoch receipts are local evidence,
+  not an old-peer delivery claim. Controls omit stopping from revocation or
+  incorrectly block withdrawal settlement while stopping. Initial installation,
+  CPU sources and device completion retain the shared prefix's supplied limits.
 
 - `sdk_presented_service_withdraws_when_unavailable` in
   `presentation_service.rs`: after backend-derived Presented on both mirror

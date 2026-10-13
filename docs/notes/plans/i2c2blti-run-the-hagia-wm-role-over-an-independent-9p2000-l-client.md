@@ -6,6 +6,47 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-12 requested restart at the presentation-service boundary
+
+The twenty-second external case reuses the mirror-target prefix, then requests
+replacement through Session's authenticated control-restart admission. Before
+any replacement poll, the actual presentation-service owner revokes the exact
+identity and removes runtime policy while the old peer is alive and its epoch
+unchanged. Availability remains true. Both simulated mirror heads retire the
+replacement before the fixture polls restart; the stopping service must still
+settle Withdrawn once. These queued receipts do not claim old-peer delivery.
+
+The successor authenticates, preserves the committed scene/checkpoint, returns
+chord credit and answers both recovery cycles without reopening the switcher.
+The final peer health check is not a round trip. Initial installation and
+Presented observation retain the supplied-head and abbreviated-helper limits;
+CPU sources, head completion and the interleaving remain fixture-driven.
+
+The initial run `t249-stop-dev01` passes twenty-two cases. The tightened version
+adds the final health check and removes a redundant borrow; `t249-stop-dev02`
+also passes twenty-two. Their manifest SHA-256 values are respectively
+`d91a33818efadb361ec015bcb4a249c683c05df86e20370e0c0220e5829136b6` and
+`0d8051f3068c15d6811321a78d079a217ff65cad2c28f3c54245fc77e2d0b736`.
+
+Both archived single-site controls compile, exit 101 and fail their own named
+assertion with one failed test. `t249-stop-revoke-control01` omits stopping
+from the revoke condition; manifest
+`07ef43b33f0db5eb8eec65d650fafbb5c808bcc637df4090df6f07290facf88e`.
+`t249-stop-settle-control01` blocks settlement while stopping; manifest
+`1cf1079b9f16c3c38cd876a6b9fd3ac6632b61b899c6aff0eea7fa7a55810ea4`.
+Both hold source and Cargo leases and verify pinned source, restoration,
+unchanged mounted inputs and the ordinary Hagia binary.
+
+`t249-stop-checks01` passes restored-overlay strict Clippy, fixture/runner
+formatting, fourteen runner tests (one child fixture ignored) and `nimble layout`;
+manifest `b16e0739562af850fb3e4e2208070ea85141fc88309578d5d10bf9d31ca27b39`.
+
+Backend-notification handling remains open: headless availability/install
+fallbacks could mask a missing handler. This case instead isolates stopping by
+keeping it true at the install gate while mutating only its revocation use.
+No production source, new API or installed-session change. h006/t249 retain
+their remaining capability, native-owner and measurement exits.
+
 ## 2026-10-12 production presentation-service join
 
 The twenty-first external case calls Session's actual presentation-service
