@@ -20,11 +20,48 @@ Development run `t249-authenticated-dev01` passes all nineteen cases. Its
 self-excluding manifest verifies and has SHA-256
 `e775ad10b50defd338b72f88771195eba86eca9134e4b855b9398a0e8e5df6ed`.
 The external runner's thirteen unit tests pass (one child fixture is ignored
-for direct invocation), formatting and `nimble layout` pass. A clean signed
-pair run follows this commit. Historical controls retain their original pins;
+for direct invocation), formatting and `nimble layout` pass. The clean signed
+pair (Hagia `8e36eab`, niltempus `347d115`, the same Sophia pin) passes all
+nineteen cases in `t249-authenticated-01`, verified manifest
+`0370ecddf6e24cdd4d8a91553e546c19695e65c09c55e190d0bc6b83ae47c0c2`.
+Historical controls retain their original pins;
 they have not been re-executed for this refresh. No production Hagia change or
 installed-session change. The remaining backend joins and measurement exits
 keep h006/t249 open.
+
+## 2026-10-12 software-Present admission join
+
+The twentieth external case shares the CPU admission fixture with the backing
+snapshot case. Its extra software-Present submission makes admission wait in
+AwaitingRetirement after the Manage answer. The ordinary headless CPU backend
+generates the retirement record. The fixture checks its exact candidate and
+extent, then invokes Session's production software-retirement owner. A second
+frame must reach production at generation 2 before checking Managed state,
+released recovery extent and committed focus. Frontend control answers remain
+supplied. The fixture drives record drainage and the owner call, so the native
+service's selection, scheduling and native page-flip path remain open.
+
+`t249-present-admission-dev01` passes all twenty cases; verified manifest
+`6f9e72c71b6a0b18808a1924ad4eb53b487ae3179786d087006165ea7082c657`.
+Two one-site mutations of archived Sophia compile and fail at their predicted
+assertions, each with one failed test and exit 101:
+
+- `t249-present-admission-session-control01` omits software admission completion:
+  the next frame remains quarantined, generation 1 instead of 2. Manifest
+  `8033e19f5da5cef572067e6ba49e1d52a3a508ae9790ba86f11fcba183fc83af`.
+- `t249-present-admission-backend-control01` increments the headless retired
+  candidate's transaction: exact-record correlation fails before the Session
+  owner call. Manifest
+  `87ab2034b206c76f0df05b212fa82b88bfc15144cbafd6dd08176b5676f3e937`.
+
+Both controls hold the runner source lease, compare both relevant production
+files to the pin, bind every mounted fixture, and verify restoration and the
+unchanged Hagia binary. They retain binary paths and hashes, not binaries.
+No production source change, installed change, native timing or physical
+display claim. Restored-overlay strict clippy, formatting, thirteen runner
+tests and Hagia layout pass in `t249-present-admission-checks01`, manifest
+`6d0aca05b4bbdcbe916ee543aa07c9b56826dd6f99cc321882cf10e5fbc4d06d`.
+The clean signed pair run follows this fixture commit; h006/t249 remain open.
 
 ## 2026-10-10 presented chord owner join
 

@@ -1,14 +1,16 @@
-//! A new policy-managed surface whose first frame is a supplied CPU backing
-//! snapshot (no Present). Production intake quarantines it, selects it as the
+//! A new policy-managed surface whose first frame is supplied CPU content.
+//! Production intake quarantines it, selects it as the
 //! admission candidate and its extent; real Hagia places the surface, Session
 //! reconciles that placement to the extent, and the supplied control answers
-//! let the staged candidate commit admission. The released frame then passes
+//! let the staged candidate commit. The released frame then passes
 //! through the owner loop's projection and the ordinary CPU production cycle.
 //! Proven: Session admission to Managed; CPU production commit of the source
 //! identity, generation and geometry; the scene's retained source bytes; and
 //! one interior pixel of the headless CPU composed frame. Not proven: native
-//! scanout or retirement (a presented candidate needs both), pixels on any
-//! physical head, or frontend map and configure delivery.
+//! scanout, pixels on any physical head, or frontend map/configure delivery.
+//! The software-Present variant waits for the headless backend's copy retirement
+//! record and passes it to Session's retirement owner. The fixture drives that
+//! drain and call; it does not exercise native service selection or page flips.
 use super::*;
 
 const NEW: SurfaceId = SurfaceId::new(61, 1);
@@ -166,7 +168,21 @@ fn committed(
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_cpu_candidate() {
-    let mut run = Lifecycle::new("manage-cpu-candidate");
+    admission_case(false);
+}
+
+#[test]
+#[ignore = "requires ordinary Hagia and isolated external overlay"]
+fn sdk_occupied_manage_admits_software_present() {
+    admission_case(true);
+}
+
+fn admission_case(software_present: bool) {
+    let mut run = Lifecycle::new(if software_present {
+        "manage-software-present"
+    } else {
+        "manage-cpu-candidate"
+    });
     populate(&mut run);
     let before = focus(&run);
     let saved = run.checkpoint();
@@ -220,6 +236,16 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
         },
     );
     let candidate = frame(&mut batch, FIRST, FIRST_FILL, requested, 0).key();
+    if software_present {
+        batch.software_present_submissions.push(
+            sophia_x_authority::XAuthoritySoftwarePresentSubmission {
+                transaction: candidate.transaction,
+                surface: NEW,
+                acquire_fence: None,
+                idle_fence: None,
+            },
+        );
+    }
     assert!(
         !run.layout
             .observe_authority_batch(&batch)
@@ -231,7 +257,11 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
     assert_eq!(observation.extent, EXTENT);
     assert_eq!(
         observation.evidence,
-        sophia_engine::SurfaceVisualEvidence::BackingSnapshot
+        if software_present {
+            sophia_engine::SurfaceVisualEvidence::PresentedBuffer
+        } else {
+            sophia_engine::SurfaceVisualEvidence::BackingSnapshot
+        }
     );
     // The recovery extent itself is checked through B2's reconciliation.
     assert!(
@@ -378,13 +408,24 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
         }
     }
 
-    // B5: the staged candidate commits admission.
+    // B5: a backing snapshot admits immediately; a Present still owes retirement.
     let result = run
         .layout
         .resolve_pending()
         .expect("answered controls and the exact candidate settle the pending admission");
     assert_eq!(result.policy_settlement, Some(identity));
     assert_eq!(result.update.commit.outcome, TransactionOutcome::Committed);
+    if software_present {
+        assert_eq!(
+            run.layout.admissions.state(NEW),
+            Admission::AwaitingRetirement {
+                admission_transaction: identity.transaction,
+                visual_candidate: candidate,
+                geometry: placed,
+            },
+            "a presented candidate must wait for retirement"
+        );
+    }
     run.wm
         .apply_commit_result(result, before, run.output.id)
         .unwrap();
@@ -430,6 +471,44 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
     assert!(composed);
     retained(&runtime, &scene, FIRST, 1, FIRST_FILL, placed);
 
+    if software_present {
+        let mut retired = Vec::new();
+        runtime
+            .drain_retired_software_presents_into(&mut retired)
+            .unwrap();
+        assert_eq!(
+            retired.len(),
+            1,
+            "production must retire the exact software Present candidate"
+        );
+        let retired = retired[0];
+        assert_eq!(
+            (retired.candidate, retired.source_size),
+            (candidate, EXTENT),
+            "production must retire the exact software Present candidate"
+        );
+        assert_eq!(
+            (
+                retired.frame.raw(),
+                retired.native_submission,
+                retired.ust_usec,
+                retired.msc
+            ),
+            (0, 0, 0, 0),
+            "headless copy retirement carries no native frame or timing evidence"
+        );
+        // Direct production owner call. The record is generated by the CPU
+        // backend, but draining here does not qualify the native service loop.
+        let mut evidence = crate::live_session::NativePresentEvidence::new(false);
+        crate::live_session::record_native_software_present_retirement(
+            crate::live_session::NativePresentRecording {
+                layout: &mut run.layout,
+                evidence: &mut evidence,
+            },
+            retired,
+        );
+    }
+
     // B7: a managed surface's next frame is not quarantined again.
     let mut batch = crate::live_session::wm_update_coordinator_batch(TransactionId::from_raw(722));
     batch.client = Some(client);
@@ -445,7 +524,12 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
     assert_eq!(
         (second.committed_generation, second.buffer()),
         (2, BufferSource::CpuBuffer { handle: SECOND }),
-        "a managed surface's next frame must reach production"
+        "{}",
+        if software_present {
+            "a retired admission's next frame must reach production"
+        } else {
+            "a managed surface's next frame must reach production"
+        }
     );
     assert_eq!(second.geometry, placed);
     assert!(composed);
@@ -470,6 +554,10 @@ fn sdk_occupied_manage_admits_cpu_candidate() {
         Some((u64::from(NEW.generation()) << 32) | u64::from(NEW.index())),
         "client checkpoint focus agrees with Session's committed focus"
     );
-    run.record("manage-cpu-managed");
+    run.record(if software_present {
+        "manage-software-present-managed"
+    } else {
+        "manage-cpu-managed"
+    });
     run.stop();
 }

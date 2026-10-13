@@ -14,7 +14,7 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The nineteen explicitly ignored cases must be listed and invoked individually:
+The twenty explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No
@@ -188,6 +188,19 @@ The nineteen explicitly ignored cases must be listed and invoked individually:
   non-admitting poll then confirms a healthy transport, the same epoch and a
   running peer before teardown. Only focus-request authority is joined; other
   surface-keyed authorities, Manage admission, pixels and input are not.
+
+- `sdk_occupied_manage_admits_software_present` shares the CPU admission setup
+  in `manage_pixels.rs`, adding a supplied software-Present submission to the
+  initial frame. The exact candidate must remain AwaitingRetirement after the
+  policy commit. The ordinary headless CPU backend releases and commits that
+  frame, generates its copy-retirement record, and the fixture requires the
+  exact candidate and extent before calling Session's production retirement
+  owner. Only then must the next backing frame reach production without
+  quarantine; Managed state and released recovery extent are checked afterwards.
+  The retirement record is backend-generated, with zero native frame and timing
+  fields. Frontend answers are supplied, and the drain/owner call is driven by
+  the fixture. Native service selection, native Present retirement and physical
+  display remain separate gaps.
 
 The original three cases use an empty headless scene. The occupied cases
 supply mapped authority facts and source-less layers, and directly complete
