@@ -6,6 +6,29 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 native software admission
+
+The new Manage case carries a quarantined software-Present candidate from
+real Hagia's placement through Session's admission controls and the backend's
+shared CPU cycle. That cycle retains native framing instead of settling the
+copy headlessly. The composition queue, mirror custody, page-flip tracker and
+native retirement owner return the exact candidate and frame; Session then
+completes admission. A sibling flip cannot substitute for the primary. The
+next client frame commits without another Manage request.
+
+The case passes. Omitting native framing, backend settlement or Session's
+admission retirement fails its corresponding behavioral assertion; restoring
+the source passes again. Development package `t249-native-cycle-20261013-01`
+has manifest `52a6b6cdcb7299c6e30eafba9f9537915f4c33693e2843eeafdba9619c0d4bc9`.
+Its audit retains all 5,110 Sophia and 481 Hagia base inputs and the overlays.
+Hagia's production code is unchanged. The complete signed 30-case pair remains
+to be bound.
+
+Initialization, authority input, control acknowledgements and worker/device
+completion are supplied. DMA retirement, automatic source-only preview
+repaint, the native service loop and physical pixels are not proved by this
+case. Other B–F joins and measurement remain required.
+
 ## 2026-10-13 native publication installation
 
 The new external case uses real Hagia's Held publication with Session's shared

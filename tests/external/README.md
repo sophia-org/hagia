@@ -14,7 +14,19 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-nine explicitly ignored cases must be listed and invoked individually:
+The thirty explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_occupied_manage_admits_native_software_present` in `manage_pixels.rs`:
+  real Hagia places a quarantined software-Present candidate. Session releases
+  it to the shared CPU cycle, which must retain native framing rather than
+  settle headlessly. The real composition queue, mirror custody, page-flip
+  tracker and native retirement owner produce the exact candidate/frame.
+  A sibling flip cannot settle it; the primary flip completes admission through
+  Session's retirement owner. The next client frame commits without another
+  Manage request. Controls omit framing, backend settlement or admission
+  retirement. Initialization, worker/device completion and authority input are
+  supplied. This does not qualify DMA retirement, automatic preview repaint,
+  the native service loop, frontend delivery or physical pixels.
 
 - `sdk_native_publication_installation_queues_frame` in
   `presentation_installation.rs`: commit real Hagia's Held publication through

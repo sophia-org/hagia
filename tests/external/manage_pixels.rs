@@ -8,10 +8,14 @@
 //! identity, generation and geometry; the scene's retained source bytes; and
 //! one interior pixel of the headless CPU composed frame. Not proven: native
 //! scanout, pixels on any physical head, or frontend map/configure delivery.
-//! The software-Present variant waits for the headless backend's copy retirement
-//! record and passes it to Session's retirement owner. The fixture drives that
-//! drain and call; it does not exercise native service selection or page flips.
+//! The headless software-Present variant uses copy retirement. The native
+//! variant enters the shared CPU cycle's native framing decision, stages its
+//! software frame, and supplies device completion to the native retirement
+//! owner. Its backend-derived candidate then reaches Session admission. The
+//! fixture drives service calls; initialization, worker and device completion
+//! are simulated. DMA retirement and physical pixels remain separate.
 use super::*;
+use sophia_backend_live::session_policy_presentation_fixture::SessionPolicyPresentationFixture;
 
 const NEW: SurfaceId = SurfaceId::new(61, 1);
 /// Deliberately unlike any tile of three windows on the headless output.
@@ -82,6 +86,16 @@ fn produce(
     scene: &mut sophia_backend_live::LiveProductionCpuScene,
     batch: &sophia_x_authority::XAuthorityObservedTransactionBatch,
 ) -> (Vec<Vec<SurfaceTransaction>>, bool) {
+    produce_with_native(run, runtime, scene, batch, None)
+}
+
+fn produce_with_native(
+    run: &mut Lifecycle,
+    runtime: &mut sophia_backend_live::LiveProductionVisualRuntime,
+    scene: &mut sophia_backend_live::LiveProductionCpuScene,
+    batch: &sophia_x_authority::XAuthorityObservedTransactionBatch,
+    native: Option<&mut SessionPolicyPresentationFixture>,
+) -> (Vec<Vec<SurfaceTransaction>>, bool) {
     let (projected, released) = run.layout.projected_batch(batch);
     let production =
         crate::live_session::production_authority_batch(&projected, &released, &run.layout)
@@ -90,26 +104,27 @@ fn produce(
     let layers = run.layout.layers.values().cloned().collect::<Vec<_>>();
     let surfaces = run.layout.layers.keys().copied().collect::<Vec<_>>();
     let output = run.output;
-    let (submission, _, _) = runtime
-        .run_cpu_production_cycle(sophia_backend_live::LiveProductionCycleRequest {
-            batch: &production,
-            scene,
-            raised_surface: None,
-            focused_surface: focus(run),
-            cursor_presentation: sophia_backend_live::LiveProductionCursorPresentation::Software(
-                None,
-            ),
-            defer_frame: false,
-            output_descriptors: &[output],
-            native_scanout: None,
-            wm_update: None,
-            presentation_layout: &layers,
-            geometry_routed_surfaces: &[],
-            chrome_surfaces: &surfaces,
-            indicator_publication: None,
-            staged_cpu_buffer_handles: &[],
-        })
-        .unwrap();
+    let request = sophia_backend_live::LiveProductionCycleRequest {
+        batch: &production,
+        scene,
+        raised_surface: None,
+        focused_surface: focus(run),
+        cursor_presentation: sophia_backend_live::LiveProductionCursorPresentation::Software(None),
+        defer_frame: false,
+        output_descriptors: &[output],
+        native_scanout: None,
+        wm_update: None,
+        presentation_layout: &layers,
+        geometry_routed_surfaces: &[],
+        chrome_surfaces: &surfaces,
+        indicator_publication: None,
+        staged_cpu_buffer_handles: &[],
+    };
+    let (submission, _, _) = match native {
+        Some(target) => target.run_cpu_cycle(runtime, request),
+        None => runtime.run_cpu_production_cycle(request),
+    }
+    .unwrap();
     let released = released
         .into_iter()
         .map(|group| group.transactions)
@@ -168,17 +183,25 @@ fn committed(
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_cpu_candidate() {
-    admission_case(false);
+    admission_case(false, false);
 }
 
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_software_present() {
-    admission_case(true);
+    admission_case(true, false);
 }
 
-fn admission_case(software_present: bool) {
-    let mut run = Lifecycle::new(if software_present {
+#[test]
+#[ignore = "requires ordinary Hagia and isolated external overlay"]
+fn sdk_occupied_manage_admits_native_software_present() {
+    admission_case(true, true);
+}
+
+fn admission_case(software_present: bool, native_retirement: bool) {
+    let mut run = Lifecycle::new(if native_retirement {
+        "manage-native-software-present"
+    } else if software_present {
         "manage-software-present"
     } else {
         "manage-cpu-candidate"
@@ -455,7 +478,14 @@ fn admission_case(software_present: bool) {
             .observe_authority_batch(&next)
             .client_route_invalid
     );
-    let (released, composed) = produce(&mut run, &mut runtime, &mut scene, &next);
+    let mut native = native_retirement.then(|| {
+        let mut target = SessionPolicyPresentationFixture::new(&[output]);
+        target.simulate_initialization(&mut runtime);
+        target.track_native_retirements();
+        target
+    });
+    let (released, composed) =
+        produce_with_native(&mut run, &mut runtime, &mut scene, &next, native.as_mut());
     assert_eq!(
         released.len(),
         1,
@@ -472,6 +502,44 @@ fn admission_case(software_present: bool) {
     retained(&runtime, &scene, FIRST, 1, FIRST_FILL, placed);
 
     if software_present {
+        if let Some(target) = native.as_mut() {
+            let mut early = Vec::new();
+            runtime
+                .drain_retired_software_presents_into(&mut early)
+                .unwrap();
+            assert!(
+                early.is_empty(),
+                "native admission must wait for backend retirement"
+            );
+            assert_eq!(
+                run.layout.admissions.state(NEW),
+                Admission::AwaitingRetirement {
+                    admission_transaction: identity.transaction,
+                    visual_candidate: candidate,
+                    geometry: placed,
+                }
+            );
+            assert!(
+                target
+                    .stage_software_present(&mut runtime, output.id)
+                    .unwrap(),
+                "native cycle must retain a software frame for admission"
+            );
+            target.simulate_submit(output.id);
+            target
+                .simulate_native_retirement(&mut runtime, output.id, 1)
+                .unwrap();
+            runtime
+                .drain_retired_software_presents_into(&mut early)
+                .unwrap();
+            assert!(
+                early.is_empty(),
+                "a sibling flip cannot complete native admission"
+            );
+            target
+                .simulate_native_retirement(&mut runtime, output.id, 0)
+                .unwrap();
+        }
         let mut retired = Vec::new();
         runtime
             .drain_retired_software_presents_into(&mut retired)
@@ -487,16 +555,26 @@ fn admission_case(software_present: bool) {
             (candidate, EXTENT),
             "production must retire the exact software Present candidate"
         );
-        assert_eq!(
-            (
-                retired.frame.raw(),
-                retired.native_submission,
-                retired.ust_usec,
-                retired.msc
-            ),
-            (0, 0, 0, 0),
-            "headless copy retirement carries no native frame or timing evidence"
-        );
+        if native_retirement {
+            assert!(
+                retired.frame.raw() > 0
+                    && retired.native_submission > 0
+                    && retired.ust_usec > 0
+                    && retired.msc > 0,
+                "native admission requires backend frame and retirement correlation"
+            );
+        } else {
+            assert_eq!(
+                (
+                    retired.frame.raw(),
+                    retired.native_submission,
+                    retired.ust_usec,
+                    retired.msc
+                ),
+                (0, 0, 0, 0),
+                "headless copy retirement carries no native frame or timing evidence"
+            );
+        }
         // Direct production owner call. The record is generated by the CPU
         // backend, but draining here does not qualify the native service loop.
         let mut evidence = crate::live_session::NativePresentEvidence::new(false);
