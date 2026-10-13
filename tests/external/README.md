@@ -239,6 +239,14 @@ rejected/unresolved-offer accounting and the measurement comparator remain open.
   The matching transition is supplied, not an actual lock or routing-mode
   change in the owner loop.
 
+- `sdk_presented_lock_reset_preserves_focus` in `presentation_cancel.rs`:
+  uses the same occupied cancellation sequence, then calls the production
+  keyboard-reset owner as lock entry does. Reset must forget the held modifier;
+  a bare Tab after returning to desktop routing cannot reuse it. The exact
+  Cancelled terminal returns its credit and closes the peer's switcher without
+  changing focus; a fresh chord still works. Lock entry and completion are
+  supplied. No lock provider or live desktop is started or changed.
+
 - `sdk_presented_receipts_require_all_heads` in `presentation_consensus.rs`:
   after the shared Held prefix, the installed switcher publication is
   validated against the two mirror heads of the backend's test-support

@@ -1,11 +1,22 @@
-//! Cancelling a presented held chord at Session's keyboard-matching boundary.
-//! The matching transition is supplied; no seat lock or physical mode change
-//! is performed. Content, completion and routing retain the parent's limits.
+//! Cancelling a presented held chord at Session's matching and lock boundaries.
+//! The lock case calls the production keyboard-reset owner with supplied lock
+//! entry; it never acquires a lock or changes a physical session. Content,
+//! completion and routing retain the parent's limits.
 use super::*;
 
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_presented_cancel_preserves_focus() {
+    cancel_preserves_focus(false);
+}
+
+#[test]
+#[ignore = "requires ordinary Hagia and isolated external overlay"]
+fn sdk_presented_lock_reset_preserves_focus() {
+    cancel_preserves_focus(true);
+}
+
+fn cancel_preserves_focus(lock_boundary: bool) {
     let Held {
         mut run,
         mut content,
@@ -15,7 +26,11 @@ fn sdk_presented_cancel_preserves_focus() {
         candidates,
         expected,
         ..
-    } = held("presented-cancel");
+    } = held(if lock_boundary {
+        "presented-lock-reset"
+    } else {
+        "presented-cancel"
+    });
     let w1 = expected[0];
     let presented = completed(&content, &first);
     service(&mut run, &presented);
@@ -41,6 +56,40 @@ fn sdk_presented_cancel_preserves_focus() {
     // no revocation receipt can close the peer's model before Cancelled.
     run.wm.observe_keyboard_matching(true);
     run.wm.observe_keyboard_matching(false);
+    if lock_boundary {
+        let seat = SeatId::from_raw(1);
+        assert_ne!(
+            run.wm.shortcuts.as_ref().unwrap().modifier_mask(seat).bits,
+            0,
+            "the occupied chord must enter the lock with a modifier held"
+        );
+        let mut launcher = sophia_engine::LauncherKeyboard::new(
+            "evdev",
+            "pc105",
+            "us",
+            "",
+            "",
+            std::ffi::OsStr::new("C.UTF-8"),
+        )
+        .unwrap();
+        launcher.observe(ALT, true, false);
+        crate::live_session::locked::reset_desktop_keyboard_for_lock(
+            seat,
+            run.wm.shortcuts.as_mut(),
+            &mut routing.mapper,
+            &mut launcher,
+        );
+        assert_eq!(
+            run.wm.shortcuts.as_ref().unwrap().modifier_mask(seat).bits,
+            0,
+            "lock reset must forget the old chord's held modifier"
+        );
+        assert!(!launcher.command_modifier_active());
+        log(
+            &run,
+            "lock_entry=supplied keyboard_reset=production lock_provider=not_started",
+        );
+    }
     let mut report = PhysicalInputRouteReport::default();
     report.policy_inputs.extend(
         run.wm
@@ -120,6 +169,16 @@ fn sdk_presented_cancel_preserves_focus() {
     // Restore matching before routing the old physical release: cancellation
     // must already have ended that chord, so this cannot emit a second Ended.
     run.wm.observe_keyboard_matching(true);
+    if lock_boundary {
+        // The lock consumed the old modifier release. A bare Tab after
+        // returning to desktop routing must not borrow that old authority.
+        let (report, _) = routing.route(&mut run, &replaced, &[(TAB, true), (TAB, false)], 1390);
+        assert!(
+            report.policy_inputs.is_empty(),
+            "input after lock reset must not reopen a chord using the old modifier"
+        );
+        assert_eq!(credits(&run), sophia_engine::WM_CHORD_CREDITS);
+    }
     let (report, _) = routing.route(&mut run, &replaced, &[(ALT, false)], 1400);
     assert!(
         report.policy_inputs.is_empty(),

@@ -6,6 +6,28 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 occupied lock reset
+
+The new `sdk_presented_lock_reset_preserves_focus` case joins the production
+keyboard-reset owner to the occupied Held switcher sequence. It requires one
+exact Cancelled terminal, returned credit and unchanged ordinary focus. Reset
+must forget the held modifier before routing resumes: a bare Tab cannot reuse
+it, and a fresh chord can still commit a new selection.
+
+The case passes. Omitting only `clear_seat` from the reset owner fails the
+held-modifier assertion; restoration and the original matching-loss case pass.
+Development package `t249-lock-reset-20261013-01` has manifest
+`5535d30952d74775425908ae0acf6b876c16f22430cdfbacc215fcaab19f2072`.
+Its audit retains 5,112 Sophia and 481 Hagia base inputs and every overlay.
+The signed 31-case pair remains pending. Sophia production code is unchanged.
+
+Lock entry, content and completion are supplied; no lock provider or live
+session is operated. This joins the keyboard-reset boundary, not physical
+locking or every security-epoch transition. Occupied accepted/refused reload,
+registry replacement, the other policy/output joins and measurement remain.
+Desktop reload defers while a chord is active (`reload_desktop_profile` checks
+`shortcut_idle`); the next reload case must preserve that boundary.
+
 ## 2026-10-13 automatic native CPU repaint
 
 The existing source-repaint case now sends the changed source through the
