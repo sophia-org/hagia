@@ -362,3 +362,16 @@ and profile-gated pointer focus through the real Session owners. Interaction
 offers retain bounded accounting. This does not
 authorize a rate/load campaign. Frozen pairing fixtures may inform remaining
 designs but must not run against current master.
+
+The signed Hagia `10c4496` / runner `1e404aa` pair passes all 27 cases against
+Sophia `1b476dbdc` in `t249-capture-01`; its package manifest is
+`b7b1430521c8f5e28088e034c617ab6b5e4e16a55424c3dbcc1b20ebea61d2b9`.
+The focused-application control fails the intended routing assertion, then
+restores the archive; `t249-capture-control01` manifest is
+`064d57901755e8f3e10a929da0e0ae5a48e8993a80fca5b68dc538cfa30f3c5c`.
+Restored Clippy, formatting, runner tests and Hagia layout pass. The read-only
+binding audit checks 3,257 pinned inputs, nineteen mounted inputs, signatures,
+exact results and retained pointer ledgers; its manifest is
+`1866ae9536edf5def7aa4da4ebad185688ae455025690065d6439b76e1e1500c`.
+Only the focused-application Held-capture boundary is newly closed; package A's
+pointer routing/debt, protected actions and shared lock/output-loss paths remain.
