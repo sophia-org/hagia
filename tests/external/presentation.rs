@@ -38,6 +38,9 @@ mod repaint;
 #[path = "presentation_service.rs"]
 mod presentation_service;
 
+#[path = "presentation_installation.rs"]
+mod native_installation;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),
@@ -409,6 +412,15 @@ fn install(run: &mut Lifecycle, content: &mut Content) {
 /// boundary before the owner polls the transport again, so receipts are
 /// observed before they are flushed.
 fn commit_installed(run: &mut Lifecycle, content: &mut Content, proposal: LiveWmProposal) -> u64 {
+    commit_with_install(run, content, proposal, install)
+}
+
+fn commit_with_install(
+    run: &mut Lifecycle,
+    content: &mut Content,
+    proposal: LiveWmProposal,
+    mut install: impl FnMut(&mut Lifecycle, &mut Content),
+) -> u64 {
     let previous = run.checkpoint().1;
     let result = run.layout.commit_proposal(proposal);
     assert_eq!(result.update.commit.outcome, TransactionOutcome::Committed);
@@ -752,6 +764,10 @@ struct Held {
 }
 
 fn held(case: &str) -> Held {
+    held_with_install(case, install)
+}
+
+fn held_with_install(case: &str, install: impl FnMut(&mut Lifecycle, &mut Content)) -> Held {
     let mut run = Lifecycle::native_ceiling(case, DESKTOP);
     let profile =
         std::fs::read(run.source.config.desktop_profile_source.as_ref().unwrap()).unwrap();
@@ -890,7 +906,7 @@ fn held(case: &str) -> Held {
         "held preview order follows the documented candidate rule"
     );
     preflight(&run, &content, owner, &first);
-    let previous = commit_installed(&mut run, &mut content, proposal);
+    let previous = commit_with_install(&mut run, &mut content, proposal, install);
     settle(&mut run, previous);
     {
         let public = run.wm.public.as_ref().unwrap();

@@ -6,6 +6,29 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 native publication installation
+
+The new external case uses real Hagia's Held publication with Session's shared
+validation and installation owner. The backend prepares the publication and
+queues its frame through the same operation used by native scanout; the test
+does not call the fixture's queue method. Both simulated mirror heads must
+retire before Session receives the exact Presented identity. Hagia's production
+code is unchanged. The shared prefix now accepts an installation operation so
+older cases retain their original setup without copying the chord sequence.
+
+The generic companion and external case pass. Removing the backend queue
+call makes each fail its named installation assertion before a deadline;
+restoring it passes both again. Development evidence is
+`t249-native-install-20261013-01`, manifest
+`4e5c1b9f3963707c972c3661ce98ce332db3aa5ddad422a120c6a4f4e4ac16d0`.
+It retains the source overlay, full input audit, commands, results and control.
+The complete signed 29-case pair and updated Sophia pin remain to be bound.
+
+This advances F's publication-installation boundary only. Native Present
+retirement, automatic source-only repaint scheduling and the other B–F joins
+remain open. Initialization, CPU sources, mapped state, router time and device
+completion are supplied; GPU import and physical presentation are not proved.
+
 ## 2026-10-13 input transitions
 
 Five existing external cases now cover missing package A boundaries without

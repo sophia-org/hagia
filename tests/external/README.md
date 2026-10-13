@@ -14,7 +14,19 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-eight explicitly ignored cases must be listed and invoked individually:
+The twenty-nine explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_native_publication_installation_queues_frame` in
+  `presentation_installation.rs`: commit real Hagia's Held publication through
+  Session's shared validation and installation owner, then require the native
+  backend installation operation to queue its frame. There is no fixture queue
+  call. Initialization and device completion are simulated; both mirror heads
+  must retire before the exact Presented receipt appears. The generic backend
+  companion checks unchanged-publication suppression, queue-error rollback
+  and withdrawal. Removing the production queue call must fail both tests at
+  their named queue assertions. CPU sources are supplied; this does not cover
+  native Present retirement, GPU image preparation or automatic source-only
+  repaint scheduling.
 
 - `sdk_pointer_routing_selects_exact_interactions` in `pointer.rs`: route
   supplied Super and button events through production hit testing and gesture
