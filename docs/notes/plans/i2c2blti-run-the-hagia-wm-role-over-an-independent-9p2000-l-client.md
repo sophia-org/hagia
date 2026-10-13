@@ -35,7 +35,7 @@ Strict Clippy on the restored overlay, six fixture format checks and Hagia
 layout pass in `t249-input-transitions-checks01`; manifest
 `098e3f79a412ef7b0146c1d4770b23b7429bc5c9baca4d0645d20482b98334f0`.
 The runner and Sophia pin are unchanged, so their existing source-bound gates
-remain applicable. Clean signed-pair qualification is still required.
+remain applicable. The signed-pair result follows.
 
 Earlier development records remain distinct. The first hover and pointer-debt
 suites passed. The Cancel addition initially expected the last motion position,
@@ -44,6 +44,17 @@ correct assertion follows that supplied event. The first protected binding
 requested lock without a fixture lock capability and was correctly refused;
 the test now uses the already configured terminal authority. No product
 behavior or acceptance criterion changed to make those attempts pass.
+
+The signed clean pair is Hagia `76bc923`, unchanged runner source at niltempus
+`3a4de80`, and Sophia `7697a9102`. All 28 cases pass in
+`t249-input-transitions-01`; manifest
+`2bf72637a1e2aafe99fef61264aad924b39c8a63931d19cae778e9895ec67a8b`.
+The audit verifies 3,262 pinned inputs, nineteen mounted inputs, exact control
+and fixture bytes, signatures, exact results and all pointer ledgers.
+`t249-input-transitions-audit01` manifest is
+`ee4076485ca9b3667fa7c56b6fc3df2e776c253068b342591e793374d40c56b6`.
+Leased cleanup and worktree removal are complete. B–F, shared lock/output-loss
+transitions and the unchanged measurement exit keep h006/t249 open.
 
 ## 2026-10-13 routed pointer geometry
 
