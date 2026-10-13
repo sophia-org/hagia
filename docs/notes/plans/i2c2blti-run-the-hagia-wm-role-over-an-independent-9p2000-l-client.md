@@ -61,7 +61,21 @@ No production source change, installed change, native timing or physical
 display claim. Restored-overlay strict clippy, formatting, thirteen runner
 tests and Hagia layout pass in `t249-present-admission-checks01`, manifest
 `6d0aca05b4bbdcbe916ee543aa07c9b56826dd6f99cc321882cf10e5fbc4d06d`.
-The clean signed pair run follows this fixture commit; h006/t249 remain open.
+The clean signed pair (Hagia `afcc1d1`, niltempus `0e82492`, Sophia `1b476dbdc`)
+passes all twenty cases in `t249-present-admission-02`, verified manifest
+`c846231e5b0f8a888124e4dc59b5f9fc8288df8ab32b835178e8fc3fe0bfe9bb`.
+The preceding `t249-present-admission-01` remains STOP: restored archive
+timestamps let Cargo reuse the compiled backend mutant. The final runner
+refreshes extraction timestamps; its regression test fails when that refresh
+is removed. Fourteen runner tests pass (one internal child fixture ignored),
+and the archive control manifest is
+`23e2435d8024ea925389664d9ec575a999e267583e442d192c26d7060e12f066`.
+
+`t249-present-admission-audit01` verifies all retained package manifests, 3,257
+archive inputs against the Sophia pin, every mounted input and all twenty exact
+passing results. The final log explicitly rebuilds backend and Session.
+Audit manifest: `6fcab87de72eb6dc37ecffb67ef47423d46d1c11c69d06798a48fda0bf62a0b4`.
+Leased cleanup removes the temporary build root. h006/t249 remain open.
 
 ## 2026-10-10 presented chord owner join
 
