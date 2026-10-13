@@ -464,7 +464,8 @@ fn sdk_pointer_cancel_purges_queued_work() {
     run.stop();
 }
 
-struct PointerRouting {
+pub(super) struct PointerRouting {
+    pub(super) target: SurfaceId,
     mapper: XCoreKeyboardMapper,
     repeat: KeyRepeatState,
     keymap: XkbKeymapSnapshot,
@@ -481,7 +482,7 @@ struct PointerRouting {
 }
 
 impl PointerRouting {
-    fn new(output: sophia_engine::HeadlessOutput) -> Self {
+    pub(super) fn new(output: sophia_engine::HeadlessOutput) -> Self {
         // Supplied event positions are already logical, unlike libinput's
         // accumulated coordinates. Keep confinement but use a zero offset.
         let mut pointer = SessionPointerPlacement::with_raw_to_logical_offset(Point::default());
@@ -492,6 +493,7 @@ impl PointerRouting {
             height: output.size.height,
         }]);
         Self {
+            target: SURFACES[0],
             mapper: XCoreKeyboardMapper::new(),
             repeat: KeyRepeatState::new(KeyRepeatConfig::new(600, 25).unwrap()),
             keymap: XkbKeymapSnapshot::new(&sophia_x_authority::XkbRmlvoConfig::default()).unwrap(),
@@ -512,7 +514,7 @@ impl PointerRouting {
     // Its opaque CPU handle supplies renderability; no pixel import is claimed.
     // Actual hit testing and modifier/gesture reduction run below; this is
     // not backend-produced presentation or frontend delivery evidence.
-    fn route(
+    pub(super) fn route(
         &mut self,
         run: &mut Lifecycle,
         kind: InputEventKind,
@@ -529,7 +531,7 @@ impl PointerRouting {
             target_surface: None,
             local_position: None,
         }];
-        let mut layer = run.layout.layers[&SURFACES[0]].clone();
+        let mut layer = run.layout.layers[&self.target].clone();
         layer.source = BufferSource::CpuBuffer { handle: 901 };
         let layers = [layer];
         if matches!(
@@ -541,7 +543,7 @@ impl PointerRouting {
         ) {
             assert_eq!(
                 sophia_engine::hit_test_scene_surface_for_input(&events[0], &layers).target_surface,
-                Some(SURFACES[0]),
+                Some(self.target),
                 "supplied visible scene contains the intended pointer target"
             );
         }
@@ -644,7 +646,12 @@ fn sdk_pointer_routing_selects_exact_interactions() {
     }
     let mut routing = PointerRouting::new(run.output);
     let button = |button, pressed| InputEventKind::PointerButton { button, pressed };
-    for (mode, code) in [(Mode::Move, 0x110), (Mode::Resize, 0x111)] {
+    for (mode, code, cancel) in [
+        (Mode::Move, 0x110, false),
+        (Mode::Resize, 0x111, false),
+        (Mode::Move, 0x110, true),
+        (Mode::Resize, 0x111, true),
+    ] {
         let initial = run.layout.layers[&SURFACES[0]].geometry;
         let start = Point {
             x: f64::from(initial.x + 20),
@@ -748,6 +755,41 @@ fn sdk_pointer_routing_selects_exact_interactions() {
             "wrong-button release cannot end the captured gesture"
         );
         assert!(routing.gesture.active());
+        if cancel {
+            // Supply a security-revocation trigger at the same owner boundary
+            // as revoke_floating_pointer_interaction. The actual grab owner
+            // produces Cancel from routed state; this is not a lock/seat test.
+            let interaction = routing.gesture.cancel().expect("routed grab is active");
+            assert_eq!(interaction.phase, Phase::Cancel);
+            assert_eq!((interaction.surface, interaction.mode), (SURFACES[0], mode));
+            assert_eq!(interaction.geometry, geometry(30));
+            assert!(
+                !routing.gesture.active(),
+                "security cancellation must clear the routed gesture"
+            );
+            assert!(
+                routing.gesture.cancel().is_none(),
+                "cancellation cannot replay"
+            );
+            let cancelled = ledger.routed_offer(&mut run, interaction, outer(geometry(30)));
+            ledger.commit(&mut run, begin, proposal, outer(initial));
+            let proposal = ledger.proposal(&mut run, cancelled, outer(initial));
+            ledger.commit(&mut run, cancelled, proposal, outer(initial));
+            let released = routing.route(&mut run, button(code, false), point);
+            assert!(
+                released.wm_pointer_interactions.is_empty(),
+                "a cancelled grab cannot emit End on release"
+            );
+            routing.route(
+                &mut run,
+                InputEventKind::Key {
+                    keycode: 125,
+                    pressed: false,
+                },
+                point,
+            );
+            continue;
+        }
         let interaction = routing.interaction(
             &mut run,
             button(code, false),

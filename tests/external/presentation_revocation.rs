@@ -111,8 +111,7 @@ fn sdk_presented_revocation_closes_switcher() {
     let output = first.outputs[0];
     let w1 = expected[0];
 
-    // Supplied completion: one Presented receipt. No key is captured, so
-    // nothing is owed.
+    // Supplied completion: one Presented receipt before a routed pointer press.
     let presented = completed(&content, &first);
     service(&mut run, &presented);
     let receipt = run
@@ -137,6 +136,16 @@ fn sdk_presented_revocation_closes_switcher() {
     assert_eq!(receipts(&run), vec![receipt]);
     assert!(!owes(&run, RIGHT));
     drain(&mut run);
+    let (pointer, ingress) = routing.route_pointer(&mut run, &presented, true, 1290);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 0)
+    );
+    assert!(
+        owes_pointer(&run, 0x110),
+        "captured pointer press must owe its release"
+    );
 
     // A supplied completed frame that still shows policy content without the
     // publication's stamp. Policy stays visible, so this is not a replacement
@@ -164,6 +173,10 @@ fn sdk_presented_revocation_closes_switcher() {
         assert!(public.reducer.presentation_publication().is_none());
     }
     assert_eq!(credits(&run), sophia_engine::WM_CHORD_CREDITS - 1);
+    assert!(
+        owes_pointer(&run, 0x110),
+        "revocation must preserve captured pointer release debt"
+    );
 
     // Revoked leaves before the cycle; the first answer must already close
     // the switcher. Withdrawn is not supplied until after this answer.
@@ -205,6 +218,21 @@ fn sdk_presented_revocation_closes_switcher() {
     // Only now the replacement frame: the revoked identity is Withdrawn.
     let replaced = withdrawn(&content);
     service(&mut run, &replaced);
+    let (pointer, ingress) = routing.route_pointer(&mut run, &replaced, false, 1390);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 0),
+        "owed pointer release must be swallowed after revocation"
+    );
+    assert!(!owes_pointer(&run, 0x110));
+    let (pointer, ingress) = routing.route_pointer(&mut run, &replaced, false, 1391);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 1),
+        "duplicate pointer release must reach ordinary no-target routing"
+    );
     assert_eq!(
         receipts(&run),
         vec![PolicyPresentationReceipt {

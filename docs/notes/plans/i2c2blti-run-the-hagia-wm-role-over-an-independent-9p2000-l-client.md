@@ -6,6 +6,45 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 input transitions
+
+Five existing external cases now cover missing package A boundaries without
+adding a case. Production routing produces the exact hovered output/surface;
+the physical-input queue applies the profile gate before real Hagia answers.
+The routed move/resize case now calls the grab's actual Cancel owner, checks
+that it clears authority, and settles the exact Cancel with the peer. Its
+revocation trigger is supplied; lock, seat and output-loss triggers are not
+implied. The routed ledger accounts for twelve commits, four replacements and
+two cancellations.
+
+The revocation and automatic-restart cases each capture a pointer press before
+the transition. They require the debt to survive, its release to be swallowed
+once after withdrawal/replacement, and a duplicate release to reach ordinary
+no-target routing. The focused-application case adds a configured terminal
+shortcut that bypasses real Hagia's Held publication without capture debt.
+It observes the protected intent and executes no application launch.
+
+All five targeted cases pass in `t249-input-transitions-dev04`; manifest
+`b7008d855029d2baa943c640044033b77ad71dfbfd4342e7d2ca0a35c74cbf91`.
+Four mutations cause five named failures: clear the routed hover target, drop
+pointer debts during revoke (both transition cases), leave a cancelled grab
+active, and remove protected-action bypass. Every restored case passes;
+`t249-input-transitions-controls01` manifest is
+`afd672d82d20f36ae3e55eed267933789ebf1768d1fc399ffd3804d2df6ae7b0`.
+Strict Clippy on the restored overlay, six fixture format checks and Hagia
+layout pass in `t249-input-transitions-checks01`; manifest
+`098e3f79a412ef7b0146c1d4770b23b7429bc5c9baca4d0645d20482b98334f0`.
+The runner and Sophia pin are unchanged, so their existing source-bound gates
+remain applicable. Clean signed-pair qualification is still required.
+
+Earlier development records remain distinct. The first hover and pointer-debt
+suites passed. The Cancel addition initially expected the last motion position,
+but the wrong-button event had advanced the grab's current position. The
+correct assertion follows that supplied event. The first protected binding
+requested lock without a fixture lock capability and was correctly refused;
+the test now uses the already configured terminal authority. No product
+behavior or acceptance criterion changed to make those attempts pass.
+
 ## 2026-10-13 routed pointer geometry
 
 The new `sdk_pointer_routing_selects_exact_interactions` case joins production

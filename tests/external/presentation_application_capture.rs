@@ -196,6 +196,48 @@ fn sdk_presented_capture_waits_for_focused_application() {
     assert_eq!(model(&run), checkpoint);
     assert!(run.wm.public.as_ref().unwrap().queue.is_empty());
 
+    // Alt remains held by the real switcher's chord. The protected terminal
+    // shortcut must bypass that publication's Return binding. Observe the
+    // intent only; this fixture does not execute a launch.
+    let terminal = run
+        .wm
+        .command_registry
+        .roles
+        .get(&TERMINAL_APPLICATION_ID)
+        .copied()
+        .unwrap_or_else(|| action_id(&run, "spawn-terminal"));
+    let (protected, ingress) = route_focused(
+        &mut routing,
+        &mut run,
+        &content,
+        &presented,
+        &[(28, true)],
+        1312,
+    );
+    assert_eq!(
+        protected.policy_inputs,
+        vec![PhysicalPolicyInput::Action(terminal)],
+        "protected terminal shortcut must bypass the real held publication"
+    );
+    assert!(ingress.is_empty());
+    assert!(
+        !owes(&run, 28),
+        "protected key must not acquire policy capture debt"
+    );
+    assert!(is_reserved_session_action(terminal) || run.wm.public.as_ref().unwrap()
+        .actions.iter().any(|action| action.action == terminal && action.session_operation_slot == Some(1)));
+    let (released, _) = route_focused(
+        &mut routing,
+        &mut run,
+        &content,
+        &presented,
+        &[(28, false)],
+        1313,
+    );
+    assert!(released.policy_inputs.is_empty());
+    assert!(!owes(&run, 28));
+    assert_eq!(model(&run), checkpoint);
+
     let (report, ingress) = route_focused(
         &mut routing,
         &mut run,

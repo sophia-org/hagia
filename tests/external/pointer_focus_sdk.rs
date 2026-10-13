@@ -1,5 +1,6 @@
-//! Profile-gated Session pointer-focus owner with real Hagia. Hover observations,
-//! occupied facts and layout completion are supplied; no physical routing claim.
+//! Profile-gated Session pointer focus with real Hagia. Production routing
+//! derives hover from supplied input/layers; layout completion is supplied.
+use super::pointer::PointerRouting;
 use super::*;
 use crate::live_session::PresentedPointerFocus;
 
@@ -23,11 +24,46 @@ fn refused(run: &mut Lifecycle, observation: PresentedPointerFocus, message: &st
     assert_eq!(run.checkpoint(), saved);
 }
 
-fn answer(run: &mut Lifecycle, target: SurfaceId) -> LiveWmProposal {
-    let observation = PresentedPointerFocus {
+fn hover(
+    run: &mut Lifecycle,
+    routing: &mut PointerRouting,
+    target: SurfaceId,
+) -> Option<PresentedPointerFocus> {
+    routing.target = target;
+    let geometry = run.layout.layers[&target].geometry;
+    let point = Point {
+        x: f64::from(geometry.x + geometry.width / 2),
+        y: f64::from(geometry.y + geometry.height / 2),
+    };
+    let report = routing.route(run, InputEventKind::PointerMotion, point);
+    let expected = PresentedPointerFocus {
         output: run.output.id,
         target: Some(target),
     };
+    assert_eq!(
+        report.policy_inputs,
+        vec![PhysicalPolicyInput::Hover(expected)],
+        "routed motion must identify the exact hovered output and surface"
+    );
+    assert!(report.wm_pointer_interactions.is_empty());
+    // Same admission and dispatch owners as the guarded production macro.
+    let mut queue = PhysicalPolicyInputQueue::default();
+    queue.synchronize(Some(run.wm.public.as_ref().unwrap().connection_epoch));
+    let enabled = run.wm.pointer_focus_enabled();
+    for input in report.policy_inputs {
+        assert!(queue.admit(input, enabled, run.wm.shortcuts.as_mut()));
+    }
+    let observation = match queue.next(run.wm.pointer_focus_pending()) {
+        Some(PhysicalPolicyInput::Hover(observation)) => Some(observation),
+        None => None,
+        other => panic!("unexpected routed policy input: {other:?}"),
+    };
+    assert!(queue.next(false).is_none());
+    observation
+}
+
+fn answer(run: &mut Lifecycle, routing: &mut PointerRouting, target: SurfaceId) -> LiveWmProposal {
+    let observation = hover(run, routing, target).expect("enabled hover reaches admission");
     let before = focus(run);
     let saved = run.checkpoint();
     let layers = run.layout.layers.clone();
@@ -103,6 +139,12 @@ fn sdk_pointer_focus_requires_profile_and_commit() {
         .find(|s| Some(*s) != focus(&disabled))
         .unwrap();
     assert!(!disabled.wm.pointer_focus_enabled());
+    let mut routing = PointerRouting::new(disabled.output);
+    assert_eq!(
+        hover(&mut disabled, &mut routing, target),
+        None,
+        "unnegotiated hover must be discarded by the physical-input queue"
+    );
     let observation = PresentedPointerFocus {
         output: disabled.output.id,
         target: Some(target),
@@ -119,6 +161,7 @@ fn sdk_pointer_focus_requires_profile_and_commit() {
     let mut run = Lifecycle::with_profile("pointer-focus-enabled", DESKTOP);
     populate(&mut run);
     assert!(run.wm.pointer_focus_enabled());
+    let mut routing = PointerRouting::new(run.output);
     let before = focus(&run).unwrap();
     let target = SURFACES.into_iter().find(|s| *s != before).unwrap();
     let output = run.output.id;
@@ -157,7 +200,7 @@ fn sdk_pointer_focus_requires_profile_and_commit() {
 
     let saved = run.checkpoint();
     let committed = run.wm.public.as_ref().unwrap().reducer.committed();
-    let proposal = answer(&mut run, target);
+    let proposal = answer(&mut run, &mut routing, target);
     let refused_identity = proposal.policy_settlement.unwrap();
     run.wm
         .apply_commit_result(
@@ -207,7 +250,7 @@ fn sdk_pointer_focus_requires_profile_and_commit() {
         "peer recovery confirms the refusal without promotion"
     );
     run.commit(recovery);
-    let proposal = answer(&mut run, target);
+    let proposal = answer(&mut run, &mut routing, target);
     let fresh = proposal.policy_settlement.unwrap();
     assert_eq!(fresh.connection_epoch, refused_identity.connection_epoch);
     assert!(fresh.request_id > refused_identity.request_id);

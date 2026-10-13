@@ -21,7 +21,10 @@ The twenty-eight explicitly ignored cases must be listed and invoked individuall
   reduction into real Hagia move/resize requests. Unbound buttons and missing
   modifiers cannot start a gesture; the wrong release cannot end one. A
   stationary Begin preserves committed content geometry, updates coalesce,
-  and exact peer proposals commit before the checkpoint changes. The fixture
+  and exact peer proposals commit before the checkpoint changes. A supplied
+  revocation trigger calls the actual grab's cancellation owner; its exact
+  Cancel reaches Hagia, clears queued motion and cannot emit End on release.
+  This does not exercise a lock, seat or output-loss trigger. The fixture
   supplies a renderable layer and completion; no physical input, pixel import
   or frontend delivery is implied. A wrong-button control must fail the named
   unbound-button assertion. This requires Sophia's content-to-outer conversion
@@ -39,8 +42,9 @@ The twenty-eight explicitly ignored cases must be listed and invoked individuall
   production routing, not fixture insertion. Focus selection and events are
   supplied; ingress is local, with no frontend delivery or hardware claim.
   Initial mirror submit/flip is simulated; closing replacement completion is
-  supplied. This does not cover pointer debt, protected session actions, lock
-  or lost outputs.
+  supplied. The configured Alt+Return terminal shortcut bypasses the real Held
+  publication's Return binding without acquiring capture debt. Only its intent
+  is observed; nothing launches. Lock and output-loss transitions remain separate.
   The archived control disables the router's application-held-key term and
   fails `held capture must leave an application-owned key sequence at its
   focused target` before any action can reach the peer.
@@ -54,9 +58,11 @@ The twenty-eight explicitly ignored cases must be listed and invoked individuall
   or the checkpoint until commit. A supplied timeout preserves both; recovery
   does not replay it, and a fresh hover then commits. Controls bypass the
   capability gate or match a surface by index alone and fail the corresponding
-  named refusal. Hover observations, occupied facts and layout completion are
-  supplied. This does not qualify physical hit testing, routing, frontend focus
-  delivery or activation of another empty output.
+  named refusal. Production routing now generates the exact hover from supplied
+  motion and a renderable layer, and the physical-input queue applies the profile
+  gate before admission. A control clears the routed target and fails the exact
+  hover assertion. Physical input, frontend focus delivery and activation of
+  another empty output remain outside this case.
 
 - `sdk_pointer_updates_coalesce_and_settle` in `pointer.rs`: direct production
   pointer-interaction admission, with real Hagia and supplied motion. In both
@@ -70,7 +76,7 @@ The twenty-eight explicitly ignored cases must be listed and invoked individuall
   answer retains the committed Begin geometry: cancellation is not undo. A
   fresh interaction then commits normally.
 
-Both pointer cases emit `pointer-accounting.json`, a bounded diagnostic with
+The direct and routed pointer cases emit `pointer-accounting.json`, a bounded diagnostic with
 one disposition per accepted offer, explicit replacement/cancellation edges,
 and request epoch/ID/transaction for dispatched offers. A missing edge must
 fail the ledger check. Settlement observation includes the checkpoint wait;

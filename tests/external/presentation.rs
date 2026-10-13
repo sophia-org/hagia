@@ -47,9 +47,9 @@ const HANDLES: [u64; 3] = [301, 302, 303];
 const ALT: u32 = 56;
 const TAB: u32 = 15;
 const RIGHT: u32 = 106;
-/// The fixture's own profile: the bootstrap profile plus one binding. Its
+/// The fixture's own profile: bootstrap plus switcher and protected terminal bindings. Its
 /// bytes are compared and hashed into the evidence.
-const DESKTOP: &str = "schema 1\nshell { enabled #false; }\nsession { terminal \"terminal\"; browser \"brave-origin\"; startup \"panel\"; }\nshortcut { profile \"default\"; bind \"Alt+Tab\" \"policy:recent-window-next\"; }\n";
+const DESKTOP: &str = "schema 1\nshell { enabled #false; }\nsession { terminal \"terminal\"; browser \"brave-origin\"; startup \"panel\"; }\nshortcut { profile \"default\"; bind \"Alt+Tab\" \"policy:recent-window-next\"; bind \"Alt+Return\" \"session:spawn-terminal\"; }\n";
 
 fn key_of(surface: SurfaceId) -> u64 {
     (u64::from(surface.generation()) << 32) | u64::from(surface.index())
@@ -92,6 +92,12 @@ fn owes(run: &Lifecycle, keycode: u32) -> bool {
     let capture = format!("{:?}", run.wm.public.as_ref().unwrap().presentation_capture);
     assert!(capture.contains("exhausted: false"), "{capture}");
     capture.contains(&format!("Key({keycode})"))
+}
+
+fn owes_pointer(run: &Lifecycle, button: u32) -> bool {
+    let capture = format!("{:?}", run.wm.public.as_ref().unwrap().presentation_capture);
+    assert!(capture.contains("exhausted: false"), "{capture}");
+    capture.contains(&format!("Button({button})"))
 }
 
 fn receipts(run: &Lifecycle) -> Vec<PolicyPresentationReceipt> {
@@ -478,17 +484,60 @@ impl Routing {
         keys: &[(u32, bool)],
         now: u64,
     ) -> (PhysicalInputRouteReport, usize) {
-        let events = keys
+        let kinds = keys
             .iter()
-            .map(|&(keycode, pressed)| {
+            .map(|&(keycode, pressed)| InputEventKind::Key { keycode, pressed })
+            .collect::<Vec<_>>();
+        self.route_events(run, projections, &kinds, Point { x: 10.0, y: 10.0 }, now)
+    }
+
+    fn route_pointer(
+        &mut self,
+        run: &mut Lifecycle,
+        projections: &[LivePresentedInputProjection],
+        pressed: bool,
+        now: u64,
+    ) -> (PhysicalInputRouteReport, usize) {
+        // The output corner is covered by the modal publication but outside
+        // client content. An unowed release must reach ordinary no-target routing.
+        self.pointer = SessionPointerPlacement::with_raw_to_logical_offset(Point::default());
+        self.pointer.set_output_bounds(vec![Rect {
+            x: 0,
+            y: 0,
+            width: run.output.size.width,
+            height: run.output.size.height,
+        }]);
+        self.route_events(
+            run,
+            projections,
+            &[InputEventKind::PointerButton {
+                button: 0x110,
+                pressed,
+            }],
+            Point::default(),
+            now,
+        )
+    }
+
+    fn route_events(
+        &mut self,
+        run: &mut Lifecycle,
+        projections: &[LivePresentedInputProjection],
+        kinds: &[InputEventKind],
+        point: Point,
+        now: u64,
+    ) -> (PhysicalInputRouteReport, usize) {
+        let events = kinds
+            .iter()
+            .map(|&kind| {
                 self.serial += 1;
                 InputEventPacket {
                     serial: self.serial,
                     seat: SeatId::from_raw(1),
                     device: DeviceId::from_raw(1),
                     time_msec: now,
-                    kind: InputEventKind::Key { keycode, pressed },
-                    global_position: Some(Point { x: 10.0, y: 10.0 }),
+                    kind,
+                    global_position: Some(point),
                     target_surface: None,
                     local_position: None,
                 }

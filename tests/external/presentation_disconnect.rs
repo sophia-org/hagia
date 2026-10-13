@@ -18,6 +18,16 @@ fn sdk_presented_disconnect_preserves_release_debt() {
     let w1 = expected[0];
     let presented = completed(&content, &first);
     service(&mut run, &presented);
+    let (pointer, ingress) = routing.route_pointer(&mut run, &presented, true, 1290);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 0)
+    );
+    assert!(
+        owes_pointer(&run, 0x110),
+        "captured pointer press must owe its release"
+    );
     let (report, ingress) = routing.route(&mut run, &presented, &[(RIGHT, true)], 1300);
     let actions = presented_actions(&report);
     assert!(matches!(actions[..], [action] if action.action == next));
@@ -61,6 +71,10 @@ fn sdk_presented_disconnect_preserves_release_debt() {
         owes(&run, RIGHT),
         "disconnect must preserve captured Right release debt"
     );
+    assert!(
+        owes_pointer(&run, 0x110),
+        "disconnect must preserve captured pointer release debt"
+    );
     let public = run.wm.public.as_ref().unwrap();
     assert_eq!(public.connection_epoch, epoch + 1);
     assert_ne!(run.wm.supervisor.peer_id(), peer);
@@ -93,6 +107,21 @@ fn sdk_presented_disconnect_preserves_release_debt() {
     // No pixels are observed here. Supplied withdrawn projections ensure the
     // only reason to swallow this release is the retained input obligation.
     let replaced = withdrawn(&content);
+    let (pointer, ingress) = routing.route_pointer(&mut run, &replaced, false, 1390);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 0),
+        "owed pointer release must be swallowed after replacement"
+    );
+    assert!(!owes_pointer(&run, 0x110));
+    let (pointer, ingress) = routing.route_pointer(&mut run, &replaced, false, 1391);
+    assert!(pointer.policy_inputs.is_empty());
+    assert_eq!(
+        (ingress, pointer.pointer_buttons_suppressed_no_target),
+        (0, 1),
+        "duplicate pointer release must reach ordinary no-target routing"
+    );
     let (report, ingress) = routing.route(&mut run, &replaced, &[(RIGHT, false)], 1400);
     assert!(report.policy_inputs.is_empty());
     assert_eq!(
