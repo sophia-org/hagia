@@ -56,6 +56,16 @@ and Engine records, with no shell UI, broker transport, frontend delivery or
 physical-pixel claim. Candidate-bound local policy tests cover layout and
 workspace algorithm variants separately.
 
+- `sdk_occupied_manage_admits_native_dma_present` in `manage_pixels.rs`, with
+  `manage_dma.rs`: real Hagia places a quarantined DMA candidate whose buffer
+  registration reaches production before release. The GPU authority cycle,
+  driver, image custody and native retirement owners produce the exact retired
+  candidate. Session's DMA recorder then completes admission; the next CPU frame
+  reaches generation 2 without another Manage request. A control omits the
+  admission-retirement transition. Authority observations, allocation and device
+  completion are supplied; device stability and pixel observations are false/zero.
+  This does not prove GPU import, pixel copying or physical scanout.
+
 - `sdk_occupied_manage_admits_native_software_present` in `manage_pixels.rs`:
   real Hagia places a quarantined software-Present candidate. Session releases
   it to the shared CPU cycle, which must retain native framing rather than

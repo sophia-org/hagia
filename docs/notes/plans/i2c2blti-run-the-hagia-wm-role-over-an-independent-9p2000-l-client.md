@@ -35,11 +35,20 @@ Hagia base files, eleven and two changed/added files, and twenty-four mounted
 external files. Six shared owner bodies retain their behavior after the recorded
 device-boundary substitutions.
 
-The complete generic gate and 43-case external qualification are still pending.
-The first generic run passed workspace tests and strict Clippy, then found an
-unrecorded test mount from the earlier submission seam. That mount now lives
-beside the existing visual-runtime fixtures. Measurement and final binding
-remain required; this development case does not close h006 or t249.
+The complete generic gate passes at corrected Sophia `47086bd25`. The first run
+found an unrecorded test mount from the earlier submission seam; it now lives
+beside the existing visual-runtime fixtures. Signed Hagia `7723c9c`, runner
+`ce877ec` and Sophia `47086bd25` pass all 43 exact cases in
+`t249-dma-admission-pair01`, manifest
+`8ad7e81511a546ff1f4be06c64a52f16a16f198cb26d03f067f8ba9d4705942f`.
+Strict external Clippy, formatting, layout and fourteen runner tests pass.
+Package `t249-dma-admission-pair-audit01`, manifest
+`8d4e13dc7e96351db68d3c5acd72252050061e3adcb55c88eba9847893365d4d`,
+verifies signatures, the new generic gate, 3,275 pinned inputs, twenty-four
+mounted files and unchanged production glue. It also binds the local policy
+suite through 427 unchanged inputs. Both DMA build archives are removed.
+Measurement, the independent SDK/export impact review and final binding remain
+required; these results do not close h006 or t249.
 
 ## 2026-10-13 overview targets and output-loss debt
 
