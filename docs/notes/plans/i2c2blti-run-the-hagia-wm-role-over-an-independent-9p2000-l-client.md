@@ -6,6 +6,41 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 composed DMA admission
+
+Signed Hagia `336bd61` adds a real-peer DMA admission case. Session quarantines
+the first candidate while its envelope registration reaches production. Hagia
+places the new surface, Session reconciles the candidate extent and stages the
+matching controls, and the supplied acknowledgements release the exact group.
+The GPU authority cycle creates the submitted candidate and native composition.
+Sibling completion cannot commit it; primary retirement promotes its captured
+image and commits Engine state. Session remains awaiting retirement until its
+DMA recorder consumes that backend-derived candidate. The next CPU frame reaches
+generation 2 without another Manage request.
+
+Sophia `337b18f3a` shares the GPU intake and retirement recorder across a narrow
+device boundary. The recorder reads device stability and pixel observations
+after its admission transitions, in the same order as before. This fixture
+supplies false/zero observations and claims no stable-device or nonzero-pixel
+evidence. Authority observations, worker storage and device completion are also
+supplied. No GPU import, pixel copying or physical scanout is proved.
+
+Package `t249-dma-admission-dev01`, manifest
+`763fe68533c22ff13370c952545a99b0ce2d8e973b9ed9cd6b506f4c11c9ccb9`,
+passes the new case and all three previous admission variants. Removing the
+DMA admission-retirement transition fails the named Managed assertion; restoring
+it passes. All 333 backend tests, strict backend and Session Clippy, formatting
+and Hagia's layout check pass. The source audit verifies 5,119 Sophia and 484
+Hagia base files, eleven and two changed/added files, and twenty-four mounted
+external files. Six shared owner bodies retain their behavior after the recorded
+device-boundary substitutions.
+
+The complete generic gate and 43-case external qualification are still pending.
+The first generic run passed workspace tests and strict Clippy, then found an
+unrecorded test mount from the earlier submission seam. That mount now lives
+beside the existing visual-runtime fixtures. Measurement and final binding
+remain required; this development case does not close h006 or t249.
+
 ## 2026-10-13 overview targets and output-loss debt
 
 Two external cases compose Hagia's overview on two logical outputs and check
