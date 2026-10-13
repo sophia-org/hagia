@@ -19,7 +19,16 @@ held-modifier assertion; restoration and the original matching-loss case pass.
 Development package `t249-lock-reset-20261013-01` has manifest
 `5535d30952d74775425908ae0acf6b876c16f22430cdfbacc215fcaab19f2072`.
 Its audit retains 5,112 Sophia and 481 Hagia base inputs and every overlay.
-The signed 31-case pair remains pending. Sophia production code is unchanged.
+The signed pair (Hagia `19a9d04`, runner `18758c7`, Sophia `469371bf4`) passes
+all 31 cases in `t249-lock-reset-pair01`, manifest
+`a2ff07a09c3954682f57a1ee2b2745ccb1e723746c5302a328fe37de782a046b`.
+Strict external Clippy, formatting, layout and fourteen runner tests pass.
+The audit verifies signatures, 3,268 pinned inputs, twenty mounted inputs,
+every exact result and unchanged generic-gate inputs and production glue.
+`t249-lock-reset-pair-audit01` has manifest
+`a07a37e66fdf20899a19b9da77df97f3e99caeafc4167ae0b7e81479d8b7ace5`.
+Both build archives and the clean detached source worktree are removed.
+Sophia production code is unchanged.
 
 Lock entry, content and completion are supplied; no lock provider or live
 session is operated. This joins the keyboard-reset boundary, not physical
