@@ -37,6 +37,18 @@ component change; h006 and Sophia t249 remain open.
 formatting, fourteen runner tests (one child fixture ignored) and Hagia layout;
 manifest `ed11151051c38cdf637eddc2ea43aa930b939c62c6365f3bd0090b47d47d37e5`.
 
+The clean signed pair, Hagia `15fa04a` and runner `30b35cd`, passes all 25 in
+`t249-pointer-01`; manifest
+`2510b5371e4563020eeb89fd5abb14203e777f54f99deb13d14b251d4dd12518`.
+The integrity audit binds 3,257 pinned Sophia inputs, all mounted modules to
+signed Hagia blobs, development/control fixture equality, 25 exact results,
+seven manifests and both ledgers' counts and identities. Its manifest is
+`dcfddd42fa4fdf5871e54d17261cdd66a65e6cfcee7cb4317446de7da9b305b9`.
+Leased cleanup removes the disposable build root. Resume with Sophia's updated
+remaining-boundary matrix: pointer-focus admission and routing/debt assessment
+next, without rerunning completed foundations or treating the bounded ledger
+as a measurement campaign.
+
 ## 2026-10-13 coverage reconciliation and next join
 
 Sophia investigation `5rzn1zue`, section “Twenty-three-case coverage
