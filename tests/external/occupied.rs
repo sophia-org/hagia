@@ -24,6 +24,9 @@ mod pointer_focus;
 #[path = "policy_projection.rs"]
 mod policy_projection;
 
+#[path = "launch_outputs.rs"]
+mod launch_outputs;
+
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
 pub(super) fn populate(run: &mut Lifecycle) {

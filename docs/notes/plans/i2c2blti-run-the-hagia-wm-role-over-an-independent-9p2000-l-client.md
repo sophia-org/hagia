@@ -6,6 +6,40 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 launch and logical-output recovery
+
+Three external cases cover frozen child origin, saved output/workspace context,
+and occupied transfer across two logical outputs. Focus and workspace changes
+cannot redirect the saved destination. Stale epochs/generations refuse output
+attribution. A hidden Manage answer settles without repeated requests; automatic
+peer replacement rearms it before any new commit, and its fresh answer settles
+it again.
+
+The assigned-workspace case replaces a connector/key, withdraws the queued old
+generation before peer dispatch, moves windows after output loss and checks the
+returning output's key. A fresh output action carries the exact serial, action,
+output and generation; it selects the replacement's workspace without changing
+its sibling's view.
+
+Process and topology facts, catalog capture and completion are supplied. The
+actual registry, output-update, request and restart owners run with ordinary
+Hagia. Generic authenticated-X ancestry and catalog authorization/queue proofs
+are reused. Physical hotplug, catalog process execution, frontend delivery and
+pixel admission are outside these cases. Output-loss capture/debt, overview
+targets, DMA retirement and measurement remain required.
+
+The development cases pass. Controls substitute current for frozen launch
+context, weaken output-context/action generations and omit Manage rearming.
+All four fail their named assertions, and all restored cases pass. Development
+package `t249-launch-outputs-20261013-02` has manifest
+`9603287066796a4ed7b3c0fd38058a083b8b056d7252c8273c9749268afc5415`.
+It audits 5,112 Sophia and 482 Hagia base inputs plus overlays, and binds the
+unchanged local-policy inputs to the passing suite in the projection package.
+Development refusals exposed fixture mistakes in indicator selection and
+startup coalescing; exact-output selection, zero-based indicator slots and
+an assigned-workspace profile now make the intended behavior observable.
+The full signed 40-case pair and final source audit remain pending.
+
 ## 2026-10-13 policy projection families
 
 Three external cases join real Hagia's tab membership and selection, indicator

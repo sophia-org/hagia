@@ -16,6 +16,26 @@ the installed Factotum agent or qualify its bootstrap channel.
 
 The explicitly ignored cases must be listed and invoked individually:
 
+- `sdk_launch_origin_survives_focus_change` in `launch_outputs.rs`: production
+  admission freezes a supplied child process's origin from real Hagia's token.
+  Focus then moves to a second, empty logical output. The child's actual
+  Manage request must retain its first output and leave active output unchanged.
+- `sdk_output_launch_context_survives_workspace_change` in `launch_outputs.rs`:
+  preserve a captured output token across a workspace and active-output change.
+  Stale epochs/generations refuse attribution; the valid token places the child
+  on its original hidden workspace. Its settled policy answer stops repeated
+  Manage requests while visual admission remains pending. Automatic peer
+  replacement must rearm it before any new commit; the fresh answer settles
+  it again. This does not assert pixel admission or frontend acknowledgement.
+- `sdk_output_replacement_preserves_exact_authority` in `launch_outputs.rs`:
+  transfer an occupied window between two logical outputs, replace the second
+  output's connector/key, and withdraw its queued predecessor action before
+  peer dispatch. Loss moves windows to the surviving output; return preserves
+  exact key ownership. A fresh correlated action selects only the replacement
+  output's assigned workspace. Surface/process/output facts and completion are
+  supplied. Physical hotplug, catalog launch execution and output-loss capture
+  debt are separate obligations.
+
 - `sdk_policy_tabs_commit_exact_member` in `policy_projection.rs`: frame-tree
   publishes two exact members and one visible placement. Stale generations and
   the wrong output cannot select the hidden member. Its accepted selection
