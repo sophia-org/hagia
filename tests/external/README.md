@@ -247,6 +247,28 @@ rejected/unresolved-offer accounting and the measurement comparator remain open.
   changing focus; a fresh chord still works. Lock entry and completion are
   supplied. No lock provider or live desktop is started or changed.
 
+- `sdk_presented_registry_replacement_cancels_chord` in
+  `presentation_cancel.rs`: an occupied Held chord defers desktop reload.
+  Supplying a replacement registry without its binding to the production
+  replacement owner must cancel that exact chord, return its credit and keep
+  ordinary focus. The removed binding cannot admit another action; restoring
+  the accepted registry permits a fresh chord. The replacement registry is
+  supplied, separately from the profile-exchange case below.
+
+- `sdk_presented_occupied_profile_rollback` in `presentation_service.rs`:
+  accepted profile replacement and rejected-profile rollback run while an
+  occupied overview is Presented. The actual reload and service owners revoke
+  input before replacing the peer. Checkpoint bytes and committed projections
+  survive the exchange; recovery preserves focus and rejects the old action
+  identity. Mirror completion is simulated, and no installed session is changed.
+
+- `sdk_presented_catalog_replacement_revokes_actions` in
+  `presentation_service.rs`: remove one action from the supplied current
+  catalog, then call production revalidation before the headless service tail
+  can mask it. The invalid publication must revoke, the old action must refuse,
+  and the real peer must close its switcher without changing focus. This tests
+  catalog revalidation, not a second client-configuration handshake.
+
 - `sdk_presented_receipts_require_all_heads` in `presentation_consensus.rs`:
   after the shared Held prefix, the installed switcher publication is
   validated against the two mirror heads of the backend's test-support

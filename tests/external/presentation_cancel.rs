@@ -4,19 +4,33 @@
 //! completion and routing retain the parent's limits.
 use super::*;
 
+#[derive(Clone, Copy, PartialEq)]
+enum CancellationBoundary {
+    Matching,
+    Lock,
+    Registry,
+}
+
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_presented_cancel_preserves_focus() {
-    cancel_preserves_focus(false);
+    cancel_preserves_focus(CancellationBoundary::Matching);
 }
 
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_presented_lock_reset_preserves_focus() {
-    cancel_preserves_focus(true);
+    cancel_preserves_focus(CancellationBoundary::Lock);
 }
 
-fn cancel_preserves_focus(lock_boundary: bool) {
+#[test]
+#[ignore = "requires ordinary Hagia and isolated external overlay"]
+fn sdk_presented_registry_replacement_cancels_chord() {
+    cancel_preserves_focus(CancellationBoundary::Registry);
+}
+
+fn cancel_preserves_focus(boundary: CancellationBoundary) {
+    let lock_boundary = boundary == CancellationBoundary::Lock;
     let Held {
         mut run,
         mut content,
@@ -26,10 +40,10 @@ fn cancel_preserves_focus(lock_boundary: bool) {
         candidates,
         expected,
         ..
-    } = held(if lock_boundary {
-        "presented-lock-reset"
-    } else {
-        "presented-cancel"
+    } = held(match boundary {
+        CancellationBoundary::Matching => "presented-cancel",
+        CancellationBoundary::Lock => "presented-lock-reset",
+        CancellationBoundary::Registry => "presented-registry",
     });
     let w1 = expected[0];
     let presented = completed(&content, &first);
@@ -55,7 +69,61 @@ fn cancel_preserves_focus(lock_boundary: bool) {
     // Same owner calls as a turn leaving keyboard matching. No release and
     // no revocation receipt can close the peer's model before Cancelled.
     run.wm.observe_keyboard_matching(true);
-    run.wm.observe_keyboard_matching(false);
+    let restore_registry = if boundary == CancellationBoundary::Registry {
+        let checkpoint = run.checkpoint();
+        let profile = run.profile_key();
+        let path = run.source.config.desktop_profile_source.as_ref().unwrap();
+        std::fs::write(path, format!("{DESKTOP}\npolicy {{ view-count 8; }}\n")).unwrap();
+        assert_eq!(
+            run.wm
+                .reload_desktop_profile(&mut run.source.config)
+                .unwrap(),
+            DesktopProfileReloadOutcome::Deferred,
+            "held chord must defer desktop profile replacement"
+        );
+        assert_eq!(run.checkpoint(), checkpoint);
+        assert_eq!(run.profile_key(), profile);
+        assert!(!run.wm.force_transport_restart && !run.wm.desktop_reload_pending());
+        std::fs::write(
+            run.source.config.desktop_profile_source.as_ref().unwrap(),
+            DESKTOP,
+        )
+        .unwrap();
+        let configuration = run
+            .wm
+            .public
+            .as_ref()
+            .unwrap()
+            .accepted_configuration
+            .as_ref()
+            .unwrap()
+            .clone();
+        let original = resolve_public_shortcuts(
+            &run.source.config.shortcut_profile_candidate,
+            &configuration,
+            configuration.generation,
+            &run.wm.command_registry,
+        )
+        .unwrap();
+        let replacement = sophia_engine::WmShortcutRegistry::new(
+            &[],
+            WmCapabilities::all_supported(),
+            configuration.generation + 1,
+            configuration.chrome,
+        )
+        .unwrap();
+        run.wm
+            .install_shortcuts(replacement, &configuration.action_lifecycles);
+        assert_eq!(run.wm.shortcuts.as_ref().unwrap().binding_count(), 0);
+        log(
+            &run,
+            "registry_candidate=supplied registry_replacement=production profile_reload_while_held=deferred",
+        );
+        Some((original, configuration.action_lifecycles))
+    } else {
+        run.wm.observe_keyboard_matching(false);
+        None
+    };
     if lock_boundary {
         let seat = SeatId::from_raw(1);
         assert_ne!(
@@ -101,7 +169,7 @@ fn cancel_preserves_focus(lock_boundary: bool) {
         matches!(report.policy_inputs[..], [PhysicalPolicyInput::Chord(
         sophia_engine::WmChordEvent::Ended { token: actual, end: PolicyChordEnd::Cancelled }
     )] if actual == token),
-        "matching transition must cancel the held chord once"
+        "cancellation boundary must cancel the held chord once"
     );
     assert_eq!(credits(&run), sophia_engine::WM_CHORD_CREDITS - 1);
     run.wm.observe_keyboard_matching(false);
@@ -188,6 +256,19 @@ fn cancel_preserves_focus(lock_boundary: bool) {
     assert!(run.wm.chord_ledger.is_empty());
 
     // A new chord has its own token and can commit the expected W2 selection.
+    if let Some((registry, interests)) = restore_registry {
+        let (report, _) = routing.route(
+            &mut run,
+            &replaced,
+            &[(ALT, true), (TAB, true), (TAB, false), (ALT, false)],
+            1450,
+        );
+        assert!(
+            report.policy_inputs.is_empty(),
+            "removed registry binding must not admit an old action"
+        );
+        run.wm.install_shortcuts(registry, &interests);
+    }
     let (report, _) = routing.route(&mut run, &replaced, &[(ALT, true), (TAB, true)], 1500);
     let [PhysicalPolicyInput::ChordAction(chorded)] = report.policy_inputs[..] else {
         panic!("fresh chord must open after cancellation");

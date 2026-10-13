@@ -13,12 +13,250 @@ fn owner(run: &mut Lifecycle, content: &mut Content, available: bool) {
         .unwrap();
 }
 
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_occupied_profile_rollback() {
+    let mut run = Lifecycle::native_ceiling("presented-profile", DESKTOP);
+    populate(&mut run);
+    let mut content = commit_cpu_sources(&run);
+    let mut accepted = run.profile_key();
+    let ordinary_focus = focus(&run);
+    for (views, valid, epoch) in [(8, true, 2), (10, false, 4)] {
+        let overview = action_id(&run, "toggle-overview");
+        assert!(matches!(
+            run.wm
+                .enqueue_action(overview, &run.layout, run.output)
+                .unwrap(),
+            LiveOrderedWmActionAdmission::Admitted { .. }
+        ));
+        let proposal = run.proposal();
+        let (_, publication) =
+            staged_publication(&run).expect("overview must publish before reload");
+        assert!(!publication.instances.is_empty());
+        assert!(!publication.regions.is_empty());
+        let previous = commit_installed(&mut run, &mut content, proposal);
+        settle(&mut run, previous);
+        let (mut target, receipt) = presented_on_mirrors(&mut run, &mut content, &publication);
+        let binding = publication.bindings[0];
+        let (action, identity) = run
+            .wm
+            .public
+            .as_ref()
+            .unwrap()
+            .presentation_input
+            .keyboard_action(binding.keycode, binding.modifiers, false)
+            .expect("presented overview must admit its keyboard action");
+        let stale = sophia_engine::PresentedPolicyAction {
+            connection_epoch: receipt.connection_epoch,
+            action,
+            identity,
+        };
+        assert!(run.wm.shortcuts.as_ref().unwrap().shortcut_idle());
+        let checkpoint = run.checkpoint();
+        let committed = run.wm.public.as_ref().unwrap().reducer.committed();
+        let catalog = run.wm.public.as_ref().unwrap().actions.clone();
+        let peer = run.wm.supervisor.peer_id();
+        std::fs::write(
+            run.source.config.desktop_profile_source.as_ref().unwrap(),
+            format!("{DESKTOP}\npolicy {{ view-count {views}; }}\n"),
+        )
+        .unwrap();
+        assert_eq!(
+            run.wm
+                .reload_desktop_profile(&mut run.source.config)
+                .unwrap(),
+            DesktopProfileReloadOutcome::RestartRequired
+        );
+        let candidate = run.wm.public.as_ref().unwrap().profile_key.unwrap();
+        assert_ne!(candidate, accepted);
+        assert_eq!(
+            run.profile_key(),
+            accepted,
+            "reload staging cannot publish the profile"
+        );
+
+        owner(&mut run, &mut content, true);
+        assert_eq!(
+            receipts(&run),
+            vec![PolicyPresentationReceipt {
+                outcome: PolicyPresentationOutcome::Revoked,
+                ..receipt
+            }],
+            "profile replacement must revoke the occupied presentation before restart"
+        );
+        assert!(content.runtime.policy_presentation().is_none());
+        assert_eq!(run.wm.supervisor.peer_id(), peer);
+        assert_eq!(run.checkpoint(), checkpoint);
+        let queued = run.wm.public.as_ref().unwrap().queue.len();
+        run.wm.enqueue_presented_action(stale).unwrap();
+        assert_eq!(
+            run.wm.public.as_ref().unwrap().queue.len(),
+            queued,
+            "revoked overview action must not enter the old peer queue"
+        );
+
+        target.queue(&content.runtime, &content.scene).unwrap();
+        target.simulate_submit(run.output.id);
+        for head in 0..2 {
+            target.simulate_head_completion(&mut content.runtime, run.output.id, head);
+            owner(&mut run, &mut content, true);
+        }
+        assert_eq!(
+            receipts(&run).last().unwrap().outcome,
+            PolicyPresentationOutcome::Withdrawn
+        );
+        run.ready(true);
+        assert_eq!(run.wm.public.as_ref().unwrap().connection_epoch, epoch);
+        assert_ne!(run.wm.supervisor.peer_id(), peer);
+        assert_eq!(
+            run.checkpoint(),
+            checkpoint,
+            "profile exchange must preserve the occupied checkpoint"
+        );
+        assert_eq!(
+            run.wm.public.as_ref().unwrap().reducer.committed(),
+            committed
+        );
+        if valid {
+            accepted = candidate;
+        }
+        assert_eq!(run.profile_key(), accepted);
+        assert_eq!(run.wm.public.as_ref().unwrap().profile_key, Some(accepted));
+        if !valid {
+            assert_eq!(run.wm.desktop_reload_rollbacks, 1);
+            assert_eq!(run.wm.public.as_ref().unwrap().actions, catalog);
+        }
+        let queued = run.wm.public.as_ref().unwrap().queue.len();
+        run.wm.enqueue_presented_action(stale).unwrap();
+        assert_eq!(
+            run.wm.public.as_ref().unwrap().queue.len(),
+            queued,
+            "old overview action must not cross the replacement epoch"
+        );
+        for _ in 0..2 {
+            let proposal = run.proposal();
+            assert!(
+                staged_publication(&run).is_none(),
+                "reload must not resurrect the old overview"
+            );
+            assert_eq!(proposal.focus, ordinary_focus);
+            let previous = commit_installed(&mut run, &mut content, proposal);
+            settle(&mut run, previous);
+        }
+        run.views(8);
+        assert_eq!(focus(&run), ordinary_focus);
+        assert_eq!(
+            model(&run)["surfaces"].as_array().unwrap().len(),
+            SURFACES.len()
+        );
+        run.record(if valid {
+            "occupied-profile-accepted"
+        } else {
+            "occupied-profile-rollback"
+        });
+    }
+    run.stop();
+}
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_catalog_replacement_revokes_actions() {
+    let Held {
+        mut run,
+        mut content,
+        first,
+        expected,
+        ..
+    } = held("presented-catalog");
+    let (_, receipt) = presented_on_mirrors(&mut run, &mut content, &first);
+    let binding = first.bindings[0];
+    let (action, identity) = run
+        .wm
+        .public
+        .as_ref()
+        .unwrap()
+        .presentation_input
+        .keyboard_action(binding.keycode, binding.modifiers, false)
+        .unwrap();
+    let old = sophia_engine::PresentedPolicyAction {
+        connection_epoch: receipt.connection_epoch,
+        action,
+        identity,
+    };
+    let checkpoint = run.checkpoint();
+    let peer = run.wm.supervisor.peer_id();
+    // Supply the new catalog, not a second Hagia configuration protocol.
+    // Production revalidation must revoke the now-invalid publication.
+    let public = run.wm.public.as_mut().unwrap();
+    let before = public.actions.len();
+    public.actions.retain(|entry| entry.action != action);
+    assert_eq!(public.actions.len() + 1, before);
+    assert!(!run.wm.degraded && !run.wm.force_transport_restart);
+    // Observe revalidation before the headless service tail could revoke for
+    // lack of a native target and mask a missing catalog check.
+    run.wm
+        .public
+        .as_mut()
+        .unwrap()
+        .revalidate_presentation_input();
+    assert_eq!(
+        receipts(&run),
+        vec![PolicyPresentationReceipt {
+            outcome: PolicyPresentationOutcome::Revoked,
+            ..receipt
+        }],
+        "catalog replacement must revoke its invalid presented action authority"
+    );
+    assert!(content.runtime.policy_presentation().is_some());
+    owner(&mut run, &mut content, true);
+    assert!(content.runtime.policy_presentation().is_none());
+    assert!(
+        run.wm
+            .public
+            .as_ref()
+            .unwrap()
+            .presentation_input
+            .publication()
+            .is_none()
+    );
+    let queued = run.wm.public.as_ref().unwrap().queue.len();
+    run.wm.enqueue_presented_action(old).unwrap();
+    assert_eq!(
+        run.wm.public.as_ref().unwrap().queue.len(),
+        queued,
+        "removed catalog action must not enter the policy queue"
+    );
+    assert_eq!(run.checkpoint(), checkpoint);
+    let (request, answer) = revocation::first_answer(&mut run);
+    assert!(matches!(request.cause, PolicyRequestCause::SceneChanged));
+    let revocation::Answer::Proposal(proposal) = answer else {
+        panic!("catalog revocation must receive a closing proposal");
+    };
+    assert!(staged_publication(&run).is_none());
+    assert_eq!(proposal.focus, Some(expected[0]));
+    let previous = commit_installed(&mut run, &mut content, *proposal);
+    settle(&mut run, previous);
+    assert_eq!(focus(&run), Some(expected[0]));
+    assert_eq!(run.wm.supervisor.peer_id(), peer);
+    assert_eq!(
+        run.wm.public.as_ref().unwrap().connection_epoch,
+        receipt.connection_epoch
+    );
+    log(
+        &run,
+        "catalog_change=supplied revalidation=production peer_response=real focus=preserved",
+    );
+    run.record("catalog-revoked");
+    run.stop();
+}
+
 fn presented_on_mirrors(
     run: &mut Lifecycle,
     content: &mut Content,
     first: &PolicyPresentation,
 ) -> (SessionPolicyPresentationFixture, PolicyPresentationReceipt) {
     let output = first.outputs[0];
+    let owner_epoch = run.wm.public.as_ref().unwrap().connection_epoch;
     let mut target = SessionPolicyPresentationFixture::new(&[run.output]);
     let heads = target.heads();
     assert_eq!(heads.len(), 2);
@@ -26,7 +264,7 @@ fn presented_on_mirrors(
         .runtime
         .validate_policy_presentation_on_heads(
             &LivePolicyPresentation {
-                owner_epoch: 1,
+                owner_epoch,
                 presentation: first.clone(),
             },
             &heads,
@@ -50,7 +288,7 @@ fn presented_on_mirrors(
     assert_eq!(
         receipt,
         PolicyPresentationReceipt {
-            connection_epoch: 1,
+            connection_epoch: owner_epoch,
             publication_generation: first.generation,
             output: output.output,
             output_generation: output.generation,

@@ -6,6 +6,32 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 occupied reload and registry replacement
+
+Three cases cover C's remaining reload and revocation boundaries. An occupied
+Presented overview survives accepted profile replacement and rejected-profile
+rollback with its checkpoint and ordinary focus preserved; its old input
+authority revokes before restart and refuses after replacement. A held chord
+defers reload. Supplying a changed registry to the production replacement
+owner cancels that exact chord, returns its credit and refuses its old binding.
+Supplying a catalog with one action removed makes production revalidation
+revoke the publication, and real Hagia closes it without selecting a window.
+
+Four controls omit registry cancellation, pre-restart revocation, catalog
+revocation and busy-input deferral. Each fails its named assertion. All three
+restored cases, matching-loss cancellation and lock reset pass. Development
+package `t249-occupied-reload-20261013-01` has manifest
+`02fe58da700892c4881d4ca9c794a3d2caa5a62f37d67485ded35eed5308848a`.
+The audit checks 5,112 Sophia and 481 Hagia base inputs and the overlays.
+The signed 34-case pair remains pending; Sophia production code is unchanged.
+
+Catalog and registry replacements are supplied to their actual owners; the
+profile exchange uses the ordinary authenticated peer. Content, completion
+and input are supplied, with no installed-session operation. Catalog
+revalidation is observed before the headless service tail can mask its omission.
+Together with the lock-reset case, these cover C's listed owner joins under
+those limits. B, D/E, DMA retirement and measurement remain open.
+
 ## 2026-10-13 occupied lock reset
 
 The new `sdk_presented_lock_reset_preserves_focus` case joins the production
