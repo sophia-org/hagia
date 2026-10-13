@@ -14,7 +14,23 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty explicitly ignored cases must be listed and invoked individually:
+The twenty-one explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_presented_service_withdraws_when_unavailable` in
+  `presentation_service.rs`: after backend-derived Presented on both mirror
+  heads, call the actual `service_presented_policy` owner with supplied
+  availability loss. It must issue the exact Revoked and remove the runtime's
+  installed publication. The first correlated real-Hagia SceneChanged answer
+  closes the switcher without changing focus. Both heads then retire the
+  replacement, but the unavailable service must defer Withdrawn; restoring
+  availability settles it exactly once. Controls remove availability-based
+  revocation, runtime withdrawal, or the availability gate on settlement.
+  The inherited prefix still installs against a supplied head and observes
+  initial Presented through the abbreviated helper. Availability and device
+  submit/flip are supplied. This joins the production service's loss and
+  withdrawal branches, not device detection, stopping/authentication logic,
+  backend-initiated revocation, native install or repaint scheduling. The
+  chord remains open: availability alone does not claim lock cancellation.
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
   profile activation, nonempty action catalog and capability ceiling. No

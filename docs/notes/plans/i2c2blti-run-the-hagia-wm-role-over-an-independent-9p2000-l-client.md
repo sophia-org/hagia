@@ -6,6 +6,43 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-12 production presentation-service join
+
+The twenty-first external case calls Session's actual presentation-service
+owner after both simulated mirror heads produce a backend-derived Presented.
+Supplied availability loss revokes the exact identity and removes the runtime
+publication. The first correlated real-Hagia answer closes the switcher without
+changing focus. Completed replacement frames cannot settle Withdrawn while
+unavailable; restoring availability settles it once. The existing revocation
+case's request-correlation helper is shared without changing its behavior.
+
+`t249-service-dev01` passes all twenty-one cases on Sophia `1b476dbdc`;
+self-excluding manifest SHA-256:
+`a1daa9c0ffa871a8e6c469dc02590e1e258622166041c450523ef532d463a65c`.
+Three single-site archived-source controls compile and fail with exit 101 at
+their own named assertion, one failed test each:
+
+| Package | Removed behavior | Manifest SHA-256 |
+| --- | --- | --- |
+| `t249-service-revoke-control01` | Availability-based revocation | `bcb88630e1a781051a9aa0f7d6360146f7e1e1f326f70320e92c4cd6c990284c` |
+| `t249-service-remove-control01` | Runtime publication removal | `6a9869175db99c7cea08529a780e01619410c6902173dc3d754f7cb14926f168` |
+| `t249-service-settle-control01` | Availability gate on withdrawal settlement | `c14478587818244cf74448794e5f03e82ca59c91ce978ea3d8d1e5a88be6e6ab` |
+
+Each control holds the source and Cargo leases, verifies the pinned production
+file, and checks restored source, all fifteen mounted modules and the unchanged
+Hagia binary. The initial install still uses a supplied head, and its Presented
+observation uses the abbreviated helper. The new direct calls qualify only
+availability loss and withdrawal. Stopping/authentication conditions,
+backend-initiated revocation, native install and repaint scheduling remain open.
+The availability trigger and device submit/flip are supplied; there is no
+physical-display claim. Availability alone leaves the chord open. No production
+or installed code changes, and h006/t249 remain open.
+
+Restored-overlay strict Clippy, fixture/runner formatting, fourteen runner tests
+(one internal child fixture ignored), and `nimble layout` pass in
+`t249-service-checks01`; manifest
+`f3bf51ae41a3a1a384df626e8073daa1299a0d4399e034bdfa9e03d0dd1e5603`.
+
 ## 2026-10-12 authenticated baseline refresh
 
 The nineteen external cases now use Session's authenticated startup and

@@ -32,6 +32,9 @@ mod consensus;
 #[path = "presentation_repaint.rs"]
 mod repaint;
 
+#[path = "presentation_service.rs"]
+mod presentation_service;
+
 const SURFACES: [SurfaceId; 3] = [
     SurfaceId::new(31, 2),
     SurfaceId::new(47, 5),

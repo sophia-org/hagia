@@ -8,7 +8,7 @@
 use super::*;
 
 /// How the one request admitted after the revocation was answered.
-enum Answer {
+pub(super) enum Answer {
     /// The peer's proposal for exactly that request, staged by Session.
     Proposal(Box<LiveWmProposal>),
     /// The request settled without a staged proposal, transport healthy.
@@ -18,7 +18,7 @@ enum Answer {
 /// Admit exactly one cycle and capture its full request at admission, then
 /// poll without admitting any other until that request is answered. Every
 /// later poll refuses new cycles, so no other request can be the answer.
-fn first_answer(run: &mut Lifecycle) -> (PolicyProjectionRequest, Answer) {
+pub(super) fn first_answer(run: &mut Lifecycle) -> (PolicyProjectionRequest, Answer) {
     let deadline = Instant::now() + Duration::from_secs(5);
     let epoch = {
         let public = run.wm.public.as_ref().unwrap();
