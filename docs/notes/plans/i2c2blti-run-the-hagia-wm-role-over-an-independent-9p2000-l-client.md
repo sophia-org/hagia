@@ -6,6 +6,36 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 routed pointer geometry
+
+The new `sdk_pointer_routing_selects_exact_interactions` case joins production
+modifier handling, hit testing and move/resize gesture reduction to real Hagia.
+It checks exact target/mode/phase, missing modifiers, unbound buttons, coalesced
+updates, wrong-button release and commit-only checkpoint promotion. Input and
+a renderable layer are supplied; physical input, frontend delivery and pixels
+remain outside this test.
+
+The first development expectation concealed a Session defect: a stationary
+Begin treated content as outer geometry, so reconciliation inset chrome twice.
+A stronger assertion reproduces the shrink. Sophia's signed `7697a9102` repair
+converts with committed chrome before admission and passes the full isolated
+generic gate. Direct fixture offers now supply content while keeping independent
+outer expectations. This changes no Hagia production policy or SDK contract.
+
+All 28 development cases pass on the new pin in `t249-routing-dev04`; manifest
+`bda5f90f3eda9973a00f87ae68d747a873fbc9ec84ba01623467c54f35ca4653`.
+The pin review preserves all five mirrored production spans. A wrong-button
+mutation fails the named unbound-middle-button assertion; the restored case
+passes. Clean signed-pair qualification and the remaining h006/t249 exits are
+still required. The owning Sophia investigation records the defect, generic
+control, full gate and earlier development failures.
+
+`t249-routing-control02` retains the current-pin mutation and restored pass;
+manifest `ed96ec7ba35f8a32c8968e6ef93e9904bf6e4f0254af242501a1b542d60e87f0`.
+`t249-routing-checks01` passes strict Clippy on the restored external overlay,
+fixture formatting, fourteen serial runner tests and Hagia's layout check;
+manifest `c5a686a54370c38c317fb5b770106100370486843a1a3cbc6c5f406f9e5d7498`.
+
 ## 2026-10-13 pointer interaction and bounded accounting
 
 `pointer.rs` adds Move/Resize Begin/Update/End settlement and Cancel purging

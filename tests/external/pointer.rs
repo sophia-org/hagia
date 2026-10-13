@@ -1,4 +1,4 @@
-//! Direct production interaction admission with supplied motion and completion.
+//! Production interaction admission and routing with supplied input and completion.
 //! The bounded ledger is an accounting diagnostic, not a latency campaign.
 use super::*;
 use serde_json::json;
@@ -47,6 +47,15 @@ fn content(outer: Rect) -> Rect {
     }
 }
 
+fn outer(content: Rect) -> Rect {
+    Rect {
+        x: content.x - 1,
+        y: content.y - 1,
+        width: content.width + 2,
+        height: content.height + 2,
+    }
+}
+
 fn kind(mode: Mode) -> PolicyInteractionKind {
     match mode {
         Mode::Move => PolicyInteractionKind::Move,
@@ -67,6 +76,31 @@ impl Accounting {
     }
 
     fn offer(&mut self, run: &mut Lifecycle, mode: Mode, phase: Phase, geometry: Rect) -> usize {
+        self.routed_offer(
+            run,
+            crate::live_session::FloatingPointerPolicyInteraction {
+                surface: SURFACES[0],
+                mode,
+                phase,
+                geometry: content(geometry),
+                start: WmPointerPosition { x: 100, y: 100 },
+                current: WmPointerPosition {
+                    x: geometry.x,
+                    y: geometry.y,
+                },
+            },
+            geometry,
+        )
+    }
+
+    fn routed_offer(
+        &mut self,
+        run: &mut Lifecycle,
+        interaction: crate::live_session::FloatingPointerPolicyInteraction,
+        geometry: Rect,
+    ) -> usize {
+        assert_eq!(interaction.surface, SURFACES[0], "exact routed target");
+        let (mode, phase) = (interaction.mode, interaction.phase);
         assert!(self.offers.len() < 32, "bounded interaction diagnostic");
         let id = self.offers.len();
         let pending = self
@@ -96,20 +130,7 @@ impl Accounting {
         let enqueued_ns = self.ns();
         let admission = run
             .wm
-            .enqueue_pointer_interaction(
-                crate::live_session::FloatingPointerPolicyInteraction {
-                    surface: SURFACES[0],
-                    mode,
-                    phase,
-                    geometry,
-                    start: WmPointerPosition { x: 100, y: 100 },
-                    current: WmPointerPosition {
-                        x: geometry.x,
-                        y: geometry.y,
-                    },
-                },
-                &run.layout,
-            )
+            .enqueue_pointer_interaction(interaction, &run.layout)
             .unwrap();
         let replacement = phase == Phase::Update && replaced.is_some();
         assert_eq!(
@@ -440,5 +461,329 @@ fn sdk_pointer_cancel_purges_queued_work() {
     ledger.finish(&run);
     healthy(&mut run);
     run.record("pointer-cancel-fresh-interaction");
+    run.stop();
+}
+
+struct PointerRouting {
+    mapper: XCoreKeyboardMapper,
+    repeat: KeyRepeatState,
+    keymap: XkbKeymapSnapshot,
+    client_keys: SessionClientKeyState,
+    emergency: EmergencyChordState,
+    terminal: VirtualTerminalChordState,
+    coverage: PhysicalKeyboardCoverage,
+    pointer: SessionPointerPlacement,
+    gesture: FloatingPointerGestureState,
+    delivery: u64,
+    serial: u64,
+    coalescer: sophia_engine::RoutedInputCoalescer,
+    motion: Option<Instant>,
+}
+
+impl PointerRouting {
+    fn new(output: sophia_engine::HeadlessOutput) -> Self {
+        // Supplied event positions are already logical, unlike libinput's
+        // accumulated coordinates. Keep confinement but use a zero offset.
+        let mut pointer = SessionPointerPlacement::with_raw_to_logical_offset(Point::default());
+        pointer.set_output_bounds(vec![Rect {
+            x: 0,
+            y: 0,
+            width: output.size.width,
+            height: output.size.height,
+        }]);
+        Self {
+            mapper: XCoreKeyboardMapper::new(),
+            repeat: KeyRepeatState::new(KeyRepeatConfig::new(600, 25).unwrap()),
+            keymap: XkbKeymapSnapshot::new(&sophia_x_authority::XkbRmlvoConfig::default()).unwrap(),
+            client_keys: SessionClientKeyState::default(),
+            emergency: EmergencyChordState::awaiting_arm(),
+            terminal: VirtualTerminalChordState::default(),
+            coverage: PhysicalKeyboardCoverage::default(),
+            pointer,
+            gesture: FloatingPointerGestureState::default(),
+            delivery: 1,
+            serial: 0,
+            coalescer: sophia_engine::RoutedInputCoalescer::new(),
+            motion: None,
+        }
+    }
+
+    // One supplied visible layer, taken from committed Session geometry.
+    // Its opaque CPU handle supplies renderability; no pixel import is claimed.
+    // Actual hit testing and modifier/gesture reduction run below; this is
+    // not backend-produced presentation or frontend delivery evidence.
+    fn route(
+        &mut self,
+        run: &mut Lifecycle,
+        kind: InputEventKind,
+        point: Point,
+    ) -> PhysicalInputRouteReport {
+        self.serial += 1;
+        let events = vec![InputEventPacket {
+            serial: self.serial,
+            seat: SeatId::from_raw(1),
+            device: DeviceId::from_raw(1),
+            time_msec: self.serial,
+            kind,
+            global_position: Some(point),
+            target_surface: None,
+            local_position: None,
+        }];
+        let mut layer = run.layout.layers[&SURFACES[0]].clone();
+        layer.source = BufferSource::CpuBuffer { handle: 901 };
+        let layers = [layer];
+        if matches!(
+            kind,
+            InputEventKind::PointerButton {
+                button: 0x110 | 0x111,
+                pressed: true
+            }
+        ) {
+            assert_eq!(
+                sophia_engine::hit_test_scene_surface_for_input(&events[0], &layers).target_surface,
+                Some(SURFACES[0]),
+                "supplied visible scene contains the intended pointer target"
+            );
+        }
+        let (sender, _receiver) = std::sync::mpsc::sync_channel(64);
+        route_input_events_with_launcher(
+            events,
+            &InputFocusState::new(),
+            &[],
+            &layers,
+            &run.layout.presentation_roles,
+            &run.layout.client_routes,
+            &sender,
+            &mut self.mapper,
+            &mut self.repeat,
+            &self.keymap,
+            &mut self.client_keys,
+            &mut self.emergency,
+            &mut self.terminal,
+            &mut self.coverage,
+            run.wm.shortcuts.as_mut(),
+            &mut self.pointer,
+            true,
+            false,
+            false,
+            PhysicalInputRoutingMode::Full,
+            &mut self.delivery,
+            self.serial,
+            None,
+            None,
+            None,
+            None,
+            Some(&mut self.gesture),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(run.output.id),
+            1,
+            None,
+            None,
+            None,
+            None,
+            None,
+            &mut self.coalescer,
+            true,
+            &mut self.motion,
+            Duration::ZERO,
+            None,
+        )
+        .unwrap()
+    }
+
+    fn interaction(
+        &mut self,
+        run: &mut Lifecycle,
+        kind: InputEventKind,
+        point: Point,
+        mode: Mode,
+        phase: Phase,
+        expected: Rect,
+    ) -> FloatingPointerPolicyInteraction {
+        let report = self.route(run, kind, point);
+        assert_eq!(
+            report.wm_pointer_interactions.len(),
+            1,
+            "bound routed input produces one interaction"
+        );
+        let interaction = report.wm_pointer_interactions[0];
+        assert_eq!(
+            (
+                interaction.surface,
+                interaction.mode,
+                interaction.phase,
+                interaction.geometry
+            ),
+            (SURFACES[0], mode, phase, expected),
+            "routing preserves exact target, mode, phase and geometry"
+        );
+        assert_eq!(
+            report.wm_pointer_gestures.len(),
+            usize::from(phase == Phase::End)
+        );
+        interaction
+    }
+}
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_pointer_routing_selects_exact_interactions() {
+    let mut run = Lifecycle::new("pointer-routing");
+    populate(&mut run);
+    let mut ledger = Accounting::new();
+    // Establish a floating target away from output edges through real policy.
+    let setup = rect(100, 300);
+    for phase in [Phase::Begin, Phase::End] {
+        let id = ledger.offer(&mut run, Mode::Move, phase, setup);
+        let proposal = ledger.proposal(&mut run, id, setup);
+        ledger.commit(&mut run, id, proposal, setup);
+    }
+    let mut routing = PointerRouting::new(run.output);
+    let button = |button, pressed| InputEventKind::PointerButton { button, pressed };
+    for (mode, code) in [(Mode::Move, 0x110), (Mode::Resize, 0x111)] {
+        let initial = run.layout.layers[&SURFACES[0]].geometry;
+        let start = Point {
+            x: f64::from(initial.x + 20),
+            y: f64::from(initial.y + 20),
+        };
+        let checkpoint = run.checkpoint();
+        for pressed in [true, false] {
+            let report = routing.route(&mut run, button(code, pressed), start);
+            assert!(
+                report.wm_pointer_interactions.is_empty(),
+                "without Super no policy gesture starts"
+            );
+        }
+        routing.route(
+            &mut run,
+            InputEventKind::Key {
+                keycode: 125,
+                pressed: true,
+            },
+            start,
+        );
+        for pressed in [true, false] {
+            let report = routing.route(&mut run, button(0x112, pressed), start);
+            assert!(
+                report.wm_pointer_interactions.is_empty(),
+                "unbound middle button cannot start a policy gesture"
+            );
+        }
+        assert_eq!(run.checkpoint(), checkpoint);
+        assert!(
+            !run.wm
+                .shortcuts
+                .as_ref()
+                .unwrap()
+                .seat_uncertain(SeatId::from_raw(1))
+        );
+        assert_ne!(
+            run.wm
+                .shortcuts
+                .as_ref()
+                .unwrap()
+                .modifier_mask(SeatId::from_raw(1))
+                .bits
+                & WmModifierMask::SUPER,
+            0,
+            "routed Super press is held before gesture admission"
+        );
+        let interaction = routing.interaction(
+            &mut run,
+            button(code, true),
+            start,
+            mode,
+            Phase::Begin,
+            initial,
+        );
+        let begin = ledger.routed_offer(&mut run, interaction, outer(initial));
+        let proposal = ledger.proposal(&mut run, begin, outer(initial));
+        assert_eq!(
+            proposal
+                .layers
+                .iter()
+                .find(|layer| layer.surface == SURFACES[0])
+                .unwrap()
+                .geometry,
+            initial,
+            "a routed Begin without motion must preserve committed content geometry"
+        );
+        let geometry = |delta| match mode {
+            Mode::Move => Rect {
+                x: initial.x + delta,
+                ..initial
+            },
+            Mode::Resize => Rect {
+                width: initial.width + delta,
+                ..initial
+            },
+        };
+        let mut latest = None;
+        for delta in [10, 20] {
+            let point = Point {
+                x: start.x + f64::from(delta),
+                ..start
+            };
+            let interaction = routing.interaction(
+                &mut run,
+                InputEventKind::PointerMotion,
+                point,
+                mode,
+                Phase::Update,
+                geometry(delta),
+            );
+            latest = Some(ledger.routed_offer(&mut run, interaction, outer(geometry(delta))));
+        }
+        let point = Point {
+            x: start.x + 30.0,
+            ..start
+        };
+        let wrong_release = routing.route(&mut run, button(0x112, false), point);
+        assert!(
+            wrong_release.wm_pointer_interactions.is_empty(),
+            "wrong-button release cannot end the captured gesture"
+        );
+        assert!(routing.gesture.active());
+        let interaction = routing.interaction(
+            &mut run,
+            button(code, false),
+            point,
+            mode,
+            Phase::End,
+            geometry(30),
+        );
+        let end = ledger.routed_offer(&mut run, interaction, outer(geometry(30)));
+        assert!(!routing.gesture.active());
+        assert_eq!(
+            run.checkpoint(),
+            checkpoint,
+            "routed pending motion cannot save policy state"
+        );
+        ledger.commit(&mut run, begin, proposal, outer(initial));
+        let proposal = ledger.proposal(&mut run, latest.unwrap(), outer(geometry(20)));
+        ledger.commit(&mut run, latest.unwrap(), proposal, outer(geometry(20)));
+        let proposal = ledger.proposal(&mut run, end, outer(geometry(30)));
+        ledger.commit(&mut run, end, proposal, outer(geometry(30)));
+        let duplicate = routing.route(&mut run, button(code, false), point);
+        assert!(
+            duplicate.wm_pointer_interactions.is_empty(),
+            "duplicate release cannot replay the ended gesture"
+        );
+        routing.route(
+            &mut run,
+            InputEventKind::Key {
+                keycode: 125,
+                pressed: false,
+            },
+            point,
+        );
+    }
+    ledger.finish(&run);
+    healthy(&mut run);
+    run.record("pointer-routing-move-resize-settled");
     run.stop();
 }

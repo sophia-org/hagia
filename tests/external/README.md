@@ -14,7 +14,18 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-seven explicitly ignored cases must be listed and invoked individually:
+The twenty-eight explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_pointer_routing_selects_exact_interactions` in `pointer.rs`: route
+  supplied Super and button events through production hit testing and gesture
+  reduction into real Hagia move/resize requests. Unbound buttons and missing
+  modifiers cannot start a gesture; the wrong release cannot end one. A
+  stationary Begin preserves committed content geometry, updates coalesce,
+  and exact peer proposals commit before the checkpoint changes. The fixture
+  supplies a renderable layer and completion; no physical input, pixel import
+  or frontend delivery is implied. A wrong-button control must fail the named
+  unbound-button assertion. This requires Sophia's content-to-outer conversion
+  repair at `7697a9102`; earlier development expectations concealed that defect.
 
 - `sdk_presented_capture_waits_for_focused_application` in
   `presentation_application_capture.rs`: before the Held switcher is presented,
