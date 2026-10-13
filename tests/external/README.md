@@ -259,15 +259,17 @@ rejected/unresolved-offer accounting and the measurement comparator remain open.
 - `sdk_presented_source_repaint_preserves_identity` in
   `presentation_repaint.rs`: the switcher is Presented on both mirror heads as
   in the consensus case. One previewed surface then commits new CPU bytes
-  through authority observation, projection and an ordinary CPU cycle, with no
-  WM cause. After the backend recomposes the retained switcher and both heads
+  through authority observation, projection and the shared native CPU cycle,
+  with no WM cause. That cycle must schedule the repaint without a fixture
+  queue call. After the backend recomposes the retained switcher and both heads
   retire it, no WM request has started, the Presented identity, installed
   publication and retired stamp are unchanged, and every retired preview of
   that surface on both heads samples the new committed generation while every
   other preview and every instance identity is unchanged. The backend, not
-  the WM, resolves those sampled generations. The fixture queues the
-  recomposition itself, so production repaint scheduling is not exercised, and
-  the target does not rasterize, so no preview pixels are claimed.
+  the WM, resolves those sampled generations. Initial presentation still uses
+  a fixture queue; native initialization and worker/device completion are
+  supplied. The target does not rasterize, so no preview pixels are claimed.
+  Controls omit native repaint admission or drop the updated presentation tier.
 
 - `sdk_disconnect_aborts_pending_settlement` in `abort_settlement.rs`, a child
   of `occupied.rs`: stage real Hagia's fullscreen proposal through the production

@@ -6,6 +6,30 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 automatic native CPU repaint
+
+The existing source-repaint case now sends the changed source through the
+shared native CPU cycle. The cycle must submit its repaint before the fixture
+supplies completion; the fixture no longer queues that repaint. Both retired
+mirror frames sample the new source generation while preserving every instance,
+the WM publication and its Presented receipt, without a new WM request. Setup
+of the initial presentation still uses a supplied queue operation.
+
+The case passes. Omitting native repaint admission fails the scheduling
+assertion; dropping the updated presentation tier fails the identity assertion.
+Restoration passes. The first queue-control attempt failed to compile and is
+retained as an invalid control, not behavioral evidence. Development package
+`t249-native-repaint-20261013-01` has manifest
+`f9b23c5f2675ef0714b069f34bac72c4d3f9f0b0de8ffe46a71fc44f7ed4a1be`.
+Its audit retains all 5,112 Sophia and 481 Hagia base inputs and overlay changes.
+The signed pair and full gate remain to be bound. The suite still has 30 cases.
+
+Native initialization, worker execution and device completion are simulated.
+The target retains composition and custody but does not rasterize preview
+pixels. This proves the CPU cycle's automatic scheduling path, not GPU image
+import, deferred repaint service or physical scanout. DMA retirement and the
+remaining B–F and measurement obligations remain open.
+
 ## 2026-10-13 native software admission
 
 The new Manage case carries a quarantined software-Present candidate from

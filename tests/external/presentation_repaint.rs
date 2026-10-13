@@ -3,10 +3,11 @@
 //! cycle, with no WM request. The backend recomposes the retained switcher on
 //! the test-support target's two mirror heads, and each retired frame's
 //! preview instances are read back: the backend, never the WM, resolves each
-//! instance's source generation. The fixture queues that recomposition
-//! itself, so production's repaint scheduling is not exercised; the target
-//! does not rasterize, so no preview pixels are claimed. CPU sources and the
-//! device submit and page flips are supplied; one output, no physical display.
+//! instance's source generation. The shared native CPU cycle queues the
+//! recomposition; only the initial presented state uses a fixture queue call.
+//! The target does not rasterize, so no preview pixels are claimed. CPU sources,
+//! native initialization, worker execution and device flips are supplied;
+//! one output, no physical display.
 use super::*;
 use sophia_backend_live::session_policy_presentation_fixture::SessionPolicyPresentationFixture;
 
@@ -76,11 +77,12 @@ fn sdk_presented_source_repaint_preserves_identity() {
     let output = first.outputs[0];
     log(
         &run,
-        "presentation_completion=simulated_per_head receipts=backend_derived heads=target_mirrored repaint_queue=fixture",
+        "presentation_completion=simulated_per_head receipts=backend_derived heads=target_mirrored repaint_queue=production_cpu_cycle",
     );
 
     // Present the held switcher on both mirror heads, as the consensus case.
     let mut target = SessionPolicyPresentationFixture::new(&[run.output]);
+    target.simulate_initialization(&mut content.runtime);
     assert_eq!(target.heads().len(), 2);
     install_on(&mut run, &mut content, &target);
     target.queue(&content.runtime, &content.scene).unwrap();
@@ -171,24 +173,27 @@ fn sdk_presented_source_repaint_preserves_identity() {
         .iter()
         .map(|surface| run.layout.layers[surface].clone())
         .collect::<Vec<_>>();
-    content
-        .runtime
-        .run_cpu_production_cycle(LiveProductionCycleRequest {
-            batch: &production,
-            scene: &mut content.scene,
-            raised_surface: None,
-            focused_surface: focus(&run),
-            cursor_presentation: LiveProductionCursorPresentation::Software(None),
-            defer_frame: false,
-            output_descriptors: &[run.output],
-            native_scanout: None,
-            wm_update: None,
-            presentation_layout: &layers,
-            geometry_routed_surfaces: &[],
-            chrome_surfaces: &SURFACES,
-            indicator_publication: None,
-            staged_cpu_buffer_handles: &[],
-        })
+    assert!(target.submitted_frame(output.output).is_none());
+    target
+        .run_cpu_cycle(
+            &mut content.runtime,
+            LiveProductionCycleRequest {
+                batch: &production,
+                scene: &mut content.scene,
+                raised_surface: None,
+                focused_surface: focus(&run),
+                cursor_presentation: LiveProductionCursorPresentation::Software(None),
+                defer_frame: false,
+                output_descriptors: &[run.output],
+                native_scanout: None,
+                wm_update: None,
+                presentation_layout: &layers,
+                geometry_routed_surfaces: &[],
+                chrome_surfaces: &SURFACES,
+                indicator_publication: None,
+                staged_cpu_buffer_handles: &[],
+            },
+        )
         .unwrap();
     let committed = content
         .runtime
@@ -207,9 +212,12 @@ fn sdk_presented_source_repaint_preserves_identity() {
         )
     );
 
-    // The backend recomposes the retained switcher; both heads retire it.
-    target.queue(&content.runtime, &content.scene).unwrap();
-    target.simulate_submit(output.output);
+    // The CPU cycle must have queued the source-only repaint. Its target tick
+    // simulates worker submission; no fixture repaint queue call intervenes.
+    assert!(
+        target.submitted_frame(output.output).is_some(),
+        "source-only CPU cycle must schedule its native repaint"
+    );
     retire(&mut run, &mut content, &mut target, 0);
     let retired = retire(&mut run, &mut content, &mut target, 1);
 
