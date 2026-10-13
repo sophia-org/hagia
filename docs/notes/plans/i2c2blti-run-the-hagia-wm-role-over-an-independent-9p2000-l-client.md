@@ -6,6 +6,37 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 pointer interaction and bounded accounting
+
+`pointer.rs` adds Move/Resize Begin/Update/End settlement and Cancel purging
+obsolete queued work while preserving unrelated relayout. All twenty-five
+cases pass in `t249-pointer-dev03` at Sophia `1b476dbdc`; manifest
+`a55daf8eac107293661630ac93905672b6c2ce999e47060001fed2548a04dd0f`.
+The two earlier development attempts remain STOP: signed rectangle dimensions
+were initially typed unsigned, then outer geometry was incorrectly compared
+with Session's content geometry. No production changes were needed.
+
+Two archived single-site controls compile and fail one test with exit 101:
+keeping the old Update fails `queued pointer update must retain the latest
+offered geometry`; omitting the security-cancel purge fails `pointer cancel
+must remove obsolete queued interaction work`. Their manifests are
+`4604a1cdbecd39a2a00913180e7c2a65d2d3a23ba0c888326e9684a7eecd1a7c`
+and `6f13b4884036b1282694a31e7c678b4c13b4865f1f2cb3e108779c52c16984a7`.
+The source, seventeen mounted inputs and ordinary Hagia binary are verified
+after restoration under the Cargo and archive leases.
+
+The bounded ledger accounts for eight move/resize offers (six commits, two
+replacements) and six cancel-case offers (four commits, two cancellations),
+with explicit successor edges and dispatched request/transaction identities.
+Each validator refuses a missing edge. Motion and layout completion are supplied.
+Physical routing, rejected/unresolved inputs, scheduled load, native rendering
+and the measurement comparator remain open. No latency claim or installed
+component change; h006 and Sophia t249 remain open.
+
+`t249-pointer-checks01` passes restored-overlay strict Clippy, fixture/runner
+formatting, fourteen runner tests (one child fixture ignored) and Hagia layout;
+manifest `ed11151051c38cdf637eddc2ea43aa930b939c62c6365f3bd0090b47d47d37e5`.
+
 ## 2026-10-13 coverage reconciliation and next join
 
 Sophia investigation `5rzn1zue`, section “Twenty-three-case coverage

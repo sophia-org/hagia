@@ -14,7 +14,28 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-three explicitly ignored cases must be listed and invoked individually:
+The twenty-five explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_pointer_updates_coalesce_and_settle` in `pointer.rs`: direct production
+  pointer-interaction admission, with real Hagia and supplied motion. In both
+  Move and Resize, hold the Begin answer unsettled while offering two distinct
+  Updates and End. Only the latest queued Update survives. Queued motion cannot
+  change committed geometry or the checkpoint; Begin, surviving Update and End
+  each settle with exact request identity and matching checkpoint geometry.
+- `sdk_pointer_cancel_purges_queued_work` in `pointer.rs`: while Begin is
+  unsettled, queue unrelated relayout, Update and End, then Cancel. Cancel must
+  remove obsolete interaction work and precede the preserved relayout. Its
+  answer retains the committed Begin geometry: cancellation is not undo. A
+  fresh interaction then commits normally.
+
+Both pointer cases emit `pointer-accounting.json`, a bounded diagnostic with
+one disposition per accepted offer, explicit replacement/cancellation edges,
+and request epoch/ID/transaction for dispatched offers. A missing edge must
+fail the ledger check. Settlement observation includes the checkpoint wait;
+these timestamps are not latency measurements. The cases supply occupied
+surfaces, motion, interleaving and layout completion. Physical pointer routing,
+button/release debt, application configure ACKs, pixels, scheduled load,
+rejected/unresolved-offer accounting and the measurement comparator remain open.
 
 - `sdk_presented_backend_revocation_precedes_withdrawal` in
   `presentation_service.rs`: after Presented on both mirrors, remove a sampled
@@ -305,6 +326,7 @@ The October 13 coverage reconciliation in Sophia's investigation `5rzn1zue`
 maps all 23 capability bits and explicit acceptance phrases to these cases,
 retained generic/attended evidence and remaining owner boundaries. It supersedes
 the old fourteen-case gap table without changing h006/t249's exit. The next
-bounded external join is pointer move/resize/coalescing/cancel through the real
-Session owner, with per-offer accounting before any rate/load campaign. Frozen
-pairing fixtures may inform its design but must not run against current master.
+bounded external join described above covers pointer move/resize/coalescing/cancel
+through the real Session owner, with bounded per-offer accounting. It does not
+authorize a rate/load campaign. Frozen pairing fixtures may inform remaining
+designs but must not run against current master.
