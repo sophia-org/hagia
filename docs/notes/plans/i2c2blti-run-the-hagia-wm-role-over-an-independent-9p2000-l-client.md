@@ -22,7 +22,15 @@ retained as an invalid control, not behavioral evidence. Development package
 `t249-native-repaint-20261013-01` has manifest
 `f9b23c5f2675ef0714b069f34bac72c4d3f9f0b0de8ffe46a71fc44f7ed4a1be`.
 Its audit retains all 5,112 Sophia and 481 Hagia base inputs and overlay changes.
-The signed pair and full gate remain to be bound. The suite still has 30 cases.
+The full generic gate and signed pair pass: Sophia `469371bf4`, Hagia `0ec1498`,
+runner `5dec7e4`. All 30 cases pass in `t249-native-repaint-pair01`, manifest
+`805e315831a075d7b7b2c563936095795ee6627f4e548eb003f4f5d80c2db45b`.
+Strict external Clippy, fixture formatting, layout and fourteen runner tests
+pass. The audit binds the generic gate to the pin and checks 3,268 pinned
+inputs, twenty mounted inputs, signatures, unchanged production glue and every
+exact result. `t249-native-repaint-pair-audit01` has manifest
+`c217118e49abef2dd7fefec3ce89169d0ef7b1c8a795984ba9cc2ef827804f1a`.
+Both completed build archives were removed under their leases.
 
 Native initialization, worker execution and device completion are simulated.
 The target retains composition and custody but does not rasterize preview
