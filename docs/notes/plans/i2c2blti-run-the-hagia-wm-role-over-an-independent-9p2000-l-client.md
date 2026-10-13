@@ -48,6 +48,17 @@ open in h006/t249.
 formatting, fourteen runner tests (one child fixture ignored) and Hagia layout;
 manifest `5839cf093985ad9fbeb1e8be903bfaaf90dda67ec56fd6f25b99240975378426`.
 
+The clean signed pair (Hagia `0b1a1c1`, niltempus `990fe2a`, Sophia `1b476dbdc`)
+passes all twenty-three in `t249-backend-01`; manifest
+`1dee210a319d73db7c67555ac23478aafc8ea0ce762c7e3ea10fba7bb9e3bf72`.
+`t249-backend-audit01` verifies 3,257 pinned crate/Cargo/vendor inputs, the mount
+and fifteen modules, matching development/control fixtures, twenty-three exact
+passing results, signatures and six package manifests including the retained
+STOP; manifest `ceb7b56d8f595a328b791e347c1e8b4c9f4ea29a6be7d045ebd40ab8d1cd1432`.
+This is an integrity audit, not another execution or a full product gate.
+Leased cleanup removes the disposable build root; evidence keeps executable
+paths and hashes only. No full Nim/formal gate or installed-session change.
+
 ## 2026-10-12 requested restart at the presentation-service boundary
 
 The twenty-second external case reuses the mirror-target prefix, then requests
