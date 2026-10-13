@@ -6,6 +6,39 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-13 policy projection families
+
+Three external cases join real Hagia's tab membership and selection, indicator
+activation, and scrolling translations to Session. Tab selection and empty
+workspace activation preserve focus and checkpoint bytes until commit. Stale
+member generations, wrong outputs, stale indicator publications and wrong
+actions refuse without retargeting. Content geometry independently checks the
+tab strip and negotiated chrome clearance; scrolling positions agree with the
+checkpoint's camera offset and exact translation identity.
+
+All three development cases pass. Five controls weaken tab identity, omit
+translation or chrome clearance, or weaken indicator generation/action checks.
+Each fails its intended assertion, and all restored cases pass. The first
+translation fixture used columns that both fit; its nonzero-scroll precondition
+correctly failed. The revised fixture uses 900-pixel columns so an omitted
+translation cannot pass invisibly.
+
+The isolated `nimble test` suite passes, including data layout, the independent
+file corpus, local SDK, policy variants and ordinary-binary lifecycle checks.
+Its first wrapper failed while saving Nimble metadata to a read-only directory;
+a private metadata directory with read-only installed dependencies resolves
+that harness error. An intervening attempt lacked the package index. Both
+failures remain in development evidence. Package
+`t249-policy-projection-20261013-01` has manifest
+`81b757c3dd52e163992d7de8a66f9481d6f3216182f854cdfe11da64fed738fc`.
+Its audit checks 5,112 Sophia and 481 Hagia base inputs and retains each overlay.
+
+Surface observations, settlement and shell snapshot epoch are supplied. The
+cases do not operate a shell UI, traverse broker activation transport, deliver
+frontend events or prove physical pixels. Candidate-bound local SDK and policy
+tests cover layout/workspace algorithm variants separately. The complete
+signed 37-case pair and evidence audit remain pending.
+
 ## 2026-10-13 occupied reload and registry replacement
 
 Three cases cover C's remaining reload and revocation boundaries. An occupied

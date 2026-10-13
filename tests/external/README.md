@@ -14,7 +14,27 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The thirty explicitly ignored cases must be listed and invoked individually:
+The explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_policy_tabs_commit_exact_member` in `policy_projection.rs`: frame-tree
+  publishes two exact members and one visible placement. Stale generations and
+  the wrong output cannot select the hidden member. Its accepted selection
+  changes focus and the checkpoint only at commit. Committed content geometry
+  reserves the published tab strip and negotiated chrome exactly once.
+- `sdk_policy_indicator_activation_is_correlated` in `policy_projection.rs`:
+  scroller publishes workspace indicators. Production hit testing distinguishes
+  the strip from its outside edge; activation classification refuses a stale
+  publication or wrong action. The exact output/action/serial reaches real
+  Hagia, and selecting an empty workspace changes focus only at commit.
+- `sdk_policy_translation_matches_checkpoint` in `policy_projection.rs`:
+  scroller moves between two wide columns. Committed translation identities,
+  camera offsets and content positions agree with the peer checkpoint, including
+  a nonzero scroll and its return. Omitting translation must change the result.
+
+These projection cases supply surfaces and settlement. They exercise Session
+and Engine records, with no shell UI, broker transport, frontend delivery or
+physical-pixel claim. Candidate-bound local policy tests cover layout and
+workspace algorithm variants separately.
 
 - `sdk_occupied_manage_admits_native_software_present` in `manage_pixels.rs`:
   real Hagia places a quarantined software-Present candidate. Session releases

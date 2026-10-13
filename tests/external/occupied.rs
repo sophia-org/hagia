@@ -21,9 +21,16 @@ mod pointer;
 #[path = "pointer_focus_sdk.rs"]
 mod pointer_focus;
 
+#[path = "policy_projection.rs"]
+mod policy_projection;
+
 const SURFACES: [SurfaceId; 2] = [SurfaceId::new(31, 2), SurfaceId::new(47, 5)];
 
 pub(super) fn populate(run: &mut Lifecycle) {
+    populate_with_placements(run, 2);
+}
+
+fn populate_with_placements(run: &mut Lifecycle, placements: usize) {
     let client = sophia_x_authority::XServerFrontendClientId::from_raw(1);
     let mut batch = crate::live_session::wm_update_coordinator_batch(TransactionId::from_raw(700));
     batch.client = Some(client);
@@ -92,8 +99,8 @@ pub(super) fn populate(run: &mut Lifecycle) {
     let proposal = run.proposal();
     assert_eq!(
         proposal.layers.len(),
-        2,
-        "both supplied surfaces reach the peer"
+        placements,
+        "the layout must project its expected visible surfaces"
     );
     run.commit(proposal); // Supplied completion, not a visual-readiness proof.
     // Reconcile the committed focus into the next complete snapshot.
