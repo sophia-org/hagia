@@ -14,7 +14,20 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-five explicitly ignored cases must be listed and invoked individually:
+The twenty-six explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_pointer_focus_requires_profile_and_commit` in `pointer_focus_sdk.rs`:
+  the default profile refuses hover focus without starting a request. A profile
+  enabling focus-follows-mouse negotiates the capability with real Hagia.
+  Session refuses a stale surface generation, departed output, already focused
+  target and empty hover on the active output. A fresh hover coalesces and
+  produces a correlated PointerFocus answer, but cannot change committed focus
+  or the checkpoint until commit. A supplied timeout preserves both; recovery
+  does not replay it, and a fresh hover then commits. Controls bypass the
+  capability gate or match a surface by index alone and fail the corresponding
+  named refusal. Hover observations, occupied facts and layout completion are
+  supplied. This does not qualify physical hit testing, routing, frontend focus
+  delivery or activation of another empty output.
 
 - `sdk_pointer_updates_coalesce_and_settle` in `pointer.rs`: direct production
   pointer-interaction admission, with real Hagia and supplied motion. In both
@@ -325,8 +338,9 @@ selection tail of Session's presentation service.
 The October 13 coverage reconciliation in Sophia's investigation `5rzn1zue`
 maps all 23 capability bits and explicit acceptance phrases to these cases,
 retained generic/attended evidence and remaining owner boundaries. It supersedes
-the old fourteen-case gap table without changing h006/t249's exit. The next
-bounded external join described above covers pointer move/resize/coalescing/cancel
-through the real Session owner, with bounded per-offer accounting. It does not
+the old fourteen-case gap table without changing h006/t249's exit. The
+bounded external joins described above cover pointer move/resize/coalescing/cancel
+and profile-gated pointer focus through the real Session owners. Interaction
+offers retain bounded accounting. This does not
 authorize a rate/load campaign. Frozen pairing fixtures may inform remaining
 designs but must not run against current master.

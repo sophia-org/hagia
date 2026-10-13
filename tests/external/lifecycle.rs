@@ -40,17 +40,21 @@ fn hash(path: &Path) -> String {
 
 impl Lifecycle {
     fn new(case: &str) -> Self {
-        Self::start(case, None)
+        Self::start(case, None, false)
+    }
+
+    fn with_profile(case: &str, desktop: &str) -> Self {
+        Self::start(case, Some(desktop), false)
     }
 
     /// The presentation case only: Session's native presentation ceiling is
     /// selected without any device, and the desktop profile is the case's own.
     /// Capability selection is not native presentation evidence.
     fn native_ceiling(case: &str, desktop: &str) -> Self {
-        Self::start(case, Some(desktop))
+        Self::start(case, Some(desktop), true)
     }
 
-    fn start(case: &str, native_ceiling: Option<&str>) -> Self {
+    fn start(case: &str, desktop: Option<&str>, native_ceiling: bool) -> Self {
         let binary =
             std::fs::canonicalize(std::env::var_os("HAGIA_LIFECYCLE_BIN").unwrap()).unwrap();
         let digest = std::env::var("HAGIA_LIFECYCLE_SHA256").unwrap();
@@ -58,14 +62,14 @@ impl Lifecycle {
         let evidence =
             PathBuf::from(std::env::var_os("HAGIA_LIFECYCLE_EVIDENCE").unwrap()).join(case);
         std::fs::create_dir(&evidence).expect("fresh case directory");
-        let mut source = match native_ceiling {
+        let mut source = match desktop {
             None => ConfigFixture::new(&[]),
             Some(desktop) => ConfigFixture::from_documents(CORE, desktop, &[]),
         };
         source.config.wm_socket_path = source.directory.join("wm.sock");
         source.config.wm_process = Some(binary.to_str().unwrap().to_owned());
         source.config.wm_process_args.clear();
-        source.config.native_scanout = native_ceiling.is_some();
+        source.config.native_scanout = native_ceiling;
         source.config.factotum = Some(SessionFactotum {
             agent: "/unused/fixture-agent".into(),
             pam_helper: "/unused/fixture-helper".into(),
@@ -132,7 +136,7 @@ impl Lifecycle {
             public.selected_capabilities & sophia_protocol::SOPHIA_WM_CAPABILITY_CONFIGURATION,
             0
         );
-        if native_ceiling.is_none() {
+        if !native_ceiling {
             assert_eq!(
                 public.selected_capabilities
                     & (sophia_protocol::SOPHIA_WM_CAPABILITY_SURFACE_INSTANCES
