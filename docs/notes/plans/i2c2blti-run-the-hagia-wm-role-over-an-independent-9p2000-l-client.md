@@ -22,7 +22,15 @@ restoring it passes both again. Development evidence is
 `t249-native-install-20261013-01`, manifest
 `4e5c1b9f3963707c972c3661ce98ce332db3aa5ddad422a120c6a4f4e4ac16d0`.
 It retains the source overlay, full input audit, commands, results and control.
-The complete signed 29-case pair and updated Sophia pin remain to be bound.
+The signed pair (Hagia `9fb5e83`, Sophia `27bce5c96`, niltempus `92e9337`)
+passes all 29 cases in `t249-native-install-pair01`; manifest
+`aeeea8030e128b9e9efa25ddb0613a8d498f9df0fb1e8aad9ef2506fc84c852a`.
+The full generic gate and external strict Clippy pass. The audit binds the
+generic patch and new test to the pin, verifies 3,263 pinned and twenty mounted
+inputs, signatures and all exact case results. Its package is
+`t249-native-install-pair-audit01`, manifest
+`59a988a1d9f6254361bfb3e6e333e2ca0573fec6bf9f415f12e060824923bd24`.
+Both completed build archives were removed under their leases.
 
 This advances F's publication-installation boundary only. Native Present
 retirement, automatic source-only repaint scheduling and the other B–F joins
