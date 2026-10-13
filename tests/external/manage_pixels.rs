@@ -13,9 +13,21 @@
 //! software frame, and supplies device completion to the native retirement
 //! owner. Its backend-derived candidate then reaches Session admission. The
 //! fixture drives service calls; initialization, worker and device completion
-//! are simulated. DMA retirement and physical pixels remain separate.
+//! are simulated. The DMA variant runs the GPU authority cycle and composed
+//! retirement before Session's DMA recorder completes admission; its storage
+//! and device observations are supplied. Physical pixels remain unproved.
 use super::*;
 use sophia_backend_live::session_policy_presentation_fixture::SessionPolicyPresentationFixture;
+
+#[path = "manage_dma.rs"]
+mod dma;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Storage {
+    Backing,
+    SoftwarePresent,
+    DmaPresent,
+}
 
 const NEW: SurfaceId = SurfaceId::new(61, 1);
 /// Deliberately unlike any tile of three windows on the headless output.
@@ -120,16 +132,23 @@ fn produce_with_native(
         indicator_publication: None,
         staged_cpu_buffer_handles: &[],
     };
-    let (submission, _, _) = match native {
-        Some(target) => target.run_cpu_cycle(runtime, request),
-        None => runtime.run_cpu_production_cycle(request),
+    let composed = match native {
+        Some(target) if production.has_dma_buf_present_submissions() => target
+            .run_gpu_cycle(runtime, request)
+            .map(|(submission, _, _)| submission.composed),
+        Some(target) => target
+            .run_cpu_cycle(runtime, request)
+            .map(|(submission, _, _)| submission.composed),
+        None => runtime
+            .run_cpu_production_cycle(request)
+            .map(|(submission, _, _)| submission.composed),
     }
     .unwrap();
     let released = released
         .into_iter()
         .map(|group| group.transactions)
         .collect();
-    (released, submission.composed)
+    (released, composed)
 }
 
 /// The scene's retained source for the new surface, and one interior pixel
@@ -183,23 +202,34 @@ fn committed(
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_cpu_candidate() {
-    admission_case(false, false);
+    admission_case(Storage::Backing, false);
 }
 
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_software_present() {
-    admission_case(true, false);
+    admission_case(Storage::SoftwarePresent, false);
 }
 
 #[test]
 #[ignore = "requires ordinary Hagia and isolated external overlay"]
 fn sdk_occupied_manage_admits_native_software_present() {
-    admission_case(true, true);
+    admission_case(Storage::SoftwarePresent, true);
 }
 
-fn admission_case(software_present: bool, native_retirement: bool) {
-    let mut run = Lifecycle::new(if native_retirement {
+#[test]
+#[ignore = "requires ordinary Hagia and isolated external overlay"]
+fn sdk_occupied_manage_admits_native_dma_present() {
+    admission_case(Storage::DmaPresent, true);
+}
+
+fn admission_case(storage: Storage, native_retirement: bool) {
+    let software_present = storage == Storage::SoftwarePresent;
+    let dma_present = storage == Storage::DmaPresent;
+    let presented = storage != Storage::Backing;
+    let mut run = Lifecycle::new(if dma_present {
+        "manage-native-dma-present"
+    } else if native_retirement {
         "manage-native-software-present"
     } else if software_present {
         "manage-software-present"
@@ -258,7 +288,11 @@ fn admission_case(software_present: bool, native_retirement: bool) {
             generation: intent.generation,
         },
     );
-    let candidate = frame(&mut batch, FIRST, FIRST_FILL, requested, 0).key();
+    let candidate = if dma_present {
+        dma::frame(&mut batch, requested)
+    } else {
+        frame(&mut batch, FIRST, FIRST_FILL, requested, 0).key()
+    };
     if software_present {
         batch.software_present_submissions.push(
             sophia_x_authority::XAuthoritySoftwarePresentSubmission {
@@ -280,7 +314,7 @@ fn admission_case(software_present: bool, native_retirement: bool) {
     assert_eq!(observation.extent, EXTENT);
     assert_eq!(
         observation.evidence,
-        if software_present {
+        if presented {
             sophia_engine::SurfaceVisualEvidence::PresentedBuffer
         } else {
             sophia_engine::SurfaceVisualEvidence::BackingSnapshot
@@ -297,6 +331,18 @@ fn admission_case(software_present: bool, native_retirement: bool) {
     assert!(!run.layout.layers.contains_key(&NEW));
     assert!(run.layout.pending.is_none());
     assert_eq!(run.layout.next_unmanaged_surface(), Some(NEW));
+
+    let output = run.output;
+    let mut runtime =
+        sophia_backend_live::LiveProductionVisualRuntime::new(&[output], None).unwrap();
+    let mut scene = sophia_backend_live::LiveProductionCpuScene::new(output.size);
+    if dma_present {
+        // Envelope registrations reach production while the candidate remains
+        // quarantined. The later release must use this retained resource.
+        let (released, _) = produce(&mut run, &mut runtime, &mut scene, &batch);
+        assert!(released.is_empty());
+        assert!(committed(&runtime).is_none());
+    }
 
     // B2: real Hagia places it; Session reconciles to the candidate extent.
     assert!(matches!(
@@ -344,7 +390,7 @@ fn admission_case(software_present: bool, native_retirement: bool) {
                 .find(|layer| layer.surface == NEW)
                 .unwrap()
                 .source,
-            BufferSource::CpuBuffer { handle: FIRST }
+            candidate.target_buffer
         );
     }
 
@@ -438,7 +484,7 @@ fn admission_case(software_present: bool, native_retirement: bool) {
         .expect("answered controls and the exact candidate settle the pending admission");
     assert_eq!(result.policy_settlement, Some(identity));
     assert_eq!(result.update.commit.outcome, TransactionOutcome::Committed);
-    if software_present {
+    if presented {
         assert_eq!(
             run.layout.admissions.state(NEW),
             Admission::AwaitingRetirement {
@@ -465,13 +511,9 @@ fn admission_case(software_present: bool, native_retirement: bool) {
     assert_eq!(run.layout.next_unmanaged_surface(), None);
     let layer = run.layout.layers[&NEW].clone();
     assert_eq!(layer.geometry, placed);
-    assert_eq!(layer.source, BufferSource::CpuBuffer { handle: FIRST });
+    assert_eq!(layer.source, candidate.target_buffer);
 
     // B6: the next authority turn releases the admitted frame to production.
-    let output = run.output;
-    let mut runtime =
-        sophia_backend_live::LiveProductionVisualRuntime::new(&[output], None).unwrap();
-    let mut scene = sophia_backend_live::LiveProductionCpuScene::new(output.size);
     let next = crate::live_session::wm_update_coordinator_batch(TransactionId::from_raw(721));
     assert!(
         !run.layout
@@ -494,97 +536,107 @@ fn admission_case(software_present: bool, native_retirement: bool) {
     assert!(released[0].iter().all(|t| t.surface == NEW
         && t.target_geometry == placed
         && t.previous_committed_generation == 0));
-    let first = committed(&runtime).expect("the admitted frame must reach production");
-    assert_eq!(first.committed_generation, 1);
-    assert_eq!(first.buffer(), BufferSource::CpuBuffer { handle: FIRST });
-    assert_eq!(first.geometry, placed);
-    assert!(composed);
-    retained(&runtime, &scene, FIRST, 1, FIRST_FILL, placed);
+    if dma_present {
+        dma::retire(
+            &mut run,
+            &mut runtime,
+            native.as_mut().unwrap(),
+            candidate,
+            placed,
+        );
+    } else {
+        let first = committed(&runtime).expect("the admitted frame must reach production");
+        assert_eq!(first.committed_generation, 1);
+        assert_eq!(first.buffer(), BufferSource::CpuBuffer { handle: FIRST });
+        assert_eq!(first.geometry, placed);
+        assert!(composed);
+        retained(&runtime, &scene, FIRST, 1, FIRST_FILL, placed);
 
-    if software_present {
-        if let Some(target) = native.as_mut() {
-            let mut early = Vec::new();
-            runtime
-                .drain_retired_software_presents_into(&mut early)
-                .unwrap();
-            assert!(
-                early.is_empty(),
-                "native admission must wait for backend retirement"
-            );
-            assert_eq!(
-                run.layout.admissions.state(NEW),
-                Admission::AwaitingRetirement {
-                    admission_transaction: identity.transaction,
-                    visual_candidate: candidate,
-                    geometry: placed,
-                }
-            );
-            assert!(
+        if software_present {
+            if let Some(target) = native.as_mut() {
+                let mut early = Vec::new();
+                runtime
+                    .drain_retired_software_presents_into(&mut early)
+                    .unwrap();
+                assert!(
+                    early.is_empty(),
+                    "native admission must wait for backend retirement"
+                );
+                assert_eq!(
+                    run.layout.admissions.state(NEW),
+                    Admission::AwaitingRetirement {
+                        admission_transaction: identity.transaction,
+                        visual_candidate: candidate,
+                        geometry: placed,
+                    }
+                );
+                assert!(
+                    target
+                        .stage_software_present(&mut runtime, output.id)
+                        .unwrap(),
+                    "native cycle must retain a software frame for admission"
+                );
+                target.simulate_submit(output.id);
                 target
-                    .stage_software_present(&mut runtime, output.id)
-                    .unwrap(),
-                "native cycle must retain a software frame for admission"
-            );
-            target.simulate_submit(output.id);
-            target
-                .simulate_native_retirement(&mut runtime, output.id, 1)
-                .unwrap();
+                    .simulate_native_retirement(&mut runtime, output.id, 1)
+                    .unwrap();
+                runtime
+                    .drain_retired_software_presents_into(&mut early)
+                    .unwrap();
+                assert!(
+                    early.is_empty(),
+                    "a sibling flip cannot complete native admission"
+                );
+                target
+                    .simulate_native_retirement(&mut runtime, output.id, 0)
+                    .unwrap();
+            }
+            let mut retired = Vec::new();
             runtime
-                .drain_retired_software_presents_into(&mut early)
+                .drain_retired_software_presents_into(&mut retired)
                 .unwrap();
-            assert!(
-                early.is_empty(),
-                "a sibling flip cannot complete native admission"
-            );
-            target
-                .simulate_native_retirement(&mut runtime, output.id, 0)
-                .unwrap();
-        }
-        let mut retired = Vec::new();
-        runtime
-            .drain_retired_software_presents_into(&mut retired)
-            .unwrap();
-        assert_eq!(
-            retired.len(),
-            1,
-            "production must retire the exact software Present candidate"
-        );
-        let retired = retired[0];
-        assert_eq!(
-            (retired.candidate, retired.source_size),
-            (candidate, EXTENT),
-            "production must retire the exact software Present candidate"
-        );
-        if native_retirement {
-            assert!(
-                retired.frame.raw() > 0
-                    && retired.native_submission > 0
-                    && retired.ust_usec > 0
-                    && retired.msc > 0,
-                "native admission requires backend frame and retirement correlation"
-            );
-        } else {
             assert_eq!(
-                (
-                    retired.frame.raw(),
-                    retired.native_submission,
-                    retired.ust_usec,
-                    retired.msc
-                ),
-                (0, 0, 0, 0),
-                "headless copy retirement carries no native frame or timing evidence"
+                retired.len(),
+                1,
+                "production must retire the exact software Present candidate"
+            );
+            let retired = retired[0];
+            assert_eq!(
+                (retired.candidate, retired.source_size),
+                (candidate, EXTENT),
+                "production must retire the exact software Present candidate"
+            );
+            if native_retirement {
+                assert!(
+                    retired.frame.raw() > 0
+                        && retired.native_submission > 0
+                        && retired.ust_usec > 0
+                        && retired.msc > 0,
+                    "native admission requires backend frame and retirement correlation"
+                );
+            } else {
+                assert_eq!(
+                    (
+                        retired.frame.raw(),
+                        retired.native_submission,
+                        retired.ust_usec,
+                        retired.msc
+                    ),
+                    (0, 0, 0, 0),
+                    "headless copy retirement carries no native frame or timing evidence"
+                );
+            }
+            // Direct production owner call. The record is generated by the CPU
+            // backend, but draining here does not qualify the native service loop.
+            let mut evidence = crate::live_session::NativePresentEvidence::new(false);
+            crate::live_session::record_native_software_present_retirement(
+                crate::live_session::NativePresentRecording {
+                    layout: &mut run.layout,
+                    evidence: &mut evidence,
+                },
+                retired,
             );
         }
-        // Direct production owner call. The record is generated by the CPU
-        // backend, but draining here does not qualify the native service loop.
-        let mut evidence = crate::live_session::NativePresentEvidence::new(false);
-        crate::live_session::record_native_software_present_retirement(
-            crate::live_session::NativePresentRecording {
-                layout: &mut run.layout,
-                evidence: &mut evidence,
-            },
-            retired,
-        );
     }
 
     // B7: a managed surface's next frame is not quarantined again.
@@ -632,7 +684,9 @@ fn admission_case(software_present: bool, native_retirement: bool) {
         Some((u64::from(NEW.generation()) << 32) | u64::from(NEW.index())),
         "client checkpoint focus agrees with Session's committed focus"
     );
-    run.record(if software_present {
+    run.record(if dma_present {
+        "manage-native-dma-present-managed"
+    } else if software_present {
         "manage-software-present-managed"
     } else {
         "manage-cpu-managed"
