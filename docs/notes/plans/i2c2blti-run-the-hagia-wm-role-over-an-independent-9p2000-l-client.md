@@ -36,6 +36,16 @@ manifest `ed96ec7ba35f8a32c8968e6ef93e9904bf6e4f0254af242501a1b542d60e87f0`.
 fixture formatting, fourteen serial runner tests and Hagia's layout check;
 manifest `c5a686a54370c38c317fb5b770106100370486843a1a3cbc6c5f406f9e5d7498`.
 
+The clean signed pair, Hagia `bc0b192`, runner `4857e9b`, Sophia `7697a9102`,
+passes all 28 cases in `t249-routing-01`; manifest
+`2020dc3354fd7aa1df13bd53a883cb474c128276936b0e0d0e8f2efe57269eda`.
+The audit verifies 3,262 pinned inputs, nineteen mounted inputs, exact results,
+signatures and all three pointer ledgers. `t249-routing-audit01` has manifest
+`e2fbabde48587a436a83769a92aec99d996bad7dfdfe9f6238ba6eb036f231be`.
+The build root and clean detached source worktree are removed. Routed Cancel,
+hover, protected/captured input transitions, other A–F joins and measurement
+remain required; h006/t249 are not complete.
+
 ## 2026-10-13 pointer interaction and bounded accounting
 
 `pointer.rs` adds Move/Resize Begin/Update/End settlement and Cancel purging
