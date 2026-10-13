@@ -37,7 +37,17 @@ Surface observations, settlement and shell snapshot epoch are supplied. The
 cases do not operate a shell UI, traverse broker activation transport, deliver
 frontend events or prove physical pixels. Candidate-bound local SDK and policy
 tests cover layout/workspace algorithm variants separately. The complete
-signed 37-case pair and evidence audit remain pending.
+signed pair (Hagia `1e7e9ec`, runner `83669a7`, Sophia `469371bf4`) passes
+all 37 cases in `t249-policy-projection-pair01`, manifest
+`cd94a96dac30c09edf944edfa6ff75adf1acdad79bd9bb7f4798e3b695b631b7`.
+Strict external Clippy, formatting, Hagia layout and fourteen runner tests
+pass. The source audit verifies signatures, 3,268 pinned inputs, twenty-one
+mounted inputs, every exact result and unchanged generic-gate inputs and
+production glue. `t249-policy-projection-pair-audit01` has manifest
+`55d24cdbf13603daa46e6296567cc223a279b09ab68e1d5ba51a158686d53480`.
+Both build archives and the clean source worktree are removed. B's listed
+joins are covered under these limits; D/E, DMA retirement, measurement and
+final qualification remain open.
 
 ## 2026-10-13 occupied reload and registry replacement
 
