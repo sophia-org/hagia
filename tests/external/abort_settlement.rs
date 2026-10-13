@@ -43,12 +43,7 @@ fn sdk_disconnect_aborts_pending_settlement() {
     run.wm.supervisor.request_termination().unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
-        assert!(
-            run.wm
-                .poll_public_restart(&mut run.layout, run.output)
-                .unwrap()
-                .is_none()
-        );
+        assert!(run.poll_restart().unwrap().is_none());
         let public = run.wm.public.as_ref().unwrap();
         assert_eq!(
             public.connection_epoch, identity.connection_epoch,
@@ -89,12 +84,7 @@ fn sdk_disconnect_aborts_pending_settlement() {
     assert_eq!(run.checkpoint(), saved);
 
     // A second restart poll cannot admit a successor while settlement remains.
-    assert!(
-        run.wm
-            .poll_public_restart(&mut run.layout, run.output)
-            .unwrap()
-            .is_none()
-    );
+    assert!(run.poll_restart().unwrap().is_none());
     assert_eq!(
         run.wm.public.as_ref().unwrap().connection_epoch,
         identity.connection_epoch
@@ -130,19 +120,16 @@ fn sdk_disconnect_aborts_pending_settlement() {
     );
     assert!(run.layout.expire_pending(&mut controls).unwrap().is_none());
 
-    assert!(
-        run.wm
-            .poll_public_restart(&mut run.layout, run.output)
-            .unwrap()
-            .is_none()
-    );
+    assert!(run.poll_restart().unwrap().is_none());
+    // The authenticated successor must finish its fresh launch conversation
+    // before the restart owner publishes the new epoch.
+    run.ready(true);
     assert_eq!(
         run.wm.public.as_ref().unwrap().connection_epoch,
         identity.connection_epoch + 1
     );
     assert_eq!(run.wm.restarts, restarts + 1);
     assert_ne!(run.wm.supervisor.peer_id(), peer);
-    run.ready(true);
     assert_eq!(run.checkpoint(), saved);
     for _ in 0..2 {
         let proposal = run.proposal();

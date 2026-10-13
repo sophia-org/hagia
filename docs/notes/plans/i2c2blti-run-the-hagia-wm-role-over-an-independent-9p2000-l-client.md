@@ -6,6 +6,26 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-12 authenticated baseline refresh
+
+The nineteen external cases now use Session's authenticated startup and
+replacement owners against Sophia `1b476dbdcc30215fe7ee5841e5a872f136ebb3a0`.
+The generic Factotum fixture supplies trusted Session channel admission;
+Hagia performs its ordinary launch-relay conversation. Restart waits drive
+authentication and observations require an active launch registration.
+AbortSettlement still fences replacement until settlement, then waits for
+authentication before asserting the successor epoch.
+
+Development run `t249-authenticated-dev01` passes all nineteen cases. Its
+self-excluding manifest verifies and has SHA-256
+`e775ad10b50defd338b72f88771195eba86eca9134e4b855b9398a0e8e5df6ed`.
+The external runner's thirteen unit tests pass (one child fixture is ignored
+for direct invocation), formatting and `nimble layout` pass. A clean signed
+pair run follows this commit. Historical controls retain their original pins;
+they have not been re-executed for this refresh. No production Hagia change or
+installed-session change. The remaining backend joins and measurement exits
+keep h006/t249 open.
+
 ## 2026-10-10 presented chord owner join
 
 Signed fixture `3960c83752743805cfbe3a17843296c6fef4947e` and niltempus runner

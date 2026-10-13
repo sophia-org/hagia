@@ -257,12 +257,7 @@ fn sdk_operation_disconnect() {
         run.wm.supervisor.request_termination().unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
         while run.wm.public.as_ref().unwrap().connection_epoch == identity.connection_epoch {
-            assert!(
-                run.wm
-                    .poll_public_restart(&mut run.layout, run.output)
-                    .unwrap()
-                    .is_none()
-            );
+            assert!(run.poll_restart().unwrap().is_none());
             assert!(Instant::now() < deadline, "disconnect restart deadline");
             std::thread::sleep(Duration::from_millis(2));
         }

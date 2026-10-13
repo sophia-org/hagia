@@ -297,12 +297,7 @@ fn sdk_occupied_restart() {
             run.wm.supervisor.request_termination().unwrap();
             let deadline = Instant::now() + Duration::from_secs(5);
             while run.wm.public.as_ref().unwrap().connection_epoch < epoch {
-                assert!(
-                    run.wm
-                        .poll_public_restart(&mut run.layout, run.output)
-                        .unwrap()
-                        .is_none()
-                );
+                assert!(run.poll_restart().unwrap().is_none());
                 assert!(!run.wm.degraded);
                 assert!(
                     Instant::now() < deadline,

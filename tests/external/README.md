@@ -6,6 +6,14 @@ mounts it beneath the production Session launch/reload tests in an archived,
 explicitly pinned Sophia checkout. This grants test access to private owners;
 it does not add a Hagia dependency or special case to Sophia.
 
+Startup and replacement use Session's authenticated launch owners and Hagia's
+ordinary launch-relay authentication. A generic Sophia fixture supplies the
+trusted Session-to-Factotum channel; the Factotum conversation, launch
+registration, protected child and WM authentication are exercised. The fixture
+drives the authentication coordinator while waiting for asynchronous replacement
+and records the active registration with each observation. It does not launch
+the installed Factotum agent or qualify its bootstrap channel.
+
 The nineteen explicitly ignored cases must be listed and invoked individually:
 
 - `sdk_lifecycle_startup`: ordinary Hagia, protected supervisor launch, exact
@@ -198,7 +206,8 @@ application launch or exactly-once external effect is claimed. A disconnected
 proposal is discarded, not submitted to the successor. These tests observe
 owner state and real peer continuations, not every byte the peer might send.
 Protection evidence is the supervisor's observation, not an
-independent namespace inventory or a new 9P authentication claim. The requested
+independent namespace inventory. Authentication uses the supplied trusted
+Factotum channel described above. The requested
 restart calls the Session owner directly, not the public control socket.
 
 The original presentation case bypasses Session admission and visual readiness for its

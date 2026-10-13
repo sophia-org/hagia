@@ -22,6 +22,8 @@ mod presentation;
 struct Lifecycle {
     // Drop the supervised child before its private profile directory.
     wm: LiveWmSession,
+    auth: crate::live_session::tests::lock_provider_factotum::Fixture,
+    wake: OwnerWake,
     source: ConfigFixture,
     layout: PersistentLiveLayout,
     output: sophia_engine::HeadlessOutput,
@@ -64,16 +66,36 @@ impl Lifecycle {
         source.config.wm_process = Some(binary.to_str().unwrap().to_owned());
         source.config.wm_process_args.clear();
         source.config.native_scanout = native_ceiling.is_some();
+        source.config.factotum = Some(SessionFactotum {
+            agent: "/unused/fixture-agent".into(),
+            pam_helper: "/unused/fixture-helper".into(),
+            pam_service: "fixture".into(),
+            user: "fixture".into(),
+        });
+        let mut auth = crate::live_session::tests::lock_provider_factotum::Fixture::new();
+        let wake = OwnerWake::new().unwrap();
         let prepared = LiveWmSession::prepare_public_launch(&mut source.config).unwrap();
         let checkpoint = prepared.as_ref().unwrap().directory.checkpoint_path();
         assert!(!checkpoint.exists());
-        let started = LiveWmSession::activate_public_launch(&mut source.config, prepared).unwrap();
+        let started = LiveWmSession::activate_public_launch_authenticated(
+            &mut source.config,
+            prepared,
+            WmStartupContext {
+                launches: &mut auth.coordinator,
+                namespace: sophia_protocol::NamespaceId::from_raw(2),
+                wake: &wake,
+                registration: None,
+            },
+        )
+        .unwrap();
         let output = sophia_engine::HeadlessOutput::deterministic();
         let wm = LiveWmSession::from_config(&source.config, &[output], started, None)
             .unwrap()
             .unwrap();
         let mut value = Self {
             wm,
+            auth,
+            wake,
             source,
             output,
             checkpoint,
@@ -83,6 +105,15 @@ impl Lifecycle {
             layout: PersistentLiveLayout::default(),
         };
         value.ready(false);
+        assert!(
+            value
+                .wm
+                .authentication
+                .as_ref()
+                .unwrap()
+                .registration
+                .is_some()
+        );
         let public = value.wm.public.as_ref().unwrap();
         assert_eq!(public.connection_epoch, 1);
         assert_eq!(public.profile_key, Some(value.profile_key()));
@@ -151,7 +182,18 @@ impl Lifecycle {
             .append(true)
             .open(self.evidence.join("observations.txt"))
             .unwrap();
-        writeln!(log, "phase={phase} epoch={} profile={:?} capabilities={} actions={} peer={} protection={protection:?}",
+        let registration = self
+            .wm
+            .authentication
+            .as_ref()
+            .unwrap()
+            .registration
+            .unwrap();
+        assert_eq!(
+            self.auth.coordinator.phase(registration),
+            Some(crate::launch_authentication::Phase::Active)
+        );
+        writeln!(log, "phase={phase} epoch={} profile={:?} capabilities={} actions={} peer={} protection={protection:?} authentication=launch_factotum registration={registration:?}",
             public.connection_epoch, public.profile_key, public.selected_capabilities, public.actions.len(), protection.peer_pid).unwrap();
         if self.checkpoint.exists() {
             std::fs::copy(
@@ -171,12 +213,9 @@ impl Lifecycle {
         let deadline = Instant::now() + Duration::from_secs(15);
         loop {
             if restart {
-                assert!(
-                    self.wm
-                        .poll_public_restart(&mut self.layout, self.output)
-                        .unwrap()
-                        .is_none()
-                );
+                assert!(self.poll_restart().unwrap().is_none());
+            } else {
+                self.poll_authentication();
             }
             assert!(
                 self.wm
@@ -202,6 +241,26 @@ impl Lifecycle {
         }
     }
 
+    fn poll_authentication(&mut self) {
+        self.auth.tick();
+        self.wm
+            .poll_wm_authentication(
+                &mut self.auth.coordinator,
+                self.wake.notifier(),
+                &mut self.layout,
+                self.output,
+            )
+            .unwrap();
+    }
+
+    // Explicit owner calls, not a copied restart implementation. Authenticated
+    // replacement finishes asynchronously, so every restart wait drives it.
+    fn poll_restart(&mut self) -> Result<Option<LiveWmProposal>, Box<dyn std::error::Error>> {
+        let proposal = self.wm.poll_public_restart(&mut self.layout, self.output)?;
+        self.poll_authentication();
+        Ok(proposal)
+    }
+
     fn cycle(&mut self, enqueue: bool) {
         if enqueue {
             self.wm.enqueue_relayout(&self.layout, self.output).unwrap();
@@ -214,6 +273,7 @@ impl Lifecycle {
     fn proposal(&mut self) -> LiveWmProposal {
         let deadline = Instant::now() + Duration::from_secs(5);
         let proposal = loop {
+            self.poll_authentication();
             if let Some(proposal) = self
                 .wm
                 .poll_public_request(&mut self.layout, self.output, true)
@@ -390,12 +450,7 @@ fn sdk_lifecycle_restart() {
             run.wm.supervisor.request_termination().unwrap();
             let deadline = Instant::now() + Duration::from_secs(5);
             while run.wm.public.as_ref().unwrap().connection_epoch < epoch {
-                assert!(
-                    run.wm
-                        .poll_public_restart(&mut run.layout, run.output)
-                        .unwrap()
-                        .is_none()
-                );
+                assert!(run.poll_restart().unwrap().is_none());
                 assert!(!run.wm.degraded);
                 assert!(
                     Instant::now() < deadline,

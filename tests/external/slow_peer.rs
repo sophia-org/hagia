@@ -201,12 +201,7 @@ fn sdk_slow_peer_response_deadline() {
     let restart = Instant::now();
     let deadline = restart + Duration::from_secs(15);
     while run.wm.public.as_ref().unwrap().connection_epoch == epoch {
-        assert!(
-            run.wm
-                .poll_public_restart(&mut run.layout, run.output)
-                .unwrap()
-                .is_none()
-        );
+        assert!(run.poll_restart().unwrap().is_none());
         assert!(Instant::now() < deadline, "slow-peer restart deadline");
         std::thread::sleep(Duration::from_millis(2));
     }
