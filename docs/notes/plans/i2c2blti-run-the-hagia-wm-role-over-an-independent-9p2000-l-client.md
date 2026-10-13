@@ -30,7 +30,16 @@ audits 5,112 Sophia and 483 Hagia base inputs plus overlays. Its local-policy
 reuse audit verifies the unchanged inputs against the earlier passing suite.
 The first run exposed a fixture mistake: the CPU scene takes the primary
 output's size, not the combined desktop width. No production change was needed.
-Full-pair qualification is next; DMA retirement and measurement remain open.
+The signed pair (Hagia `1963a48`, runner `b0892b0`, Sophia `469371bf4`) passes
+all 42 cases in `t249-overview-targets-pair01`, manifest
+`7f3598ae93e5931e1e018194d3b5f4024e95dc5ac1b068846e622fb7e1c45b43`.
+Strict external Clippy, fixture formatting, Hagia layout and fourteen runner
+tests pass. `t249-overview-targets-pair-audit01`, manifest
+`e9ca4b03ca293f866cc7c8306359bcc86778b23be346429236a4db8d2153bade`,
+verifies signatures, 3,268 pinned inputs, twenty-three mounted inputs, every
+exact result and unchanged generic-gate inputs and production glue. Both build
+archives and the clean source worktree are removed. DMA retirement, measurement
+and final qualification remain open.
 
 ## 2026-10-13 launch and logical-output recovery
 
