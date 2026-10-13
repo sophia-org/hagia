@@ -41,6 +41,16 @@ unchanged mounted inputs and the ordinary Hagia binary.
 formatting, fourteen runner tests (one child fixture ignored) and `nimble layout`;
 manifest `b16e0739562af850fb3e4e2208070ea85141fc88309578d5d10bf9d31ca27b39`.
 
+The clean signed pair (Hagia `cee1534`, niltempus `b92bc80`, Sophia `1b476dbdc`)
+passes all twenty-two in `t249-stop-01`; manifest
+`3c87489510d20ea3b3a3b932cf01a31e654a0f77ef9e8cd561f58bf8c223938c`.
+`t249-stop-audit01` checks 3,257 pinned crate/Cargo/vendor inputs, the mount and
+fifteen external modules, unchanged fixture bytes from development 02 and both
+controls, twenty-two passing results, signatures and six package manifests;
+manifest `f5d6bec8a28be815040f92d2a1ed7f59bab82b52ee22f3b5093b1c07ffed7b01`.
+Leased cleanup removes the disposable build root; evidence retains executable
+paths and hashes only. This is scoped qualification, not a full product gate.
+
 Backend-notification handling remains open: headless availability/install
 fallbacks could mask a missing handler. This case instead isolates stopping by
 keeping it true at the install gate while mutating only its revocation use.
