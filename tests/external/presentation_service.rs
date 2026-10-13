@@ -338,3 +338,177 @@ fn sdk_presented_service_revokes_before_requested_restart() {
     run.record("requested-stop-recovered");
     run.stop();
 }
+
+#[test]
+#[ignore = "requires current ordinary Hagia and isolated external overlay"]
+fn sdk_presented_backend_revocation_precedes_withdrawal() {
+    let Held {
+        mut run,
+        mut content,
+        first,
+        expected,
+        ..
+    } = held("presented-backend-revoke");
+    let (mut target, receipt) = presented_on_mirrors(&mut run, &mut content, &first);
+    let removed = expected[1];
+    let w1 = expected[0];
+    assert!(
+        first
+            .instances
+            .iter()
+            .any(|instance| instance.source == removed)
+    );
+
+    // Supply an authority removal, then use production intake and CPU
+    // composition. The backend generates the revocation; no record is injected
+    // or taken here. Session's reducer still holds the old publication.
+    let mut batch = crate::live_session::wm_update_coordinator_batch(TransactionId::from_raw(970));
+    batch.removed_surfaces.push(removed);
+    assert!(
+        !run.layout
+            .observe_authority_batch(&batch)
+            .client_route_invalid
+    );
+    assert!(!matches!(
+        run.wm.enqueue_surface_removed(removed).unwrap(),
+        LiveWmRequestAdmission::RejectedCapacity
+    ));
+    let (projected, released) = run.layout.projected_batch(&batch);
+    assert!(released.is_empty());
+    let production =
+        crate::live_session::production_authority_batch(&projected, &released, &run.layout)
+            .unwrap();
+    production.validate().unwrap();
+    let layers = expected
+        .iter()
+        .filter_map(|surface| run.layout.layers.get(surface).cloned())
+        .collect::<Vec<_>>();
+    let chrome = layers.iter().map(|layer| layer.surface).collect::<Vec<_>>();
+    let (submission, _, _) = content
+        .runtime
+        .run_cpu_production_cycle(LiveProductionCycleRequest {
+            batch: &production,
+            scene: &mut content.scene,
+            raised_surface: None,
+            focused_surface: Some(w1),
+            cursor_presentation: LiveProductionCursorPresentation::Software(None),
+            defer_frame: false,
+            output_descriptors: &[run.output],
+            native_scanout: None,
+            wm_update: None,
+            presentation_layout: &layers,
+            geometry_routed_surfaces: &[],
+            chrome_surfaces: &chrome,
+            indicator_publication: None,
+            staged_cpu_buffer_handles: &[],
+        })
+        .unwrap();
+    assert!(
+        submission.composed,
+        "removal must compose the headless replacement"
+    );
+    assert!(
+        content.runtime.policy_presentation().is_none(),
+        "removing a preview source must revoke backend policy"
+    );
+    assert!(
+        !content
+            .runtime
+            .committed_surfaces()
+            .iter()
+            .any(|surface| surface.surface == removed)
+    );
+    // CPU composition is not policy retirement evidence. Complete the
+    // replacement on both target heads without servicing Session between them.
+    target.queue(&content.runtime, &content.scene).unwrap();
+    target.simulate_submit(receipt.output);
+    for head in 0..2 {
+        target.simulate_head_completion(&mut content.runtime, receipt.output, head);
+    }
+    let projection = &content.runtime.input_projections()[0];
+    assert!(
+        projection.frame_completed
+            && !projection.policy_visible
+            && projection.policy_publication.is_none()
+    );
+    assert_eq!(
+        run.wm
+            .public
+            .as_ref()
+            .unwrap()
+            .reducer
+            .presentation_publication(),
+        Some((1, &first))
+    );
+    assert!(receipts(&run).is_empty());
+    assert!(!run.wm.degraded && !run.wm.force_transport_restart);
+    assert!(!run.wm.public.as_ref().unwrap().transport_unavailable);
+
+    // Both facts are available in this turn. Revocation consumption must
+    // precede withdrawal settlement. The headless install fallback is too
+    // late to produce Withdrawn if the backend notification is ignored.
+    owner(&mut run, &mut content, true);
+    let terminal = vec![
+        PolicyPresentationReceipt {
+            outcome: PolicyPresentationOutcome::Revoked,
+            ..receipt
+        },
+        PolicyPresentationReceipt {
+            outcome: PolicyPresentationOutcome::Withdrawn,
+            ..receipt
+        },
+    ];
+    assert_eq!(
+        receipts(&run),
+        terminal,
+        "backend revocation must reach withdrawal settlement in the same service turn"
+    );
+    assert!(
+        content
+            .runtime
+            .take_policy_presentation_revocation()
+            .is_none(),
+        "service consumes backend revocation once"
+    );
+    owner(&mut run, &mut content, true);
+    assert_eq!(receipts(&run), terminal, "backend revocation settles once");
+
+    let (request, answer) = revocation::first_answer(&mut run);
+    assert!(matches!(request.cause, PolicyRequestCause::SceneChanged));
+    let revocation::Answer::Proposal(proposal) = answer else {
+        panic!("backend revocation must receive a closed switcher proposal");
+    };
+    assert!(
+        staged_publication(&run).is_none(),
+        "backend revocation must close Hagia's switcher"
+    );
+    assert!(!proposal.layers.iter().any(|layer| layer.surface == removed));
+    assert_eq!(proposal.focus, Some(w1));
+    let previous = commit_installed(&mut run, &mut content, *proposal);
+    settle(&mut run, previous);
+    assert_eq!(focus(&run), Some(w1));
+    assert_eq!(model(&run)["windows"].as_array().unwrap().len(), 2);
+    assert!(
+        run.wm
+            .poll_public_request(&mut run.layout, run.output, false)
+            .unwrap()
+            .is_none()
+    );
+    let public = run.wm.public.as_ref().unwrap();
+    assert!(
+        !run.wm.degraded
+            && !run.wm.force_transport_restart
+            && !public.transport_unavailable
+            && public.connection_epoch == receipt.connection_epoch
+            && public.in_flight_request.is_none()
+            && public.queue.is_empty(),
+        "peer healthy before backend-revocation teardown"
+    );
+    assert!(run.wm.supervisor.poll().unwrap().is_none());
+    log(
+        &run,
+        "revocation=backend_source_removal replacement=backend_composed service_owner=production completion=simulated_mirrors",
+    );
+    run.record("backend-revocation-withdrawn");
+    run.stop();
+}

@@ -14,7 +14,20 @@ drives the authentication coordinator while waiting for asynchronous replacement
 and records the active registration with each observation. It does not launch
 the installed Factotum agent or qualify its bootstrap channel.
 
-The twenty-two explicitly ignored cases must be listed and invoked individually:
+The twenty-three explicitly ignored cases must be listed and invoked individually:
+
+- `sdk_presented_backend_revocation_precedes_withdrawal` in
+  `presentation_service.rs`: after Presented on both mirrors, remove a sampled
+  source through authority observation, production projection and a CPU cycle.
+  The backend generates the revocation record. The fixture queues the ordinary
+  replacement on the mirror target and completes both heads before Session's
+  service call. That one call must queue the exact Revoked then Withdrawn, in
+  that order. Missing notification consumption or wrong backend publication
+  identity cannot be masked by headless fallback: it revokes too late to settle
+  withdrawal in that turn. The first correlated Hagia answer closes the switcher,
+  drops the departed window and preserves focus. Source removal, CPU content,
+  composition scheduling and head completion are supplied; the records and
+  frame stamps are production-derived. No native timing or device claim.
 
 - `sdk_presented_service_revokes_before_requested_restart` in
   `presentation_service.rs`: request replacement through Session's actual

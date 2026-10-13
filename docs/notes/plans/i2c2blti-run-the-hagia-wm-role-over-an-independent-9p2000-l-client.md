@@ -6,6 +6,48 @@ tags: [plan, milestone]
 ---
 # Run the Hagia WM role over an independent 9P2000.L client
 
+## 2026-10-12 backend revocation before withdrawal settlement
+
+The twenty-third external case removes a sampled switcher source through
+production authority intake and CPU composition. The backend generates its own
+revocation record. The existing mirror target then composes the replacement and
+simulates both head completions before Session's actual presentation-service
+owner runs. That one call must queue the exact Revoked followed by Withdrawn.
+The first correlated Hagia answer closes the switcher, drops the departed
+window and preserves focus; the final health poll is not a round trip.
+
+This resolves the earlier masking concern for notification ordering. Discarding
+the notification, or giving it the wrong publication generation, leaves only
+Revoked in that turn: observation or the headless fallback revokes after the
+withdrawal-settlement phase. Both archived single-site controls compile and
+fail at `backend revocation must reach withdrawal settlement in the same service
+turn`, exit 101, one failed test. This does not claim that those faults would
+leave authority live indefinitely.
+
+`t249-backend-dev01` remains STOP: CPU composition alone does not establish
+policy retirement. Development 02 adds both mirrored replacement completions
+and passes all twenty-three cases. Manifest SHA-256 values:
+
+| Package | Manifest SHA-256 |
+| --- | --- |
+| `t249-backend-dev01` | `c003e6b28cd76a29e8552f08becb20c739ec32d7a66b04ffbac460ccdee61ad3` |
+| `t249-backend-dev02` | `1cbf852146d3a8cb7560af768fe54ecf1839ea2d59f4d9e8789fff16215fd779` |
+| `t249-backend-notification-control01` | `77bfe5278c03f42941c1de17e5f94d8ba20e1559511faff2c82b63c620eb1712` |
+| `t249-backend-identity-control01` | `bc691ec69a69a0baf46d1e8519f6c7ca44b1393e95381b3cbdebc7b016760504` |
+
+The controls hold source and Cargo leases, check both production files against
+the pin, and verify restoration, all mounted inputs and the unchanged Hagia
+binary. Removal, CPU sources, scheduling and head completion are supplied;
+records, receipts and frame stamps are production-derived. Initial installation
+and Presented observation retain the prefix's supplied-head and abbreviated
+helper limits. No production source, test API or installed session changes.
+Native installation/scheduling, other capability joins and measurement remain
+open in h006/t249.
+
+`t249-backend-checks01` passes restored-overlay strict Clippy, fixture/runner
+formatting, fourteen runner tests (one child fixture ignored) and Hagia layout;
+manifest `5839cf093985ad9fbeb1e8be903bfaaf90dda67ec56fd6f25b99240975378426`.
+
 ## 2026-10-12 requested restart at the presentation-service boundary
 
 The twenty-second external case reuses the mirror-target prefix, then requests
