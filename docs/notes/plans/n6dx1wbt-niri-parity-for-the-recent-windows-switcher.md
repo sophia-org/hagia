@@ -125,6 +125,30 @@ integration, as with h008.
 - niltempus's acceptance on the installed release, one listed behaviour per
   task.
 
+## h019
+
+On October 15, niltempus requested an optional Alt-Tab presentation inspired
+by a niri mode they observed: candidates overlap in a stacked pyramid, with
+application icons instead of window previews. This records the observation
+and requested behavior; the exact niri configuration has not been checked.
+
+Add a setting to choose this icon-only stack or the existing live-preview
+presentation. Preserve the current default and live previews, including
+playing video visible inside the switcher. Both modes must keep the same
+candidate order, scope, selection, cancel, quick-tap and release-to-commit
+behavior.
+
+Hagia owns the stack geometry and selection. Sophia resolves and draws icons;
+Hagia must not receive application metadata or icon pixels. Before
+implementation, check the opaque presentation contract and record any needed
+Sophia/SDK work as an explicit dependency. Define a missing-icon fallback,
+keep the selected candidate clear, and bound the stack on small outputs.
+
+Acceptance needs policy/configuration tests and an installed check of both
+modes, including live video in preview mode and multiple windows from one
+application in icon mode. This is a planning candidate, not an implemented
+feature or a change to the current critical path.
+
 ## Connections
 
 - Builds on h008 (`a00ow1xn-recent-windows-order-and-modal-switcher-fixes-after-the-h008-review.md`).
